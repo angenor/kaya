@@ -4,8 +4,14 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.0 — vérifié le 2026-07-30**
+**Version du gel : 1.0.2 — vérifié le 2026-07-30**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
+
+**Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
+mutualisé). Toutes les versions ci-dessous sont vérifiées disponibles pour cette cible (§4.2).
+
+**Un seul point reste ouvert** : le choix de sqlx `0.9.0` doit être **confirmé par le spike
+GiST/`tstzrange`** de la phase 0 (cadrage §16). Tout le reste est arrêté.
 
 ---
 
@@ -35,29 +41,71 @@ figées par lockfiles.*
 | 6 | **Tailwind CSS** | **4.3.3** | — | `https://registry.npmjs.org/tailwindcss/latest` |
 | 7 | **Tauri** (crate) | **2.11.5** | 2026-07-01 | `https://crates.io/api/v1/crates/tauri` |
 | 8 | **PostgreSQL** | **18.4** | 2026-05-14 | `https://www.postgresql.org/versions.json` |
-| 9 | **Redis** | **8.10.0** ⚠️ | 2026-07-29 | `https://api.github.com/repos/redis/redis/releases` |
+| 9 | **Redis** | **8.8.1** | 2026-07-23 | `https://api.github.com/repos/redis/redis/releases` |
 | 10 | **Garage** | **2.3.0** | 2026-04-16 | `https://git.deuxfleurs.fr/api/v1/repos/Deuxfleurs/garage/releases` |
 
-### ⚠️ Deux points d'attention avant d'épingler
+### Arbitrages du gel
 
-**sqlx 0.9.0 — changement de version mineure avec ruptures d'API.** La stable précédente était
-`0.8.6` (2025-05-19), soit un an d'écart. La quasi-totalité de la documentation, des exemples et
-des réponses en ligne visent encore `0.8.x`. Conséquence pratique : le **module doré** (cadrage
-§13.1) doit être écrit contre `0.9.0` et servir de patron, sinon chaque génération assistée
-réintroduira des appels `0.8`. Décision : on prend `0.9.0` — commencer sur une version d'un an
-d'âge coûterait une migration en cours de projet.
+Le critère retenu n'est pas l'âge d'une version, c'est **son coût en terrain non défriché pour
+un développeur solo**. Une version fraîche est acceptée quand elle ne change rien au code ou
+qu'elle apporte quelque chose de nécessaire ; elle est refusée quand elle expose sans gain.
 
-**Redis 8.10.0 — publiée le 2026-07-29, soit la veille de ce gel.** Aucun recul d'exploitation.
-Redis ne portant que de l'éphémère reconstructible (principe II), le risque est contenu : une
-régression se corrige par un redémarrage, sans perte durable. Deux options légitimes :
+#### sqlx 0.9.0 — retenue, pour deux apports propres au projet
 
-| Option | Version | Argument |
-|---|---|---|
-| **Retenue** | **8.10.0** | Principe XI à la lettre ; le rôle éphémère borne le risque |
-| Alternative | 8.8.1 (2026-07-23) | Une semaine de recul, même branche majeure |
+La stable précédente était `0.8.6` (2025-05-19), soit un an d'écart. Deux changements de
+`0.9.0` visent directement l'architecture Kaya :
 
-Le passage de l'une à l'autre est un changement de tag dans `compose.yml`, sans impact sur le
-code. À rouvrir à la revue du 2026-08-31 si un incident survient.
+- **`#3918` — type d'erreur dédié à la violation de contrainte d'exclusion.** C'est le cœur de
+  HEB-02 : deux attributions concurrentes chevauchantes doivent produire « unité déjà occupée sur
+  cet intervalle », pas une erreur SQL brute. En `0.8.6`, il faut inspecter le SQLSTATE `23P01`
+  à la main.
+- **`sqlx.toml` avec exemple officiel multi-tenant** : renommage de `_sqlx_migrations` et
+  **plusieurs schémas** — exactement le « un schéma Postgres par module » du principe II, plus
+  les surcharges de types pour les macros.
+
+`PgRange<T>` est présent en `0.9.0` (vérifié sur `docs.rs/sqlx/0.9.0`), donc `tstzrange` reste
+mappable.
+
+**Coût assumé** : `#3723` impose `AssertSqlSafe` sur toute requête non littérale, et `#3541`
+peut altérer la sortie des macros `query!()`. La documentation, les exemples et les réponses en
+ligne visent encore `0.8.x` — **tout extrait trouvé en ligne ne compilera pas**. C'est ce que le
+**module doré** (cadrage §13.1) neutralise : il doit être écrit contre `0.9.0` **avant** toute
+génération assistée, sinon chaque cycle réintroduira des appels `0.8`.
+
+*Note de gouvernance* : sqlx est passé à l'organisation GitHub `transact-rs` et ne suit plus son
+`Cargo.lock`. Transition saine (propriété collective formalisée par les auteurs principaux),
+mais liens et outils tiers mettront du temps à s'aligner.
+
+#### Redis — reculé de 8.10.0 à 8.8.1
+
+`8.10.0` est passée en GA le 2026-07-29 après des RC datées du **2026-07-20** : neuf jours de
+release candidate pour une mineure qui introduit *compact hashes*, un nouvel encodage de
+hachage. Kaya n'en a aucun besoin — sessions, file FNE, verrous, limitation de débit et cache
+fonctionnent depuis Redis 6.
+
+**Aucun sacrifice de sécurité** : la salve du 2026-07-23 était un correctif de sécurité sur
+**toutes** les branches maintenues (6.2 à 8.8) — use-after-free via payload `RESTORE` de stream,
+écriture hors limites dans RedisBloom/TDigest. `8.8.1` porte ces correctifs et sa branche a deux
+mois de recul (`8.8.0` du 2026-05-25).
+
+**Toute version retenue doit être ≥ à la salve du 2026-07-23.** Reculer davantage exposerait à
+ces failles.
+
+#### PostgreSQL 18.4 — retenue, arbitrage fermé
+
+`18.4` n'est pas une version fraîche : PG 18 est *current* depuis septembre 2025 et un `.4`
+signifie trois cycles de correctifs passés. Kaya n'utilise aucune fonctionnalité propre à PG 18
+— RLS, `EXCLUDE USING gist`, `tstzrange` et `NUMERIC` existent depuis PG 10 — donc le seul
+critère était **où la base tourne**.
+
+**Réponse : Docker sur un VPS Contabo auto-géré.** La version de PostgreSQL est entièrement
+maîtrisée, sans plafonnement d'offre managée. `18.4` est donc retenue pour son **EOL au
+2030-11-14**, la plus longue durée de vie disponible — ce qui compte pour un produit dont les
+documents fiscaux sont conservés 10 ans.
+
+L'alternative `17.10` (22 mois de recul, EOL 2029-11-08) reste valable pour le **paquet
+auto-hébergé** (mode B) si un client ne sait administrer que PG 17. Les deux tags existent en
+multi-architecture, la bascule est un changement de tag.
 
 ---
 
@@ -119,6 +167,8 @@ reconstruction soit reproductible.
 
 ## 4. Où l'épinglage est matérialisé
 
+### 4.1 Fichiers du dépôt
+
 | Fichier | Porte | Contenu attendu |
 |---|---|---|
 | `rust-toolchain.toml` | P-20 | `channel = "1.97.1"` — jamais `stable` |
@@ -127,11 +177,32 @@ reconstruction soit reproductible.
 | `package.json` | P-20 | Versions exactes, sans `^` ni `~` ; `engines.node` |
 | `pnpm-lock.yaml` | P-20 | **Commité** |
 | `.nvmrc` | P-20 | `24.18.1` |
-| `compose.yml` | P-20 | Tags d'image exacts : `postgres:18.4`, `redis:8.10.0`, `dxflrs/garage:v2.3.0` — **jamais `latest`** |
+| `compose.yml` | P-20 | Tags d'image exacts du §4.2 — **jamais `latest`** |
 
 > **`Cargo.lock` est commité même pour un binaire** : c'est ce qui rend la reconstruction
 > identique à six mois d'écart, condition du support à distance du parc auto-hébergé
 > (cadrage §10.2).
+
+### 4.2 Images Docker — disponibilité vérifiée le 2026-07-30
+
+| Service | Tag exact | Publié le | Architectures |
+|---|---|---|---|
+| PostgreSQL | `postgres:18.4` | 2026-07-19 | 386, **amd64**, arm, **arm64**, ppc64le, riscv64, s390x |
+| Redis | `redis:8.8.1` | 2026-07-25 | 386, **amd64**, arm, **arm64**, ppc64le, riscv64, s390x |
+| Garage | `dxflrs/garage:v2.3.0` | 2026-04-16 | 386, **amd64**, arm, **arm64** |
+
+Les trois images sont **multi-architecture**, donc le même `compose.yml` fonctionne en
+développement sur poste Apple Silicon (`arm64`) et en production sur VPS Contabo (`amd64`).
+
+> **Piège de `dxflrs/garage` à connaître** : le dépôt publie en continu des tags de **hash de
+> commit**, qui noient les tags sémantiques dans tout listing trié par date. Toujours interroger
+> par nom (`?name=v2.3.0`), jamais lire la première page de tags.
+
+> **Le binaire Rust, lui, n'est pas multi-architecture.** Un `cargo build` sur poste Apple
+> Silicon produit un binaire `aarch64-apple-darwin` non déployable sur le VPS. La construction de
+> production se fait **dans Docker pour `linux/amd64`** (build multi-étapes), jamais par copie
+> d'un binaire construit localement. Corollaire : les mesures de performance faites sur le poste
+> de développement ne prédisent pas celles de la production.
 
 ---
 
@@ -176,6 +247,19 @@ curl -sS "https://git.deuxfleurs.fr/api/v1/repos/Deuxfleurs/garage/releases?limi
 # Node.js — LTS, pas la dernière stable
 curl -sS https://nodejs.org/dist/index.json \
   | python3 -c "import sys,json;v=[x for x in json.load(sys.stdin) if x['lts']][0];print(v['version'],v['lts'],v['date'])"
+
+# Images Docker — TOUJOURS interroger par nom, jamais lire la 1re page de tags
+for pair in "library/postgres:18.4" "library/redis:8.8.1" "dxflrs/garage:v2.3.0"; do
+  repo="${pair%:*}"; tag="${pair#*:}"
+  curl -sS "https://registry.hub.docker.com/v2/repositories/$repo/tags?name=$tag&page_size=5" \
+    | python3 -c "
+import sys,json
+for t in json.load(sys.stdin)['results']:
+    if t['name']=='$tag':
+        a=sorted({i['architecture'] for i in (t.get('images') or []) if i.get('architecture')})
+        print('$repo:$tag', t['last_updated'][:10], '|', ','.join(a)); break
+else: print('$repo:$tag INTROUVABLE')"
+done
 ```
 
 **Compatibilité inter-crates** — à rejouer si `utoipa` monte de version majeure :
@@ -193,4 +277,6 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.2 | 2026-07-30 | **Cible de déploiement arrêtée : Docker sur VPS Contabo** (mode A). **PostgreSQL `18.4` confirmée, arbitrage fermé** — version maîtrisée en auto-géré, EOL 2030-11-14 retenu pour la conservation fiscale de 10 ans ; `17.10` reste l'option du paquet auto-hébergé (mode B). Ajout du §4.2 : les trois images Docker vérifiées disponibles en **amd64 et arm64**, donc un seul `compose.yml` pour le poste Apple Silicon et le VPS. Consigné : le binaire Rust n'est pas multi-architecture — construction de production **dans Docker pour `linux/amd64`**, jamais par copie locale. Consigné aussi : `dxflrs/garage` publie des tags de hash de commit qui masquent les tags sémantiques dans un tri par date — toujours interroger par nom. |
+| 1.0.1 | 2026-07-30 | **Redis reculé de `8.10.0` à `8.8.1`** : `8.10.0` était en GA depuis un jour, avec neuf jours de RC, pour un nouvel encodage de hachage inutile à Kaya ; `8.8.1` porte les mêmes correctifs de sécurité du 2026-07-23 et deux mois de recul. **sqlx `0.9.0` confirmée** sur deux apports propres au projet (`#3918` erreur de violation d'exclusion pour HEB-02 ; `sqlx.toml` multi-schémas pour le principe II) et présence de `PgRange` vérifiée sur docs.rs. **PostgreSQL : arbitrage 18.4 / 17.10 ouvert**, rattaché à la décision B-01. Les neuf autres briques sont inchangées. |
 | 1.0.0 | 2026-07-30 | Gel initial. 10 briques du principe XI + 14 crates + 3 paquets npm + Node LTS et pnpm. Compatibilité `utoipa-swagger-ui` / `utoipa-actix-web` avec `utoipa 5.5.0` vérifiée sur crates.io. Présence de la feature `uuid/v7` vérifiée. Deux points d'attention consignés : rupture d'API sqlx 0.8 → 0.9, et fraîcheur d'un jour de Redis 8.10.0. Dérogation raisonnée sur Node : LTS 24.18.1 retenue plutôt que la stable 26.5.1. |
