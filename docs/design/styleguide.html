@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaya — Styleguide · les 14 composants canoniques</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style type="text/tailwindcss">
+/* ═══════════════════════════════════════════════════════════════════════════
+   KAYA — THÈME TAILWIND 4
+   Direction retenue : « Banco ». Terre chaude, indigo réservé à l'action.
+
+   C'est le SEUL fichier de la maquette à copier dans le projet.
+   Il est autosuffisant : aucune dépendance à un autre fichier de kaya-design/.
+   Il se suffit aussi côté polices — les @font-face ne sont pas ici, voir la
+   note « Polices » en fin de fichier.
+
+   Deux règles de lecture :
+   1. Les noms de tokens sont IDENTIQUES en clair et en sombre. Seules les
+      valeurs changent, sous .dark. Donc `bg-surf text-ink` bascule tout seul ;
+      la variante `dark:` ne sert qu'à ce qu'une couleur ne peut pas porter
+      (ombre remplacée par une bordure, opacité, épaisseur de trait).
+   2. Tout ce qui a un nom ici n'a jamais de valeur en dur ailleurs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+
+/* Mode sombre piloté par la classe .dark, posée sur <html> ou sur n'importe
+   quel conteneur — c'est ce qui permet d'afficher les deux modes côte à côte
+   dans styleguide.html. Ajouter la préférence système si le projet le veut :
+   @custom-variant dark (&:where(.dark, .dark *, @media (prefers-color-scheme: dark))) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static` est indispensable : sans lui, Tailwind 4 élague toute variable de @theme
+   qu'aucun utilitaire n'emploie dans le fichier compilé — --color-voile,
+   --ease-elastique et les durées disparaîtraient de :root à l'exécution. */
+@theme static {
+  /* ── Typographie ──────────────────────────────────────────────────────────
+     Archivo pour tout le texte ; Chivo Mono pour tout ce qui est un montant,
+     une quantité, un numéro de chambre, une heure. Jamais l'inverse. */
+  --font-titre: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-texte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Échelle de corps. Les valeurs à la demi-unité sont voulues : elles
+     tiennent le 13 px lisible sur un 1366×768 délavé par le soleil. */
+  --text-etiquette: 11px;      /* --text-etiquette--line-height: 1 */
+  --text-etiquette--line-height: 1;
+  --text-etiquette--letter-spacing: 0.1em;
+  --text-mini: 12.5px;
+  --text-mini--line-height: 1.45;
+  --text-corps: 13.5px;
+  --text-corps--line-height: 1.55;
+  --text-action: 14.5px;       /* libellé de bouton, ne descend jamais plus bas */
+  --text-action--line-height: 1;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.6;
+  --text-titre-s: 17px;
+  --text-titre-s--line-height: 1.2;
+  --text-titre-m: 20px;
+  --text-titre-m--line-height: 1.2;
+  --text-chiffre: 24px;
+  --text-chiffre--line-height: 1.15;
+  --text-chiffre-l: 30px;
+  --text-chiffre-l--line-height: 1.15;
+  --text-titre-l: 34px;
+  --text-titre-l--line-height: 1.1;
+  /* Le montant que le propriétaire lit sur son téléphone. Deux corps, pas un :
+     au-delà de 11 caractères (« 4 480 000 F »), le montant passe à 32 px — sinon il
+     déborde d'un écran de 372 px. La règle est dans la donnée, pas dans l'œil. M4. */
+  --text-montant: 40px;
+  --text-montant--line-height: 1.05;
+  --text-montant-long: 32px;
+  --text-montant-long--line-height: 1.05;
+
+  /* La recette du jour, sur l'écran de clôture. Entre le total d'un document (44 px)
+     et le numéro de chambre annoncé (68 px) : c'est un chiffre qu'on lit assis, une
+     fois par jour, pas un nombre qu'on crie. C4. */
+  --text-recette: 54px;
+  --text-recette--line-height: 1.05;
+  --text-recette--letter-spacing: -0.02em;
+
+  /* L'échelle du comptoir : trois corps qui n'existent que parce qu'un nombre doit se
+     lire à bout de bras, debout, en tenant une clé. R4 (passage) et C4 (clôture). */
+  --text-geste: 46px;          /* le chiffre d'un bouton de décision tactile */
+  --text-geste--line-height: 1;
+  --text-total: 44px;          /* le total d'un document à lignes (R7, D6, D7) */
+  --text-total--line-height: 1;
+  --text-total--letter-spacing: -0.02em;
+  --text-annonce: 68px;        /* le numéro de chambre, une fois donné */
+  --text-annonce--line-height: 1;
+  --text-annonce-l: 88px;      /* l'heure de fin — le nombre qu'on dit à voix haute */
+  --text-annonce-l--line-height: 1;
+  --text-annonce-l--letter-spacing: -0.02em;
+
+  --text-affiche: 40px;
+  --text-affiche--line-height: 1.05;
+  --text-affiche--letter-spacing: -0.02em;
+
+  /* ── Espacement ───────────────────────────────────────────────────────────
+     Base 4 px. p-4 = 16 px, p-4.5 = 18 px, p-5.5 = 22 px : l'échelle
+     fractionnaire de Tailwind 4 couvre toute la maquette. */
+  --spacing: 4px;
+
+  /* Hauteurs de touche — toutes sur l'échelle de 4 px, donc écrites en
+     utilitaires : h-11 = 44 px (plancher tactile, jamais moins), h-12 = 48 px
+     (cible de comptoir : une main, vite), h-9 = 36 px (bouton discret, hors
+     chemin critique), h-8 = 32 px (segment), h-7 = 28 px (pastille, non
+     cliquable). Les valeurs nommées --touche-min et
+     --touche-comptoir sont déclarées dans le :root explicite, après @theme. */
+
+  /* ── Rayons ───────────────────────────────────────────────────────────────
+     Le geste Banco : le contreforts est un bloc de terre, pas une bulle. */
+  --radius-xs: 4px;      /* marque de sélection, puce */
+  --radius-sm: 6px;      /* squelette, micro-tuile */
+  --radius-md: 8px;      /* champ, bouton discret */
+  --radius-lg: 10px;     /* bouton, tuile d'action */
+  --radius-xl: 12px;     /* carte */
+  --radius-2xl: 14px;    /* panneau, feuille */
+  --radius-pleine: 999px;
+
+  /* ── Couleurs — MODE CLAIR (réception, plein soleil) ───────────────────────
+     Les mêmes noms portent les valeurs sombres sous .dark, plus bas. */
+  --color-bg: #faf4e9;         /* fond de page */
+  --color-surf: #fffdf8;       /* carte, panneau posé sur le fond */
+  --color-tile: #f4ece0;       /* tuile, en-tête de tableau, zone inerte */
+  --color-line: #e2d7c6;       /* filet de séparation */
+  --color-line-2: #c1ac91;     /* filet appuyé, bordure de champ au repos */
+  --color-ink: #1e1a16;        /* texte */
+  --color-ink-2: #4b4239;      /* texte secondaire */
+  --color-ink-3: #6b5f52;      /* étiquette, texte atténué */
+
+  --color-prim: #21458c;       /* indigo — l'action, et rien d'autre */
+  --color-prim-ink: #ffffff;   /* texte posé sur --color-prim */
+  --color-prim-dk: #16306a;    /* ombre portée du bouton, état pressé */
+  --color-prim-soft: #eaf0fb;  /* survol de bouton secondaire, ligne active */
+  --color-prim-fort: #16306a;  /* texte posé sur prim-soft (barre « nuit » du planning) */
+
+  --color-succes: #1e6b4f;
+  --color-succes-soft: #dff0e6;
+  --color-succes-fort: #14523c;   /* texte sur -soft */
+  --color-alerte: #9a5a06;
+  --color-alerte-soft: #fbe9cf;
+  --color-alerte-fort: #6f4104;
+  --color-danger: #a32723;
+  --color-danger-soft: #f8e4e2;
+  --color-danger-fort: #7d1c19;
+  --color-info: #245e80;
+  --color-info-soft: #e2eef4;
+  --color-info-fort: #123f57;
+  --color-occupe: #5b3fa8;        /* occupation : chambre prise, table servie */
+  --color-occupe-soft: #e6dcf5;
+  --color-occupe-fort: #3d2a63;
+  --color-ocre: #a86f38;          /* la terre. Décor et illustration, jamais une action. */
+  --color-ocre-soft: #f0e2cd;
+  --color-ocre-fort: #7a4e22;     /* texte sur ocre-soft */
+  --color-ocre-ink: #fffdf8;      /* texte posé sur ocre plein */
+  --color-hachure: rgb(107 95 82 / 0.34);  /* remise en état : hachure à 135° */
+  --color-grille: rgb(107 95 82 / 0.16);   /* graduation des heures */
+  --color-resume: rgb(107 95 82 / 0.10);   /* jour replié du ruban élastique */
+
+  --color-voile: rgb(30 26 22 / 0.38);      /* voile sous un panneau/modale */
+  --color-brillance: rgb(255 255 255 / 0.85); /* bande de scintillement du squelette */
+
+  /* ── Ombres ───────────────────────────────────────────────────────────────
+     Basses et rares. Le bouton principal porte une ombre pleine de 2 px qui
+     disparaît à l'appui : c'est le seul relief du système. */
+  --shadow-basse: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-carte: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-panneau: 0 8px 28px rgb(30 26 22 / 0.16);
+  --shadow-bouton: 0 2px 0 var(--color-prim-dk);
+  --shadow-bouton-appui: 0 0 0 var(--color-prim-dk);
+  --shadow-bouton-danger: 0 2px 0 var(--color-danger-fort);
+  --shadow-bouton-grand: 0 3px 0 var(--color-prim-dk);  /* bouton principal h-15 de l'accueil */
+
+  /* ── Mouvement ────────────────────────────────────────────────────────────
+     Détail et justification dans mouvement.md. Les quatre courbes sont
+     exposées en utilitaires (ease-entree, ease-sortie…) ; les durées se
+     lisent en var() car Tailwind écrit déjà duration-240. */
+  --ease-entree: cubic-bezier(0, 0, 0.2, 1);
+  --ease-sortie: cubic-bezier(0.4, 0, 1, 1);
+  --ease-deplace: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elastique: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-pulse-reseau: kayaPulse 2.4s ease-out infinite;
+  --animate-souffle: kayaBreath 1.6s ease-in-out infinite;
+  --animate-scintillement: kayaShimmer 1.5s ease-in-out infinite;
+  --animate-roue: kayaSpin 900ms linear infinite;
+}
+
+/* ═══ MOUVEMENT ET TOUCHE — VARIABLES EN CLAIR ═════════════════════════════
+   Hors @theme, dans un :root ordinaire : aucun utilitaire ne les consomme, et
+   c'est le contrat que reprennent les prototypes de proto/ ainsi que le JS.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite));
+   En utilitaire, les mêmes durées s'écrivent duration-90 / 160 / 240 / 400. */
+:root {
+  --duree-instantane: 90ms;    /* plancher tactile, jamais réduit */
+  --duree-rapide: 160ms;
+  --duree-standard: 240ms;     /* plafond de tout chemin fréquent */
+  --duree-ample: 400ms;        /* plafond absolu */
+  --decalage-liste: 28ms;      /* entrée en cascade */
+  --decalage-plafond: 6;       /* au-delà de 6 éléments, plus de décalage */
+  --intensite: 1;              /* 1 = zone de charme ; voir [data-zone] plus bas */
+
+  /* Hauteurs de touche, pour le code qui a besoin de la valeur.
+     Le balisage écrit h-11 (44 px) et h-12 (48 px). */
+  --touche-min: 44px;
+  --touche-comptoir: 48px;
+}
+
+/* ═══ MODE SOMBRE (le bar, le soir) ════════════════════════════════════════
+   Mêmes noms, autres valeurs. Rien à changer dans le balisage. */
+.dark {
+  --color-bg: #17120f;
+  --color-surf: #241c16;
+  --color-tile: #2e241c;
+  --color-line: #3c2f26;
+  --color-line-2: #5f4a39;
+  --color-ink: #f4e9da;
+  --color-ink-2: #d5c6b4;
+  --color-ink-3: #ab9a8b;
+
+  --color-prim: #9dbcf5;
+  --color-prim-ink: #10203f;
+  --color-prim-dk: #6f92cc;
+  --color-prim-soft: #1e2839;
+  --color-prim-fort: #dce7fb;
+
+  --color-succes: #63cf9d;
+  --color-succes-soft: #18342a;
+  --color-succes-fort: #a6e6c9;
+  --color-alerte: #e9a848;
+  --color-alerte-soft: #3a2a12;
+  --color-alerte-fort: #f0d9a8;
+  --color-danger: #f4837a;
+  --color-danger-soft: #3d1c1a;
+  --color-danger-fort: #f8b3ac;
+  --color-info: #78bede;
+  --color-info-soft: #12293a;
+  --color-info-fort: #b5dcee;
+  --color-occupe: #b79cf0;
+  --color-occupe-soft: #3a2f4d;
+  --color-occupe-fort: #d6c4f2;
+  --color-ocre: #d9b382;
+  --color-ocre-soft: #33261a;
+  --color-ocre-fort: #e9cfa8;
+  --color-ocre-ink: #2a1a0c;
+  --color-hachure: rgb(171 154 139 / 0.32);
+  --color-grille: rgb(171 154 139 / 0.14);
+  --color-resume: rgb(0 0 0 / 0.32);
+
+  --color-voile: rgb(10 11 16 / 0.55);
+  --color-brillance: rgb(233 233 237 / 0.09);
+
+  --shadow-basse: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-panneau: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+/* ═══ RÉGIME DE MOUVEMENT ══════════════════════════════════════════════════
+   Deux zones, une seule variable. `data-zone="vitesse"` sur le conteneur d'un
+   écran de comptoir : les durées tombent à 45 %, plafonnées à 160 ms, le
+   décalage de liste disparaît, l'élastique devient un déplacement.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite)) */
+[data-zone="vitesse"] {
+  --intensite: 0.45;
+  --decalage-liste: 0ms;
+  --ease-elastique: var(--ease-deplace);
+}
+
+/* Une seule variable passe à 0. Aucun état n'est porté par une animation :
+   ce qui bougeait apparaît, rien ne manque, rien ne casse. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --intensite: 0;
+    --decalage-liste: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ BASE ═════════════════════════════════════════════════════════════════
+   Hors @layer : ces règles doivent passer après le preflight de Tailwind. */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-texte);
+    font-size: var(--text-corps);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  /* Tout montant est tabulaire, partout, sans réglage local. */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  a {
+    color: var(--color-prim);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-prim-dk);
+    text-decoration: underline;
+  }
+  .dark a:hover {
+    color: var(--color-ink);
+  }
+  /* Le focus clavier est un anneau indigo de 2 px, jamais le bleu du navigateur. */
+  :focus-visible {
+    outline: 2px solid var(--color-prim);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: var(--color-prim-soft);
+    color: var(--color-ink);
+  }
+  [disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+/* ═══ ANIMATIONS NOMMÉES ═══════════════════════════════════════════════════
+   Les seules @keyframes du système. Utilisées par animate-pulse-reseau,
+   animate-souffle, animate-scintillement, animate-roue. */
+@keyframes kayaPulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes kayaBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.82); }
+}
+@keyframes kayaShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes kayaSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══ POLICES ══════════════════════════════════════════════════════════════
+   Les maquettes chargent Archivo et Chivo Mono depuis Google Fonts. En
+   production, servez-les en local (woff2, font-display: swap) : le produit
+   tourne sur des liaisons lentes et doit s'afficher hors ligne.
+   Le nom des familles ne change pas — seule la source change. */
+
+</style>
+</head>
+
+<body class="bg-bg text-ink font-texte">
+
+<header class="border-b border-line bg-surf">
+  <div class="mx-auto max-w-[1400px] px-8 py-7 flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <span class="text-etiquette uppercase text-ink-3 font-semibold">Kaya · Banco · Styleguide</span>
+      <span class="h-px flex-1 bg-line"></span>
+      <span class="text-etiquette uppercase text-ink-3 font-mono">theme.css · v1</span>
+    </div>
+    <h1 class="font-titre text-affiche font-medium text-ink m-0">Les 14 composants canoniques</h1>
+    <p class="text-lead text-ink-2 max-w-[74ch] m-0">Tous les états, en clair et en sombre, écrits en utilitaires Tailwind 4 sur les tokens de <span class="font-mono text-corps">theme.css</span>. C'est le fichier de référence : <strong class="font-semibold text-ink">toute valeur qui n'est pas ici n'existe pas</strong>. Le n° 15 (barre de proportion) est apparu après la série — il attend sa validation.</p>
+    <nav class="flex flex-wrap gap-1.5 mt-1">
+      <a href="#c1" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">01 Bouton principal</a>
+      <a href="#c2" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">02 Bouton secondaire</a>
+      <a href="#c3" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">03 Bouton discret</a>
+      <a href="#c4" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">04 Pastille d'état</a>
+      <a href="#c5" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">05 Tuile d'action</a>
+      <a href="#c6" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">06 Carte chiffre</a>
+      <a href="#c7" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">07 Bandeau d'alerte</a>
+      <a href="#c8" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">08 Ligne de liste</a>
+      <a href="#c9" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">09 Sélecteur d'établissement</a>
+      <a href="#c10" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">10 Témoin de synchronisation</a>
+      <a href="#c11" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">11 État vide illustré</a>
+      <a href="#c12" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">12 Sélecteur segmenté</a>
+      <a href="#c13" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">13 Squelette</a>
+      <a href="#c14" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">14 Bandeau d'annulation</a>
+      <a href="#c15" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-dashed border-line text-mini text-ink-3 no-underline hover:border-prim hover:text-prim">15 Barre de proportion</a>
+    </nav>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-8 py-10 flex flex-col gap-12">
+
+<!-- ══ 01 BOUTON PRINCIPAL ══════════════════════════════════════════════ -->
+<section id="c1" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">01</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Bouton principal</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-11 · indigo plein · ombre 2 px</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Un seul par écran. Il porte l'action qui fait avancer la journée : enregistrer l'arrivée, encaisser, clôturer. L'ombre pleine de 2 px tombe à l'appui — c'est le seul relief du système, et le seul retour tactile qui n'est jamais réduit (90 ms plancher).</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer transition-[transform,box-shadow,background-color] duration-90 ease-entree hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim-dk text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Appui</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton-appui translate-y-0.5 cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Focus clavier</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton outline-2 outline-offset-2 outline-prim cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">En cours</span>
+          <button type="button" disabled class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold inline-flex items-center justify-center gap-2.5">
+            <span class="size-4 rounded-pleine border-2 border-prim-ink/35 border-t-prim-ink animate-roue"></span>Envoi…
+          </button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold">Enregistrer l'arrivée</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Pleine largeur · téléphone et comptoir · h-12</span>
+        <button type="button" class="h-12 w-full max-w-[420px] px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer transition-[transform,box-shadow] duration-90 ease-entree hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Encaisser 12 500 F</button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante danger · action irréversible</span>
+        <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-danger text-prim-ink font-titre text-action font-semibold shadow-bouton-danger cursor-pointer transition-transform duration-90 ease-entree active:translate-y-0.5 active:shadow-none">Annuler la note</button>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer transition-[transform,box-shadow,background-color] duration-90 ease-entree hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim-dk text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Appui</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton-appui translate-y-0.5 cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Focus clavier</span>
+          <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton outline-2 outline-offset-2 outline-prim cursor-pointer">Enregistrer l'arrivée</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">En cours</span>
+          <button type="button" disabled class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold inline-flex items-center justify-center gap-2.5">
+            <span class="size-4 rounded-pleine border-2 border-prim-ink/35 border-t-prim-ink animate-roue"></span>Envoi…
+          </button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-11 min-w-42 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold">Enregistrer l'arrivée</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Pleine largeur · téléphone et comptoir · h-12</span>
+        <button type="button" class="h-12 w-full max-w-[420px] px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer transition-[transform,box-shadow] duration-90 ease-entree hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Encaisser 12 500 F</button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante danger · action irréversible</span>
+        <button type="button" class="h-11 min-w-42 px-5 rounded-lg bg-danger text-prim-ink font-titre text-action font-semibold shadow-bouton-danger cursor-pointer transition-transform duration-90 ease-entree active:translate-y-0.5 active:shadow-none">Annuler la note</button>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 02 BOUTON SECONDAIRE ═════════════════════════════════════════════ -->
+<section id="c2" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">02</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Bouton secondaire</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-11 · contour indigo · fond transparent</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">L'issue de secours à côté du bouton principal : annuler, remettre à plus tard, revenir. Jamais deux secondaires côte à côte — si deux sorties existent, l'une est un bouton discret.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold cursor-pointer transition-[transform,background-color] duration-90 ease-entree hover:bg-prim-soft active:translate-y-0.5">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-prim-soft text-prim font-titre text-action font-semibold cursor-pointer">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Appui</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-prim-soft text-prim font-titre text-action font-semibold translate-y-0.5 cursor-pointer">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold">Annuler</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Avec icône</span>
+          <button type="button" class="h-11 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold inline-flex items-center gap-2 cursor-pointer hover:bg-prim-soft"><i class="ph ph-printer text-titre-s"></i>Réimprimer</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Neutre · hors action</span>
+          <button type="button" class="h-11 px-4.5 rounded-lg border border-line-2 bg-transparent text-ink-2 font-titre text-action font-semibold cursor-pointer hover:border-prim hover:text-prim">Plus tard</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold cursor-pointer transition-[transform,background-color] duration-90 ease-entree hover:bg-prim-soft active:translate-y-0.5">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-prim-soft text-prim font-titre text-action font-semibold cursor-pointer">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Appui</span>
+          <button type="button" class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-prim-soft text-prim font-titre text-action font-semibold translate-y-0.5 cursor-pointer">Annuler</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-11 min-w-32 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold">Annuler</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Avec icône</span>
+          <button type="button" class="h-11 px-4.5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold inline-flex items-center gap-2 cursor-pointer hover:bg-prim-soft"><i class="ph ph-printer text-titre-s"></i>Réimprimer</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Neutre · hors action</span>
+          <button type="button" class="h-11 px-4.5 rounded-lg border border-line-2 bg-transparent text-ink-2 font-titre text-action font-semibold cursor-pointer hover:border-prim hover:text-prim">Plus tard</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 03 BOUTON DISCRET ════════════════════════════════════════════════ -->
+<section id="c3" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">03</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Bouton discret</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-9 · sans fond ni contour au repos</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Les actions de bord : trier, filtrer, éditer une ligne, ouvrir un détail. Il n'apparaît qu'au survol et ne quitte jamais son bloc. En version icône seule, il conserve 44 px de zone de touche même s'il ne mesure que 36 px visuellement.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:bg-tile hover:text-ink active:scale-97">Modifier</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-tile text-ink font-titre text-mini font-semibold cursor-pointer">Modifier</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Danger</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-danger-fort font-titre text-mini font-semibold cursor-pointer hover:bg-danger-soft">Supprimer</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-9 px-3.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold">Modifier</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Icône seule · repos / survol / actif</span>
+          <div class="flex gap-2">
+            <button type="button" aria-label="Rechercher" class="size-11 rounded-md bg-transparent text-ink-2 inline-flex items-center justify-center cursor-pointer hover:bg-tile hover:text-ink"><i class="ph ph-magnifying-glass text-titre-m"></i></button>
+            <button type="button" aria-label="Trier" class="size-11 rounded-md bg-tile text-ink inline-flex items-center justify-center cursor-pointer"><i class="ph ph-arrows-down-up text-titre-m"></i></button>
+            <button type="button" aria-label="Filtrer" class="size-11 rounded-md bg-prim-soft text-prim inline-flex items-center justify-center cursor-pointer"><i class="ph-fill ph-funnel text-titre-m"></i></button>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Lien de retour</span>
+          <button type="button" class="h-9 pl-2 pr-3.5 rounded-md bg-transparent text-prim font-titre text-mini font-semibold inline-flex items-center gap-1.5 cursor-pointer hover:bg-prim-soft"><i class="ph ph-arrow-left text-titre-s"></i>Retour au planning</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Repos</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:bg-tile hover:text-ink active:scale-97">Modifier</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Survol</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-tile text-ink font-titre text-mini font-semibold cursor-pointer">Modifier</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Danger</span>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-danger-fort font-titre text-mini font-semibold cursor-pointer hover:bg-danger-soft">Supprimer</button>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Désactivé</span>
+          <button type="button" disabled class="h-9 px-3.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold">Modifier</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Icône seule · repos / survol / actif</span>
+          <div class="flex gap-2">
+            <button type="button" aria-label="Rechercher" class="size-11 rounded-md bg-transparent text-ink-2 inline-flex items-center justify-center cursor-pointer hover:bg-tile hover:text-ink"><i class="ph ph-magnifying-glass text-titre-m"></i></button>
+            <button type="button" aria-label="Trier" class="size-11 rounded-md bg-tile text-ink inline-flex items-center justify-center cursor-pointer"><i class="ph ph-arrows-down-up text-titre-m"></i></button>
+            <button type="button" aria-label="Filtrer" class="size-11 rounded-md bg-prim-soft text-prim inline-flex items-center justify-center cursor-pointer"><i class="ph-fill ph-funnel text-titre-m"></i></button>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Lien de retour</span>
+          <button type="button" class="h-9 pl-2 pr-3.5 rounded-md bg-transparent text-prim font-titre text-mini font-semibold inline-flex items-center gap-1.5 cursor-pointer hover:bg-prim-soft"><i class="ph ph-arrow-left text-titre-s"></i>Retour au planning</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 04 PASTILLE D'ÉTAT ═══════════════════════════════════════════════ -->
+<section id="c4" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">04</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Pastille d'état</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-7 · forme + couleur, jamais la couleur seule</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Chaque état porte une <strong class="font-semibold text-ink">forme</strong> distincte en plus de sa couleur : losange pour ce qui est acquis, rond pour ce qui est en cours, carré pour ce qui est libre, cercle vide pour ce qui est hors ligne. Un écran en plein soleil, un daltonien, une capture en noir et blanc restent lisibles.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Paiement</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel · 5 000 F dus</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-danger-soft text-danger-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-danger [clip-path:polygon(50%_0,100%_100%,0_100%)]"></span>Impayé</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>À la charge de la société</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Chambre</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-occupe-soft text-occupe-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-occupe"></span>Occupée</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-alerte rotate-45"></span>À nettoyer</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-xs bg-succes"></span>Libre</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-xs border-2 border-ink-3"></span>Hors service</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Envoi · réseau</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-info-soft text-info-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-3 rounded-pleine border-2 border-info/30 border-t-info animate-roue"></span>Envoi en cours</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>En attente · 12</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-danger-soft text-danger-fort text-mini font-semibold inline-flex items-center gap-1.5"><i class="ph-fill ph-warning-circle text-mini"></i>Échec · à renvoyer</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Sur fond de tuile · variante contour</span>
+        <div class="flex flex-wrap gap-2 rounded-lg bg-tile p-3">
+          <span class="h-7 px-2.5 rounded-pleine border border-succes text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="h-7 px-2.5 rounded-pleine border border-alerte text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Paiement</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel · 5 000 F dus</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-danger-soft text-danger-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-danger [clip-path:polygon(50%_0,100%_100%,0_100%)]"></span>Impayé</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>À la charge de la société</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Chambre</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-occupe-soft text-occupe-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-occupe"></span>Occupée</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-alerte rotate-45"></span>À nettoyer</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-xs bg-succes"></span>Libre</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-xs border-2 border-ink-3"></span>Hors service</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Envoi · réseau</span>
+        <div class="flex flex-wrap gap-2">
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-info-soft text-info-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-3 rounded-pleine border-2 border-info/30 border-t-info animate-roue"></span>Envoi en cours</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>En attente · 12</span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-danger-soft text-danger-fort text-mini font-semibold inline-flex items-center gap-1.5"><i class="ph-fill ph-warning-circle text-mini"></i>Échec · à renvoyer</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Sur fond de tuile · variante contour</span>
+        <div class="flex flex-wrap gap-2 rounded-lg bg-tile p-3">
+          <span class="h-7 px-2.5 rounded-pleine border border-succes text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="h-7 px-2.5 rounded-pleine border border-alerte text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel</span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 05 TUILE D'ACTION ════════════════════════════════════════════════ -->
+<section id="c5" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">05</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Tuile d'action</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">min-h-28 · le contrefort de l'accueil</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">La grande cible de l'écran d'accueil : quatre à six tuiles, une par geste du métier. Elle porte un compteur quand il y a du travail en attente. Sa surface entière est cliquable — pas d'îlot de clic à l'intérieur.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="grid grid-cols-2 gap-3">
+        <button type="button" class="min-h-28 rounded-lg bg-surf border border-line p-4 flex flex-col justify-between items-start text-left cursor-pointer shadow-basse transition-[transform,border-color] duration-90 ease-entree hover:border-prim active:scale-98">
+          <i class="ph ph-bed text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Arrivée</span>
+          <span class="text-mini text-ink-3">Repos</span>
+        </button>
+        <button type="button" class="min-h-28 rounded-lg bg-surf border-[1.5px] border-prim p-4 flex flex-col justify-between items-start text-left cursor-pointer shadow-basse">
+          <i class="ph ph-door-open text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Départ</span>
+          <span class="text-mini text-ink-3">Survol</span>
+        </button>
+        <button type="button" class="min-h-28 rounded-lg bg-surf border border-line p-4 flex flex-col justify-between items-start text-left cursor-pointer relative shadow-basse hover:border-prim">
+          <i class="ph ph-beer-bottle text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Bar</span>
+          <span class="text-mini text-ink-3">Avec compteur</span>
+          <span class="absolute top-3 right-3 h-7 min-w-7 px-2 rounded-pleine bg-alerte text-bg font-mono text-mini font-bold inline-flex items-center justify-center">7</span>
+        </button>
+        <button type="button" disabled class="min-h-28 rounded-lg bg-tile border border-line p-4 flex flex-col justify-between items-start text-left">
+          <i class="ph ph-broom text-titre-l text-ink-3"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Ménage</span>
+          <span class="text-mini text-ink-3">Désactivé · rôle serveuse</span>
+        </button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante compacte · barre d'outils du planning</span>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="h-12 px-4 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim"><i class="ph ph-plus text-titre-s text-prim"></i><span class="font-titre text-corps font-semibold">Nouveau séjour</span></button>
+          <button type="button" class="h-12 px-4 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim"><i class="ph ph-receipt text-titre-s text-prim"></i><span class="font-titre text-corps font-semibold">Note provisoire</span></button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="grid grid-cols-2 gap-3">
+        <button type="button" class="min-h-28 rounded-lg bg-surf border border-line p-4 flex flex-col justify-between items-start text-left cursor-pointer shadow-basse transition-[transform,border-color] duration-90 ease-entree hover:border-prim active:scale-98">
+          <i class="ph ph-bed text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Arrivée</span>
+          <span class="text-mini text-ink-3">Repos</span>
+        </button>
+        <button type="button" class="min-h-28 rounded-lg bg-surf border-[1.5px] border-prim p-4 flex flex-col justify-between items-start text-left cursor-pointer shadow-basse">
+          <i class="ph ph-door-open text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Départ</span>
+          <span class="text-mini text-ink-3">Survol</span>
+        </button>
+        <button type="button" class="min-h-28 rounded-lg bg-surf border border-line p-4 flex flex-col justify-between items-start text-left cursor-pointer relative shadow-basse hover:border-prim">
+          <i class="ph ph-beer-bottle text-titre-l text-prim"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Bar</span>
+          <span class="text-mini text-ink-3">Avec compteur</span>
+          <span class="absolute top-3 right-3 h-7 min-w-7 px-2 rounded-pleine bg-alerte text-bg font-mono text-mini font-bold inline-flex items-center justify-center">7</span>
+        </button>
+        <button type="button" disabled class="min-h-28 rounded-lg bg-tile border border-line p-4 flex flex-col justify-between items-start text-left">
+          <i class="ph ph-broom text-titre-l text-ink-3"></i>
+          <span class="font-titre text-titre-s font-semibold text-ink">Ménage</span>
+          <span class="text-mini text-ink-3">Désactivé · rôle serveuse</span>
+        </button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante compacte · barre d'outils du planning</span>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="h-12 px-4 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim"><i class="ph ph-plus text-titre-s text-prim"></i><span class="font-titre text-corps font-semibold">Nouveau séjour</span></button>
+          <button type="button" class="h-12 px-4 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim"><i class="ph ph-receipt text-titre-s text-prim"></i><span class="font-titre text-corps font-semibold">Note provisoire</span></button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 06 CARTE CHIFFRE ═════════════════════════════════════════════════ -->
+<section id="c6" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">06</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Carte chiffre</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">text-chiffre-l · Chivo Mono tabulaire</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Un chiffre, son étiquette, sa comparaison. Le montant est toujours en Chivo Mono tabulaire : deux cartes côte à côte alignent leurs unités sans réglage. Le delta est une forme (triangle) plus une couleur, et il disparaît en zone de vitesse.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Recette du jour</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">184 000 F</span>
+          <span class="inline-flex items-center gap-1.5 text-mini font-semibold text-succes-fort"><span class="size-0 border-x-[5px] border-x-transparent border-b-[7px] border-b-succes"></span>+ 18 % vs hier</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Taux d'occupation</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">62 %</span>
+          <span class="inline-flex items-center gap-1.5 text-mini font-semibold text-danger-fort"><span class="size-0 border-x-[5px] border-x-transparent border-t-[7px] border-t-danger"></span>− 4 pts vs hier</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Impayés</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">3</span>
+          <span class="text-mini text-ink-3">Sans comparaison</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Chargement</span>
+          <span class="h-8 w-3/4 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante contrefort · chiffre de clôture</span>
+        <div class="rounded-r-xl border border-line border-l-4 border-l-prim bg-surf p-4 flex items-baseline justify-between gap-4">
+          <span class="text-etiquette uppercase text-ink-3">Écart de caisse</span>
+          <span class="font-mono text-chiffre font-bold text-ink whitespace-nowrap">0 F</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Recette du jour</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">184 000 F</span>
+          <span class="inline-flex items-center gap-1.5 text-mini font-semibold text-succes-fort"><span class="size-0 border-x-[5px] border-x-transparent border-b-[7px] border-b-succes"></span>+ 18 % vs hier</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Taux d'occupation</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">62 %</span>
+          <span class="inline-flex items-center gap-1.5 text-mini font-semibold text-danger-fort"><span class="size-0 border-x-[5px] border-x-transparent border-t-[7px] border-t-danger"></span>− 4 pts vs hier</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-1.5">
+          <span class="text-etiquette uppercase text-ink-3">Impayés</span>
+          <span class="font-mono text-chiffre-l font-bold text-ink whitespace-nowrap">3</span>
+          <span class="text-mini text-ink-3">Sans comparaison</span>
+        </div>
+        <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Chargement</span>
+          <span class="h-8 w-3/4 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante contrefort · chiffre de clôture</span>
+        <div class="rounded-r-xl border border-line border-l-4 border-l-prim bg-surf p-4 flex items-baseline justify-between gap-4">
+          <span class="text-etiquette uppercase text-ink-3">Écart de caisse</span>
+          <span class="font-mono text-chiffre font-bold text-ink whitespace-nowrap">0 F</span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 07 BANDEAU D'ALERTE ══════════════════════════════════════════════ -->
+<section id="c7" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">07</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Bandeau d'alerte</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">contrefort 4 px · fond -soft · texte -fort</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Quatre tons, une seule structure : icône, une phrase qui dit ce qui s'est passé, et si besoin l'action qui répare. Jamais deux bandeaux empilés — le plus grave gagne, l'autre attend.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-3 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-r-lg border-l-4 border-l-info bg-info-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-info text-titre-s text-info shrink-0 mt-0.5"></i>
+        <p class="text-corps text-info-fort m-0 flex-1">La note de la chambre 101 a été enregistrée. Le ticket part à l'imprimante du comptoir.</p>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-succes bg-succes-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-check-circle text-titre-s text-succes shrink-0 mt-0.5"></i>
+        <p class="text-corps text-succes-fort m-0 flex-1">Caisse clôturée. Écart nul sur 184 000 F encaissés.</p>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-alerte bg-alerte-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-warning text-titre-s text-alerte shrink-0 mt-0.5"></i>
+        <div class="flex-1 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-corps text-alerte-fort m-0">12 écritures attendent le réseau. Rien n'est perdu : elles partiront à la reconnexion.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md border border-alerte bg-transparent text-alerte-fort font-titre text-mini font-semibold cursor-pointer hover:bg-alerte/10">Voir la file</button>
+        </div>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-danger bg-danger-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-x-circle text-titre-s text-danger shrink-0 mt-0.5"></i>
+        <div class="flex-1 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-corps text-danger-fort m-0">La clôture est bloquée : la chambre 205 a une consommation non facturée.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-danger text-prim-ink font-titre text-mini font-semibold cursor-pointer">Régler maintenant</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 mt-1">
+        <span class="text-etiquette uppercase text-ink-3">Variante pleine largeur · en tête d'écran, hors ligne</span>
+        <div class="-mx-6 px-6 py-2.5 bg-alerte-soft border-y border-alerte/30 flex items-center gap-2.5">
+          <span class="size-2.5 rounded-pleine border-2 border-alerte-fort"></span>
+          <span class="text-corps font-semibold text-alerte-fort">Hors ligne depuis 14 h 05 — la saisie continue</span>
+          <span class="font-mono text-mini text-alerte-fort ml-auto">12 en attente</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-3 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-r-lg border-l-4 border-l-info bg-info-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-info text-titre-s text-info shrink-0 mt-0.5"></i>
+        <p class="text-corps text-info-fort m-0 flex-1">La note de la chambre 101 a été enregistrée. Le ticket part à l'imprimante du comptoir.</p>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-succes bg-succes-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-check-circle text-titre-s text-succes shrink-0 mt-0.5"></i>
+        <p class="text-corps text-succes-fort m-0 flex-1">Caisse clôturée. Écart nul sur 184 000 F encaissés.</p>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-alerte bg-alerte-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-warning text-titre-s text-alerte shrink-0 mt-0.5"></i>
+        <div class="flex-1 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-corps text-alerte-fort m-0">12 écritures attendent le réseau. Rien n'est perdu : elles partiront à la reconnexion.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md border border-alerte bg-transparent text-alerte-fort font-titre text-mini font-semibold cursor-pointer hover:bg-alerte/10">Voir la file</button>
+        </div>
+      </div>
+      <div class="rounded-r-lg border-l-4 border-l-danger bg-danger-soft p-3.5 flex items-start gap-3">
+        <i class="ph-fill ph-x-circle text-titre-s text-danger shrink-0 mt-0.5"></i>
+        <div class="flex-1 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-corps text-danger-fort m-0">La clôture est bloquée : la chambre 205 a une consommation non facturée.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-danger text-prim-ink font-titre text-mini font-semibold cursor-pointer">Régler maintenant</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 mt-1">
+        <span class="text-etiquette uppercase text-ink-3">Variante pleine largeur · en tête d'écran, hors ligne</span>
+        <div class="-mx-6 px-6 py-2.5 bg-alerte-soft border-y border-alerte/30 flex items-center gap-2.5">
+          <span class="size-2.5 rounded-pleine border-2 border-alerte-fort"></span>
+          <span class="text-corps font-semibold text-alerte-fort">Hors ligne depuis 14 h 05 — la saisie continue</span>
+          <span class="font-mono text-mini text-alerte-fort ml-auto">12 en attente</span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 08 LIGNE DE LISTE ════════════════════════════════════════════════ -->
+<section id="c8" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">08</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Ligne de liste</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-14 · numéro mono à gauche, montant mono à droite</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">L'unité de tous les registres : séjours, consommations, écritures, chambres. Le numéro et le montant sont en mono et alignés — l'œil descend une colonne, pas un texte. La ligne entière est cliquable ; les actions de bord n'apparaissent qu'au survol.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-xl bg-surf border border-line overflow-hidden">
+        <div class="h-9 px-4 bg-tile border-b border-line flex items-center gap-3">
+          <span class="w-9 text-etiquette uppercase text-ink-3">Nº</span>
+          <span class="flex-1 text-etiquette uppercase text-ink-3">Client</span>
+          <span class="text-etiquette uppercase text-ink-3">Montant</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3 cursor-pointer transition-colors duration-90 hover:bg-prim-soft">
+          <span class="w-9 font-mono text-corps text-ink-3">101</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Aïcha Traoré</span><span class="text-mini text-ink-3">Nuitée · départ demain 12 h</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">12 500 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3 bg-prim-soft cursor-pointer">
+          <span class="w-9 font-mono text-corps text-ink-3">102</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Moussa Koné</span><span class="text-mini text-ink-3">Survol</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel</span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">8 000 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line border-l-4 border-l-prim flex items-center gap-3 bg-prim-soft cursor-pointer">
+          <span class="w-9 font-mono text-corps text-ink-3">205</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Fatou Diallo</span><span class="text-mini text-ink-3">Sélectionnée · contrefort indigo</span></span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">15 000 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3">
+          <span class="w-9 font-mono text-corps text-ink-3">108</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Bar — table 4</span><span class="text-mini text-ink-3">En attente d'envoi · reste locale</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>En attente</span>
+          <span class="font-mono text-corps font-bold text-ink-2 w-24 text-right">6 500 F</span>
+        </div>
+        <div class="h-14 px-4 flex items-center gap-3 opacity-60">
+          <span class="w-9 font-mono text-corps text-ink-3">107</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink line-through">Pressing — Koné</span><span class="text-mini text-ink-3">Annulée par la gérante à 15 h 12</span></span>
+          <span class="font-mono text-corps font-bold text-ink-3 w-24 text-right line-through">3 500 F</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ligne de total · toujours en bas, jamais scrollable</span>
+        <div class="h-14 px-4 rounded-xl bg-tile border border-line-2 flex items-center gap-3">
+          <span class="flex-1 font-titre text-corps font-semibold text-ink">Total encaissé · 14 lignes</span>
+          <span class="font-mono text-chiffre font-bold text-ink whitespace-nowrap">184 000 F</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-xl bg-surf border border-line overflow-hidden">
+        <div class="h-9 px-4 bg-tile border-b border-line flex items-center gap-3">
+          <span class="w-9 text-etiquette uppercase text-ink-3">Nº</span>
+          <span class="flex-1 text-etiquette uppercase text-ink-3">Client</span>
+          <span class="text-etiquette uppercase text-ink-3">Montant</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3 cursor-pointer transition-colors duration-90 hover:bg-prim-soft">
+          <span class="w-9 font-mono text-corps text-ink-3">101</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Aïcha Traoré</span><span class="text-mini text-ink-3">Nuitée · départ demain 12 h</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">12 500 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3 bg-prim-soft cursor-pointer">
+          <span class="w-9 font-mono text-corps text-ink-3">102</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Moussa Koné</span><span class="text-mini text-ink-3">Survol</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-alerte-soft text-alerte-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine bg-alerte"></span>Partiel</span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">8 000 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line border-l-4 border-l-prim flex items-center gap-3 bg-prim-soft cursor-pointer">
+          <span class="w-9 font-mono text-corps text-ink-3">205</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Fatou Diallo</span><span class="text-mini text-ink-3">Sélectionnée · contrefort indigo</span></span>
+          <span class="font-mono text-corps font-bold text-ink w-24 text-right">15 000 F</span>
+        </div>
+        <div class="h-14 px-4 border-b border-line flex items-center gap-3">
+          <span class="w-9 font-mono text-corps text-ink-3">108</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Bar — table 4</span><span class="text-mini text-ink-3">En attente d'envoi · reste locale</span></span>
+          <span class="h-7 pl-2 pr-2.5 rounded-pleine bg-tile text-ink-2 text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 rounded-pleine border-2 border-ink-3"></span>En attente</span>
+          <span class="font-mono text-corps font-bold text-ink-2 w-24 text-right">6 500 F</span>
+        </div>
+        <div class="h-14 px-4 flex items-center gap-3 opacity-60">
+          <span class="w-9 font-mono text-corps text-ink-3">107</span>
+          <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink line-through">Pressing — Koné</span><span class="text-mini text-ink-3">Annulée par la gérante à 15 h 12</span></span>
+          <span class="font-mono text-corps font-bold text-ink-3 w-24 text-right line-through">3 500 F</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ligne de total · toujours en bas, jamais scrollable</span>
+        <div class="h-14 px-4 rounded-xl bg-tile border border-line-2 flex items-center gap-3">
+          <span class="flex-1 font-titre text-corps font-semibold text-ink">Total encaissé · 14 lignes</span>
+          <span class="font-mono text-chiffre font-bold text-ink whitespace-nowrap">184 000 F</span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 09 SÉLECTEUR D'ÉTABLISSEMENT ═════════════════════════════════════ -->
+<section id="c9" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">09</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Sélecteur d'établissement</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-11 · toujours en haut à gauche</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Le propriétaire de trois maquis doit savoir <em class="not-italic font-semibold text-ink">où il est</em> avant de faire quoi que ce soit. Le sélecteur ne bouge jamais de place, porte l'initiale en ocre, et remonte les alertes des autres établissements sans jamais changer de contexte tout seul.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Fermé · un seul établissement</span>
+          <div class="h-11 px-3 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 shadow-basse">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Fermé · plusieurs, avec alerte</span>
+          <button type="button" class="h-11 px-3 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span>
+            <span class="size-2 rounded-pleine bg-alerte"></span>
+            <i class="ph ph-caret-up-down text-titre-s text-ink-3"></i>
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ouvert</span>
+        <div class="w-full max-w-[340px] rounded-2xl bg-surf border border-line shadow-panneau overflow-hidden">
+          <div class="h-11 px-3 border-b border-line flex items-center gap-2.5 bg-tile">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink flex-1 text-left">Maquis Kaya</span>
+            <i class="ph ph-caret-up text-titre-s text-ink-3"></i>
+          </div>
+          <button type="button" class="w-full h-14 px-3 border-b border-line flex items-center gap-2.5 cursor-pointer bg-prim-soft text-left">
+            <span class="size-7 rounded-md bg-prim text-prim-ink font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span><span class="text-mini text-ink-3">Ouagadougou · 12 chambres</span></span>
+            <i class="ph-fill ph-check-circle text-titre-s text-prim"></i>
+          </button>
+          <button type="button" class="w-full h-14 px-3 border-b border-line flex items-center gap-2.5 cursor-pointer hover:bg-tile text-left">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">B</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Bar Bangré</span><span class="text-mini text-alerte-fort">Caisse non clôturée depuis hier</span></span>
+            <span class="size-2 rounded-pleine bg-alerte"></span>
+          </button>
+          <button type="button" class="w-full h-14 px-3 flex items-center gap-2.5 cursor-pointer hover:bg-tile text-left">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">R</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Résidence Nabi</span><span class="text-mini text-ink-3">Koudougou · 8 studios</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-wrap items-start gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Fermé · un seul établissement</span>
+          <div class="h-11 px-3 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 shadow-basse">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Fermé · plusieurs, avec alerte</span>
+          <button type="button" class="h-11 px-3 rounded-lg bg-surf border border-line inline-flex items-center gap-2.5 cursor-pointer shadow-basse hover:border-prim">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span>
+            <span class="size-2 rounded-pleine bg-alerte"></span>
+            <i class="ph ph-caret-up-down text-titre-s text-ink-3"></i>
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ouvert</span>
+        <div class="w-full max-w-[340px] rounded-2xl bg-surf border border-line shadow-panneau overflow-hidden">
+          <div class="h-11 px-3 border-b border-line flex items-center gap-2.5 bg-tile">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="font-titre text-corps font-semibold text-ink flex-1 text-left">Maquis Kaya</span>
+            <i class="ph ph-caret-up text-titre-s text-ink-3"></i>
+          </div>
+          <button type="button" class="w-full h-14 px-3 border-b border-line flex items-center gap-2.5 cursor-pointer bg-prim-soft text-left">
+            <span class="size-7 rounded-md bg-prim text-prim-ink font-titre text-corps font-bold inline-flex items-center justify-center">K</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Maquis Kaya</span><span class="text-mini text-ink-3">Ouagadougou · 12 chambres</span></span>
+            <i class="ph-fill ph-check-circle text-titre-s text-prim"></i>
+          </button>
+          <button type="button" class="w-full h-14 px-3 border-b border-line flex items-center gap-2.5 cursor-pointer hover:bg-tile text-left">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">B</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Bar Bangré</span><span class="text-mini text-alerte-fort">Caisse non clôturée depuis hier</span></span>
+            <span class="size-2 rounded-pleine bg-alerte"></span>
+          </button>
+          <button type="button" class="w-full h-14 px-3 flex items-center gap-2.5 cursor-pointer hover:bg-tile text-left">
+            <span class="size-7 rounded-md bg-ocre-soft text-ocre font-titre text-corps font-bold inline-flex items-center justify-center">R</span>
+            <span class="flex-1 flex flex-col"><span class="font-titre text-corps font-semibold text-ink">Résidence Nabi</span><span class="text-mini text-ink-3">Koudougou · 8 studios</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 10 TÉMOIN DE SYNCHRONISATION ═════════════════════════════════════ -->
+<section id="c10" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">10</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Témoin de synchronisation</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">3 états + compteur · forme distincte par état</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Le composant le plus important du produit : il dit si le travail est en sécurité. Trois états seulement, chacun avec sa forme, son mouvement et sa phrase. Il ne montre jamais un pourcentage — il montre un nombre d'écritures et une heure.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-3.5 max-w-[340px]">
+        <div class="flex items-center gap-2.5">
+          <span class="relative inline-block size-2.5">
+            <span class="absolute inset-0 rounded-pleine bg-succes"></span>
+            <span class="absolute inset-0 rounded-pleine bg-succes animate-pulse-reseau"></span>
+          </span>
+          <span class="font-titre text-corps font-semibold text-succes-fort">Connecté</span>
+          <span class="font-mono text-mini text-ink-3 ml-auto">à jour</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="size-2.5 bg-alerte rotate-45 animate-souffle"></span>
+          <span class="font-titre text-corps font-semibold text-alerte-fort">Réseau dégradé</span>
+          <span class="font-mono text-mini text-alerte-fort ml-auto">3 en attente</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="size-2.5 rounded-pleine border-2 border-ink-3"></span>
+          <span class="font-titre text-corps font-semibold text-ink-2">Hors ligne</span>
+          <span class="font-mono text-mini text-ink-2 ml-auto">12 en attente</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Compact · barre d'en-tête</span>
+          <div class="h-9 px-3 rounded-md bg-tile inline-flex items-center gap-2">
+            <span class="size-2 rounded-pleine border-2 border-ink-3"></span>
+            <span class="font-titre text-mini font-semibold text-ink-2">Hors ligne</span>
+            <span class="font-mono text-mini text-ink-2">· 12</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Envoi en cours</span>
+          <div class="h-9 px-3 rounded-md bg-info-soft inline-flex items-center gap-2">
+            <span class="size-3 rounded-pleine border-2 border-info/30 border-t-info animate-roue"></span>
+            <span class="font-titre text-mini font-semibold text-info-fort">Envoi · 4 sur 12</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Retour du réseau</span>
+          <div class="h-9 px-3 rounded-md bg-succes-soft inline-flex items-center gap-2">
+            <span class="size-2 bg-succes rotate-45"></span>
+            <span class="font-titre text-mini font-semibold text-succes-fort">12 écritures envoyées</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-xl bg-surf border border-line p-4 shadow-basse flex flex-col gap-3.5 max-w-[340px]">
+        <div class="flex items-center gap-2.5">
+          <span class="relative inline-block size-2.5">
+            <span class="absolute inset-0 rounded-pleine bg-succes"></span>
+            <span class="absolute inset-0 rounded-pleine bg-succes animate-pulse-reseau"></span>
+          </span>
+          <span class="font-titre text-corps font-semibold text-succes-fort">Connecté</span>
+          <span class="font-mono text-mini text-ink-3 ml-auto">à jour</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="size-2.5 bg-alerte rotate-45 animate-souffle"></span>
+          <span class="font-titre text-corps font-semibold text-alerte-fort">Réseau dégradé</span>
+          <span class="font-mono text-mini text-alerte-fort ml-auto">3 en attente</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span class="size-2.5 rounded-pleine border-2 border-ink-3"></span>
+          <span class="font-titre text-corps font-semibold text-ink-2">Hors ligne</span>
+          <span class="font-mono text-mini text-ink-2 ml-auto">12 en attente</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Compact · barre d'en-tête</span>
+          <div class="h-9 px-3 rounded-md bg-tile inline-flex items-center gap-2">
+            <span class="size-2 rounded-pleine border-2 border-ink-3"></span>
+            <span class="font-titre text-mini font-semibold text-ink-2">Hors ligne</span>
+            <span class="font-mono text-mini text-ink-2">· 12</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Envoi en cours</span>
+          <div class="h-9 px-3 rounded-md bg-info-soft inline-flex items-center gap-2">
+            <span class="size-3 rounded-pleine border-2 border-info/30 border-t-info animate-roue"></span>
+            <span class="font-titre text-mini font-semibold text-info-fort">Envoi · 4 sur 12</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Retour du réseau</span>
+          <div class="h-9 px-3 rounded-md bg-succes-soft inline-flex items-center gap-2">
+            <span class="size-2 bg-succes rotate-45"></span>
+            <span class="font-titre text-mini font-semibold text-succes-fort">12 écritures envoyées</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 11 ÉTAT VIDE ILLUSTRÉ ════════════════════════════════════════════ -->
+<section id="c11" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">11</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">État vide illustré</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">motif ocre · une phrase · une action</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Un vide n'est pas une erreur. Le motif de contreforts en ocre dit « rien ici, c'est normal » ; la phrase dit ce qui arrivera, l'action dit comment commencer. Deux tons : le vide de départ, et le vide de résultat (recherche, filtre).</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-xl bg-surf border border-line p-8 flex flex-col items-center gap-4 text-center">
+        <div class="flex items-end gap-2 h-16">
+          <span class="w-4 h-2/3 rounded-t-lg bg-ocre-soft"></span>
+          <span class="w-4 h-full rounded-t-lg bg-ocre/40"></span>
+          <span class="w-4 h-1/2 rounded-t-lg bg-ocre-soft"></span>
+          <span class="w-4 h-5/6 rounded-t-lg bg-ocre/25"></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <span class="font-titre text-titre-s font-semibold text-ink">Aucune arrivée aujourd'hui</span>
+          <span class="text-corps text-ink-3 max-w-[42ch]">Les séjours enregistrés apparaîtront ici, du plus proche au plus lointain.</span>
+        </div>
+        <button type="button" class="h-11 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Enregistrer une arrivée</button>
+      </div>
+      <div class="rounded-xl bg-tile border border-line p-6 flex flex-col items-center gap-3 text-center">
+        <i class="ph ph-magnifying-glass text-titre-l text-ink-3"></i>
+        <span class="font-titre text-corps font-semibold text-ink">Rien pour « Diallo » dans ce mois</span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-prim font-titre text-mini font-semibold cursor-pointer hover:bg-prim-soft">Chercher dans toute l'année</button>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-xl bg-surf border border-line p-8 flex flex-col items-center gap-4 text-center">
+        <div class="flex items-end gap-2 h-16">
+          <span class="w-4 h-2/3 rounded-t-lg bg-ocre-soft"></span>
+          <span class="w-4 h-full rounded-t-lg bg-ocre/40"></span>
+          <span class="w-4 h-1/2 rounded-t-lg bg-ocre-soft"></span>
+          <span class="w-4 h-5/6 rounded-t-lg bg-ocre/25"></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <span class="font-titre text-titre-s font-semibold text-ink">Aucune arrivée aujourd'hui</span>
+          <span class="text-corps text-ink-3 max-w-[42ch]">Les séjours enregistrés apparaîtront ici, du plus proche au plus lointain.</span>
+        </div>
+        <button type="button" class="h-11 px-5 rounded-lg bg-prim text-prim-ink font-titre text-action font-semibold shadow-bouton cursor-pointer hover:bg-prim-dk active:translate-y-0.5 active:shadow-bouton-appui">Enregistrer une arrivée</button>
+      </div>
+      <div class="rounded-xl bg-tile border border-line p-6 flex flex-col items-center gap-3 text-center">
+        <i class="ph ph-magnifying-glass text-titre-l text-ink-3"></i>
+        <span class="font-titre text-corps font-semibold text-ink">Rien pour « Diallo » dans ce mois</span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent text-prim font-titre text-mini font-semibold cursor-pointer hover:bg-prim-soft">Chercher dans toute l'année</button>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 12 SÉLECTEUR SEGMENTÉ ════════════════════════════════════════════ -->
+<section id="c12" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">12</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Sélecteur segmenté</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-8 piste · 2 à 4 options, jamais plus</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Deux à quatre options courtes, toutes visibles. Au-delà, c'est une liste, pas un segment. Les grandes pastilles de durée du passage (h-12) sont la variante tactile du même composant : même logique, même marque de sélection.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-5 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-wrap gap-5">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Deux options</span>
+          <div class="h-10 p-1 rounded-lg bg-tile inline-flex gap-1">
+            <button type="button" class="h-8 px-4.5 rounded-md bg-prim text-prim-ink font-titre text-mini font-semibold cursor-pointer">Chambres</button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer hover:text-ink">Bar</button>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Trois options · avec compteur</span>
+          <div class="h-10 p-1 rounded-lg bg-tile inline-flex gap-1">
+            <button type="button" class="h-8 px-4.5 rounded-md bg-prim text-prim-ink font-titre text-mini font-semibold cursor-pointer">Toutes</button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer inline-flex items-center gap-1.5 hover:text-ink">Impayées<span class="font-mono text-etiquette text-alerte-fort">3</span></button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer hover:text-ink">Soldées</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante tactile · durée du passage · h-12</span>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-transform duration-110 ease-entree active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>1 h</button>
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-prim border-[1.5px] border-prim text-prim-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer"><span class="size-2.5 rounded-pleine bg-prim-ink ring-3 ring-prim"></span>2 h</button>
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>3 h</button>
+          <button type="button" class="h-12 min-w-37 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>Plage horaire</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-5 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-wrap gap-5">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Deux options</span>
+          <div class="h-10 p-1 rounded-lg bg-tile inline-flex gap-1">
+            <button type="button" class="h-8 px-4.5 rounded-md bg-prim text-prim-ink font-titre text-mini font-semibold cursor-pointer">Chambres</button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer hover:text-ink">Bar</button>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Trois options · avec compteur</span>
+          <div class="h-10 p-1 rounded-lg bg-tile inline-flex gap-1">
+            <button type="button" class="h-8 px-4.5 rounded-md bg-prim text-prim-ink font-titre text-mini font-semibold cursor-pointer">Toutes</button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer inline-flex items-center gap-1.5 hover:text-ink">Impayées<span class="font-mono text-etiquette text-alerte-fort">3</span></button>
+            <button type="button" class="h-8 px-4.5 rounded-md bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer hover:text-ink">Soldées</button>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Variante tactile · durée du passage · h-12</span>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-transform duration-110 ease-entree active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>1 h</button>
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-prim border-[1.5px] border-prim text-prim-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer"><span class="size-2.5 rounded-pleine bg-prim-ink ring-3 ring-prim"></span>2 h</button>
+          <button type="button" class="h-12 min-w-19 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>3 h</button>
+          <button type="button" class="h-12 min-w-37 px-4 rounded-lg bg-surf border-[1.5px] border-line-2 text-ink font-titre text-lead font-semibold inline-flex items-center gap-1.5 cursor-pointer active:scale-97"><span class="size-2.5 rounded-pleine border-[1.5px] border-current opacity-35"></span>Plage horaire</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 13 SQUELETTE DE CHARGEMENT ═══════════════════════════════════════ -->
+<section id="c13" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">13</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Squelette de chargement</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">bande translatée 1,5 s · jamais un dégradé animé</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Il a la forme exacte de ce qui va arriver — même hauteur de ligne, même largeur de colonne — pour que rien ne saute à l'arrivée des données. Le scintillement est une bande translatée (transform seul), pas un dégradé animé : 60 i/s sur un téléphone à 2 Go. La roue est réservée à l'attente réseau indéterminée.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-xl bg-surf border border-line p-4 flex flex-col gap-2.5">
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-3/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-4/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Carte chiffre en attente</span>
+          <div class="w-44 rounded-xl bg-surf border border-line p-4 flex flex-col gap-2">
+            <span class="h-2.5 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+            <span class="h-8 w-3/4 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Roue · attente réseau indéterminée</span>
+          <div class="h-11 px-4 rounded-lg bg-tile inline-flex items-center gap-2.5">
+            <span class="size-4 rounded-pleine border-2 border-line-2 border-t-ocre animate-roue"></span>
+            <span class="text-corps text-ink-2">Recherche du terminal de paiement…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-xl bg-surf border border-line p-4 flex flex-col gap-2.5">
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-3/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-4/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+        <div class="h-9 flex items-center gap-3">
+          <span class="size-9 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          <span class="h-3 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Carte chiffre en attente</span>
+          <div class="w-44 rounded-xl bg-surf border border-line p-4 flex flex-col gap-2">
+            <span class="h-2.5 w-2/5 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+            <span class="h-8 w-3/4 rounded-sm bg-tile relative overflow-hidden"><span class="absolute inset-0 bg-linear-to-r from-transparent via-brillance to-transparent animate-scintillement"></span></span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Roue · attente réseau indéterminée</span>
+          <div class="h-11 px-4 rounded-lg bg-tile inline-flex items-center gap-2.5">
+            <span class="size-4 rounded-pleine border-2 border-line-2 border-t-ocre animate-roue"></span>
+            <span class="text-corps text-ink-2">Recherche du terminal de paiement…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 14 BANDEAU D'ANNULATION ══════════════════════════════════════════ -->
+<section id="c14" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">14</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Bandeau d'annulation</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-12 · 8 s · une seule action</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">La réponse de Kaya à la question « et si je me trompe ? ». Toute action destructrice s'exécute immédiatement et laisse 8 secondes pour revenir — pas de fenêtre de confirmation qui coûte un geste à chaque fois. Le compte à rebours est visible : on sait combien de temps il reste.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="h-12 pl-4 pr-2 rounded-lg bg-ink inline-flex items-center gap-3 shadow-panneau max-w-[460px]">
+        <i class="ph ph-arrow-u-up-left text-titre-s text-bg"></i>
+        <span class="flex-1 text-corps font-semibold text-bg">Consommation supprimée</span>
+        <span class="font-mono text-mini text-bg/60">8 s</span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent border border-bg/30 text-bg font-titre text-mini font-semibold cursor-pointer hover:bg-bg/15">Annuler</button>
+      </div>
+      <div class="h-12 pl-4 pr-2 rounded-lg bg-ink inline-flex items-center gap-3 shadow-panneau max-w-[460px]">
+        <i class="ph ph-arrow-u-up-left text-titre-s text-bg"></i>
+        <span class="flex-1 text-corps font-semibold text-bg">Séjour de la 205 clôturé</span>
+        <span class="w-16 h-1.5 rounded-pleine bg-bg/20 overflow-hidden"><span class="block h-full w-1/4 rounded-pleine bg-ocre"></span></span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent border border-bg/30 text-bg font-titre text-mini font-semibold cursor-pointer hover:bg-bg/15">Annuler</button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Après annulation · confirmation brève, puis disparition</span>
+        <div class="h-12 px-4 rounded-lg bg-succes-soft border border-succes/30 inline-flex items-center gap-2.5 max-w-[460px]">
+          <span class="size-2 bg-succes rotate-45"></span>
+          <span class="text-corps font-semibold text-succes-fort">Rétabli. La consommation est de retour sur la note.</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ce qui ne s'annule pas · confirmation explicite</span>
+        <div class="rounded-r-lg border-l-4 border-l-danger bg-danger-soft p-3.5 flex flex-wrap items-center gap-3 max-w-[520px]">
+          <p class="text-corps text-danger-fort m-0 flex-1">Une facture fiscale émise ne s'annule pas : elle se contre-passe par un avoir numéroté.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-danger text-prim-ink font-titre text-mini font-semibold cursor-pointer">Émettre un avoir</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="h-12 pl-4 pr-2 rounded-lg bg-ink inline-flex items-center gap-3 shadow-panneau max-w-[460px]">
+        <i class="ph ph-arrow-u-up-left text-titre-s text-bg"></i>
+        <span class="flex-1 text-corps font-semibold text-bg">Consommation supprimée</span>
+        <span class="font-mono text-mini text-bg/60">8 s</span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent border border-bg/30 text-bg font-titre text-mini font-semibold cursor-pointer hover:bg-bg/15">Annuler</button>
+      </div>
+      <div class="h-12 pl-4 pr-2 rounded-lg bg-ink inline-flex items-center gap-3 shadow-panneau max-w-[460px]">
+        <i class="ph ph-arrow-u-up-left text-titre-s text-bg"></i>
+        <span class="flex-1 text-corps font-semibold text-bg">Séjour de la 205 clôturé</span>
+        <span class="w-16 h-1.5 rounded-pleine bg-bg/20 overflow-hidden"><span class="block h-full w-1/4 rounded-pleine bg-ocre"></span></span>
+        <button type="button" class="h-9 px-3.5 rounded-md bg-transparent border border-bg/30 text-bg font-titre text-mini font-semibold cursor-pointer hover:bg-bg/15">Annuler</button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Après annulation · confirmation brève, puis disparition</span>
+        <div class="h-12 px-4 rounded-lg bg-succes-soft border border-succes/30 inline-flex items-center gap-2.5 max-w-[460px]">
+          <span class="size-2 bg-succes rotate-45"></span>
+          <span class="text-corps font-semibold text-succes-fort">Rétabli. La consommation est de retour sur la note.</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <span class="text-etiquette uppercase text-ink-3">Ce qui ne s'annule pas · confirmation explicite</span>
+        <div class="rounded-r-lg border-l-4 border-l-danger bg-danger-soft p-3.5 flex flex-wrap items-center gap-3 max-w-[520px]">
+          <p class="text-corps text-danger-fort m-0 flex-1">Une facture fiscale émise ne s'annule pas : elle se contre-passe par un avoir numéroté.</p>
+          <button type="button" class="h-9 px-3.5 rounded-md bg-danger text-prim-ink font-titre text-mini font-semibold cursor-pointer">Émettre un avoir</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<!-- ══ 15 BARRE DE PROPORTION ═══════════════════════════════════════════ -->
+<section id="c15" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">15</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Barre de proportion</h2>
+    <span class="h-7 px-2.5 rounded-pleine border border-dashed border-alerte text-alerte-fort text-mini font-semibold inline-flex items-center">Hors série · à valider</span>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-2 · jamais un pourcentage seul</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">Apparue avec la clôture et le taux d'occupation, après la série des 14. Décision à prendre : elle entre dans le canon (et alors elle a ses états, comme les autres), ou elle reste une composition locale de la carte chiffre. Elle porte toujours le chiffre à côté d'elle — une barre seule ne se lit pas.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+    
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="rounded-xl bg-surf border border-line p-4 flex flex-col gap-3.5 max-w-[360px] shadow-basse">
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Espèces</span>
+            <span class="font-mono text-corps font-bold text-ink">142 000 F</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[77%] rounded-pleine bg-prim"></span></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Mobile money</span>
+            <span class="font-mono text-corps font-bold text-ink">42 000 F</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[23%] rounded-pleine bg-ocre"></span></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Occupation · 8 chambres sur 12</span>
+            <span class="font-mono text-corps font-bold text-ink">62 %</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[62%] rounded-pleine bg-succes"></span></span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="rounded-xl bg-surf border border-line p-4 flex flex-col gap-3.5 max-w-[360px] shadow-basse">
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Espèces</span>
+            <span class="font-mono text-corps font-bold text-ink">142 000 F</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[77%] rounded-pleine bg-prim"></span></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Mobile money</span>
+            <span class="font-mono text-corps font-bold text-ink">42 000 F</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[23%] rounded-pleine bg-ocre"></span></span>
+        </div>
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between gap-3">
+            <span class="text-etiquette uppercase text-ink-3">Occupation · 8 chambres sur 12</span>
+            <span class="font-mono text-corps font-bold text-ink">62 %</span>
+          </div>
+          <span class="h-2 rounded-pleine bg-tile overflow-hidden block"><span class="block h-full w-[62%] rounded-pleine bg-succes"></span></span>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</section>
+
+<footer class="border-t border-line pt-6 pb-2 flex flex-col gap-2">
+  <p class="text-corps text-ink-2 m-0 max-w-[80ch]">Ce fichier est la source de <span class="font-mono text-mini">theme.css</span> et de <span class="font-mono text-mini">tokens.md</span>. Une valeur qui apparaît ici sans token porte un commentaire dans <span class="font-mono text-mini">README.md</span>, section « valeurs arbitraires ».</p>
+  <p class="text-mini text-ink-3 m-0 font-mono">Kaya · direction Banco · Archivo + Chivo Mono · 14 composants + 1 en attente</p>
+</footer>
+
+</main>
+
+<!-- Le compilateur Tailwind est chargé EN FIN DE CORPS : il compile ce qu'il trouve
+     dans le document au moment où il s'exécute. Placé dans <head>, il ne voit que la
+     balise <html> et ne produit aucun utilitaire. -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</body>
+</html>

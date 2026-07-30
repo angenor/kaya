@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaya — Prototype 2 · Le sélecteur de durée du passage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style type="text/tailwindcss">
+/* ═══════════════════════════════════════════════════════════════════════════
+   KAYA — THÈME TAILWIND 4
+   Direction retenue : « Banco ». Terre chaude, indigo réservé à l'action.
+
+   C'est le SEUL fichier de la maquette à copier dans le projet.
+   Il est autosuffisant : aucune dépendance à un autre fichier de kaya-design/.
+   Il se suffit aussi côté polices — les @font-face ne sont pas ici, voir la
+   note « Polices » en fin de fichier.
+
+   Deux règles de lecture :
+   1. Les noms de tokens sont IDENTIQUES en clair et en sombre. Seules les
+      valeurs changent, sous .dark. Donc `bg-surf text-ink` bascule tout seul ;
+      la variante `dark:` ne sert qu'à ce qu'une couleur ne peut pas porter
+      (ombre remplacée par une bordure, opacité, épaisseur de trait).
+   2. Tout ce qui a un nom ici n'a jamais de valeur en dur ailleurs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+
+/* Mode sombre piloté par la classe .dark, posée sur <html> ou sur n'importe
+   quel conteneur — c'est ce qui permet d'afficher les deux modes côte à côte
+   dans styleguide.html. Ajouter la préférence système si le projet le veut :
+   @custom-variant dark (&:where(.dark, .dark *, @media (prefers-color-scheme: dark))) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static` est indispensable : sans lui, Tailwind 4 élague toute variable de @theme
+   qu'aucun utilitaire n'emploie dans le fichier compilé — --color-voile,
+   --ease-elastique et les durées disparaîtraient de :root à l'exécution. */
+@theme static {
+  /* ── Typographie ──────────────────────────────────────────────────────────
+     Archivo pour tout le texte ; Chivo Mono pour tout ce qui est un montant,
+     une quantité, un numéro de chambre, une heure. Jamais l'inverse. */
+  --font-titre: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-texte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Échelle de corps. Les valeurs à la demi-unité sont voulues : elles
+     tiennent le 13 px lisible sur un 1366×768 délavé par le soleil. */
+  --text-etiquette: 11px;      /* --text-etiquette--line-height: 1 */
+  --text-etiquette--line-height: 1;
+  --text-etiquette--letter-spacing: 0.1em;
+  --text-mini: 12.5px;
+  --text-mini--line-height: 1.45;
+  --text-corps: 13.5px;
+  --text-corps--line-height: 1.55;
+  --text-action: 14.5px;       /* libellé de bouton, ne descend jamais plus bas */
+  --text-action--line-height: 1;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.6;
+  --text-titre-s: 17px;
+  --text-titre-s--line-height: 1.2;
+  --text-titre-m: 20px;
+  --text-titre-m--line-height: 1.2;
+  --text-chiffre: 24px;
+  --text-chiffre--line-height: 1.15;
+  --text-chiffre-l: 30px;
+  --text-chiffre-l--line-height: 1.15;
+  --text-titre-l: 34px;
+  --text-titre-l--line-height: 1.1;
+  /* Le montant que le propriétaire lit sur son téléphone. Deux corps, pas un :
+     au-delà de 11 caractères (« 4 480 000 F »), le montant passe à 32 px — sinon il
+     déborde d'un écran de 372 px. La règle est dans la donnée, pas dans l'œil. M4. */
+  --text-montant: 40px;
+  --text-montant--line-height: 1.05;
+  --text-montant-long: 32px;
+  --text-montant-long--line-height: 1.05;
+
+  /* La recette du jour, sur l'écran de clôture. Entre le total d'un document (44 px)
+     et le numéro de chambre annoncé (68 px) : c'est un chiffre qu'on lit assis, une
+     fois par jour, pas un nombre qu'on crie. C4. */
+  --text-recette: 54px;
+  --text-recette--line-height: 1.05;
+  --text-recette--letter-spacing: -0.02em;
+
+  /* L'échelle du comptoir : trois corps qui n'existent que parce qu'un nombre doit se
+     lire à bout de bras, debout, en tenant une clé. R4 (passage) et C4 (clôture). */
+  --text-geste: 46px;          /* le chiffre d'un bouton de décision tactile */
+  --text-geste--line-height: 1;
+  --text-total: 44px;          /* le total d'un document à lignes (R7, D6, D7) */
+  --text-total--line-height: 1;
+  --text-total--letter-spacing: -0.02em;
+  --text-annonce: 68px;        /* le numéro de chambre, une fois donné */
+  --text-annonce--line-height: 1;
+  --text-annonce-l: 88px;      /* l'heure de fin — le nombre qu'on dit à voix haute */
+  --text-annonce-l--line-height: 1;
+  --text-annonce-l--letter-spacing: -0.02em;
+
+  --text-affiche: 40px;
+  --text-affiche--line-height: 1.05;
+  --text-affiche--letter-spacing: -0.02em;
+
+  /* ── Espacement ───────────────────────────────────────────────────────────
+     Base 4 px. p-4 = 16 px, p-4.5 = 18 px, p-5.5 = 22 px : l'échelle
+     fractionnaire de Tailwind 4 couvre toute la maquette. */
+  --spacing: 4px;
+
+  /* Hauteurs de touche — toutes sur l'échelle de 4 px, donc écrites en
+     utilitaires : h-11 = 44 px (plancher tactile, jamais moins), h-12 = 48 px
+     (cible de comptoir : une main, vite), h-9 = 36 px (bouton discret, hors
+     chemin critique), h-8 = 32 px (segment), h-7 = 28 px (pastille, non
+     cliquable). Les valeurs nommées --touche-min et
+     --touche-comptoir sont déclarées dans le :root explicite, après @theme. */
+
+  /* ── Rayons ───────────────────────────────────────────────────────────────
+     Le geste Banco : le contreforts est un bloc de terre, pas une bulle. */
+  --radius-xs: 4px;      /* marque de sélection, puce */
+  --radius-sm: 6px;      /* squelette, micro-tuile */
+  --radius-md: 8px;      /* champ, bouton discret */
+  --radius-lg: 10px;     /* bouton, tuile d'action */
+  --radius-xl: 12px;     /* carte */
+  --radius-2xl: 14px;    /* panneau, feuille */
+  --radius-pleine: 999px;
+
+  /* ── Couleurs — MODE CLAIR (réception, plein soleil) ───────────────────────
+     Les mêmes noms portent les valeurs sombres sous .dark, plus bas. */
+  --color-bg: #faf4e9;         /* fond de page */
+  --color-surf: #fffdf8;       /* carte, panneau posé sur le fond */
+  --color-tile: #f4ece0;       /* tuile, en-tête de tableau, zone inerte */
+  --color-line: #e2d7c6;       /* filet de séparation */
+  --color-line-2: #c1ac91;     /* filet appuyé, bordure de champ au repos */
+  --color-ink: #1e1a16;        /* texte */
+  --color-ink-2: #4b4239;      /* texte secondaire */
+  --color-ink-3: #6b5f52;      /* étiquette, texte atténué */
+
+  --color-prim: #21458c;       /* indigo — l'action, et rien d'autre */
+  --color-prim-ink: #ffffff;   /* texte posé sur --color-prim */
+  --color-prim-dk: #16306a;    /* ombre portée du bouton, état pressé */
+  --color-prim-soft: #eaf0fb;  /* survol de bouton secondaire, ligne active */
+  --color-prim-fort: #16306a;  /* texte posé sur prim-soft (barre « nuit » du planning) */
+
+  --color-succes: #1e6b4f;
+  --color-succes-soft: #dff0e6;
+  --color-succes-fort: #14523c;   /* texte sur -soft */
+  --color-alerte: #9a5a06;
+  --color-alerte-soft: #fbe9cf;
+  --color-alerte-fort: #6f4104;
+  --color-danger: #a32723;
+  --color-danger-soft: #f8e4e2;
+  --color-danger-fort: #7d1c19;
+  --color-info: #245e80;
+  --color-info-soft: #e2eef4;
+  --color-info-fort: #123f57;
+  --color-occupe: #5b3fa8;        /* occupation : chambre prise, table servie */
+  --color-occupe-soft: #e6dcf5;
+  --color-occupe-fort: #3d2a63;
+  --color-ocre: #a86f38;          /* la terre. Décor et illustration, jamais une action. */
+  --color-ocre-soft: #f0e2cd;
+  --color-ocre-fort: #7a4e22;     /* texte sur ocre-soft */
+  --color-ocre-ink: #fffdf8;      /* texte posé sur ocre plein */
+  --color-hachure: rgb(107 95 82 / 0.34);  /* remise en état : hachure à 135° */
+  --color-grille: rgb(107 95 82 / 0.16);   /* graduation des heures */
+  --color-resume: rgb(107 95 82 / 0.10);   /* jour replié du ruban élastique */
+
+  --color-voile: rgb(30 26 22 / 0.38);      /* voile sous un panneau/modale */
+  --color-brillance: rgb(255 255 255 / 0.85); /* bande de scintillement du squelette */
+
+  /* ── Ombres ───────────────────────────────────────────────────────────────
+     Basses et rares. Le bouton principal porte une ombre pleine de 2 px qui
+     disparaît à l'appui : c'est le seul relief du système. */
+  --shadow-basse: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-carte: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-panneau: 0 8px 28px rgb(30 26 22 / 0.16);
+  --shadow-bouton: 0 2px 0 var(--color-prim-dk);
+  --shadow-bouton-appui: 0 0 0 var(--color-prim-dk);
+  --shadow-bouton-danger: 0 2px 0 var(--color-danger-fort);
+  --shadow-bouton-grand: 0 3px 0 var(--color-prim-dk);  /* bouton principal h-15 de l'accueil */
+
+  /* ── Mouvement ────────────────────────────────────────────────────────────
+     Détail et justification dans mouvement.md. Les quatre courbes sont
+     exposées en utilitaires (ease-entree, ease-sortie…) ; les durées se
+     lisent en var() car Tailwind écrit déjà duration-240. */
+  --ease-entree: cubic-bezier(0, 0, 0.2, 1);
+  --ease-sortie: cubic-bezier(0.4, 0, 1, 1);
+  --ease-deplace: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elastique: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-pulse-reseau: kayaPulse 2.4s ease-out infinite;
+  --animate-souffle: kayaBreath 1.6s ease-in-out infinite;
+  --animate-scintillement: kayaShimmer 1.5s ease-in-out infinite;
+  --animate-roue: kayaSpin 900ms linear infinite;
+}
+
+/* ═══ MOUVEMENT ET TOUCHE — VARIABLES EN CLAIR ═════════════════════════════
+   Hors @theme, dans un :root ordinaire : aucun utilitaire ne les consomme, et
+   c'est le contrat que reprennent les prototypes de proto/ ainsi que le JS.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite));
+   En utilitaire, les mêmes durées s'écrivent duration-90 / 160 / 240 / 400. */
+:root {
+  --duree-instantane: 90ms;    /* plancher tactile, jamais réduit */
+  --duree-rapide: 160ms;
+  --duree-standard: 240ms;     /* plafond de tout chemin fréquent */
+  --duree-ample: 400ms;        /* plafond absolu */
+  --decalage-liste: 28ms;      /* entrée en cascade */
+  --decalage-plafond: 6;       /* au-delà de 6 éléments, plus de décalage */
+  --intensite: 1;              /* 1 = zone de charme ; voir [data-zone] plus bas */
+
+  /* Hauteurs de touche, pour le code qui a besoin de la valeur.
+     Le balisage écrit h-11 (44 px) et h-12 (48 px). */
+  --touche-min: 44px;
+  --touche-comptoir: 48px;
+}
+
+/* ═══ MODE SOMBRE (le bar, le soir) ════════════════════════════════════════
+   Mêmes noms, autres valeurs. Rien à changer dans le balisage. */
+.dark {
+  --color-bg: #17120f;
+  --color-surf: #241c16;
+  --color-tile: #2e241c;
+  --color-line: #3c2f26;
+  --color-line-2: #5f4a39;
+  --color-ink: #f4e9da;
+  --color-ink-2: #d5c6b4;
+  --color-ink-3: #ab9a8b;
+
+  --color-prim: #9dbcf5;
+  --color-prim-ink: #10203f;
+  --color-prim-dk: #6f92cc;
+  --color-prim-soft: #1e2839;
+  --color-prim-fort: #dce7fb;
+
+  --color-succes: #63cf9d;
+  --color-succes-soft: #18342a;
+  --color-succes-fort: #a6e6c9;
+  --color-alerte: #e9a848;
+  --color-alerte-soft: #3a2a12;
+  --color-alerte-fort: #f0d9a8;
+  --color-danger: #f4837a;
+  --color-danger-soft: #3d1c1a;
+  --color-danger-fort: #f8b3ac;
+  --color-info: #78bede;
+  --color-info-soft: #12293a;
+  --color-info-fort: #b5dcee;
+  --color-occupe: #b79cf0;
+  --color-occupe-soft: #3a2f4d;
+  --color-occupe-fort: #d6c4f2;
+  --color-ocre: #d9b382;
+  --color-ocre-soft: #33261a;
+  --color-ocre-fort: #e9cfa8;
+  --color-ocre-ink: #2a1a0c;
+  --color-hachure: rgb(171 154 139 / 0.32);
+  --color-grille: rgb(171 154 139 / 0.14);
+  --color-resume: rgb(0 0 0 / 0.32);
+
+  --color-voile: rgb(10 11 16 / 0.55);
+  --color-brillance: rgb(233 233 237 / 0.09);
+
+  --shadow-basse: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-panneau: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+/* ═══ RÉGIME DE MOUVEMENT ══════════════════════════════════════════════════
+   Deux zones, une seule variable. `data-zone="vitesse"` sur le conteneur d'un
+   écran de comptoir : les durées tombent à 45 %, plafonnées à 160 ms, le
+   décalage de liste disparaît, l'élastique devient un déplacement.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite)) */
+[data-zone="vitesse"] {
+  --intensite: 0.45;
+  --decalage-liste: 0ms;
+  --ease-elastique: var(--ease-deplace);
+}
+
+/* Une seule variable passe à 0. Aucun état n'est porté par une animation :
+   ce qui bougeait apparaît, rien ne manque, rien ne casse. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --intensite: 0;
+    --decalage-liste: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ BASE ═════════════════════════════════════════════════════════════════
+   Hors @layer : ces règles doivent passer après le preflight de Tailwind. */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-texte);
+    font-size: var(--text-corps);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  /* Tout montant est tabulaire, partout, sans réglage local. */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  a {
+    color: var(--color-prim);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-prim-dk);
+    text-decoration: underline;
+  }
+  .dark a:hover {
+    color: var(--color-ink);
+  }
+  /* Le focus clavier est un anneau indigo de 2 px, jamais le bleu du navigateur. */
+  :focus-visible {
+    outline: 2px solid var(--color-prim);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: var(--color-prim-soft);
+    color: var(--color-ink);
+  }
+  [disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+/* ═══ ANIMATIONS NOMMÉES ═══════════════════════════════════════════════════
+   Les seules @keyframes du système. Utilisées par animate-pulse-reseau,
+   animate-souffle, animate-scintillement, animate-roue. */
+@keyframes kayaPulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes kayaBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.82); }
+}
+@keyframes kayaShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes kayaSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══ POLICES ══════════════════════════════════════════════════════════════
+   Les maquettes chargent Archivo et Chivo Mono depuis Google Fonts. En
+   production, servez-les en local (woff2, font-display: swap) : le produit
+   tourne sur des liaisons lentes et doit s'afficher hors ligne.
+   Le nom des familles ne change pas — seule la source change. */
+
+</style>
+</head>
+
+<body class="bg-bg text-ink font-texte">
+
+<header class="border-b border-line bg-surf">
+  <div class="mx-auto max-w-[1400px] px-8 py-7 flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <span class="text-etiquette uppercase text-ink-3 font-semibold">Kaya · Prototype 4 · M1 · une fois par jour, jamais deux</span>
+      <span class="h-px flex-1 bg-line"></span>
+      <a class="font-mono text-etiquette uppercase" href="proto-0-sommaire.html">← les six prototypes</a>
+    </div>
+    <h1 class="font-titre text-affiche font-medium text-ink m-0">La clôture réussie</h1>
+    <p class="text-lead text-ink-2 max-w-[86ch] m-0">Le seul moment où Kaya s'autorise l'élastique. Adjoua ferme sa caisse une fois par jour ; le film complet dure 1,4 s et ne joue qu'à cet instant. Appuyez sur « clôturer la journée » : la pastille bascule <em class="not-italic font-semibold text-ink">avant</em> la première image. Passez au ralenti ×3 pour voir l'ordre — les lignes, le trait, la recette, le sceau, le mot.</p>
+    <div class="flex flex-wrap items-center gap-2.5 mt-1">
+      <div class="h-9 p-1 rounded-lg bg-tile border border-line inline-flex items-center gap-1">
+        <button type="button" data-mode="clair" class="js-mode h-7 px-3 rounded-md bg-surf text-ink font-titre text-mini font-semibold cursor-pointer">Clair</button>
+        <button type="button" data-mode="sombre" class="js-mode h-7 px-3 rounded-md bg-transparent text-ink-3 font-titre text-mini font-semibold cursor-pointer">Sombre</button>
+      </div>
+      <button type="button" id="js-reduce" class="h-9 px-3.5 rounded-lg border-[1.5px] border-line-2 bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:bg-tile">Animations réduites</button>
+      <div class="h-9 p-1 rounded-lg bg-tile border border-line inline-flex items-center gap-1">
+        <span class="px-2 text-etiquette uppercase text-ink-3">Vitesse</span>
+        <button type="button" data-int="1" class="js-regime h-7 px-3 rounded-md bg-surf text-ink font-titre text-mini font-semibold cursor-pointer">Réel ×1</button>
+        <button type="button" data-int="3" class="js-regime h-7 px-3 rounded-md bg-transparent text-ink-3 font-titre text-mini font-semibold cursor-pointer">Ralenti ×3</button>
+      </div>
+      <button type="button" id="p-rejouer" class="h-9 px-3.5 rounded-lg border-[1.5px] border-ocre bg-transparent text-ocre font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:bg-ocre-soft">Rejouer la clôture</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-8 py-10 flex flex-col gap-10">
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">01</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">L'écran de clôture, en taille réelle</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">le film joue à l’ouverture · rejouable</span>
+  </div>
+  <div class="rounded-2xl border border-line bg-bg overflow-hidden shadow-panneau flex items-stretch min-h-137">
+    <div class="flex-1 min-w-0 relative flex flex-col">
+      <div class="px-11 pt-8 pb-0 flex items-start gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-etiquette uppercase text-ink-3">Hôtel Deloria · caisse de la réception</span>
+          <span class="font-titre text-titre-m font-semibold text-ink">Clôture de la journée — samedi 14 mars</span>
+        </div>
+        <span class="flex-1"></span>
+        <span class="h-8 px-3.5 rounded-pleine bg-tile inline-flex items-center gap-2 whitespace-nowrap" id="p-statut">
+          <span class="size-2.5 rounded-pleine bg-ink-3" id="p-statut-marque"></span>
+          <span class="font-titre text-mini font-semibold text-ink-2" id="p-statut-mot">Caisse ouverte</span>
+        </span>
+      </div>
+
+      <div class="relative flex-1 px-11 pt-8.5 pb-10">
+        <span class="text-etiquette uppercase text-ink-3">Ce qui est entré aujourd'hui</span>
+
+        <div class="mt-5 max-w-130 flex flex-col gap-3.5" id="p-lignes">
+          <div class="flex items-baseline justify-between gap-5">
+            <span class="font-titre text-titre-s font-medium text-ink-2">Espèces comptées</span>
+            <span class="font-mono text-chiffre font-semibold text-ink whitespace-nowrap">145 000 F</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-5">
+            <span class="font-titre text-titre-s font-medium text-ink-2">Mobile money</span>
+            <span class="font-mono text-chiffre font-semibold text-ink whitespace-nowrap">62 500 F</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-5">
+            <span class="font-titre text-titre-s font-medium text-ink-2">Écart de caisse</span>
+            <span class="font-mono text-chiffre font-semibold text-succes-fort inline-flex items-center gap-2 whitespace-nowrap"><span class="size-2.5 bg-succes rotate-45"></span>0 F</span>
+          </div>
+        </div>
+
+        <span class="block h-0.5 max-w-130 my-6 bg-ink origin-left scale-x-0" id="p-trait"></span>
+
+        <div class="flex items-center gap-7 max-w-130">
+          <div class="opacity-0" id="p-total-bloc">
+            <span class="block text-etiquette uppercase text-ink-3">Recette de la journée</span>
+            <span class="block font-mono text-recette font-bold text-ink whitespace-nowrap mt-2.5" id="p-total">0 F</span>
+          </div>
+          <span class="flex-1"></span>
+          <span class="shrink-0 size-27 rounded-pleine border-2 border-succes flex flex-col items-center justify-center gap-1 opacity-0" id="p-sceau">
+            <span class="font-titre text-mini font-bold uppercase tracking-[.08em] text-succes-fort text-center leading-tight">Journée<br>close</span>
+            <span class="font-mono text-etiquette normal-case tracking-normal text-succes-fort">14/03</span>
+          </span>
+        </div>
+
+        <div class="mt-7.5 opacity-0" id="p-mot">
+          <span class="block font-titre text-titre-s font-medium text-ink-2">Bonne soirée, Adjoua. Tout est en ordre.</span>
+          <div class="mt-2.5 flex flex-wrap gap-2.5">
+            <span class="h-7.5 px-3 rounded-pleine bg-succes-soft text-succes-fort font-titre text-mini font-semibold inline-flex items-center gap-2 whitespace-nowrap"><span class="size-2 bg-succes rotate-45"></span>34 séjours soldés</span>
+            <span class="h-7.5 px-3 rounded-pleine bg-tile text-ink-2 font-titre text-mini font-semibold inline-flex items-center whitespace-nowrap">Rapport envoyé à M. Koffi</span>
+          </div>
+        </div>
+
+        <!-- Le halo : une bande ocre qui traverse le bloc une fois, puis n'existe plus.
+             fill: none — elle ne laisse aucune trace dans le style calculé. -->
+        <span class="absolute left-0 right-0 top-1/3 h-30 pointer-events-none opacity-0 bg-linear-to-b from-transparent via-ocre-soft to-transparent" id="p-halo"></span>
+      </div>
+
+      <div class="px-11 pb-8.5 flex flex-wrap items-center gap-3">
+        <button type="button" id="p-cloturer" class="shrink-0 whitespace-nowrap h-13 px-6 rounded-xl bg-prim text-prim-ink font-titre text-titre-s font-bold cursor-pointer shadow-bouton-grand transition-[transform,box-shadow] duration-90 ease-entree active:translate-y-[3px] active:shadow-none">Clôturer la journée</button>
+        <button type="button" id="p-quitter" class="shrink-0 whitespace-nowrap h-11.5 px-5 rounded-lg border border-line bg-transparent text-ink-2 font-titre text-action font-medium cursor-pointer transition-[transform,border-color] duration-90 hover:border-line-2 hover:text-ink active:translate-y-[3px]">Fermer et rentrer</button>
+        <span class="basis-full text-mini text-ink-3 max-w-[46ch]">La caisse est close à l'instant de l'appui. Ce qui suit est du décor honnête.</span>
+      </div>
+    </div>
+
+    <div class="w-99 shrink-0 border-l border-line bg-surf px-5.5 py-5.5 flex flex-col gap-3.5">
+      <span class="text-etiquette uppercase text-ink-3">Le film, image par image</span>
+      <div class="flex flex-col" id="p-film"></div>
+      <span class="flex-1"></span>
+      <span class="text-mini text-ink-3">Chaque étape s'allume quand elle joue. En « animations réduites », tout est déjà posé : l'écran est identique, il n'a simplement pas de film.</span>
+    </div>
+  </div>
+</section>
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">02</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Ce qui bouge, dans l’ordre</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">et pourquoi le mot arrive en dernier</span>
+  </div>
+  <div class="rounded-xl border border-line bg-surf px-5 py-4 shadow-basse flex flex-col">
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">Les trois lignes de caisse entrent, du haut vers le bas.</span>
+      <span class="font-mono text-mini text-ink-3 text-right">240 ms · entrée · décalage 90 ms</span>
+    </div>
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">Le trait se tire de la gauche vers la droite — il ferme la colonne.</span>
+      <span class="font-mono text-mini text-ink-3 text-right">280 ms · déplacement · scaleX</span>
+    </div>
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">La recette monte de 0 à 207 500 F, chiffres à largeur fixe.</span>
+      <span class="font-mono text-mini text-ink-3 text-right">400 ms · entrée · aucun rebond</span>
+    </div>
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">Le sceau « journée close » se pose, avec son seul dépassement de la journée.</span>
+      <span class="font-mono text-mini text-ink-3 text-right">240 ms · élastique · dépassement 4 %</span>
+    </div>
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">Le mot arrive en dernier : « Bonne soirée, Adjoua. Tout est en ordre. »</span>
+      <span class="font-mono text-mini text-ink-3 text-right">240 ms · entrée · c'est la fin</span>
+    </div>
+    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-5 py-2.5 border-t border-line first:border-t-0">
+      <span class="text-corps text-ink-2">Un halo ocre traverse le bloc, une fois, et ne revient pas.</span>
+      <span class="font-mono text-mini text-ink-3 text-right">1 900 ms · déplacement · fill none</span>
+    </div>
+  </div>
+</section>
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">03</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Ce qu’on vérifie ici</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">M1 est le seul endroit où l’élastique est permis</span>
+  </div>
+  <div class="grid grid-cols-2 gap-3.5">
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="font-titre text-action font-semibold text-ink">Que la recette ne rebondit pas, mais que le sceau, si.</span>
+      <p class="text-corps text-ink-2 m-0">Un montant qui rebondit ressemble à un jeu — 207 500 F monte et s'arrête net. Le sceau, lui, a le droit de dépasser de 4 % : c'est le seul élastique de la journée, et il porte la seule chose qui se fête, la journée close.</p>
+    </div>
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="font-titre text-action font-semibold text-ink">Que la caisse soit close à l'instant de l'appui.</span>
+      <p class="text-corps text-ink-2 m-0">Appuyez sur « clôturer la journée » : la pastille bascule avant la première image du film. L'état est appliqué, le film l'habille. Coupez les animations : la caisse est close, la recette est juste, le mot est là — l'écran ne manque de rien.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+(function () {
+  const html = document.documentElement;
+  document.querySelectorAll('.js-mode').forEach(b => b.addEventListener('click', () => {
+    const sombre = b.dataset.mode === 'sombre';
+    html.classList.toggle('dark', sombre);
+    document.querySelectorAll('.js-mode').forEach(x => {
+      const on = (x.dataset.mode === 'sombre') === sombre;
+      x.className = 'js-mode h-7 px-3 rounded-md font-titre text-mini font-semibold cursor-pointer ' + (on ? 'bg-surf text-ink' : 'bg-transparent text-ink-3');
+    });
+  }));
+  const r = document.getElementById('js-reduce');
+  window.reduit = false;
+  r.addEventListener('click', () => {
+    window.reduit = !window.reduit;
+    r.className = 'h-9 px-3.5 rounded-lg border-[1.5px] font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 ' +
+      (window.reduit ? 'border-prim bg-prim-soft text-prim' : 'border-line-2 bg-transparent text-ink-2 hover:bg-tile');
+  });
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) r.click();
+  window.d = ms => window.reduit ? 0 : Math.round(ms * (window.intensite === undefined ? 1 : window.intensite));
+  window.fmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F') + '\u202FF';
+  window.ENTREE = 'cubic-bezier(0,0,.2,1)';
+  window.SORTIE = 'cubic-bezier(.4,0,1,1)';
+  window.DEPLACE = 'cubic-bezier(.4,0,.2,1)';
+  window.ELAST = 'cubic-bezier(.34,1.56,.64,1)';
+  window.anim = (el, k, ms, e, delay) => el.animate(k, { duration: Math.max(ms, 0.01), easing: e, delay: delay || 0, fill: 'both' });
+})();
+
+
+
+window.intensite = 1;
+document.querySelectorAll('.js-regime').forEach(b => b.onclick = () => {
+  window.intensite = parseFloat(b.dataset.int);
+  document.querySelectorAll('.js-regime').forEach(x => {
+    const on = x === b;
+    x.className = 'js-regime h-7 px-3 rounded-md font-titre text-mini font-semibold cursor-pointer ' + (on ? 'bg-surf text-ink' : 'bg-transparent text-ink-3');
+  });
+  jouer();
+});
+
+const TOTAL = 207500;
+const ETAPES = [['Les lignes de caisse entrent', '240 ms · décalage 90'], ['Le trait se tire', '280 ms · déplacement'],
+  ['La recette monte', '400 ms · sans rebond'], ['Le sceau se pose', '240 ms · élastique'],
+  ['Le mot arrive', '240 ms · entrée'], ['Le halo passe', '1 900 ms · une fois']];
+const film = document.getElementById('p-film');
+ETAPES.forEach((e, i) => {
+  const d = document.createElement('div');
+  d.className = 'grid grid-cols-[20px_minmax(0,1fr)_auto] gap-x-3 items-baseline py-2.5 border-t border-line first:border-t-0 js-etape';
+  d.innerHTML = '<span class="font-mono text-mini text-ink-3">' + (i + 1) + '</span>' +
+    '<span class="text-corps text-ink-3 js-nom">' + e[0] + '</span>' +
+    '<span class="font-mono text-etiquette normal-case tracking-normal text-ink-3">' + e[1] + '</span>';
+  film.appendChild(d);
+});
+const etapes = [...document.querySelectorAll('.js-etape')];
+function allumer(i) {
+  etapes.forEach((e, j) => e.querySelector('.js-nom').className = 'text-corps js-nom ' + (j <= i ? 'text-ink font-semibold' : 'text-ink-3'));
+}
+let timers = [];
+function compter(cible, ms) {
+  const el = document.getElementById('p-total'), t0 = performance.now();
+  if (ms <= 0) { el.textContent = window.fmt(cible); return; }
+  const pas = now => {
+    const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = window.fmt(cible * e);
+    if (p < 1) requestAnimationFrame(pas);
+  };
+  requestAnimationFrame(pas);
+}
+// La caisse est close à l'instant de l'appui : l'état d'abord, le décor ensuite.
+function clore() {
+  document.getElementById('p-statut-marque').className = 'size-2.5 bg-succes rotate-45';
+  document.getElementById('p-statut-mot').textContent = 'Caisse close';
+  document.getElementById('p-statut-mot').className = 'font-titre text-mini font-semibold text-succes-fort';
+  document.getElementById('p-statut').className = 'h-8 px-3.5 rounded-pleine bg-succes-soft inline-flex items-center gap-2 whitespace-nowrap';
+}
+function jouer() {
+  timers.forEach(clearTimeout); timers = [];
+  clore();
+  allumer(-1);
+  const at = (ms, fn) => timers.push(setTimeout(fn, window.d(ms)));
+  const sceau = document.getElementById('p-sceau'), mot = document.getElementById('p-mot'),
+        totalBloc = document.getElementById('p-total-bloc'), halo = document.getElementById('p-halo');
+  sceau.style.opacity = '0'; mot.style.opacity = '0'; totalBloc.style.opacity = '0';
+  [...document.getElementById('p-lignes').children].forEach((el, i) =>
+    window.anim(el, [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'none' }], window.d(240), window.ENTREE, window.d(i * 90)));
+  window.anim(halo, [{ opacity: 0, transform: 'translateY(34px)' }, { opacity: .9, transform: 'none', offset: .45 }, { opacity: 0, transform: 'translateY(-12px)' }],
+    window.d(1900), window.DEPLACE, 0).finished.catch(() => {});
+  allumer(0);
+  at(320, () => { allumer(1); window.anim(document.getElementById('p-trait'), [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], window.d(280), window.DEPLACE); });
+  at(560, () => {
+    allumer(2);
+    totalBloc.style.opacity = '1';
+    window.anim(totalBloc, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], window.d(240), window.ENTREE);
+    compter(TOTAL, window.d(400));
+  });
+  at(900, () => {
+    allumer(3);
+    sceau.style.opacity = '1';
+    window.anim(sceau, [{ opacity: 0, transform: 'scale(.86) rotate(-6deg)' }, { opacity: 1, transform: 'none' }], window.d(240), window.ELAST);
+  });
+  at(1140, () => {
+    allumer(4);
+    mot.style.opacity = '1';
+    window.anim(mot, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], window.d(240), window.ENTREE);
+  });
+  at(1400, () => allumer(5));
+}
+document.getElementById('p-cloturer').onclick = jouer;
+document.getElementById('p-rejouer').onclick = jouer;
+document.getElementById('p-quitter').onclick = () => {
+  // état de départ : la caisse est ouverte, rien n'est encore joué
+  timers.forEach(clearTimeout); timers = [];
+  document.getElementById('p-statut-marque').className = 'size-2.5 rounded-pleine bg-ink-3';
+  document.getElementById('p-statut-mot').textContent = 'Caisse ouverte';
+  document.getElementById('p-statut-mot').className = 'font-titre text-mini font-semibold text-ink-2';
+  document.getElementById('p-statut').className = 'h-8 px-3.5 rounded-pleine bg-tile inline-flex items-center gap-2 whitespace-nowrap';
+  ['p-sceau', 'p-mot', 'p-total-bloc'].forEach(k => { const e = document.getElementById(k); e.getAnimations().forEach(a => a.cancel()); e.style.opacity = '0'; });
+  document.getElementById('p-trait').getAnimations().forEach(a => a.cancel());
+  document.getElementById('p-total').textContent = '0 F';
+  allumer(-1);
+};
+setTimeout(jouer, 260);
+
+</script>
+
+<!-- Le compilateur Tailwind se charge en fin de corps : il ne compile que ce qui existe
+     déjà dans le document au moment où il s'exécute. -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</body>
+</html>

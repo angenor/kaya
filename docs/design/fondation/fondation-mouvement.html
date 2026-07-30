@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaya — Fondation · Le système de mouvement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<style type="text/tailwindcss">
+/* ═══════════════════════════════════════════════════════════════════════════
+   KAYA — THÈME TAILWIND 4
+   Direction retenue : « Banco ». Terre chaude, indigo réservé à l'action.
+
+   C'est le SEUL fichier de la maquette à copier dans le projet.
+   Il est autosuffisant : aucune dépendance à un autre fichier de kaya-design/.
+   Il se suffit aussi côté polices — les @font-face ne sont pas ici, voir la
+   note « Polices » en fin de fichier.
+
+   Deux règles de lecture :
+   1. Les noms de tokens sont IDENTIQUES en clair et en sombre. Seules les
+      valeurs changent, sous .dark. Donc `bg-surf text-ink` bascule tout seul ;
+      la variante `dark:` ne sert qu'à ce qu'une couleur ne peut pas porter
+      (ombre remplacée par une bordure, opacité, épaisseur de trait).
+   2. Tout ce qui a un nom ici n'a jamais de valeur en dur ailleurs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+
+/* Mode sombre piloté par la classe .dark, posée sur <html> ou sur n'importe
+   quel conteneur — c'est ce qui permet d'afficher les deux modes côte à côte
+   dans styleguide.html. Ajouter la préférence système si le projet le veut :
+   @custom-variant dark (&:where(.dark, .dark *, @media (prefers-color-scheme: dark))) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static` est indispensable : sans lui, Tailwind 4 élague toute variable de @theme
+   qu'aucun utilitaire n'emploie dans le fichier compilé — --color-voile,
+   --ease-elastique et les durées disparaîtraient de :root à l'exécution. */
+@theme static {
+  /* ── Typographie ──────────────────────────────────────────────────────────
+     Archivo pour tout le texte ; Chivo Mono pour tout ce qui est un montant,
+     une quantité, un numéro de chambre, une heure. Jamais l'inverse. */
+  --font-titre: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-texte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Échelle de corps. Les valeurs à la demi-unité sont voulues : elles
+     tiennent le 13 px lisible sur un 1366×768 délavé par le soleil. */
+  --text-etiquette: 11px;      /* --text-etiquette--line-height: 1 */
+  --text-etiquette--line-height: 1;
+  --text-etiquette--letter-spacing: 0.1em;
+  --text-mini: 12.5px;
+  --text-mini--line-height: 1.45;
+  --text-corps: 13.5px;
+  --text-corps--line-height: 1.55;
+  --text-action: 14.5px;       /* libellé de bouton, ne descend jamais plus bas */
+  --text-action--line-height: 1;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.6;
+  --text-titre-s: 17px;
+  --text-titre-s--line-height: 1.2;
+  --text-titre-m: 20px;
+  --text-titre-m--line-height: 1.2;
+  --text-chiffre: 24px;
+  --text-chiffre--line-height: 1.15;
+  --text-chiffre-l: 30px;
+  --text-chiffre-l--line-height: 1.15;
+  --text-titre-l: 34px;
+  --text-titre-l--line-height: 1.1;
+  /* Le montant que le propriétaire lit sur son téléphone. Deux corps, pas un :
+     au-delà de 11 caractères (« 4 480 000 F »), le montant passe à 32 px — sinon il
+     déborde d'un écran de 372 px. La règle est dans la donnée, pas dans l'œil. M4. */
+  --text-montant: 40px;
+  --text-montant--line-height: 1.05;
+  --text-montant-long: 32px;
+  --text-montant-long--line-height: 1.05;
+
+  /* La recette du jour, sur l'écran de clôture. Entre le total d'un document (44 px)
+     et le numéro de chambre annoncé (68 px) : c'est un chiffre qu'on lit assis, une
+     fois par jour, pas un nombre qu'on crie. C4. */
+  --text-recette: 54px;
+  --text-recette--line-height: 1.05;
+  --text-recette--letter-spacing: -0.02em;
+
+  /* L'échelle du comptoir : trois corps qui n'existent que parce qu'un nombre doit se
+     lire à bout de bras, debout, en tenant une clé. R4 (passage) et C4 (clôture). */
+  --text-geste: 46px;          /* le chiffre d'un bouton de décision tactile */
+  --text-geste--line-height: 1;
+  --text-total: 44px;          /* le total d'un document à lignes (R7, D6, D7) */
+  --text-total--line-height: 1;
+  --text-total--letter-spacing: -0.02em;
+  --text-annonce: 68px;        /* le numéro de chambre, une fois donné */
+  --text-annonce--line-height: 1;
+  --text-annonce-l: 88px;      /* l'heure de fin — le nombre qu'on dit à voix haute */
+  --text-annonce-l--line-height: 1;
+  --text-annonce-l--letter-spacing: -0.02em;
+
+  --text-affiche: 40px;
+  --text-affiche--line-height: 1.05;
+  --text-affiche--letter-spacing: -0.02em;
+
+  /* ── Espacement ───────────────────────────────────────────────────────────
+     Base 4 px. p-4 = 16 px, p-4.5 = 18 px, p-5.5 = 22 px : l'échelle
+     fractionnaire de Tailwind 4 couvre toute la maquette. */
+  --spacing: 4px;
+
+  /* Hauteurs de touche — toutes sur l'échelle de 4 px, donc écrites en
+     utilitaires : h-11 = 44 px (plancher tactile, jamais moins), h-12 = 48 px
+     (cible de comptoir : une main, vite), h-9 = 36 px (bouton discret, hors
+     chemin critique), h-8 = 32 px (segment), h-7 = 28 px (pastille, non
+     cliquable). Les valeurs nommées --touche-min et
+     --touche-comptoir sont déclarées dans le :root explicite, après @theme. */
+
+  /* ── Rayons ───────────────────────────────────────────────────────────────
+     Le geste Banco : le contreforts est un bloc de terre, pas une bulle. */
+  --radius-xs: 4px;      /* marque de sélection, puce */
+  --radius-sm: 6px;      /* squelette, micro-tuile */
+  --radius-md: 8px;      /* champ, bouton discret */
+  --radius-lg: 10px;     /* bouton, tuile d'action */
+  --radius-xl: 12px;     /* carte */
+  --radius-2xl: 14px;    /* panneau, feuille */
+  --radius-pleine: 999px;
+
+  /* ── Couleurs — MODE CLAIR (réception, plein soleil) ───────────────────────
+     Les mêmes noms portent les valeurs sombres sous .dark, plus bas. */
+  --color-bg: #faf4e9;         /* fond de page */
+  --color-surf: #fffdf8;       /* carte, panneau posé sur le fond */
+  --color-tile: #f4ece0;       /* tuile, en-tête de tableau, zone inerte */
+  --color-line: #e2d7c6;       /* filet de séparation */
+  --color-line-2: #c1ac91;     /* filet appuyé, bordure de champ au repos */
+  --color-ink: #1e1a16;        /* texte */
+  --color-ink-2: #4b4239;      /* texte secondaire */
+  --color-ink-3: #6b5f52;      /* étiquette, texte atténué */
+
+  --color-prim: #21458c;       /* indigo — l'action, et rien d'autre */
+  --color-prim-ink: #ffffff;   /* texte posé sur --color-prim */
+  --color-prim-dk: #16306a;    /* ombre portée du bouton, état pressé */
+  --color-prim-soft: #eaf0fb;  /* survol de bouton secondaire, ligne active */
+  --color-prim-fort: #16306a;  /* texte posé sur prim-soft (barre « nuit » du planning) */
+
+  --color-succes: #1e6b4f;
+  --color-succes-soft: #dff0e6;
+  --color-succes-fort: #14523c;   /* texte sur -soft */
+  --color-alerte: #9a5a06;
+  --color-alerte-soft: #fbe9cf;
+  --color-alerte-fort: #6f4104;
+  --color-danger: #a32723;
+  --color-danger-soft: #f8e4e2;
+  --color-danger-fort: #7d1c19;
+  --color-info: #245e80;
+  --color-info-soft: #e2eef4;
+  --color-info-fort: #123f57;
+  --color-occupe: #5b3fa8;        /* occupation : chambre prise, table servie */
+  --color-occupe-soft: #e6dcf5;
+  --color-occupe-fort: #3d2a63;
+  --color-ocre: #a86f38;          /* la terre. Décor et illustration, jamais une action. */
+  --color-ocre-soft: #f0e2cd;
+  --color-ocre-fort: #7a4e22;     /* texte sur ocre-soft */
+  --color-ocre-ink: #fffdf8;      /* texte posé sur ocre plein */
+  --color-hachure: rgb(107 95 82 / 0.34);  /* remise en état : hachure à 135° */
+  --color-grille: rgb(107 95 82 / 0.16);   /* graduation des heures */
+  --color-resume: rgb(107 95 82 / 0.10);   /* jour replié du ruban élastique */
+
+  --color-voile: rgb(30 26 22 / 0.38);      /* voile sous un panneau/modale */
+  --color-brillance: rgb(255 255 255 / 0.85); /* bande de scintillement du squelette */
+
+  /* ── Ombres ───────────────────────────────────────────────────────────────
+     Basses et rares. Le bouton principal porte une ombre pleine de 2 px qui
+     disparaît à l'appui : c'est le seul relief du système. */
+  --shadow-basse: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-carte: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-panneau: 0 8px 28px rgb(30 26 22 / 0.16);
+  --shadow-bouton: 0 2px 0 var(--color-prim-dk);
+  --shadow-bouton-appui: 0 0 0 var(--color-prim-dk);
+  --shadow-bouton-danger: 0 2px 0 var(--color-danger-fort);
+  --shadow-bouton-grand: 0 3px 0 var(--color-prim-dk);  /* bouton principal h-15 de l'accueil */
+
+  /* ── Mouvement ────────────────────────────────────────────────────────────
+     Détail et justification dans mouvement.md. Les quatre courbes sont
+     exposées en utilitaires (ease-entree, ease-sortie…) ; les durées se
+     lisent en var() car Tailwind écrit déjà duration-240. */
+  --ease-entree: cubic-bezier(0, 0, 0.2, 1);
+  --ease-sortie: cubic-bezier(0.4, 0, 1, 1);
+  --ease-deplace: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elastique: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-pulse-reseau: kayaPulse 2.4s ease-out infinite;
+  --animate-souffle: kayaBreath 1.6s ease-in-out infinite;
+  --animate-scintillement: kayaShimmer 1.5s ease-in-out infinite;
+  --animate-roue: kayaSpin 900ms linear infinite;
+}
+
+/* ═══ MOUVEMENT ET TOUCHE — VARIABLES EN CLAIR ═════════════════════════════
+   Hors @theme, dans un :root ordinaire : aucun utilitaire ne les consomme, et
+   c'est le contrat que reprennent les prototypes de proto/ ainsi que le JS.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite));
+   En utilitaire, les mêmes durées s'écrivent duration-90 / 160 / 240 / 400. */
+:root {
+  --duree-instantane: 90ms;    /* plancher tactile, jamais réduit */
+  --duree-rapide: 160ms;
+  --duree-standard: 240ms;     /* plafond de tout chemin fréquent */
+  --duree-ample: 400ms;        /* plafond absolu */
+  --decalage-liste: 28ms;      /* entrée en cascade */
+  --decalage-plafond: 6;       /* au-delà de 6 éléments, plus de décalage */
+  --intensite: 1;              /* 1 = zone de charme ; voir [data-zone] plus bas */
+
+  /* Hauteurs de touche, pour le code qui a besoin de la valeur.
+     Le balisage écrit h-11 (44 px) et h-12 (48 px). */
+  --touche-min: 44px;
+  --touche-comptoir: 48px;
+}
+
+/* ═══ MODE SOMBRE (le bar, le soir) ════════════════════════════════════════
+   Mêmes noms, autres valeurs. Rien à changer dans le balisage. */
+.dark {
+  --color-bg: #17120f;
+  --color-surf: #241c16;
+  --color-tile: #2e241c;
+  --color-line: #3c2f26;
+  --color-line-2: #5f4a39;
+  --color-ink: #f4e9da;
+  --color-ink-2: #d5c6b4;
+  --color-ink-3: #ab9a8b;
+
+  --color-prim: #9dbcf5;
+  --color-prim-ink: #10203f;
+  --color-prim-dk: #6f92cc;
+  --color-prim-soft: #1e2839;
+  --color-prim-fort: #dce7fb;
+
+  --color-succes: #63cf9d;
+  --color-succes-soft: #18342a;
+  --color-succes-fort: #a6e6c9;
+  --color-alerte: #e9a848;
+  --color-alerte-soft: #3a2a12;
+  --color-alerte-fort: #f0d9a8;
+  --color-danger: #f4837a;
+  --color-danger-soft: #3d1c1a;
+  --color-danger-fort: #f8b3ac;
+  --color-info: #78bede;
+  --color-info-soft: #12293a;
+  --color-info-fort: #b5dcee;
+  --color-occupe: #b79cf0;
+  --color-occupe-soft: #3a2f4d;
+  --color-occupe-fort: #d6c4f2;
+  --color-ocre: #d9b382;
+  --color-ocre-soft: #33261a;
+  --color-ocre-fort: #e9cfa8;
+  --color-ocre-ink: #2a1a0c;
+  --color-hachure: rgb(171 154 139 / 0.32);
+  --color-grille: rgb(171 154 139 / 0.14);
+  --color-resume: rgb(0 0 0 / 0.32);
+
+  --color-voile: rgb(10 11 16 / 0.55);
+  --color-brillance: rgb(233 233 237 / 0.09);
+
+  --shadow-basse: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-panneau: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+/* ═══ RÉGIME DE MOUVEMENT ══════════════════════════════════════════════════
+   Deux zones, une seule variable. `data-zone="vitesse"` sur le conteneur d'un
+   écran de comptoir : les durées tombent à 45 %, plafonnées à 160 ms, le
+   décalage de liste disparaît, l'élastique devient un déplacement.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite)) */
+[data-zone="vitesse"] {
+  --intensite: 0.45;
+  --decalage-liste: 0ms;
+  --ease-elastique: var(--ease-deplace);
+}
+
+/* Une seule variable passe à 0. Aucun état n'est porté par une animation :
+   ce qui bougeait apparaît, rien ne manque, rien ne casse. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --intensite: 0;
+    --decalage-liste: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ BASE ═════════════════════════════════════════════════════════════════
+   Hors @layer : ces règles doivent passer après le preflight de Tailwind. */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-texte);
+    font-size: var(--text-corps);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  /* Tout montant est tabulaire, partout, sans réglage local. */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  a {
+    color: var(--color-prim);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-prim-dk);
+    text-decoration: underline;
+  }
+  .dark a:hover {
+    color: var(--color-ink);
+  }
+  /* Le focus clavier est un anneau indigo de 2 px, jamais le bleu du navigateur. */
+  :focus-visible {
+    outline: 2px solid var(--color-prim);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: var(--color-prim-soft);
+    color: var(--color-ink);
+  }
+  [disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+/* ═══ ANIMATIONS NOMMÉES ═══════════════════════════════════════════════════
+   Les seules @keyframes du système. Utilisées par animate-pulse-reseau,
+   animate-souffle, animate-scintillement, animate-roue. */
+@keyframes kayaPulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes kayaBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.82); }
+}
+@keyframes kayaShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes kayaSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══ POLICES ══════════════════════════════════════════════════════════════
+   Les maquettes chargent Archivo et Chivo Mono depuis Google Fonts. En
+   production, servez-les en local (woff2, font-display: swap) : le produit
+   tourne sur des liaisons lentes et doit s'afficher hors ligne.
+   Le nom des familles ne change pas — seule la source change. */
+
+</style>
+</head>
+
+<body class="bg-bg text-ink font-texte">
+
+<header class="border-b border-line bg-surf">
+  <div class="mx-auto max-w-[1400px] px-8 py-7 flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <span class="text-etiquette uppercase text-ink-3 font-semibold">Kaya · Banco · Fondation</span>
+      <span class="h-px flex-1 bg-line"></span>
+      <span class="text-etiquette uppercase text-ink-3 font-mono">étape 2 · mouvement.md</span>
+    </div>
+    <h1 class="font-titre text-affiche font-medium text-ink m-0">Le système de mouvement</h1>
+    <p class="text-lead text-ink-2 max-w-[80ch] m-0">Le mouvement de Kaya répond à une seule question : <strong class="font-semibold text-ink">est-ce que mon travail est en sécurité ?</strong> Il ne décore pas, il informe. Une gérante qui encaisse à 23 h dans un bar bruyant ne regarde pas l’écran ; elle le sent. Le mouvement est donc court, prévisible, et toujours redondant avec un signal statique.</p>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-8 py-10 flex flex-col gap-12">
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">00</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Trois principes, dans cet ordre</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">ils tranchent tous les cas</span>
+  </div>
+  <div class="grid grid-cols-3 gap-3.5">
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2"><span class="font-mono text-mini font-bold text-prim">1</span><p class="text-corps text-ink-2 m-0"><strong class="font-semibold text-ink">Le mouvement habille un état déjà appliqué.</strong> L’état change d’abord, l’animation suit. Rien n’attend la fin d’une transition : aucune saisie n’est jamais bloquée.</p></div>
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2"><span class="font-mono text-mini font-bold text-prim">2</span><p class="text-corps text-ink-2 m-0"><strong class="font-semibold text-ink">Aucun état n’est porté par une animation.</strong> Si l’animation ne joue pas — préférence système, appareil lent, capture d’écran — l’information est encore là.</p></div>
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2"><span class="font-mono text-mini font-bold text-prim">3</span><p class="text-corps text-ink-2 m-0"><strong class="font-semibold text-ink">400 ms de plafond absolu</strong>, 240 ms sur tout chemin fréquent. Une liste de 40 lignes se pose en 168 ms de décalage maximum, pas en 1,1 s.</p></div>
+  </div>
+</section>
+
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">01</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Durées</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">sept variables, hors du bloc @theme</span>
+  </div>
+  <div class="rounded-xl border border-line bg-surf px-5 py-4 shadow-basse flex flex-col">
+      <div class="grid grid-cols-[220px_84px_minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-x-5 py-2.5 border-t border-line">
+        <span class="font-mono text-corps text-ink">--duree-instantane</span>
+        <span class="font-mono text-corps font-semibold text-ink text-right">90 ms</span>
+        <span class="h-2 rounded-pleine bg-tile overflow-hidden"><span class="block h-full w-[22.5%] rounded-pleine bg-prim"></span></span>
+        <span class="text-mini text-ink-3">Retour tactile. Plancher : jamais réduit.</span>
+      </div>
+      <div class="grid grid-cols-[220px_84px_minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-x-5 py-2.5 border-t border-line">
+        <span class="font-mono text-corps text-ink">--duree-rapide</span>
+        <span class="font-mono text-corps font-semibold text-ink text-right">160 ms</span>
+        <span class="h-2 rounded-pleine bg-tile overflow-hidden"><span class="block h-full w-[40%] rounded-pleine bg-prim"></span></span>
+        <span class="text-mini text-ink-3">Changement d’état sur place, sortie de panneau.</span>
+      </div>
+      <div class="grid grid-cols-[220px_84px_minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-x-5 py-2.5 border-t border-line">
+        <span class="font-mono text-corps text-ink">--duree-standard</span>
+        <span class="font-mono text-corps font-semibold text-ink text-right">240 ms</span>
+        <span class="h-2 rounded-pleine bg-tile overflow-hidden"><span class="block h-full w-[60%] rounded-pleine bg-prim"></span></span>
+        <span class="text-mini text-ink-3">Entrée de liste, changement d’écran, ouverture.</span>
+      </div>
+      <div class="grid grid-cols-[220px_84px_minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-x-5 py-2.5 border-t border-line">
+        <span class="font-mono text-corps text-ink">--duree-ample</span>
+        <span class="font-mono text-corps font-semibold text-ink text-right">400 ms</span>
+        <span class="h-2 rounded-pleine bg-tile overflow-hidden"><span class="block h-full w-full rounded-pleine bg-prim"></span></span>
+        <span class="text-mini text-ink-3">Plafond absolu : montant qui défile, réussite.</span>
+      </div>
+      <div class="grid grid-cols-[220px_84px_minmax(0,2.1fr)] items-baseline gap-x-5 py-2.5 border-t border-line">
+        <span class="font-mono text-corps text-ink">--decalage-liste</span>
+        <span class="font-mono text-corps font-semibold text-ink text-right">28 ms</span>
+        <span class="text-mini text-ink-3">Écart entre deux éléments d’une même entrée · <span class="font-mono">--decalage-plafond: 6</span> — au-delà de six éléments, plus de décalage.</span>
+      </div>
+  </div>
+  <p class="text-mini text-ink-3 max-w-[92ch] m-0">En Tailwind : <span class="font-mono text-mini">duration-90</span>, <span class="font-mono text-mini">duration-160</span>, <span class="font-mono text-mini">duration-240</span>, <span class="font-mono text-mini">duration-400</span>. En CSS calculé : <span class="font-mono text-mini">transition-duration: calc(var(--duree-standard) * var(--intensite))</span>. Ces variables vivent dans un <span class="font-mono text-mini">:root</span> ordinaire de <span class="font-mono text-mini">theme.css</span> : Tailwind 4 élague toute variable de <span class="font-mono text-mini">@theme</span> qu’aucun utilitaire n’emploie. Les quatre courbes, elles, restent dans <span class="font-mono text-mini">@theme static</span> parce qu’elles produisent des utilitaires.</p>
+</section>
+
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">02</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Courbes</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">quatre, pas une de plus</span>
+  </div>
+  <div class="rounded-xl border border-line bg-surf px-5 py-4 shadow-basse flex flex-col">
+      <div class="grid grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-5 gap-y-1 py-3 border-t border-line">
+        <span class="flex flex-col gap-1">
+          <span class="font-titre text-action font-semibold text-ink">Entrée</span>
+          <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3">ease-entree</span>
+        </span>
+        <span class="flex flex-col gap-1">
+          <span class="text-corps text-ink-2">Un élément qui apparaît décélère : il arrive vite puis se pose.</span>
+          <span class="font-mono text-mini text-ink-3">cubic-bezier(0, 0, .2, 1)</span>
+        </span>
+        <span class="text-mini text-ink-3">Listes, panneaux, bandeaux, modales.</span>
+      </div>
+      <div class="grid grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-5 gap-y-1 py-3 border-t border-line">
+        <span class="flex flex-col gap-1">
+          <span class="font-titre text-action font-semibold text-ink">Sortie</span>
+          <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3">ease-sortie</span>
+        </span>
+        <span class="flex flex-col gap-1">
+          <span class="text-corps text-ink-2">Un élément qui part accélère et disparaît. Toujours plus courte que son entrée — on ne regarde pas partir.</span>
+          <span class="font-mono text-mini text-ink-3">cubic-bezier(.4, 0, 1, 1)</span>
+        </span>
+        <span class="text-mini text-ink-3">Fermeture de panneau, retrait de bandeau.</span>
+      </div>
+      <div class="grid grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-5 gap-y-1 py-3 border-t border-line">
+        <span class="flex flex-col gap-1">
+          <span class="font-titre text-action font-semibold text-ink">Déplacement</span>
+          <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3">ease-deplace</span>
+        </span>
+        <span class="flex flex-col gap-1">
+          <span class="text-corps text-ink-2">Un élément qui reste à l’écran et change de place ou de taille. Symétrique.</span>
+          <span class="font-mono text-mini text-ink-3">cubic-bezier(.4, 0, .2, 1)</span>
+        </span>
+        <span class="text-mini text-ink-3">Réordonnancement, accordéon, bascule de segment.</span>
+      </div>
+      <div class="grid grid-cols-[150px_minmax(0,1.6fr)_minmax(0,1fr)] gap-x-5 gap-y-1 py-3 border-t border-line">
+        <span class="flex flex-col gap-1">
+          <span class="font-titre text-action font-semibold text-ink">Élastique</span>
+          <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3">ease-elastique</span>
+        </span>
+        <span class="flex flex-col gap-1">
+          <span class="text-corps text-ink-2">Dépasse de 4 % puis revient. <strong class="font-semibold text-ink">Réservée au plaisir.</strong> Interdite en zone de vitesse.</span>
+          <span class="font-mono text-mini text-ink-3">cubic-bezier(.34, 1.56, .64, 1)</span>
+        </span>
+        <span class="text-mini text-ink-3">Clôture réussie, KPI d’accueil.</span>
+      </div>
+  </div>
+</section>
+
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">03</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Les sept patrons</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">proto/ les joue, un fichier par patron</span>
+  </div>
+  <div class="grid grid-cols-2 gap-3.5">
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P1</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Entrée de liste</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0"><span class="font-mono">opacity 0→1</span> + <span class="font-mono">translateY(10px)→0</span>, <span class="font-mono">--duree-standard</span>, courbe entrée, décalage <span class="font-mono">--decalage-liste</span> plafonné à 6 éléments. Une liste qui se recharge ne rejoue pas l’entrée : seules les lignes nouvelles entrent.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P1 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P2</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Transition d’écran</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0">Sortant : <span class="font-mono">translateX(−28px)</span> + opacité, courbe sortie. Entrant : <span class="font-mono">translateX(100%)→0</span>, courbe entrée, 240 ms. Le retour inverse les directions. Jamais de fondu croisé : on doit savoir d’où on vient.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P2 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P3</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Panneau latéral</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0">Entrée <span class="font-mono">translateX(100%)→0</span> en 240 ms avec le voile qui monte en opacité. Sortie en 160 ms. Le voile disparaît toujours avant le panneau, jamais après.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P3 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P4</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Montant qui change</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0">Le nombre défile (interpolation cubique) sur 400 ms, avec une poussée d’échelle de 4 % en élastique et, en zone de charme seulement, un delta qui monte et s’efface. En zone de vitesse : 140 ms, aucun dépassement, pas de delta.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P4 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P5</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Retour tactile du bouton</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0"><span class="font-mono">translateY(3px)</span> + l’ombre pleine qui tombe à 0, 90 ms, courbe entrée. <strong class="font-semibold text-ink">C’est le seul mouvement qui n’est jamais réduit</strong> : il ne raconte rien, il confirme que le doigt a été vu.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P5 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P6</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">Changement d’état</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0">L’ancienne pastille sort vers le haut, la nouvelle entre par le bas, 160 ms. La <strong class="font-semibold text-ink">forme</strong> change avec la couleur — jamais la couleur seule.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P6 en mouvement</a></p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2">
+      <span class="flex items-baseline gap-2.5">
+        <span class="font-mono text-mini font-bold text-prim">P7</span>
+        <span class="font-titre text-titre-s font-semibold text-ink">État de chargement</span>
+      </span>
+      <p class="text-corps text-ink-2 m-0">Squelette à la forme exacte du contenu à venir. Le scintillement est une bande translatée (<span class="font-mono">transform</span> seul) sur 1,5 s, jamais un dégradé animé. La roue est réservée à une attente réseau indéterminée.</p>
+      <p class="text-mini text-ink-3 m-0"><a href="../proto/proto-1-sept-patrons.html">Voir P7 en mouvement</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">04</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Les deux zones</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">une seule variable sépare le plaisir de la vitesse</span>
+  </div>
+  <div class="rounded-xl border border-line bg-surf px-5 py-4 shadow-basse flex flex-col">
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 pb-2">
+        <span></span>
+        <span class="font-titre text-action font-semibold text-ink">Charme · ×1</span>
+        <span class="font-titre text-action font-semibold text-ink">Vitesse · ×0,45</span>
+      </div>
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 py-2.5 border-t border-line">
+        <span class="text-etiquette uppercase text-ink-3">Où</span>
+        <span class="text-corps text-ink-2">Accueil, tableau de bord, clôture réussie, page client</span>
+        <span class="text-corps text-ink-2">Comptoir, bar, saisie de commande, encaissement, caisse</span>
+      </div>
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 py-2.5 border-t border-line">
+        <span class="text-etiquette uppercase text-ink-3">Durée</span>
+        <span class="text-corps text-ink-2">Nominale</span>
+        <span class="text-corps text-ink-2">× 0,45, plafond 160 ms</span>
+      </div>
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 py-2.5 border-t border-line">
+        <span class="text-etiquette uppercase text-ink-3">Décalage</span>
+        <span class="text-corps text-ink-2">28 ms</span>
+        <span class="text-corps text-ink-2">0 — tout arrive ensemble</span>
+      </div>
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 py-2.5 border-t border-line">
+        <span class="text-etiquette uppercase text-ink-3">Courbe</span>
+        <span class="text-corps text-ink-2">Élastique autorisée</span>
+        <span class="text-corps text-ink-2">Déplacement seulement</span>
+      </div>
+      <div class="grid grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)] gap-x-5 py-2.5 border-t border-line">
+        <span class="text-etiquette uppercase text-ink-3">Signaux simultanés</span>
+        <span class="text-corps text-ink-2">3</span>
+        <span class="text-corps text-ink-2">1 — on garde le plus lisible</span>
+      </div>
+  </div>
+  <p class="text-mini text-ink-3 max-w-[92ch] m-0"><span class="font-mono text-mini">data-zone="vitesse"</span> se pose sur le conteneur de l’écran, pas sur un composant. Un même composant se comporte différemment selon l’écran qui l’accueille : c’est voulu.</p>
+</section>
+
+<section class="flex flex-col gap-4">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">05</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Accessibilité, performance, et ce qui ne bouge jamais</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">budget 60 i/s sur 2 Go</span>
+  </div>
+  <div class="grid grid-cols-2 gap-3.5">
+    <div class="rounded-xl border border-line bg-surf px-5 py-4.5 shadow-basse flex flex-col gap-2.5">
+      <span class="text-etiquette uppercase text-ink-3">Ce que « réduire les animations » change</span>
+      <p class="text-corps text-ink-2 m-0"><span class="font-mono text-mini">--intensite: 0</span> et <span class="font-mono text-mini">--decalage-liste: 0</span>, plus une coupe globale des durées. Ce qui bougeait apparaît. Seul P5 garde ses 90 ms.</p>
+      <p class="text-corps text-ink-2 m-0"><strong class="font-semibold text-ink">Aucune saisie bloquée</strong> : un champ reste focalisable pendant toute transition.</p>
+      <p class="text-corps text-ink-2 m-0"><span class="font-mono text-mini">transform</span> et <span class="font-mono text-mini">opacity</span> uniquement. Six éléments animés simultanément au maximum ; au-delà, on anime le conteneur, pas ses enfants.</p>
+    </div>
+    <div class="rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-ocre bg-tile px-5 py-4.5 flex flex-col gap-2.5">
+      <span class="text-etiquette uppercase text-ocre-fort">Ce qui ne bouge jamais</span>
+      <p class="text-corps text-ink-2 m-0">Le témoin de synchronisation ne s’anime pas pour attirer l’œil : son pouls (<span class="font-mono text-mini">animate-pulse-reseau</span>, 2,4 s) est lent et constant, et son passage hors ligne est <strong class="font-semibold text-ink">instantané</strong>.</p>
+      <p class="text-corps text-ink-2 m-0">Un état grave n’a pas de transition — il est déjà là. Le registre grave plafonne tout à 120 ms d’opacité, sans translation ni décalage.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- Le compilateur Tailwind se charge en fin de corps : il ne compile que ce qui existe
+     déjà dans le document au moment où il s'exécute. -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</body>
+</html>

@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaya — Prototype 1 · Les sept patrons de mouvement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Chivo+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style type="text/tailwindcss">
+/* ═══════════════════════════════════════════════════════════════════════════
+   KAYA — THÈME TAILWIND 4
+   Direction retenue : « Banco ». Terre chaude, indigo réservé à l'action.
+
+   C'est le SEUL fichier de la maquette à copier dans le projet.
+   Il est autosuffisant : aucune dépendance à un autre fichier de kaya-design/.
+   Il se suffit aussi côté polices — les @font-face ne sont pas ici, voir la
+   note « Polices » en fin de fichier.
+
+   Deux règles de lecture :
+   1. Les noms de tokens sont IDENTIQUES en clair et en sombre. Seules les
+      valeurs changent, sous .dark. Donc `bg-surf text-ink` bascule tout seul ;
+      la variante `dark:` ne sert qu'à ce qu'une couleur ne peut pas porter
+      (ombre remplacée par une bordure, opacité, épaisseur de trait).
+   2. Tout ce qui a un nom ici n'a jamais de valeur en dur ailleurs.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+
+/* Mode sombre piloté par la classe .dark, posée sur <html> ou sur n'importe
+   quel conteneur — c'est ce qui permet d'afficher les deux modes côte à côte
+   dans styleguide.html. Ajouter la préférence système si le projet le veut :
+   @custom-variant dark (&:where(.dark, .dark *, @media (prefers-color-scheme: dark))) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* `static` est indispensable : sans lui, Tailwind 4 élague toute variable de @theme
+   qu'aucun utilitaire n'emploie dans le fichier compilé — --color-voile,
+   --ease-elastique et les durées disparaîtraient de :root à l'exécution. */
+@theme static {
+  /* ── Typographie ──────────────────────────────────────────────────────────
+     Archivo pour tout le texte ; Chivo Mono pour tout ce qui est un montant,
+     une quantité, un numéro de chambre, une heure. Jamais l'inverse. */
+  --font-titre: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-texte: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  /* Échelle de corps. Les valeurs à la demi-unité sont voulues : elles
+     tiennent le 13 px lisible sur un 1366×768 délavé par le soleil. */
+  --text-etiquette: 11px;      /* --text-etiquette--line-height: 1 */
+  --text-etiquette--line-height: 1;
+  --text-etiquette--letter-spacing: 0.1em;
+  --text-mini: 12.5px;
+  --text-mini--line-height: 1.45;
+  --text-corps: 13.5px;
+  --text-corps--line-height: 1.55;
+  --text-action: 14.5px;       /* libellé de bouton, ne descend jamais plus bas */
+  --text-action--line-height: 1;
+  --text-lead: 15px;
+  --text-lead--line-height: 1.6;
+  --text-titre-s: 17px;
+  --text-titre-s--line-height: 1.2;
+  --text-titre-m: 20px;
+  --text-titre-m--line-height: 1.2;
+  --text-chiffre: 24px;
+  --text-chiffre--line-height: 1.15;
+  --text-chiffre-l: 30px;
+  --text-chiffre-l--line-height: 1.15;
+  --text-titre-l: 34px;
+  --text-titre-l--line-height: 1.1;
+  /* Le montant que le propriétaire lit sur son téléphone. Deux corps, pas un :
+     au-delà de 11 caractères (« 4 480 000 F »), le montant passe à 32 px — sinon il
+     déborde d'un écran de 372 px. La règle est dans la donnée, pas dans l'œil. M4. */
+  --text-montant: 40px;
+  --text-montant--line-height: 1.05;
+  --text-montant-long: 32px;
+  --text-montant-long--line-height: 1.05;
+
+  /* La recette du jour, sur l'écran de clôture. Entre le total d'un document (44 px)
+     et le numéro de chambre annoncé (68 px) : c'est un chiffre qu'on lit assis, une
+     fois par jour, pas un nombre qu'on crie. C4. */
+  --text-recette: 54px;
+  --text-recette--line-height: 1.05;
+  --text-recette--letter-spacing: -0.02em;
+
+  /* L'échelle du comptoir : trois corps qui n'existent que parce qu'un nombre doit se
+     lire à bout de bras, debout, en tenant une clé. R4 (passage) et C4 (clôture). */
+  --text-geste: 46px;          /* le chiffre d'un bouton de décision tactile */
+  --text-geste--line-height: 1;
+  --text-total: 44px;          /* le total d'un document à lignes (R7, D6, D7) */
+  --text-total--line-height: 1;
+  --text-total--letter-spacing: -0.02em;
+  --text-annonce: 68px;        /* le numéro de chambre, une fois donné */
+  --text-annonce--line-height: 1;
+  --text-annonce-l: 88px;      /* l'heure de fin — le nombre qu'on dit à voix haute */
+  --text-annonce-l--line-height: 1;
+  --text-annonce-l--letter-spacing: -0.02em;
+
+  --text-affiche: 40px;
+  --text-affiche--line-height: 1.05;
+  --text-affiche--letter-spacing: -0.02em;
+
+  /* ── Espacement ───────────────────────────────────────────────────────────
+     Base 4 px. p-4 = 16 px, p-4.5 = 18 px, p-5.5 = 22 px : l'échelle
+     fractionnaire de Tailwind 4 couvre toute la maquette. */
+  --spacing: 4px;
+
+  /* Hauteurs de touche — toutes sur l'échelle de 4 px, donc écrites en
+     utilitaires : h-11 = 44 px (plancher tactile, jamais moins), h-12 = 48 px
+     (cible de comptoir : une main, vite), h-9 = 36 px (bouton discret, hors
+     chemin critique), h-8 = 32 px (segment), h-7 = 28 px (pastille, non
+     cliquable). Les valeurs nommées --touche-min et
+     --touche-comptoir sont déclarées dans le :root explicite, après @theme. */
+
+  /* ── Rayons ───────────────────────────────────────────────────────────────
+     Le geste Banco : le contreforts est un bloc de terre, pas une bulle. */
+  --radius-xs: 4px;      /* marque de sélection, puce */
+  --radius-sm: 6px;      /* squelette, micro-tuile */
+  --radius-md: 8px;      /* champ, bouton discret */
+  --radius-lg: 10px;     /* bouton, tuile d'action */
+  --radius-xl: 12px;     /* carte */
+  --radius-2xl: 14px;    /* panneau, feuille */
+  --radius-pleine: 999px;
+
+  /* ── Couleurs — MODE CLAIR (réception, plein soleil) ───────────────────────
+     Les mêmes noms portent les valeurs sombres sous .dark, plus bas. */
+  --color-bg: #faf4e9;         /* fond de page */
+  --color-surf: #fffdf8;       /* carte, panneau posé sur le fond */
+  --color-tile: #f4ece0;       /* tuile, en-tête de tableau, zone inerte */
+  --color-line: #e2d7c6;       /* filet de séparation */
+  --color-line-2: #c1ac91;     /* filet appuyé, bordure de champ au repos */
+  --color-ink: #1e1a16;        /* texte */
+  --color-ink-2: #4b4239;      /* texte secondaire */
+  --color-ink-3: #6b5f52;      /* étiquette, texte atténué */
+
+  --color-prim: #21458c;       /* indigo — l'action, et rien d'autre */
+  --color-prim-ink: #ffffff;   /* texte posé sur --color-prim */
+  --color-prim-dk: #16306a;    /* ombre portée du bouton, état pressé */
+  --color-prim-soft: #eaf0fb;  /* survol de bouton secondaire, ligne active */
+  --color-prim-fort: #16306a;  /* texte posé sur prim-soft (barre « nuit » du planning) */
+
+  --color-succes: #1e6b4f;
+  --color-succes-soft: #dff0e6;
+  --color-succes-fort: #14523c;   /* texte sur -soft */
+  --color-alerte: #9a5a06;
+  --color-alerte-soft: #fbe9cf;
+  --color-alerte-fort: #6f4104;
+  --color-danger: #a32723;
+  --color-danger-soft: #f8e4e2;
+  --color-danger-fort: #7d1c19;
+  --color-info: #245e80;
+  --color-info-soft: #e2eef4;
+  --color-info-fort: #123f57;
+  --color-occupe: #5b3fa8;        /* occupation : chambre prise, table servie */
+  --color-occupe-soft: #e6dcf5;
+  --color-occupe-fort: #3d2a63;
+  --color-ocre: #a86f38;          /* la terre. Décor et illustration, jamais une action. */
+  --color-ocre-soft: #f0e2cd;
+  --color-ocre-fort: #7a4e22;     /* texte sur ocre-soft */
+  --color-ocre-ink: #fffdf8;      /* texte posé sur ocre plein */
+  --color-hachure: rgb(107 95 82 / 0.34);  /* remise en état : hachure à 135° */
+  --color-grille: rgb(107 95 82 / 0.16);   /* graduation des heures */
+  --color-resume: rgb(107 95 82 / 0.10);   /* jour replié du ruban élastique */
+
+  --color-voile: rgb(30 26 22 / 0.38);      /* voile sous un panneau/modale */
+  --color-brillance: rgb(255 255 255 / 0.85); /* bande de scintillement du squelette */
+
+  /* ── Ombres ───────────────────────────────────────────────────────────────
+     Basses et rares. Le bouton principal porte une ombre pleine de 2 px qui
+     disparaît à l'appui : c'est le seul relief du système. */
+  --shadow-basse: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-carte: 0 1px 2px rgb(30 26 22 / 0.07);
+  --shadow-panneau: 0 8px 28px rgb(30 26 22 / 0.16);
+  --shadow-bouton: 0 2px 0 var(--color-prim-dk);
+  --shadow-bouton-appui: 0 0 0 var(--color-prim-dk);
+  --shadow-bouton-danger: 0 2px 0 var(--color-danger-fort);
+  --shadow-bouton-grand: 0 3px 0 var(--color-prim-dk);  /* bouton principal h-15 de l'accueil */
+
+  /* ── Mouvement ────────────────────────────────────────────────────────────
+     Détail et justification dans mouvement.md. Les quatre courbes sont
+     exposées en utilitaires (ease-entree, ease-sortie…) ; les durées se
+     lisent en var() car Tailwind écrit déjà duration-240. */
+  --ease-entree: cubic-bezier(0, 0, 0.2, 1);
+  --ease-sortie: cubic-bezier(0.4, 0, 1, 1);
+  --ease-deplace: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elastique: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --animate-pulse-reseau: kayaPulse 2.4s ease-out infinite;
+  --animate-souffle: kayaBreath 1.6s ease-in-out infinite;
+  --animate-scintillement: kayaShimmer 1.5s ease-in-out infinite;
+  --animate-roue: kayaSpin 900ms linear infinite;
+}
+
+/* ═══ MOUVEMENT ET TOUCHE — VARIABLES EN CLAIR ═════════════════════════════
+   Hors @theme, dans un :root ordinaire : aucun utilitaire ne les consomme, et
+   c'est le contrat que reprennent les prototypes de proto/ ainsi que le JS.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite));
+   En utilitaire, les mêmes durées s'écrivent duration-90 / 160 / 240 / 400. */
+:root {
+  --duree-instantane: 90ms;    /* plancher tactile, jamais réduit */
+  --duree-rapide: 160ms;
+  --duree-standard: 240ms;     /* plafond de tout chemin fréquent */
+  --duree-ample: 400ms;        /* plafond absolu */
+  --decalage-liste: 28ms;      /* entrée en cascade */
+  --decalage-plafond: 6;       /* au-delà de 6 éléments, plus de décalage */
+  --intensite: 1;              /* 1 = zone de charme ; voir [data-zone] plus bas */
+
+  /* Hauteurs de touche, pour le code qui a besoin de la valeur.
+     Le balisage écrit h-11 (44 px) et h-12 (48 px). */
+  --touche-min: 44px;
+  --touche-comptoir: 48px;
+}
+
+/* ═══ MODE SOMBRE (le bar, le soir) ════════════════════════════════════════
+   Mêmes noms, autres valeurs. Rien à changer dans le balisage. */
+.dark {
+  --color-bg: #17120f;
+  --color-surf: #241c16;
+  --color-tile: #2e241c;
+  --color-line: #3c2f26;
+  --color-line-2: #5f4a39;
+  --color-ink: #f4e9da;
+  --color-ink-2: #d5c6b4;
+  --color-ink-3: #ab9a8b;
+
+  --color-prim: #9dbcf5;
+  --color-prim-ink: #10203f;
+  --color-prim-dk: #6f92cc;
+  --color-prim-soft: #1e2839;
+  --color-prim-fort: #dce7fb;
+
+  --color-succes: #63cf9d;
+  --color-succes-soft: #18342a;
+  --color-succes-fort: #a6e6c9;
+  --color-alerte: #e9a848;
+  --color-alerte-soft: #3a2a12;
+  --color-alerte-fort: #f0d9a8;
+  --color-danger: #f4837a;
+  --color-danger-soft: #3d1c1a;
+  --color-danger-fort: #f8b3ac;
+  --color-info: #78bede;
+  --color-info-soft: #12293a;
+  --color-info-fort: #b5dcee;
+  --color-occupe: #b79cf0;
+  --color-occupe-soft: #3a2f4d;
+  --color-occupe-fort: #d6c4f2;
+  --color-ocre: #d9b382;
+  --color-ocre-soft: #33261a;
+  --color-ocre-fort: #e9cfa8;
+  --color-ocre-ink: #2a1a0c;
+  --color-hachure: rgb(171 154 139 / 0.32);
+  --color-grille: rgb(171 154 139 / 0.14);
+  --color-resume: rgb(0 0 0 / 0.32);
+
+  --color-voile: rgb(10 11 16 / 0.55);
+  --color-brillance: rgb(233 233 237 / 0.09);
+
+  --shadow-basse: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-carte: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-panneau: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+/* ═══ RÉGIME DE MOUVEMENT ══════════════════════════════════════════════════
+   Deux zones, une seule variable. `data-zone="vitesse"` sur le conteneur d'un
+   écran de comptoir : les durées tombent à 45 %, plafonnées à 160 ms, le
+   décalage de liste disparaît, l'élastique devient un déplacement.
+   Usage : transition-duration: calc(var(--duree-standard) * var(--intensite)) */
+[data-zone="vitesse"] {
+  --intensite: 0.45;
+  --decalage-liste: 0ms;
+  --ease-elastique: var(--ease-deplace);
+}
+
+/* Une seule variable passe à 0. Aucun état n'est porté par une animation :
+   ce qui bougeait apparaît, rien ne manque, rien ne casse. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --intensite: 0;
+    --decalage-liste: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══ BASE ═════════════════════════════════════════════════════════════════
+   Hors @layer : ces règles doivent passer après le preflight de Tailwind. */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-texte);
+    font-size: var(--text-corps);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+  /* Tout montant est tabulaire, partout, sans réglage local. */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  a {
+    color: var(--color-prim);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-prim-dk);
+    text-decoration: underline;
+  }
+  .dark a:hover {
+    color: var(--color-ink);
+  }
+  /* Le focus clavier est un anneau indigo de 2 px, jamais le bleu du navigateur. */
+  :focus-visible {
+    outline: 2px solid var(--color-prim);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: var(--color-prim-soft);
+    color: var(--color-ink);
+  }
+  [disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+/* ═══ ANIMATIONS NOMMÉES ═══════════════════════════════════════════════════
+   Les seules @keyframes du système. Utilisées par animate-pulse-reseau,
+   animate-souffle, animate-scintillement, animate-roue. */
+@keyframes kayaPulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes kayaBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.82); }
+}
+@keyframes kayaShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes kayaSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══ POLICES ══════════════════════════════════════════════════════════════
+   Les maquettes chargent Archivo et Chivo Mono depuis Google Fonts. En
+   production, servez-les en local (woff2, font-display: swap) : le produit
+   tourne sur des liaisons lentes et doit s'afficher hors ligne.
+   Le nom des familles ne change pas — seule la source change. */
+
+</style>
+</head>
+
+<body class="bg-bg text-ink font-texte">
+
+<header class="border-b border-line bg-surf">
+  <div class="mx-auto max-w-[1400px] px-8 py-7 flex flex-col gap-3">
+    <div class="flex items-center gap-3">
+      <span class="text-etiquette uppercase text-ink-3 font-semibold">Kaya · Prototype 1 · banc d’essai</span>
+      <span class="h-px flex-1 bg-line"></span>
+      <a class="font-mono text-etiquette uppercase" href="proto-0-sommaire.html">← les six prototypes</a>
+    </div>
+    <h1 class="font-titre text-affiche font-medium text-ink m-0">Les sept patrons de mouvement</h1>
+    <p class="text-lead text-ink-2 max-w-[86ch] m-0">Tirez le curseur pour étirer ou comprimer toutes les durées d’un seul coup, puis rejouez. Les chiffres affichés sous chaque titre sont ceux qui tournent réellement.</p>
+    <div class="flex flex-wrap items-center gap-2.5 mt-1">
+      <div class="h-9 p-1 rounded-lg bg-tile border border-line inline-flex items-center gap-1">
+        <button type="button" data-mode="clair" class="js-mode h-7 px-3 rounded-md bg-surf text-ink font-titre text-mini font-semibold cursor-pointer">Clair</button>
+        <button type="button" data-mode="sombre" class="js-mode h-7 px-3 rounded-md bg-transparent text-ink-3 font-titre text-mini font-semibold cursor-pointer">Sombre</button>
+      </div>
+      <button type="button" id="js-reduce" class="h-9 px-3.5 rounded-lg border-[1.5px] border-line-2 bg-transparent text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:bg-tile">Animations réduites</button>
+      <span class="h-9 px-3.5 rounded-lg border border-line bg-tile inline-flex items-center gap-3">
+        <span class="text-etiquette uppercase text-ink-3">Vitesse</span>
+        <input type="range" id="js-vitesse" min="25" max="200" step="5" value="100" class="w-40 accent-prim cursor-pointer">
+        <span class="font-mono text-mini font-semibold text-ink w-14" id="js-vlabel">×1,00</span>
+      </span>
+      <button type="button" id="js-tout" class="h-9 px-3.5 rounded-lg bg-prim text-prim-ink font-titre text-mini font-semibold cursor-pointer shadow-bouton transition-[transform,box-shadow] duration-90 ease-entree active:translate-y-0.5 active:shadow-bouton-appui">Tout rejouer</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-[1400px] px-8 py-10 flex flex-col gap-10">
+  <div class="grid grid-cols-2 gap-3.5">
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P1</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Apparition d’une liste</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P1">240 ms · entrée · décalage 28 ms, plafond 6</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div id="p1-liste" class="flex flex-col gap-1.5 h-58 overflow-y-auto pr-1">
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">Le décalage s’arrête au 6ᵉ : les 34 suivants entrent ensemble.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P2</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Transition entre écrans</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P2">240 ms · sortant −28 px, entrant 100 % → 0</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div class="relative h-46 rounded-xl border border-line bg-surf overflow-hidden">
+          <div id="p2-a" class="absolute inset-0 p-4.5 flex flex-col gap-2 bg-surf">
+            <span class="text-etiquette uppercase text-ink-3">Chambres</span>
+            <span class="font-titre text-titre-s font-semibold text-ink">Rez-de-chaussée</span>
+            <span class="text-corps text-ink-2">103 · 104 · 105 · 106</span>
+          </div>
+          <div id="p2-b" class="absolute inset-0 p-4.5 flex flex-col gap-2 bg-surf translate-x-full">
+            <span class="text-etiquette uppercase text-ink-3">Chambre 103</span>
+            <span class="font-titre text-titre-s font-semibold text-ink">Passage en cours</span>
+            <span class="text-corps text-ink-2">Arrivée 14 h 30 · durée 3 h</span>
+            <span class="font-mono text-chiffre font-bold text-ink">17 h 30</span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" id="p2-go" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Avancer →</button>
+          <button type="button" id="p2-back" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">← Revenir</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">La direction dit la profondeur. Jamais de fondu croisé.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P3</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Ouverture du panneau latéral</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P3">entrée 240 ms · sortie 160 ms · voile</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div class="relative h-46 rounded-xl border border-line bg-surf overflow-hidden">
+          <div class="p-4.5 flex flex-col gap-1.5">
+            <span class="text-etiquette uppercase text-ink-3">Table 6</span>
+            <span class="text-corps text-ink-2">La note s’ouvre à droite, par-dessus.</span>
+          </div>
+          <div id="p3-voile" class="absolute inset-0 bg-voile opacity-0 pointer-events-none"></div>
+          <div id="p3-panneau" class="absolute inset-y-0 right-0 w-56 bg-tile border-l border-line p-4 flex flex-col gap-2 translate-x-full">
+            <span class="text-etiquette uppercase text-ink-3">Note nº 214</span>
+            <span class="flex justify-between text-corps text-ink-2"><span>3 × Flag 65</span><span class="font-mono">4 500 F</span></span>
+            <span class="flex justify-between text-corps text-ink-2"><span>1 × Poulet</span><span class="font-mono">4 500 F</span></span>
+            <span class="mt-auto pt-2 border-t border-line flex justify-between font-titre text-action font-semibold text-ink"><span>Total</span><span class="font-mono">9 000 F</span></span>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" id="p3-open" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Ouvrir</button>
+          <button type="button" id="p3-close" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Fermer</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">Le voile disparaît avant le panneau, jamais après.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P4</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Changement de valeur d’un montant</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P4">400 ms · défilement + poussée 4 % · charme</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div class="h-46 rounded-xl border border-line bg-surf flex flex-col items-start justify-center gap-2 px-6">
+          <span class="text-etiquette uppercase text-ink-3">Recette du jour</span>
+          <span id="p4-val" class="font-mono text-affiche font-bold text-ink whitespace-nowrap">184 000 F</span>
+          <span id="p4-delta" class="font-titre text-corps font-semibold text-succes opacity-0">+ 2 500 F</span>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" id="p4-vente" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Encaisser 2 500 F</button>
+          <button type="button" id="p4-reset" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Remettre à 184 000</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">En zone de vitesse : 140 ms, aucun dépassement, pas de delta.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P5</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Retour tactile du bouton</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P5">90 ms · +3 px · jamais réduit</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div class="h-46 rounded-xl border border-line bg-surf flex items-center justify-center gap-3">
+          <button type="button" class="h-15 px-7 rounded-xl bg-prim text-prim-ink font-titre text-titre-s font-bold cursor-pointer shadow-bouton-grand transition-[transform,box-shadow] duration-90 ease-entree active:translate-y-[3px] active:shadow-none">Enregistrer</button>
+          <button type="button" class="h-11 px-5 rounded-lg border-[1.5px] border-prim bg-transparent text-prim font-titre text-action font-semibold cursor-pointer transition-transform duration-90 ease-entree active:translate-y-0.5 hover:bg-prim-soft">Plus tard</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">Appuyez avec « animations réduites » : il descend quand même.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P6</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">Changement d’état d’une pastille</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P6">160 ms · la forme change avec la couleur</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div class="h-46 rounded-xl border border-line bg-surf flex items-center justify-center">
+          <span id="p6-pastille" class="h-7 pl-2 pr-2.5 rounded-pleine bg-succes-soft text-succes-fort text-mini font-semibold inline-flex items-center gap-1.5"><span class="size-2 bg-succes rotate-45"></span>Payé</span>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" id="p6-next" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">État suivant</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">Losange acquis · rond en cours · carré libre · triangle cassé.</span>
+      </div>
+    </div>
+    <div class="rounded-xl border border-line bg-surf shadow-basse overflow-hidden flex flex-col">
+      <div class="px-5 py-4 border-b border-line flex flex-col gap-1">
+        <span class="flex items-baseline gap-2.5">
+          <span class="font-mono text-mini font-bold text-prim">P7</span>
+          <span class="font-titre text-titre-s font-semibold text-ink">État de chargement</span>
+        </span>
+        <span class="font-mono text-etiquette normal-case tracking-normal text-ink-3" data-spec="P7">squelette 1,5 s · bande translatée · pose 240 ms</span>
+      </div>
+      <div class="flex-1 p-5 bg-bg flex flex-col gap-3">
+        <div id="p7-zone" class="h-46 rounded-xl border border-line bg-surf p-4 flex flex-col gap-2.5"></div>
+        <div class="flex gap-2">
+          <button type="button" id="p7-go" class="h-9 px-3.5 rounded-md border border-line bg-surf text-ink-2 font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 hover:border-line-2 hover:text-ink">Recharger</button>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-line">
+        <span class="text-mini text-ink-3">Le scintillement est un transform, jamais un dégradé animé.</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  const html = document.documentElement;
+  document.querySelectorAll('.js-mode').forEach(b => b.addEventListener('click', () => {
+    const sombre = b.dataset.mode === 'sombre';
+    html.classList.toggle('dark', sombre);
+    document.querySelectorAll('.js-mode').forEach(x => {
+      const on = (x.dataset.mode === 'sombre') === sombre;
+      x.className = 'js-mode h-7 px-3 rounded-md font-titre text-mini font-semibold cursor-pointer ' + (on ? 'bg-surf text-ink' : 'bg-transparent text-ink-3');
+    });
+  }));
+  const r = document.getElementById('js-reduce');
+  window.reduit = false;
+  r.addEventListener('click', () => {
+    window.reduit = !window.reduit;
+    r.className = 'h-9 px-3.5 rounded-lg border-[1.5px] font-titre text-mini font-semibold cursor-pointer transition-colors duration-90 ' +
+      (window.reduit ? 'border-prim bg-prim-soft text-prim' : 'border-line-2 bg-transparent text-ink-2 hover:bg-tile');
+  });
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) r.click();
+  window.d = ms => window.reduit ? 0 : Math.round(ms * (window.intensite || 1));
+})();
+
+window.intensite = 1;
+const vit = document.getElementById('js-vitesse'), vlab = document.getElementById('js-vlabel');
+const specs = { P1: 240, P2: 240, P3: 240, P4: 400, P6: 160, P7: 240 };
+function majSpecs() {
+  document.querySelectorAll('[data-spec]').forEach(el => {
+    const base = specs[el.dataset.spec];
+    if (!base) return;
+    el.textContent = el.textContent.replace(/^\d+ ms/, window.d(base) + ' ms');
+  });
+}
+vit.addEventListener('input', () => {
+  window.intensite = vit.value / 100;
+  vlab.textContent = '×' + window.intensite.toFixed(2).replace('.', ',');
+  majSpecs();
+});
+
+const ENTREE = 'cubic-bezier(0,0,.2,1)', SORTIE = 'cubic-bezier(.4,0,1,1)', DEPLACE = 'cubic-bezier(.4,0,.2,1)';
+const anim = (el, k, ms, e, delay) => el.animate(k, { duration: Math.max(ms, 0.01), easing: e, delay: delay || 0, fill: 'both' });
+
+// P1
+const boite = document.getElementById('p1-liste');
+function p1() {
+  boite.innerHTML = '';
+  for (let i = 1; i <= 40; i++) {
+    const l = document.createElement('div');
+    l.className = 'shrink-0 h-11 px-3.5 rounded-lg border border-line bg-surf flex items-center gap-3';
+    l.innerHTML = '<span class="font-mono text-mini text-ink-3 w-10">' + String(200 + i) + '</span>' +
+      '<span class="flex-1 text-corps text-ink">Note table ' + ((i % 9) + 1) + '</span>' +
+      '<span class="font-mono text-corps text-ink whitespace-nowrap">' + (3 + (i % 7)) + '\u202F500\u202FF</span>';
+    boite.appendChild(l);
+    anim(l, [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], window.d(240), ENTREE, window.d(Math.min(i - 1, 5) * 28));
+  }
+}
+p1();
+
+// P2
+const a = document.getElementById('p2-a'), b = document.getElementById('p2-b');
+document.getElementById('p2-go').onclick = () => {
+  anim(a, [{ transform: 'none', opacity: 1 }, { transform: 'translateX(-28px)', opacity: 0 }], window.d(240), SORTIE);
+  anim(b, [{ transform: 'translateX(100%)' }, { transform: 'none' }], window.d(240), ENTREE);
+};
+document.getElementById('p2-back').onclick = () => {
+  anim(b, [{ transform: 'none', opacity: 1 }, { transform: 'translateX(28px)', opacity: 0 }], window.d(240), SORTIE);
+  anim(a, [{ transform: 'translateX(-100%)', opacity: 1 }, { transform: 'none', opacity: 1 }], window.d(240), ENTREE);
+};
+
+// P3
+const pan = document.getElementById('p3-panneau'), voile = document.getElementById('p3-voile');
+document.getElementById('p3-open').onclick = () => {
+  anim(voile, [{ opacity: 0 }, { opacity: 1 }], window.d(240), ENTREE);
+  anim(pan, [{ transform: 'translateX(100%)' }, { transform: 'none' }], window.d(240), ENTREE);
+};
+document.getElementById('p3-close').onclick = () => {
+  anim(voile, [{ opacity: 1 }, { opacity: 0 }], window.d(120), SORTIE);
+  anim(pan, [{ transform: 'none' }, { transform: 'translateX(100%)' }], window.d(160), SORTIE);
+};
+
+// P4
+const val = document.getElementById('p4-val'), delta = document.getElementById('p4-delta');
+let montant = 184000;
+const fmt = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F') + '\u202FF';
+function compte(vers) {
+  const dep = montant, ms = window.d(400), t0 = performance.now();
+  montant = vers;
+  if (ms <= 0) { val.textContent = fmt(vers); return; }
+  const pas = now => {
+    const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+    val.textContent = fmt(dep + (vers - dep) * e);
+    if (p < 1) requestAnimationFrame(pas);
+  };
+  requestAnimationFrame(pas);
+  anim(val, [{ transform: 'scale(1)' }, { transform: 'scale(1.04)' }, { transform: 'scale(1)' }], ms, 'cubic-bezier(.34,1.56,.64,1)');
+}
+document.getElementById('p4-vente').onclick = () => {
+  compte(montant + 2500);
+  anim(delta, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-8px)' }], window.d(400) + 400, ENTREE);
+};
+document.getElementById('p4-reset').onclick = () => compte(184000);
+
+// P6
+const past = document.getElementById('p6-pastille');
+const ETATS = [
+  ['bg-succes-soft text-succes-fort', 'size-2 bg-succes rotate-45', 'Payé'],
+  ['bg-alerte-soft text-alerte-fort', 'size-2 rounded-pleine bg-alerte', 'Partiel'],
+  ['bg-tile text-ink-2', 'size-2 rounded-xs border-[1.5px] border-line-2', 'Libre'],
+  ['bg-danger-soft text-danger-fort', 'size-0 border-x-4 border-x-transparent border-b-6 border-b-danger', 'Impayé']
+];
+let ei = 0;
+document.getElementById('p6-next').onclick = () => {
+  ei = (ei + 1) % ETATS.length;
+  const [cls, marque, txt] = ETATS[ei];
+  anim(past, [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-8px)', opacity: 0 }], window.d(80), SORTIE).onfinish = () => {
+    past.className = 'h-7 pl-2 pr-2.5 rounded-pleine text-mini font-semibold inline-flex items-center gap-1.5 ' + cls;
+    past.innerHTML = '<span class="' + marque + '"></span>' + txt;
+    anim(past, [{ transform: 'translateY(8px)', opacity: 0 }, { transform: 'none', opacity: 1 }], window.d(80), ENTREE);
+  };
+};
+
+// P7
+const zone = document.getElementById('p7-zone');
+function p7() {
+  zone.innerHTML = '';
+  [70, 45, 58].forEach((w, i) => {
+    const s = document.createElement('span');
+    s.className = 'relative block h-5 rounded-sm bg-tile overflow-hidden';
+    s.style.width = w + '%';
+    s.innerHTML = window.reduit ? '' : '<span class="absolute inset-y-0 w-1/3 bg-brillance animate-scintillement"></span>';
+    zone.appendChild(s);
+  });
+  setTimeout(() => {
+    zone.innerHTML = '<span class="text-etiquette uppercase text-ink-3">Note nº 214</span>' +
+      '<span class="font-titre text-titre-s font-semibold text-ink">Table 6 · 4 couverts</span>' +
+      '<span class="font-mono text-chiffre font-bold text-ink">13\u202F900\u202FF</span>';
+    [...zone.children].forEach((el, i) => anim(el, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], window.d(240), ENTREE, window.d(i * 28)));
+  }, window.reduit ? 0 : 1500);
+}
+p7();
+document.getElementById('p7-go').onclick = p7;
+
+document.getElementById('js-tout').onclick = () => { p1(); p7(); document.getElementById('p2-go').click(); document.getElementById('p4-vente').click(); };
+
+</script>
+
+<!-- Le compilateur Tailwind se charge en fin de corps : il ne compile que ce qui existe
+     déjà dans le document au moment où il s'exécute. -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</body>
+</html>
