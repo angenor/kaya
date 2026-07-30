@@ -1,4 +1,25 @@
 <!--
+SYNC IMPACT REPORT — 1.0.2 — 2026-07-30
+========================================
+Changement de version : 1.0.1 → 1.0.2 (PATCH)
+Motif : les deux derniers TODO sont fermés sur constat factuel, et le gel des versions
+        du principe XI est matérialisé. Aucune règle modifiée → PATCH.
+Modifications :
+  - TODO(DECOMPTE_MAQUETTES) fermé. Inventaire vérifié : docs/design/html/ contient
+    11 codes d'écran (C4, F2, G2, M4, P2, Q1, R1, R4, R7, S2, V1) répartis en
+    29 fichiers d'états. F2-registre-grave.html et S2-registre-grave.html ne sont PAS
+    un doublon — ce sont deux écrans distincts partageant un suffixe de nom : F2 traite
+    le document fiscal INDETERMINEE (FIS-05), S2 la consommation orpheline (SYN-03).
+    L'observation de doublon portée en 1.0.0 était erronée.
+  - TODO(PRECEDENCE_TOKENS) fermé. Comparaison exhaustive des 71 tokens tabulés de
+    tokens.md avec les 104 déclarations du bloc @theme de theme.css : aucune divergence
+    de valeur, aucun token manquant. Les seuls écarts sont de notation (« 14,5 px » vs
+    « 14.5px », « / .85 » vs « / 0.85 »). La règle de préséance reste en vigueur comme
+    filet, sans objet aujourd'hui.
+  - Ajout de docs/versions-gelees.md au tableau des artefacts de gouvernance
+    (principe XI matérialisé, gel 1.0.0 au 2026-07-30).
+Aucun principe ajouté, renommé ni supprimé.
+
 SYNC IMPACT REPORT — 1.0.1 — 2026-07-30
 ========================================
 Changement de version : 1.0.0 → 1.0.1 (PATCH)
@@ -40,15 +61,9 @@ Sections ajoutées :
 
 Sections supprimées : aucune.
 
-TODO reportés (détail en fin de document, § Éléments différés) :
-  - TODO(DECOMPTE_MAQUETTES) : la saisie de ratification annonce 27 fichiers dans
-    docs/design/html/ ; le dépôt en contient 29 au 2026-07-30, dont un doublon de
-    code apparent (F2-registre-grave.html / S2-registre-grave.html). Le principe XII
-    ne fige donc aucun décompte.
-  - TODO(PRECEDENCE_TOKENS) : docs/design/tokens.md se déclare dérivé de
-    docs/design/theme.css, tandis que la saisie de ratification donne la primauté à
-    tokens.md. Le principe XII arbitre en faveur de tokens.md pour les valeurs et de
-    theme.css pour l'implémentation ; à confirmer à la première revue.
+TODO reportés : les deux TODO ouverts en 1.0.0 sont fermés en 1.0.2 (voir ci-dessus).
+Restent trois décisions ouvertes portées par docs/registre-classes-offline.md (O-01,
+O-02, O-03) et les décisions B-01 à B-09 de l'annexe B du cadrage.
 -->
 
 # Constitution Kaya
@@ -320,7 +335,8 @@ solo. Le sur-périmètre est le risque le plus probable du projet.
 - **Dernières versions stables** de chaque brique : Rust, Actix Web, sqlx, utoipa, Nuxt 4,
   Tailwind 4, Tauri v2, PostgreSQL, Redis, Garage.
 - **VÉRIFIÉES SUR LES REGISTRES OFFICIELS, avec l'URL citée** dans le changement qui les
-  introduit ou les met à jour.
+  introduit ou les met à jour. Le gel en vigueur, ses URL et ses commandes de vérification
+  vivent dans **`docs/versions-gelees.md`**, qui fait foi.
 - **ÉPINGLÉES EXACTEMENT** — pas d'intervalle, pas de `^`, pas de `~` — et **figées par
   lockfiles** commités.
 - **NE JAMAIS proposer un numéro de version de mémoire.** Une version non vérifiée est une
@@ -400,7 +416,8 @@ configurations**. Jamais trois produits.
 | `docs/registre-classes-offline.md` | Classe A/B/C/D de chaque entité | À la création de toute entité |
 | Récapitulatif des paramètres (`docs/user-stories-v1.md`) | Inventaire des paramètres d'établissement | À l'ajout de tout paramètre |
 | Jeux de cas figés fiscaux | Tests dorés du moteur de taxes | À toute évolution fiscale |
-| Lockfiles (`Cargo.lock`, lockfile front) | Versions figées | Revue mensuelle groupée |
+| `docs/versions-gelees.md` | Versions vérifiées sur registres officiels, URL citées | Revue mensuelle groupée |
+| Lockfiles (`Cargo.lock`, `pnpm-lock.yaml`, `rust-toolchain.toml`, `.nvmrc`) | Versions figées | Avec le gel ci-dessus |
 
 ## Portes de conformité et flux de développement
 
@@ -501,14 +518,17 @@ classes hors-ligne avec le code.
   mode C (à trancher avant SEJ-02) ; **O-02** — classe de `mouvement_stock`, décision B-05 du
   cadrage (à trancher avec le pilote) ; **O-03** — crate d'accueil de la surface QR, absente des
   quatre verticales du principe II (à trancher avant QRC-01).
-- **TODO(DECOMPTE_MAQUETTES)** : `docs/design/html/` contient 29 fichiers au 2026-07-30, dont
-  `F2-registre-grave.html` et `S2-registre-grave.html` qui portent deux codes pour un même
-  écran. Le principe XII ne fige aucun décompte ; l'inventaire des écrans et de leurs codes est
-  à arbitrer.
-- **TODO(PRECEDENCE_TOKENS)** : `docs/design/tokens.md` se déclare dérivé de
-  `docs/design/theme.css` (« source de vérité : `theme.css` »), tandis que le principe XII donne
-  la primauté à `tokens.md` pour les valeurs. Lecture retenue : `tokens.md` prime pour les
-  **valeurs curées**, `theme.css` est l'**implémentation copiée telle quelle**. À confirmer à la
-  première revue mensuelle.
+- **Inventaire visuel — constaté le 2026-07-30, aucune action requise.** `docs/design/html/`
+  contient **11 codes d'écran** — C4, F2, G2, M4, P2, Q1, R1, R4, R7, S2, V1 — répartis en
+  **29 fichiers d'états**. `F2-registre-grave.html` et `S2-registre-grave.html` sont **deux
+  écrans distincts** partageant un suffixe de nom : F2 traite le document fiscal `INDETERMINEE`
+  (FIS-05), S2 la consommation orpheline arrivée après le départ (SYN-03). Le principe XII ne
+  fige aucun décompte, afin qu'un état ajouté ne rende pas la constitution fausse.
+- **Cohérence des tokens — vérifiée le 2026-07-30, aucune action requise.** Les 71 tokens
+  tabulés de `docs/design/tokens.md` sont tous présents dans le bloc `@theme` de
+  `docs/design/theme.css` (104 déclarations, les 33 supplémentaires étant les interlignes, durées,
+  courbes et animations). **Aucune divergence de valeur.** Les seuls écarts sont de notation
+  typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
+  préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.0.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 1.0.2 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
