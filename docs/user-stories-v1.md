@@ -67,9 +67,9 @@
 
 | Module | Préfixe | P0 | P1 | P2/Prov. | Tranche principale |
 |---|---|---|---|---|---|
-| Transverse & infrastructure | TRX | 5 | 3 | — | T1 |
+| Transverse & infrastructure | TRX | 5 | 3 | 1 | T1 |
 | Établissements & modules d'activité | ETB | 7 | 1 | 2 | T1 |
-| Comptes, rôles & appareils | CPT | 4 | 2 | — | T1/T4 |
+| Comptes, rôles & appareils | CPT | 5 | 2 | — | T1/T4 |
 | Hébergement : unités & formules | HEB | 5 | 2 | 2 | T1 |
 | Séjours & enregistrement | SEJ | 5 | 1 | — | T1/T2/T4 |
 | Réservations | RSV | 4 | 1 | — | T4 |
@@ -107,6 +107,16 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 - Toute transition d'état insère `{type, agrégat, tenant_id, etablissement_id, payload, horodatage}` dans **la même transaction SQL**.
 - Worker de publication in-process ; consommateurs idempotents (notifications, métriques).
 - Aucune file de messages externe au MVP — l'outbox est la frontière de découplage (cadrage §13.2).
+- ⚠️ **L'outbox est un GRAND LIVRE PERMANENT, pas une file de messages.** Trois règles indissociables, à poser dès la première migration :
+  1. **Rétention illimitée** — un événement publié est marqué publié, jamais supprimé. Une purge après publication détruirait toute possibilité de comptabilité rétroactive.
+  2. **Charge utile financière complète et dénormalisée** — un encaissement porte montant, mode, contrepartie, ventilation de taxes et référence de document, pas un simple identifiant. Sinon il faudra rejoindre des tables qui auront changé.
+  3. **Immuable** — un événement ne se modifie jamais ; une correction est un nouvel événement.
+- Test obligatoire : après publication, l'événement est toujours lisible et son payload permet de reconstituer l'opération sans consulter aucune autre table.
+
+**TRX-02b — Provisions comptables (PROVISION)**
+- Tables `mapping_comptable {tenant_id, type_evenement, compte_debit, compte_credit, journal}` et `exercice_comptable {debut, fin, statut}`.
+- Une période close n'accepte plus d'écriture — contrainte **distincte** de la clôture journalière et de la certification fiscale, et qui interagira avec la réconciliation des écritures orphelines (SYN-03).
+- **Tables seulement. Aucune UI, aucune logique.** Elles préparent SYSCOHADA en phase 2 sans imposer de migration.
 
 **TRX-03 — Multi-tenant et RLS forcée (P0)**
 - Chaque table porte `tenant_id` ; `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` **et** `FORCE ROW LEVEL SECURITY` ; rôle applicatif distinct du propriétaire des tables.
@@ -199,6 +209,12 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 ---
 
 ## Module CPT — Comptes, rôles & appareils
+
+**CPT-00 — Personne, compte et employé (P0 pour le modèle, PROVISION pour l'employé)**
+- **Trois entités distinctes, jamais confondues** : `personne` (identité civile — nom, pièce, contact), `compte` (identité d'authentification, porteuse des rôles), `employe` (contrat, salaire, date d'embauche, numéro CNPS).
+- Une femme de ménage ou un gardien de nuit est un **employé sans compte**. Un comptable externe est un **compte sans contrat**. Un propriétaire est souvent les deux sans être salarié.
+- **Au MVP, seules `personne` et `compte` portent de la logique.** `employe` est une table provisionnée, vide.
+- ⚠️ **C'est la précaution qui conditionne toute la faisabilité du module RH en phase 2.** Écrire « le salaire de l'utilisateur » quelque part rendrait la paie inaccessible sans refonte de l'authentification. Aucun code ne doit supposer que `compte` = employé.
 
 **CPT-01 — Comptes et authentification (P0)**
 - Identifiant = téléphone E.164 (+225 par défaut selon l'établissement) ou email. Mot de passe fort, ou OTP SMS selon la configuration du tenant.

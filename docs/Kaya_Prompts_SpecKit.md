@@ -413,8 +413,13 @@ Lis docs/user-stories-v1.md, module TRX — Transverse & infrastructure, et
 docs/cadrage-v1.md sections §13 et §14.
 
 Fonctionnalité : socle technique du monorepo Kaya.
-Périmètre : TRX-01, TRX-02, TRX-03, TRX-04, TRX-05 — reprends leurs critères
-d'acceptation tels quels, n'invente pas d'exigences supplémentaires.
+Périmètre : TRX-01, TRX-02, TRX-02b, TRX-03, TRX-04, TRX-05 — reprends leurs
+critères d'acceptation tels quels, n'invente pas d'exigences supplémentaires.
+ATTENTION PARTICULIÈRE À TRX-02 : l'outbox est un GRAND LIVRE PERMANENT, pas une
+file de messages. Rétention illimitée, charge utile financière complète et
+dénormalisée, immuabilité. Écris le test qui vérifie qu'un événement publié reste
+lisible et suffit à reconstituer l'opération sans consulter aucune autre table.
+C'est ce qui rendra SYSCOHADA générable rétroactivement en phase 2.
 Ce cycle crée aussi l'arborescence complète (§0.1 des prompts) : backend/
 workspace Rust avec un crate par domaine, vides mais compilables, dont le crate
 domain et le trait JurisdictionAdapter déclaré dans le crate fiscalite ; app/
@@ -500,7 +505,11 @@ Lis docs/user-stories-v1.md, module CPT — Comptes, rôles & appareils, et
 docs/cadrage-v1.md section §12.
 
 Fonctionnalité : comptes, rôles cumulables et journal d'audit.
-Périmètre : CPT-01, CPT-02, CPT-03, CPT-04 — critères tels quels.
+Périmètre : CPT-00, CPT-01, CPT-02, CPT-03, CPT-04 — critères tels quels.
+CPT-00 EN PREMIER : personne, compte et employe sont TROIS TABLES DISTINCTES. Au
+MVP seules personne et compte portent de la logique ; employe est provisionnée et
+vide. Aucun code ne suppose que compte = employé — c'est ce qui conditionne la
+faisabilité du module RH en phase 2 sans refonte de l'authentification.
 Rôles {proprietaire, gerant, receptionniste, serveur, caissier, magasinier,
 comptable, admin_editeur} CUMULABLES sur un compte : les permissions sont l'union,
 c'est la norme et non l'exception — Adjoua est gérante, caissière ET

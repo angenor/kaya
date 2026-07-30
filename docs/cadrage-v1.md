@@ -578,7 +578,12 @@ Dossier marchand : RCCM, CNI du gérant, RIB ivoirien, justificatif de domicile 
 11. **Formules de location extensibles** — le moteur ne connaît que des barèmes à paliers et des contraintes de plage ; une formule nouvelle est une ligne de données.
 5. **Canal d'émission fiscale** — `EmissionChannel { FneApi, Terne }` et colonne `rne_ref` nullable (§9.8).
 6. **Passerelle FNE** — `FneGateway` avec implémentations `Partenaire` et `Direct`.
-7. **Journal d'événements outbox** — base des métriques, des webhooks futurs et de l'extraction en services (§13.2).
+7. **Journal d'événements outbox — grand livre permanent, pas file de messages.** C'est la provision la plus déterminante pour la comptabilité future. Trois règles indissociables :
+   - **Rétention illimitée.** L'événement est publié, jamais purgé. Le réflexe « consommer et supprimer » d'une file de messages détruirait l'historique comptable.
+   - **Charge utile financière complète et dénormalisée.** Un événement d'encaissement porte le montant, le mode, la contrepartie, la ventilation de taxes et la référence du document — pas seulement un identifiant. Sinon il faudra rejoindre des tables qui auront changé.
+   - **Immuable.** Un événement écrit ne se modifie jamais ; une correction est un nouvel événement.
+   Base des métriques, des webhooks futurs, de l'extraction en services (§13.2) **et de la génération d'écritures comptables rétroactives**.
+7 bis. **Correspondance comptable** — table `mapping_comptable {tenant_id, type_evenement, compte_debit, compte_credit, journal}` et table `exercice_comptable {debut, fin, statut}`. Une période close n'accepte plus d'écriture : c'est une contrainte distincte de la clôture journalière et de la certification fiscale, et elle interagit avec la réconciliation des écritures orphelines (§11.4). **Tables seulement.**
 8. **Nœud de site** — l'API locale et l'API cloud exposent le même contrat ; le mode C est une configuration, pas un produit.
 9. **Partenaires externes** — table `partenaire` avec `tenant_id` **nullable** : un restaurant, une quincaillerie ou un pressing extérieur avec qui l'établissement travaille est le cas normal ; qu'il ait lui-même un compte Kaya est l'enrichissement. Plus `demande_partenaire` et le compte de compensation. **C'est la provision la plus transversale du modèle** — elle sert la sous-traitance hôtelière, les fournisseurs d'une supérette et les grossistes d'une quincaillerie, et c'est la seule dont l'utilité croît avec le nombre de clients.
 10. **Contrats de location et prestations incluses** — tables `contrat`, `caution`, `charge_locative` pour les résidences meublées en incrément 3, et `prestation_incluse` sur la formule (petit-déjeuner, blanchisserie, conciergerie). Voir question ouverte P-11.
