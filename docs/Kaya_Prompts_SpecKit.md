@@ -14,12 +14,17 @@ cd kaya
 **État attendu du dépôt avant le cycle 1** — la maquette est déjà déposée :
 
 ```
+CLAUDE.md                      guide de session — à lire en premier
+.specify/memory/constitution.md  v1.0.2 — 12 principes, 20 portes P-01→P-20
 docs/
 ├── cadrage-v1.md              source de vérité produit et technique
 ├── user-stories-v1.md         source de vérité fonctionnelle, priorités
+├── registre-classes-offline.md v1.0.0 — 157 opérations classées A/B/C/D
+├── versions-gelees.md         v1.0.2 — versions épinglées + URL des registres
 ├── Kaya_Prompts_SpecKit.md    ce fichier
-├── Kaya_Design.md             ⚠️ À AJOUTER — matrice de dérivation, lexique
+├── Kaya_Design.md             ✅ présent — matrice de dérivation, lexique
 ├── Kaya_Vision_Plateforme.md  fermé jusqu'au jalon J1
+├── module-dore.md             ⚠️ produit par le cycle 1 — patron sqlx 0.9
 └── design/
     ├── theme.css              ⚠️ copié vers app/assets/css/ AU CYCLE 1
     ├── tokens.md              valeurs curées — PRIME sur tout export
@@ -29,16 +34,33 @@ docs/
     ├── README.md              ce qui se copie, ce qui se lit, valeurs arbitraires
     ├── derivation.md          ⚠️ À RÉDIGER — sans lui, aucun écran dérivé ne se code
     ├── lexique.md             ⚠️ À RÉDIGER — sans lui, le jargon atteint l'interface
-    ├── html/                  27 fichiers {code}-{nom}[-{etat}].html — RÉFÉRENCE
+    ├── html/                  29 fichiers {code}-{nom}[-{etat}].html — 11 écrans — RÉFÉRENCE
     ├── fondation/             directions, mouvement, plaisir, difficiles, illustrations
     ├── documents/             D1-D5 tickets, D6 note provisoire, D7 facture
     ├── proto/                 proto-0 à proto-6, prototypes animés
     └── notes-terrain.md       ⚠️ rempli à l'atelier d'Abengourou
 ```
 
-**Trois fichiers manquent et doivent être produits avant le cycle 1** : `Kaya_Design.md`, `derivation.md`, `lexique.md`. Les deux derniers bloquent tout cycle par construction (§5).
+**État au 2026-07-30 — aucun blocage design.** `Kaya_Design.md` **existe** (1 266 lignes) et
+**porte déjà** ce que les anciens `docs/design/derivation.md` et `docs/design/lexique.md`
+devaient contenir :
 
-Vérifier le préfixe des commandes de la version installée (`/speckit.specify` sur les versions récentes, `/specify` sur les anciennes).
+- **PARTIE V §25 — matrice de dérivation** : les **30 écrans codés sans maquette**, chacun
+  avec le motif dont il hérite et ce qui change. Avec les 11 écrans maquettés
+  (29 fichiers d'états), le produit couvre **41 écrans**.
+- **§6 — lexique** : 15 concepts internes et leur formulation utilisateur (« certification
+  FNE » → « envoi aux impôts »).
+
+Les prompts pointaient vers deux fichiers séparés qui n'ont jamais été créés ; ils pointent
+désormais vers `Kaya_Design.md` §25 et §6. **Aucune duplication n'a été faite** : extraire ces
+tableaux dans `docs/design/` créerait deux sources de vérité qui divergeraient (principe I).
+
+**Quatre documents ont été ajoutés depuis la rédaction de ce fichier** et font foi :
+`.specify/memory/constitution.md` (v1.0.2), `docs/registre-classes-offline.md` (v1.0.0),
+`docs/versions-gelees.md` (v1.0.2) et `CLAUDE.md` (guide de session).
+
+Le paquet installé utilise le **tiret** comme séparateur (`/speckit-specify`), conformément à
+`.specify/integration.json` → `invoke_separator: "-"`. Tous les prompts de ce fichier l'emploient.
 
 ### 0.1 Monorepo — arborescence de référence (créée au cycle 1)
 
@@ -80,12 +102,10 @@ kaya/
 ├── docs/                         # cadrage-v1.md, user-stories-v1.md,
 │   │                             # registre-classes-offline.md, taxonomie-evenements.md
 │   └── design/                   # theme.css (SEUL fichier copié → app/assets/css/),
-│                                 # html/ (27 écrans, RÉFÉRENCE — jamais copiés dans app/),
+│                                 # html/ (11 écrans en 29 fichiers d'états, RÉFÉRENCE — jamais copiés dans app/),
 │                                 # tokens.md (PRIME sur tout export), composants.md,
 │                                 # mouvement.md, styleguide.html, README.md,
 │                                 # fondation/, documents/, proto/,
-│                                 # lexique.md (vocabulaire utilisateur — NORMATIF),
-│                                 # derivation.md (quel écran hérite de quel motif)
 ├── specs/                        # généré par Spec Kit (un dossier par cycle)
 └── .github/workflows/            # CI filtrée par chemins + génération du client (échec sur diff)
 ```
@@ -93,15 +113,29 @@ kaya/
 **Cycle par module** (un module = un cycle complet, ordre du §3) :
 
 ```
-/speckit.constitution   (une seule fois, §1)
-puis : /speckit.specify (§3) → /speckit.clarify (§2.1) → /speckit.plan (§2.2)
-→ /speckit.tasks (§2.3) → /speckit.analyze (§2.4) → /speckit.implement (§2.5)
+/speckit-constitution   (une seule fois, §1)
+puis : /speckit-specify (§3) → /speckit-clarify (§2.1) → /speckit-plan (§2.2)
+→ /speckit-tasks (§2.3) → /speckit-analyze (§2.4) → /speckit-implement (§2.5)
 → commit / merge
 ```
 
 ---
 
 ## 1. Constitution (à coller une seule fois)
+
+> ✅ **CONSOMMÉ le 2026-07-30 — ne pas recoller.** La constitution est ratifiée et vit
+> dans `.specify/memory/constitution.md` (**v1.0.2** : 12 principes, 20 portes de CI
+> P-01 à P-20, gouvernance et éléments différés). **C'est elle qui fait foi, pas le
+> prompt ci-dessous**, conservé comme archive de ce qui a été soumis.
+>
+> Trois écarts constatés à la ratification et corrigés dans le fichier ratifié :
+> `docs/design/html/` contient **29 fichiers pour 11 écrans**, non 27 ; `F2-registre-grave`
+> et `S2-registre-grave` sont **deux écrans distincts** (document fiscal `INDETERMINEE`
+> vs consommation orpheline), non un doublon ; `tokens.md` et `theme.css` **concordent**
+> — 71 tokens vérifiés, aucune divergence de valeur.
+>
+> Pour amender : `/speckit-constitution` avec la seule modification voulue, jamais une
+> réécriture complète, jamais à la main.
 
 ```
 /speckit-constitution
@@ -280,10 +314,20 @@ Principes non négociables :
 
 ## 2. Prompts communs (identiques à chaque cycle, à coller tels quels)
 
-### 2.1 `/speckit.clarify`
+> **Règle de rédaction de cette section.** Ces cinq prompts sont **universels** : un seul
+> jeu à maintenir, collé tel quel du cycle 1 au cycle 17. Ils ne contiennent donc que des
+> **invariants** — jamais « crée », « première tâche », « avant tout le reste », ni aucune
+> injonction qui n'a de sens qu'une fois. Tout ce qui est propre à un cycle appartient à son
+> prompt `/speckit-specify` du §3.
+>
+> Corollaire assumé : un cycle purement backend (FIS, SYN) recevra les lignes sur Nuxt et
+> les surfaces web sans en avoir besoin. C'est du bruit inoffensif, et c'est le prix d'un
+> jeu unique plutôt que dix-sept variantes à faire dériver.
+
+### 2.1 `/speckit-clarify`
 
 ```
-/speckit.clarify
+/speckit-clarify
 
 Avant de me poser une question, vérifie si la réponse est dans docs/cadrage-v1.md
 ou docs/user-stories-v1.md et cite la section. Ne me pose que les questions dont
@@ -293,37 +337,57 @@ de docs/user-stories-v1.md (valeur seed, éditable). Toute ambiguïté visuelle 
 résout par docs/design/html/{code}-{nom}[-{etat}].html (RÉFÉRENCE : valeurs
 exactes et hiérarchie DOM — par exemple R4-passage-hors-ligne.html,
 C4-cloture-bloquee.html), docs/design/tokens.md (qui PRIME en cas de divergence),
-docs/design/composants.md, docs/design/mouvement.md et docs/design/derivation.md.
-Toute ambiguïté de VOCABULAIRE UTILISATEUR se résout par docs/design/lexique.md —
+docs/design/composants.md, docs/design/mouvement.md et la MATRICE DE DÉRIVATION
+docs/Kaya_Design.md §25 (30 écrans dérivés : de quel motif chacun hérite).
+Toute ambiguïté de VOCABULAIRE UTILISATEUR se résout par le LEXIQUE docs/Kaya_Design.md §6 —
 si le terme n'y figure pas, propose-moi sa formulation avant de l'écrire en dur. Toute ambiguïté sur le
 comportement hors ligne se résout par docs/cadrage-v1.md §11 et
 docs/registre-classes-offline.md.
 ```
 
-### 2.2 `/speckit.plan`
+### 2.2 `/speckit-plan`
 
 ```
-/speckit.plan
+/speckit-plan
 
-Stack imposée (cadrage v1 §13 — non négociable) :
-- Backend : Rust stable, Actix Web, sqlx + PostgreSQL 17 (migrations versionnées,
-  un schéma par module, RLS forcée), utoipa + utoipa-swagger-ui, Redis (éphémère
-  seulement), Garage (API S3).
+VERSIONS : docs/versions-gelees.md FAIT FOI. Ne propose aucun numéro de version, ni
+de mémoire ni par vérification : le gel est fait, daté et sourcé. Reprends ses
+valeurs telles quelles. Si une version te paraît devoir changer, dis-le sans la
+changer — c'est la revue mensuelle qui tranche.
+
+Stack imposée (cadrage v1 §13 + docs/versions-gelees.md — non négociable) :
+- Backend : Rust, Actix Web, sqlx + PostgreSQL (migrations versionnées, un schéma
+  par module, RLS ENABLE **et** FORCE), utoipa + utoipa-swagger-ui, Redis
+  (éphémère reconstructible SEULEMENT), Garage (API S3 uniquement).
 - Application : Nuxt 4 en SSR désactivé + Tailwind 4 + Tauri v2 — UNE SEULE
   application pour tous les rôles métier, desktop + Android + iOS, chargement
   paresseux par module, PlatformAdapter obligatoire, mode sombre et i18n fr/en
   dès le premier écran.
 - Surfaces web séparées : page publique de commande par QR (Nuxt SSR), console
   éditeur (ssr:false).
-- CI : régénération du client TypeScript depuis openapi.json, cargo sqlx prepare,
-  test « aucune table sans politique RLS », test d'isolation multi-tenant, tests,
-  lint — filtrée par chemins du monorepo.
+- CIBLE DE DÉPLOIEMENT : Docker sur VPS Contabo, linux/amd64 (mode A du cadrage
+  §10.1). Le poste de développement est arm64 : les images Postgres, Redis et
+  Garage sont multi-architecture, mais LE BINAIRE RUST NE L'EST PAS — la
+  construction de production se fait dans Docker pour linux/amd64, jamais par copie
+  d'un binaire construit localement. Toute dépendance native, tout plugin et tout
+  outil que ce module ajoute doit exister pour les DEUX architectures.
+- sqlx est en 0.9 : AssertSqlSafe est exigé sur toute requête non littérale et la
+  sortie des macros query!() a changé. Tout extrait visant 0.8.x ne compilera pas.
+  Le patron de référence est docs/module-dore.md — aligne-toi dessus plutôt que sur
+  un exemple trouvé en ligne.
 
-Respecte la constitution, en particulier : l'établissement est l'entité centrale
-et aucun crate ne suppose qu'il a de l'hébergement ou un point de vente ; la
-disponibilité est un intervalle horodaté garanti par contrainte d'exclusion GiST ;
-aucune règle fiscale hors JurisdictionAdapter ; chaque entité déclare sa classe
-offline ; les provisions sont des données seulement.
+Respecte la constitution (.specify/memory/constitution.md, v1.0.2), en particulier :
+l'établissement est l'entité centrale et aucun crate ne suppose qu'il a de
+l'hébergement ou un point de vente ; le socle ne connaît que article_vendable et
+ressource_reservable ; la disponibilité est un intervalle horodaté garanti par
+contrainte d'exclusion GiST ; aucune règle fiscale hors JurisdictionAdapter ;
+montants en entiers d'unité mineure ET quantités en NUMERIC ; chaque entité déclare
+sa classe dans docs/registre-classes-offline.md ; les provisions sont des données
+seulement.
+
+PORTES DE CI : la constitution définit vingt portes bloquantes P-01 à P-20. Le plan
+doit dire, pour chaque porte que ce module touche, COMMENT elle est vérifiée et par
+quel test. Une porte concernée sans mécanisme de vérification est un trou du plan.
 
 Livrables attendus du plan : migrations à créer (avec les politiques RLS),
 endpoints avec annotations utoipa, structures et traits exposés aux autres crates,
@@ -331,30 +395,51 @@ endpoints avec annotations utoipa, structures et traits exposés aux autres crat
 tests d'intégration — dont les tests offline obligatoires du §0.7 des user stories.
 ```
 
-### 2.3 `/speckit.tasks`
+### 2.3 `/speckit-tasks`
 
 ```
-/speckit.tasks
+/speckit-tasks
 
 Découpe en tâches d'une demi-journée à une journée maximum, ordonnées par
 dépendance. Chaque tâche qui touche le schéma COMMENCE par sa migration sqlx,
 politiques RLS incluses. Chaque tâche qui touche l'API SE TERMINE par la mise à
 jour des annotations utoipa + la régénération du client TypeScript + build vert.
 Chaque tâche qui crée une entité inclut sa déclaration de classe offline dans
-docs/registre-classes-offline.md et le test correspondant. Chaque tâche d'interface
-référence le fichier docs/design/html/{code}-{nom}.html correspondant — ou sa ligne
-dans docs/design/derivation.md — et est vérifiée en mode clair ET sombre. LE HTML DE
-MAQUETTE N'EST JAMAIS COPIÉ NI DÉPLACÉ VERS app/ : on en lit les valeurs et la
-structure, on réimplémente en composants Nuxt avec i18n, mode sombre, RBAC et
-chargement paresseux — que l'export ne contient pas. Les tâches P1 sont placées en fin de liste pour être livrables après le
-cœur P0. Termine la liste par une tâche « revue Definition of Done »
+docs/registre-classes-offline.md et le test correspondant.
+
+RÉFÉRENCE VISUELLE — SI ce cycle produit des écrans. Plusieurs cycles n'en produisent
+aucun (TRX, SYN, MET, et la part backend de FIS) : dans ce cas, ignore ce paragraphe,
+ne fabrique pas de tâche d'interface pour respecter la forme.
+Le produit compte 41 écrans. Chaque tâche d'interface cite sa référence, qui est dans
+l'un de ces deux cas — jamais un troisième :
+(a) ÉCRAN MAQUETTÉ — 11 écrans, 29 fichiers d'états dans docs/design/html/, nommage
+    {code}-{nom}[-{etat}].html. La référence est le fichier d'état exact.
+(b) ÉCRAN DÉRIVÉ — 30 écrans. La référence est sa ligne de la MATRICE DE DÉRIVATION,
+    docs/Kaya_Design.md PARTIE V §25, qui dit de quel motif il hérite et ce qui change
+    (ex. « R3 Check-in nuitée hérite de R4 : parcours long, plus de champs, même
+    grammaire »). Ouvre la maquette dont il hérite et respecte-la.
+UN ÉCRAN QUI N'EST NI DANS (a) NI DANS (b) NE SE CODE PAS : la tâche s'arrête et
+l'écran part en maquettage. Ne l'invente pas, ne le déduis pas — signale-le.
+
+LE HTML DE MAQUETTE N'EST JAMAIS COPIÉ NI DÉPLACÉ VERS app/ : on en lit les valeurs et
+la structure, on réimplémente en composants Nuxt avec i18n, mode sombre, RBAC et
+chargement paresseux — que l'export ne contient pas. Chaque écran est vérifié en mode
+clair ET sombre.
+
+Tout terme technique visible par l'utilisateur passe par le LEXIQUE,
+docs/Kaya_Design.md §6 (« certification FNE » devient « envoi aux impôts », un état
+INDETERMINEE devient « nous ne savons pas si les impôts ont reçu cette facture »). Si le
+terme n'y figure pas, demande sa formulation avant de l'écrire.
+
+Les tâches P1 sont placées en fin de liste pour être livrables après le cœur P0.
+Termine la liste par une tâche « revue Definition of Done »
 (docs/user-stories-v1.md §0.4).
 ```
 
-### 2.4 `/speckit.analyze`
+### 2.4 `/speckit-analyze`
 
 ```
-/speckit.analyze
+/speckit-analyze
 
 Vérifie la cohérence spec ↔ plan ↔ tâches ↔ constitution. Signale :
 - toute exigence des stories du périmètre de ce module non couverte par une tâche ;
@@ -367,13 +452,16 @@ Vérifie la cohérence spec ↔ plan ↔ tâches ↔ constitution. Signale :
 - toute table créée sans politique RLS ;
 - toute entité créée sans classe offline déclarée ;
 - tout paramètre métier codé en dur qui devrait vivre dans la configuration
-  d'établissement.
+  d'établissement ;
+- toute porte P-01 à P-20 de la constitution concernée par ce module sans mécanisme
+  de vérification dans le plan ou les tâches ;
+- toute version proposée hors de docs/versions-gelees.md.
 ```
 
-### 2.5 `/speckit.implement`
+### 2.5 `/speckit-implement`
 
 ```
-/speckit.implement
+/speckit-implement
 
 Implémente les tâches dans l'ordre. Après chaque tâche : compile, teste, commite
 avec un message conventionnel référençant la story (ex. "feat(hebergement): HEB-04
@@ -392,22 +480,28 @@ qui resterait non conforme :
 [ ] Montants en entiers + devise ; aucune règle fiscale hors JurisdictionAdapter
 [ ] Aucun window.__TAURI__ hors PlatformAdapter
 [ ] Aucune jointure SQL entre schémas de modules différents
-[ ] Chaque écran a sa référence dans docs/design/html/ OU sa ligne dans docs/design/derivation.md
+[ ] Chaque écran a sa référence : fichier de docs/design/html/ OU ligne de la matrice
+    de dérivation docs/Kaya_Design.md §25 — aucun écran inventé
 [ ] Aucun bloc de docs/design/html/ copié dans app/ ; valeurs conformes à tokens.md
 [ ] Styles en utilitaires Tailwind du noyau ; CSS explicite justifié et regroupé
 [ ] Mode sombre par la variante dark:, pas par une palette dupliquée
-[ ] Aucun terme technique exposé sans entrée dans docs/design/lexique.md
+[ ] Aucun terme technique exposé sans entrée au lexique docs/Kaya_Design.md §6
 [ ] Rien construit au-delà du périmètre (provisions = données seulement)
+[ ] Quantités en NUMERIC, jamais en entier (ligne de vente, mouvement de stock)
+[ ] Aucune dépendance en intervalle ; lockfiles commités ; versions conformes à
+    docs/versions-gelees.md
+[ ] Chaque porte P-01 à P-20 concernée par le module est vérifiée par un test qui
+    échoue vraiment — testé en le cassant volontairement une fois
 ```
 
 ---
 
-## 3. Les 17 prompts `/speckit.specify` (ordre d'exécution)
+## 3. Les 17 prompts `/speckit-specify` (ordre d'exécution)
 
 ### Cycle 1 — TRX (bootstrappe le monorepo)
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module TRX — Transverse & infrastructure, et
 docs/cadrage-v1.md sections §13 et §14.
@@ -427,18 +521,25 @@ Nuxt 4 + Tauri v2 avec core/ (auth, rbac, i18n fr+en, thème clair/sombre, sync,
 PlatformAdapter) ; web/qr et web/console ; clients/ts généré ; infra/
 docker-compose Postgres + Redis + Garage ; .github/workflows CI filtrée par
 chemins.
-PREMIÈRE TÂCHE OBLIGATOIRE : vérifier sur les registres officiels et ÉPINGLER
-EXACTEMENT les dernières versions stables de Rust, Actix Web, sqlx, utoipa,
-Nuxt 4, Tailwind 4, Tauri v2, Postgres, Redis et Garage — en citant l'URL du
-registre pour chacune. Ne propose aucun numéro de version de mémoire.
-DEUXIÈME TÂCHE OBLIGATOIRE : écrire À LA MAIN un MODULE DORÉ — une tranche
-verticale complète (entité triviale → migration + RLS → repository sqlx →
-service → handler utoipa → tests unitaires et d'intégration → écran Nuxt en clair
-et sombre) qui servira de patron à tous les cycles suivants. Documente-le dans
-docs/module-dore.md.
-TROISIÈME TÂCHE OBLIGATOIRE : créer docs/registre-classes-offline.md avec les
-quatre classes (cadrage §11) et le test de CI qui échoue si une entité n'y est pas
-déclarée.
+PREMIÈRE TÂCHE — DÉJÀ FAITE, NE PAS REFAIRE : le gel des versions existe dans
+docs/versions-gelees.md (dix briques du principe XI + quatorze crates + npm + Node
+LTS, chacune vérifiée sur son registre officiel avec l'URL citée, au 2026-07-30).
+La tâche du cycle est de MATÉRIALISER ce gel dans rust-toolchain.toml, le Cargo.toml
+de workspace, package.json, .nvmrc, compose.yml et les lockfiles commités — §4 du
+document. Ne revérifie aucun numéro : le gel fait foi jusqu'à la revue mensuelle.
+DEUXIÈME TÂCHE OBLIGATOIRE — LA PLUS IMPORTANTE DU CYCLE : écrire À LA MAIN un
+MODULE DORÉ — une tranche verticale complète (entité triviale → migration + RLS →
+repository sqlx → service → handler utoipa → tests unitaires et d'intégration →
+écran Nuxt en clair et sombre) qui servira de patron à tous les cycles suivants.
+Il doit être écrit CONTRE sqlx 0.9 (AssertSqlSafe sur toute requête non littérale) :
+tout extrait trouvé en ligne vise 0.8.x et ne compile pas. Sans ce patron, chaque
+cycle suivant réintroduira des appels 0.8. Documente-le dans docs/module-dore.md.
+TROISIÈME TÂCHE — LE REGISTRE EXISTE DÉJÀ : docs/registre-classes-offline.md est
+écrit (157 opérations classées, quatre classes, arbre de décision, tests par classe).
+La tâche du cycle est d'écrire LA PORTE DE CI P-13 : un test qui échoue si une entité
+du schéma n'y est pas déclarée, et si une opération B, C ou D est atteignable depuis
+un chemin de code exécutable hors ligne. Ne réécris pas le registre ; complète-le
+au fil des entités créées.
 Hors périmètre : TRX-06 (ARTCI, P1), TRX-07 (mise à jour et télémétrie, P1),
 TRX-08 (design system, P1) — prévois seulement leur emplacement.
 Personas : Admin éditeur.
@@ -452,7 +553,7 @@ profil dev.
 ### Cycle 2 — ETB
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module ETB — Établissements & modules d'activité, et
 docs/cadrage-v1.md sections §4 et §14.
@@ -499,7 +600,7 @@ les niveaux.
 ### Cycle 3 — CPT
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module CPT — Comptes, rôles & appareils, et
 docs/cadrage-v1.md section §12.
@@ -535,7 +636,7 @@ privilège hors ligne, jamais.
 ### Cycle 4 — HEB
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module HEB — Hébergement : unités & formules, et
 docs/cadrage-v1.md section §5.
@@ -583,7 +684,7 @@ louable d'une catégorie dédiée, PAS une entité nouvelle.
 ### Cycle 5 — SYN
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module SYN — Synchronisation & hors-ligne, et
 docs/cadrage-v1.md section §11.
@@ -619,7 +720,7 @@ entité les instanciera.
 ### Cycle 6 — SEJ (partie 1 — T1)
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module SEJ — Séjours & enregistrement, et
 docs/cadrage-v1.md sections §5 et §9.6.
@@ -654,7 +755,7 @@ parcours de nuitée avec des champs en plus.
 ### Cycle 7 — PDV
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module PDV — Points de vente, et docs/cadrage-v1.md
 section §6.
@@ -696,7 +797,7 @@ saisie et l'envoi en préparation ».
 ### Cycle 8 — SEJ (partie 2) + note temps réel
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module SEJ — stories SEJ-03 et SEJ-05, et
 docs/cadrage-v1.md sections §4.1 et §6.1.
@@ -723,7 +824,7 @@ Une consommation au bar s'ajoute à la note d'un séjour si l'hébergement est a
 ### Cycle 9 — CAI
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module CAI — Caisse & encaissements, et
 docs/cadrage-v1.md section §8.
@@ -756,7 +857,7 @@ propriétaire (journal d'audit CPT-04). Toute sortie de caisse exige un motif.
 ### Cycle 10 — FIS
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module FIS — Fiscalité & documents, et
 docs/cadrage-v1.md section §9.
@@ -814,7 +915,7 @@ les documents en attente.
 ### Cycle 11 — IMP
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module IMP — Impression & documents, et
 docs/cadrage-v1.md sections §8 et §9.
@@ -843,7 +944,7 @@ coupe papier ne se testent pas à l'écran.
 ### Cycle 12 — SYN (partie 2) + réconciliation
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, story SYN-03, et docs/cadrage-v1.md §11.4.
 
@@ -869,7 +970,7 @@ tourne en CI pour toujours.
 ### Cycle 13 — DIR (partie 1 — T3)
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module DIR — Direction & pilotage, story DIR-01.
 
@@ -893,7 +994,7 @@ chef. Ne démarre pas le cycle 14 avant.
 ### Cycle 14 — MOB
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module MOB — Mobile Tauri, et docs/cadrage-v1.md
 section §13.4.
@@ -931,7 +1032,7 @@ latence de saisie d'une ligne de commande doit rester sous 200 ms.
 ### Cycle 15 — CPT (partie 2) + QRC
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, modules CPT (stories CPT-05, CPT-06) et QRC —
 Commande par QR, et docs/cadrage-v1.md sections §7 et §12.2.
@@ -970,7 +1071,7 @@ attente.
 ### Cycle 16 — RSV + SEJ (OCR)
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, module RSV — Réservations et story SEJ-06.
 
@@ -1010,7 +1111,7 @@ client nouveau doit tenir dans les deux cas.
 ### Cycle 17 — STK, DIR (partie 2), ADM, MET
 
 ```
-/speckit.specify
+/speckit-specify
 
 Lis docs/user-stories-v1.md, modules STK — Stocks, DIR (stories DIR-02 à DIR-05),
 ADM — Console éditeur & abonnements, MET — Métriques, et docs/cadrage-v1.md
@@ -1080,17 +1181,17 @@ provisionnement ni facturation il n'y a pas de second client.
 
 **Incrément 3 (S32–S45)** : iOS en production, contrats et cautions des résidences meublées, nœud de site LAN, paquet auto-hébergé durci, second adaptateur de juridiction, comptes clients entreprises.
 
-Chaque cycle spécifie l'ensemble de son périmètre ; dans `/speckit.tasks`, les tâches P1 sont placées en fin de liste pour être livrables après le cœur P0.
+Chaque cycle spécifie l'ensemble de son périmètre ; dans `/speckit-tasks`, les tâches P1 sont placées en fin de liste pour être livrables après le cœur P0.
 
 ---
 
 ## 5. Règles de conduite du dépôt
 
-- **Un écran ne se code pas sans référence visuelle.** Soit il existe dans `docs/design/html/` (27 fichiers, nommage `{code}-{nom}[-{etat}].html`), soit `docs/design/derivation.md` déclare de quel motif maquetté il hérite. Sans l'un ni l'autre, le cycle s'arrête et l'écran part en maquettage.
-- **Aucun terme technique visible par l'utilisateur sans entrée dans `docs/design/lexique.md`.** « Certification FNE », « état indéterminé », « écriture orpheline » ne doivent jamais atteindre un bouton ou un message. Tout nouveau concept exposé entre au lexique **avant** d'être codé.
+- **Un écran ne se code pas sans référence visuelle.** Soit il existe dans `docs/design/html/` (29 fichiers pour 11 écrans, nommage `{code}-{nom}[-{etat}].html`), soit la matrice de dérivation `docs/Kaya_Design.md` §25 déclare de quel motif maquetté il hérite (30 écrans). Sans l'un ni l'autre, le cycle s'arrête et l'écran part en maquettage.
+- **Aucun terme technique visible par l'utilisateur sans entrée au lexique `docs/Kaya_Design.md` §6.** « Certification FNE », « état indéterminé », « écriture orpheline » ne doivent jamais atteindre un bouton ou un message. Tout nouveau concept exposé entre au lexique **avant** d'être codé.
 - **Une branche par cycle** (`feat/heb-formules`), merge quand la checklist du §2.5 passe.
 - **Commits conventionnels référençant les stories** : `feat(hebergement): HEB-02 disponibilité par contrainte d'exclusion GiST`.
-- **Si une décision produit change** : mettre à jour d'abord `docs/cadrage-v1.md` et `docs/user-stories-v1.md` (et `docs/design/` si visuel), puis relancer `/speckit.specify` du module concerné — jamais l'inverse.
+- **Si une décision produit change** : mettre à jour d'abord `docs/cadrage-v1.md` et `docs/user-stories-v1.md` (et `docs/design/` si visuel), puis relancer `/speckit-specify` du module concerné — jamais l'inverse.
 - **Fin de chaque tranche** : tag Git (`t1-done`), démo réelle sur le matériel du pilote, restauration de sauvegarde testée.
 - **Ne jamais fusionner du code qu'on ne saurait pas déboguer à 2 h du matin pendant une clôture de caisse à Abengourou.** C'est la règle qui prime sur toutes les autres en développement solo assisté par IA.
 
@@ -1101,9 +1202,14 @@ Chaque cycle spécifie l'ensemble de son périmètre ; dans `/speckit.tasks`, le
 | Décision | Bloque | Échéance |
 |---|---|---|
 | **B-03** — source de revenus de transition | Rien techniquement, tout le reste humainement | **S2** |
+| **O-01** — `client` / `personne` en classe C rend le check-in d'un **client inconnu** impossible hors ligne, même en mode nœud de site | **Cycle 6 (SEJ-1), en T1** — la plus proche | **avant SEJ-02** |
 | **B-02** — taxe de nuitée sur passage et demi-journée | Valeurs par défaut du cycle 10 (FIS) | S3, fiscaliste |
 | **B-07** — barèmes de passage réels du pilote | Seeds du cycle 4 (HEB) | S3, atelier terrain |
-| **B-01** — hébergement en Côte d'Ivoire ou en Europe | Cycle 1 (infra) | S3 |
-| **B-05** — classe offline du stock (A ou B) | Cycle 17 (STK) | S4, avec le pilote |
+| **O-03** — crate d'accueil de la surface QR, transverse à `restauration` et `bar`, absente des quatre verticales | Cycle 15 (QRC) | avant QRC-01 |
+| **B-05 / O-02** — classe offline du stock (A ou B) | Cycle 17 (STK) | S4, avec le pilote |
 | **B-06** — nom définitif et marque | Renommage global, trivial tant qu'il est fait tôt | S6 |
 | **B-04** — montant des frais d'installation | Cycle 17 (ADM) | S6 |
+| ~~**B-01** — hébergement en CI ou en Europe~~ | ✅ **tranchée de fait** : Docker sur VPS Contabo, qui sert l'Afrique depuis son hub Europe. Reste à consigner le **transfert transfrontalier ARTCI** (pièces d'identité de clients ivoiriens hors CI) au registre des traitements de TRX-06 | fait |
+
+Les décisions **O-xx** sont portées par `docs/registre-classes-offline.md` §12. Jusqu'à leur
+arbitrage, **la classe la plus stricte du registre s'applique** — aucun contournement.
