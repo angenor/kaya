@@ -4,21 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle technique est en place** (cycle 001, TRX, fusionné le 2026-07-30) : 18 crates Rust,
-6 migrations, 15 tests d'intégration, 9 portes de CI scriptées, et une image de production
-construite et exercée. Le **cycle 002 (ETB — établissements et modules d'activité)** est
-spécifié, non implémenté.
+**Le socle et les établissements sont en place** — cycles 001 (TRX) et 002 (ETB) livrés :
+18 crates Rust, 13 migrations, 98 tests backend, 60 tests front, 8 portes scriptées, l'écran `G1`,
+et une image de production construite et exercée.
 
 **Le patron de référence est `docs/module-dore.md`** (451 lignes) : une tranche verticale écrite
 à la main contre sqlx 0.9. **Le lire avant d'écrire du Rust** — tout extrait trouvé en ligne vise
 sqlx 0.8 et ne compilera pas.
 
-Un manque connu et assumé : le module doré **n'a pas de couche écran**. Le cycle 001 n'avait
-aucun écran maquetté ni dérivé à produire, donc le patron ne démontre ni i18n, ni mode sombre,
-ni RBAC, ni chargement paresseux. **Le cycle 002 produit `G1`** (dérivé de `G2`) et solde cette
-dette : c'est lui qui fixera le patron front.
+**Deux dettes ouvertes, à connaître avant de coder du front :**
 
-État par tranche : **T1 en cours** (TRX fait, ETB spécifié ; restent CPT, HEB, SYN, SEJ-1).
+1. **Le patron front n'existe qu'en lecture.** `G1` affiche ; aucun bouton n'appelle les
+   21 opérations d'écriture, qui existent et sont testées côté API. Formulaires, validation,
+   gestion d'erreur, états de chargement, i18n des messages et RBAC sur les actions **ne sont
+   démontrés nulle part**. Le premier cycle qui écrit depuis un écran fixe ce patron — le cadrer,
+   ne pas l'improviser.
+2. **La police d'icônes n'est pas embarquée.** La maquette charge Phosphor depuis un CDN, ce que
+   le mode hors-ligne interdit (porte **P-21**). Les icônes de `G1` ne s'affichent pas ; elles
+   sont `aria-hidden`, l'écran reste lisible. À embarquer avant la démonstration de tranche.
+
+État par tranche : **T1 en cours** (TRX et ETB faits ; restent CPT, HEB, SYN, SEJ-1).
 
 ## Langue et conventions de nommage
 
@@ -42,10 +47,11 @@ Chaînes visibles par l'utilisateur : **jamais en dur**, clés i18n **fr et en**
 
 En cas de contradiction, trancher dans cet ordre :
 
-1. `.specify/memory/constitution.md` — 12 principes non négociables, **21 portes de CI**
-   bloquantes (P-01 à P-20, dont P-05b). **À lire avant toute décision d'architecture.** Sa
-   section « Couverture des portes » est née de quatre portes vertes défectueuses au cycle 001 :
-   *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde tout.*
+1. `.specify/memory/constitution.md` — 12 principes non négociables, **23 portes de CI**
+   bloquantes (P-01 à P-21, dont P-01b et P-05b). **À lire avant toute décision d'architecture.**
+   Sa section « Couverture des portes » est née de portes vertes défectueuses aux cycles 001 et
+   002 : *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde
+   tout* — et une porte dont la cible est vide passe toujours.
 2. `docs/cadrage-v1.md` — périmètre, modèle d'entité, fiscalité, classes hors-ligne, déploiement,
    provisions §14.
 3. `docs/user-stories-v1.md` — critères d'acceptation, priorités P0/P1/P2/PROVISION, Definition

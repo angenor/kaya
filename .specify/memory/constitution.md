@@ -1,4 +1,28 @@
 <!--
+SYNC IMPACT REPORT — 1.3.0 — 2026-07-31
+========================================
+Changement de version : 1.2.1 → 1.3.0 (MINOR)
+Motif : deux portes ajoutées (P-01b, P-21) et deux exigences de couverture (4, 5) —
+        extension matérielle de la gouvernance → MINOR. Jeu porté à 23 portes.
+Origine : livraison du cycle 002 (ETB). Trois défauts qu'aucune porte ne couvrait :
+  1. Deux operationId homonymes produisaient un client TypeScript INVALIDE. P-01 ne
+     compare que le généré au commité : un contrat cassé passe si le commit l'est
+     aussi. → P-01b, unicité des operationId.
+  2. La maquette charge sa police d'icônes depuis un CDN. Reprise telle quelle, elle
+     rend l'écran dépendant du réseau — ce que le principe VI interdit. Le principe
+     XII disait de réimplémenter le HTML, sans rien dire des ressources qu'il
+     charge. → P-21, aucune ressource d'hôte externe.
+  3. ESLint ne parsait aucun .vue typé : P-15 était verte car sa cible était vide,
+     masquée par l'unique composant non annoté du cycle 001. → exigence 4, prouver
+     qu'une porte a une cible non vide.
+  Et le défaut de séquence de l'outbox (espace de numérotation partagé entre
+  tenants, migration 0012), trouvé par le premier événement de portée tenant sur un
+  second tenant — ni par relecture, ni par une porte. → exigence 5.
+Modifications :
+  - Portes : P-01b et P-21 ajoutées.
+  - § Couverture des portes : exigences 4 et 5 ajoutées, constats du cycle 002.
+Aucun principe ajouté, renommé ni supprimé.
+
 SYNC IMPACT REPORT — 1.2.1 — 2026-07-31
 ========================================
 Changement de version : 1.2.0 → 1.2.1 (PATCH)
@@ -505,6 +529,7 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | Porte | Vérifie | Principe |
 |---|---|---|
 | P-01 | Le client TypeScript généré est identique au client commité | I |
+| P-01b | **Tous les `operationId` du contrat OpenAPI sont uniques** — deux opérations homonymes produisent un client TypeScript invalide, que P-01 ne détecte pas puisqu'elle ne compare que le généré au commité | I |
 | P-02 | Aucune migration déjà appliquée n'a été modifiée | I |
 | P-03 | Aucun crate de `socle/` ne dépend d'un crate de `verticales/` | II |
 | P-04 | Aucune requête ne joint deux schémas de modules différents | II |
@@ -525,6 +550,7 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-18 | `cargo sqlx prepare` vert | VIII |
 | P-19 | Aucun fichier de `docs/design/html/` copié sous `app/` | XII |
 | P-20 | Aucune dépendance déclarée en intervalle ; lockfiles commités et à jour | XI |
+| P-21 | **Aucune ressource chargée depuis un hôte externe** — police, icône, script, feuille de style, image. Tout est embarqué dans l'application. Un CDN rend l'écran dépendant du réseau, ce que le mode hors-ligne interdit | VI, XII |
 
 ### Couverture des portes — leçon du cycle 1
 
@@ -535,6 +561,11 @@ relecture** : P-08 lisait un contrat vide alors que deux endpoints étaient serv
 
 > **Un test négatif prouve qu'une porte sait échouer. Il ne prouve pas qu'elle regarde tout.**
 
+Le cycle 002 l'a confirmé deux fois : le décompte de P-07 ne couvrait que 4 tables sur 10, et
+**ESLint ne parsait aucun `.vue` typé** — la porte P-15 était verte parce qu'elle ne gardait rien,
+masquée par l'unique composant non annoté du cycle précédent. Une porte dont la cible est vide est
+indistinguable d'une porte qui passe.
+
 Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée :
 
 1. **Déclarer le périmètre inspecté** en commentaire de tête : ce que la porte lit, et ce qu'elle
@@ -544,6 +575,14 @@ Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée 
    fausse assurance, ce qui est pire que pas de porte.
 3. **Ne jamais modifier l'artefact inspecté.** Un contrôle qui écrit dans ce qu'il vérifie peut
    masquer le défaut qu'il cherche.
+4. **Prouver que la porte a une cible non vide.** Une porte qui n'inspecte rien passe toujours.
+   Le test l'exerce sur au moins un cas réel, ou déclare explicitement qu'elle est installée à
+   vide et le vérifie par une assertion de non-régression.
+5. **Exercer tout nouveau type d'événement sur les deux tenants de démonstration.** Le défaut de
+   séquence de l'outbox — un espace de numérotation partagé entre tenants, corrigé par la
+   migration 0012 — n'a été trouvé ni par relecture ni par une porte, mais par le premier
+   événement de portée tenant appliqué à un second tenant. La couverture s'étend avec les
+   fonctionnalités : elle doit être re-exercée, pas supposée acquise.
 
 ### Flux de développement
 
@@ -577,7 +616,7 @@ Un principe n'est jamais contourné en silence : il est amendé ou il est respec
 - **PATCH** — clarification, reformulation, correction sans effet sémantique.
 
 **Conformité.** Chaque plan de fonctionnalité passe un `Constitution Check` avant
-implémentation. Les portes P-01 à P-20 (P-05b incluse) sont exécutées en intégration continue et leur échec
+implémentation. Les portes P-01 à P-21 (P-01b et P-05b incluses) sont exécutées en intégration continue et leur échec
 bloque la fusion. Toute complexité ajoutée doit être justifiée par écrit dans le plan ; à
 justification absente, l'option la plus simple s'impose.
 
@@ -611,4 +650,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.2.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
+**Version**: 1.3.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
