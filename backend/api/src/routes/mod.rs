@@ -10,6 +10,7 @@
 //! contrat**, donc absent du client généré et invisible pour P-08. C'est la raison pour laquelle
 //! chaque handler porte son propre attribut de routage.
 
+pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
 pub mod notes;
@@ -35,6 +36,15 @@ pub fn configurer(config: &mut ServiceConfig) {
     // Sonde de santé — publique, sans contexte de tenant, hors de tout préfixe de version : la
     // supervision externe doit pouvoir l'interroger sans rien savoir du produit.
     config.service(sante::sante);
+
+    // Configuration héritée — la cible vient des paramètres de requête, jamais du chemin : une
+    // même clé se résout depuis quatre niveaux différents, et quatre chemins distincts laisseraient
+    // quatre implémentations diverger.
+    config.service(
+        scope("/api/v1/configuration")
+            .service(configuration::resoudre)
+            .service(configuration::ecrire),
+    );
 
     // Référentiels — lecture seule, aucun verbe d'écriture exposé.
     config.service(

@@ -82,6 +82,18 @@ impl EtatApplication {
         )
     }
 
+    /// Service de la configuration héritée — ETB-04.
+    pub fn service_configuration(
+        &self,
+    ) -> kaya_etablissements::configuration::ServiceConfiguration<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+    > {
+        kaya_etablissements::configuration::ServiceConfiguration::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
     /// Le référentiel des modules, tel que l'API le rend.
     ///
     /// Les trois lectures de référentiel ne passent par aucun service : elles ne portent aucune

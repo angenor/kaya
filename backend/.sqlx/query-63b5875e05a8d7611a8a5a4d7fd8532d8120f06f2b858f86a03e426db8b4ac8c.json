@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT cle, type_valeur, portee_la_plus_basse, story, libelle_cle, description_cle\n        FROM etablissements.parametre_catalogue\n        WHERE cle = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "cle"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "type_valeur",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "type_valeur"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "portee_la_plus_basse",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "portee_la_plus_basse"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "story",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "story"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "libelle_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "description_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "description_cle"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "63b5875e05a8d7611a8a5a4d7fd8532d8120f06f2b858f86a03e426db8b4ac8c"
+}

@@ -204,7 +204,7 @@ pub fn etapes(_parcours: Parcours) -> Vec<Etape> {
             nom: "resolution_configuration",
             cycle_du: "002-ETB (ETB-04)",
             sentinelle: Sentinelle::Chemin(CHEMIN_CONFIGURATION),
-            branchement: Branchement::Absente,
+            branchement: Branchement::Branchee,
         },
         // ── Étapes dues. Leur sentinelle est une table : le cycle qui les livre la crée
         //    forcément, et ne peut donc pas livrer sans rencontrer ce harnais.
@@ -531,6 +531,64 @@ async fn executer_verticale_reelle(
                 );
             }
         }
+    }
+
+    // ── Résolution de configuration ─────────────────────────────────────────────────────────
+    //
+    // Chaque parcours résout sur la chaîne dont il dispose. **Aucun niveau n'est inventé pour
+    // faire le compte** : le maquis descend jusqu'à son point de vente, la résidence meublée
+    // s'arrête au service, et les deux fonctionnent.
+    if a_exercer.contains(&"resolution_configuration") {
+        use kaya_etablissements::Cible;
+        use kaya_etablissements::configuration::{EcrireParametre, ServiceConfiguration};
+
+        let configuration =
+            ServiceConfiguration::nouveau(pool_app.clone(), PgOutboxWriter::nouveau());
+
+        configuration
+            .ecrire(
+                jeu.tenant_id,
+                EcrireParametre {
+                    id: Uuid::now_v7(),
+                    cle: "politique_impression".to_owned(),
+                    valeur: serde_json::json!("aucune"),
+                    portee: kaya_etablissements::Portee::Tenant,
+                    portee_id: None,
+                },
+            )
+            .await
+            .expect("écriture d'un paramètre au niveau tenant");
+
+        let cible = Cible {
+            tenant_id: jeu.tenant_id,
+            etablissement_id: Some(jeu.etablissement_id),
+            module_code: Some(parcours.module_code().to_owned()),
+            point_de_vente_id: None,
+        };
+
+        let resolue = configuration
+            .resoudre(&cible, "politique_impression")
+            .await
+            .expect("résolution")
+            .expect("la valeur posée au niveau tenant doit être héritée");
+
+        assert_eq!(
+            resolue.origine,
+            kaya_etablissements::Portee::Tenant,
+            "la valeur doit être rendue AVEC son origine — sans elle, l'écran ne peut pas dire \
+             « vaut pour tous vos établissements »"
+        );
+
+        // Une clé définie nulle part est **absente**, jamais rendue à `null` ni complétée par un
+        // défaut. Un défaut ici serait un paramètre en dur (principe I·c).
+        let absente = configuration
+            .resoudre(&cible, "politique_impression_inexistante")
+            .await
+            .expect("résolution d'une clé absente");
+        assert!(
+            absente.is_none(),
+            "une clé définie à aucun niveau doit être ABSENTE, pas rendue à null"
+        );
     }
 
     // ── Points de vente — la moitié la plus visible de la promesse du produit ────────────────

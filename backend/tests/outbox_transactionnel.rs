@@ -671,3 +671,100 @@ async fn p05_points_de_vente_et_tables() {
         );
     }
 }
+
+/// **`parametre_configuration.ecrit` — et l'ANCIENNE valeur dans la charge utile.**
+///
+/// Sans elle, le grand livre dirait qu'une valeur a changé sans dire depuis quoi : une
+/// reconstitution ne pourrait pas remonter le fil d'un barème modifié trois fois, et c'est
+/// exactement ce qu'on demandera au journal le jour d'un contrôle fiscal.
+#[tokio::test]
+async fn p05_ecriture_de_parametre_porte_l_ancienne_valeur() {
+    use kaya_etablissements::Portee;
+    use kaya_etablissements::configuration::{EcrireParametre, ServiceConfiguration};
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 configuration").await;
+    let service = ServiceConfiguration::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    let premier = Uuid::now_v7();
+    service
+        .ecrire(
+            jeu.tenant_id,
+            EcrireParametre {
+                id: premier,
+                cle: "politique_impression".to_owned(),
+                valeur: serde_json::json!("aucune"),
+                portee: Portee::Tenant,
+                portee_id: None,
+            },
+        )
+        .await
+        .expect("première écriture");
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, premier).await;
+    assert_eq!(types, vec!["parametre_configuration.ecrit"]);
+
+    // Seconde écriture, valeur différente : l'ancienne doit figurer à la charge utile.
+    let second = Uuid::now_v7();
+    service
+        .ecrire(
+            jeu.tenant_id,
+            EcrireParametre {
+                id: second,
+                cle: "politique_impression".to_owned(),
+                valeur: serde_json::json!("ticket_cuisine"),
+                portee: Portee::Tenant,
+                portee_id: None,
+            },
+        )
+        .await
+        .expect("seconde écriture");
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+    let payload: serde_json::Value = sqlx::query_scalar!(
+        r#"
+        SELECT payload AS "payload!"
+        FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1
+        "#,
+        second
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("lecture de l'événement");
+    tx.rollback().await.expect("rollback");
+
+    assert_eq!(
+        payload["ancienne_valeur"],
+        serde_json::json!("aucune"),
+        "l'événement de surcharge doit porter l'ANCIENNE valeur. Charge utile : {payload}"
+    );
+    assert_eq!(payload["valeur"], serde_json::json!("ticket_cuisine"));
+    assert_eq!(payload["niveau"], serde_json::json!("TENANT"));
+
+    // Réécrire la même valeur n'émet rien — même principe que le rejeu.
+    let troisieme = Uuid::now_v7();
+    service
+        .ecrire(
+            jeu.tenant_id,
+            EcrireParametre {
+                id: troisieme,
+                cle: "politique_impression".to_owned(),
+                valeur: serde_json::json!("ticket_cuisine"),
+                portee: Portee::Tenant,
+                portee_id: None,
+            },
+        )
+        .await
+        .expect("réécriture à l'identique");
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, troisieme).await;
+    assert!(
+        types.is_empty(),
+        "réécrire une valeur identique a émis {types:?} : le grand livre enregistrerait une \
+         transition qui n'a pas eu lieu"
+    );
+}

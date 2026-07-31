@@ -72,6 +72,9 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/points-de-vente/{point_de_vente_id}/tables",
         Regime::Isole,
     ),
+    // Configuration héritée — la cible vient des paramètres de requête. L'isolation à CHAQUE
+    // niveau de la descente est vérifiée par `backend/tests/configuration_heritee.rs`.
+    ("/api/v1/configuration", Regime::Isole),
     // ── Les trois référentiels GLOBAUX ─────────────────────────────────────────────────────
     //
     // Ils rendent **les mêmes lignes à tous les tenants**, et c'est correct : ce sont des

@@ -712,6 +712,7 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Fuseau horaire | Africa/Abidjan | ETB-01 |
 | Devise | XOF (0 décimale, entiers) | ETB-01 |
 | Modules actifs | Hébergement, restauration, bar, pressing, salle de réunion | ETB-02 |
+| Politique d'impression (`politique_impression`) | **Jeu de valeurs défini par le cycle IMP** — la clé existe au catalogue, sa portée la plus basse est le point de vente | ETB-03 |
 | Temps de remise en état — passage | 30 min | HEB-02 |
 | Temps de remise en état — nuitée | 2 h | HEB-02 |
 | Temps de remise en état — demi-journée | 1 h | HEB-02 |

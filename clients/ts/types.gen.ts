@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Résout la configuration applicable à une cible.
+         * @description Chaque valeur porte **son origine** — c'est ce qui permet à l'écran de distinguer « vaut pour
+         *     tous vos établissements » de « modifié ici ».
+         */
+        get: operations["resoudre"];
+        /**
+         * Écrit une valeur à un niveau de la chaîne.
+         * @description **Deux refus `422`** : `cle_hors_catalogue` — la clé n'est pas au catalogue, ce que la clé
+         *     étrangère impose déjà en base ; `portee_interdite` — la portée demandée est plus basse que la
+         *     `portee_la_plus_basse` déclarée pour cette clé.
+         *
+         *     Un troisième, `type_incompatible`, est **l'extension de la porte P-10 au `JSONB`** : une clé de
+         *     type `MONTANT_MINEUR` refuse toute valeur qui ne soit pas un entier. Sans lui, un barème écrit
+         *     `1500.75` entrerait sans qu'aucune colonne ne soit en cause, et le premier calcul fiscal
+         *     produirait un montant à virgule dans une devise à zéro décimale.
+         */
+        put: operations["ecrire"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements": {
         parameters: {
             query?: never;
@@ -397,6 +429,20 @@ export interface components {
             /** @description `SIMPLE` seul est implémenté au MVP. */
             profil_code: string;
         };
+        /** @description Corps d'écriture d'une valeur. */
+        EcrireParametreRequete: {
+            cle: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `TENANT` | `ETABLISSEMENT` | `MODULE` | `POINT_DE_VENTE`. */
+            portee: string;
+            /**
+             * Format: uuid
+             * @description Identifiant du niveau visé. Absent pour `TENANT`, qui n'en a pas.
+             */
+            portee_id?: string | null;
+            valeur: unknown;
+        };
         /** @description Une entrée de référentiel, telle que l'API la rend. */
         EntreeReferentiel: {
             code: string;
@@ -622,6 +668,16 @@ export interface components {
             /** @description « 12 », « Terrasse 3 » — tel que le personnel le dit. */
             libelle: string;
         };
+        /** @description Une valeur résolue, telle que l'API la rend. */
+        ValeurVue: {
+            cle: string;
+            /**
+             * @description **Obligatoire.** `TENANT` | `ETABLISSEMENT` | `MODULE` | `POINT_DE_VENTE`. C'est ce qui
+             *     permet à l'écran de distinguer « vaut pour tous vos établissements » de « modifié ici ».
+             */
+            origine: string;
+            valeur: unknown;
+        };
     };
     responses: never;
     parameters: never;
@@ -631,6 +687,121 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    resoudre: {
+        parameters: {
+            query?: {
+                /** @description Sans lui, la résolution s'arrête au niveau tenant. */
+                etablissement_id?: string;
+                module_code?: string;
+                point_de_vente_id?: string;
+                /** @description Une clé précise. **Absent, rend toutes les valeurs applicables** — en une descente. */
+                cle?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Valeurs applicables, chacune avec son origine */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValeurVue"][];
+                };
+            };
+            /** @description Cible invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ecrire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EcrireParametreRequete"];
+            };
+        };
+        responses: {
+            /** @description Valeur écrite */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValeurVue"][];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Niveau visé inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Clé hors catalogue, portée interdite ou type incompatible */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     lister: {
         parameters: {
             query?: never;

@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH cible AS (\n            SELECT $1::uuid AS etablissement_id,\n                   (SELECT em.id\n                      FROM etablissements.etablissement_module em\n                     WHERE em.etablissement_id = $1\n                       AND em.module_code = $2\n                       AND em.actif) AS module_id,\n                   $3::uuid AS pdv_id\n        )\n        SELECT pc.cle AS \"cle!\",\n               pc.valeur AS \"valeur!\",\n               (CASE\n                    WHEN pc.point_de_vente_id       IS NOT NULL THEN 3\n                    WHEN pc.etablissement_module_id IS NOT NULL THEN 2\n                    WHEN pc.etablissement_id        IS NOT NULL THEN 1\n                    ELSE 0\n                END)::int AS \"rang!\"\n          FROM etablissements.parametre_configuration pc\n          CROSS JOIN cible\n          LEFT JOIN etablissements.point_de_vente pdv\n                 ON pdv.id = pc.point_de_vente_id\n          LEFT JOIN etablissements.etablissement_module em_pdv\n                 ON em_pdv.id = pdv.etablissement_module_id\n         WHERE pc.cle = $4\n           AND (\n                   (pc.point_de_vente_id       = cible.pdv_id       AND em_pdv.actif)\n                OR (pc.etablissement_module_id = cible.module_id)\n                OR (pc.etablissement_id        = cible.etablissement_id)\n                OR num_nonnulls(pc.etablissement_id,\n                                pc.etablissement_module_id,\n                                pc.point_de_vente_id) = 0\n               )\n         ORDER BY 3 DESC\n         LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cle!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_configuration",
+            "name": "cle"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "valeur!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_configuration",
+            "name": "valeur"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "rang!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "c071881600d05d8370cba1282f7ff83f08e822c6f90ca9f3066c6b52f420bff5"
+}

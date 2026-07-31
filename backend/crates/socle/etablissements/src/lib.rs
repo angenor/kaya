@@ -34,6 +34,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod configuration;
 pub mod etablissement;
 pub mod modules;
 pub mod note;

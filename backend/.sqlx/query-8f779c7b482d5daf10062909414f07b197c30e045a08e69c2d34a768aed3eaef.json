@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT valeur\n        FROM etablissements.parametre_configuration\n        WHERE tenant_id = $1\n          AND etablissement_id IS NOT DISTINCT FROM $2\n          AND etablissement_module_id IS NOT DISTINCT FROM $3\n          AND point_de_vente_id IS NOT DISTINCT FROM $4\n          AND cle = $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "valeur",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_configuration",
+            "name": "valeur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8f779c7b482d5daf10062909414f07b197c30e045a08e69c2d34a768aed3eaef"
+}
