@@ -1,4 +1,19 @@
 <!--
+SYNC IMPACT REPORT — 1.2.0 — 2026-07-31
+========================================
+Changement de version : 1.1.0 → 1.2.0 (MINOR)
+Motif : nouvelle sous-section « Couverture des portes », qui ajoute trois exigences
+        applicables à toute porte — extension matérielle de la gouvernance → MINOR.
+Origine : revue du cycle 1 (TRX) après implémentation. Quatre portes vertes se sont
+        révélées défectueuses, AUCUNE trouvée par relecture : P-08 lisait un contrat
+        vide, P-18 validait 43 requêtes sur 47, et le mode vérification de P-18
+        écrasait le cache qu'il inspectait. Les portes savaient échouer ; elles ne
+        regardaient pas tout.
+Modifications :
+  - § Portes de conformité : sous-section « Couverture des portes » ajoutée
+    (déclarer le périmètre, vérifier la complétude, ne pas modifier l'inspecté).
+Aucun principe ajouté, renommé ni supprimé. Le jeu reste à 21 portes.
+
 SYNC IMPACT REPORT — 1.1.0 — 2026-07-30
 ========================================
 Changement de version : 1.0.2 → 1.1.0 (MINOR)
@@ -494,6 +509,25 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-19 | Aucun fichier de `docs/design/html/` copié sous `app/` | XII |
 | P-20 | Aucune dépendance déclarée en intervalle ; lockfiles commités et à jour | XI |
 
+### Couverture des portes — leçon du cycle 1
+
+Une porte n'est acquise que lorsque son **périmètre** est établi, pas seulement sa capacité à
+échouer. Le cycle 1 a produit quatre portes vertes défectueuses, dont **aucune n'a été trouvée par
+relecture** : P-08 lisait un contrat vide alors que deux endpoints étaient servis ; P-18 validait
+43 requêtes sur 47 ; et le mode vérification de P-18 écrasait le cache qu'il inspectait.
+
+> **Un test négatif prouve qu'une porte sait échouer. Il ne prouve pas qu'elle regarde tout.**
+
+Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée :
+
+1. **Déclarer le périmètre inspecté** en commentaire de tête : ce que la porte lit, et ce qu'elle
+   ne lit pas. Une limite assumée et écrite vaut mieux qu'une couverture supposée.
+2. **Vérifier la complétude, pas seulement l'échec** : compter les cibles réellement examinées et
+   les comparer au total attendu. Une porte qui inspecte un sous-ensemble sans le dire donne une
+   fausse assurance, ce qui est pire que pas de porte.
+3. **Ne jamais modifier l'artefact inspecté.** Un contrôle qui écrit dans ce qu'il vérifie peut
+   masquer le défaut qu'il cherche.
+
 ### Flux de développement
 
 - **Un module = un epic = un cycle Spec Kit** : `/speckit-specify` sur la section du module,
@@ -560,4 +594,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 1.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31

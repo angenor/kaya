@@ -549,7 +549,7 @@ compilation dès maintenant : linker mold, sccache, debug = "line-tables-only" e
 profil dev.
 ```
 
-### Cycle 2 — ETB
+### Cycle 2 — ETB(en cours)
 
 ```
 /speckit-specify

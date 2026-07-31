@@ -165,6 +165,20 @@ instable par convention sémantique ; `orval` **8.23.0** génère des couches de
 projet n'a pas besoin ; `oazapfts` **7.5.0** est un générateur de SDK, même objection que
 Hey-API. Tous sont MIT et viables — le critère retenu est la **taille de la sortie générée**.
 
+> ⚠️ **TypeScript reste en `5.9.3`, pas en `7.0.2`.** Le gel 1.0.3 avait épinglé `7.0.2` parce
+> que c'était `latest` sur npm — **erreur de vérification** : `openapi-typescript` 7.13.0 déclare
+> `peerDependencies: { typescript: "^5.x" }`. La valeur `7.0.2` violait donc la contrainte du
+> paquet gelé dans le même mouvement. `5.9.3` est la dernière `5.x` (2025-09-30, dix mois de
+> recul) et la seule qui satisfasse `^5.x`.
+>
+> Au passage, `7.0.2` était de toute façon le mauvais choix au regard du critère du §2 : la
+> branche 7 est la réécriture en Go, une refonte majeure sans aucun gain pour ce projet, et
+> l'outillage autour — eslint, vitest, typescript-eslint — vise encore `5.x`. Nuxt 4.5.1 embarque
+> `6.0.3` pour son usage interne, ce qui ne contraint pas le projet mais montre un écosystème
+> éclaté entre trois branches majeures. **Leçon retenue : vérifier les `peerDependencies` d'un
+> paquet gelé, pas seulement son numéro** — le même contrôle avait bien été fait côté Rust pour
+> les satellites d'utoipa.
+
 Deux exigences que l'outil doit satisfaire, **à valider au cycle 1 avant de clore US5** :
 
 1. **Déterminisme d'octet.** Deux exécutions successives sur le même `openapi.json` DOIVENT
@@ -264,6 +278,27 @@ développement sur poste Apple Silicon (`arm64`) et en production sur VPS Contab
 
 ---
 
+### 4.3 Ce que la porte P-20 ne vérifie pas — complément à écrire
+
+`scripts/ci/versions-epinglees.sh` vérifie la **forme** : aucun intervalle, aucun `latest`, des
+lockfiles suffisants. Il le documente lui-même et le motive bien — comparer les **valeurs** aux
+registres officiels ferait de la CI une dépendance réseau.
+
+**Mais le gel est un fichier du dépôt.** Comparer les manifestes à `docs/versions-gelees.md` ne
+demande aucun réseau, et comble le trou qui a laissé passer `typescript 7.0.2` puis sa correction
+silencieuse en `5.9.3` :
+
+- lire les tableaux §2, §3.1, §3.2, §3.3 et §4.2 de ce fichier comme source ;
+- comparer aux `Cargo.toml`, `package.json`, `compose.yml`, `.nvmrc`, `rust-toolchain.toml` ;
+- **échouer sur tout écart**, dans les deux sens — une version du code absente du gel est aussi
+  un défaut qu'une version du gel absente du code ;
+- **et vérifier les `peerDependencies` des paquets gelés**, ce qui aurait attrapé la
+  contradiction `openapi-typescript ^5.x` ↔ `typescript 7.0.2` à la source.
+
+Sans ce complément, le gel est un document que rien n'oppose au code. C'est l'illustration
+exacte de la leçon du cycle 1 : *un test négatif prouve qu'une porte sait échouer, il ne prouve
+pas qu'elle regarde tout.*
+
 ## 5. Reproduire la vérification
 
 À rejouer à chaque revue mensuelle. Aucune de ces commandes ne dépend d'un cache.
@@ -337,6 +372,7 @@ curl -sS -H "User-Agent: $UA" \
 | Version | Date | Modification |
 |---|---|---|
 | 1.0.4 | 2026-07-31 | **TypeScript reculé de `7.0.2` à `5.9.3`** — corrige une erreur du gel 1.0.3, constatée à l'exécution au cycle 001. `openapi-typescript` 7.13.0 déclare `peerDependencies: { typescript: "^5.x" }` et TypeScript 7 a modifié l'API `ts.factory` : la génération du client échoue sur `TypeError: Cannot read properties of undefined (reading 'createKeywordTypeNode')`, donc la porte **P-01** ne peut pas s'exécuter. `5.9.3` vérifiée sur `https://registry.npmjs.org/typescript` le 2026-07-31 comme dernière `5.x`. Dérogation raisonnée au « dernière stable », de même nature que Node LTS. Condition de levée : `openapi-typescript` déclare `typescript ^7`. **Leçon de gouvernance** : le §3.1 vérifiait la compatibilité inter-crates, le §3.2 ne le faisait pas pour les paquets npm — l'écart est comblé. |
+| 1.0.4 | 2026-07-31 | **`typescript` corrigé de `7.0.2` à `5.9.3`** — le gel se contredisait : `openapi-typescript` 7.13.0 exige `peerDependencies: { typescript: "^5.x" }`, que `7.0.2` violait. Divergence relevée par l'implémentation du cycle 1, qui avait déclaré `5.9.3` dans les quatre manifestes JS — **la déviation était juste**. La porte P-20 ne l'a pas signalée parce qu'elle vérifie la **forme** (numéro exact) et non les **valeurs** ; complément à écrire, cf. §4.3. |
 | 1.0.3 | 2026-07-30 | **Générateur de client TypeScript ajouté** — lacune du gel initial signalée par le plan du cycle 1 : la porte P-01 était inapplicable faute de générateur. Retenus : `openapi-typescript` **7.13.0** (types seulement) + `openapi-fetch` **0.17.0** (runtime écrit à la main) + `typescript` **7.0.2** (peerDependency). Critère de choix : minimiser la surface générée soumise à P-01. Écartés avec motif : `@hey-api/openapi-ts` 0.99.0 (`0.x`), `orval` 8.23.0, `oazapfts` 7.5.0. Deux exigences à valider au cycle 1 avant de clore US5 : déterminisme d'octet vérifié par `cmp`, et ordre de membres stable indépendant de l'ordre de découverte utoipa. |
 | 1.0.2 | 2026-07-30 | **Cible de déploiement arrêtée : Docker sur VPS Contabo** (mode A). **PostgreSQL `18.4` confirmée, arbitrage fermé** — version maîtrisée en auto-géré, EOL 2030-11-14 retenu pour la conservation fiscale de 10 ans ; `17.10` reste l'option du paquet auto-hébergé (mode B). Ajout du §4.2 : les trois images Docker vérifiées disponibles en **amd64 et arm64**, donc un seul `compose.yml` pour le poste Apple Silicon et le VPS. Consigné : le binaire Rust n'est pas multi-architecture — construction de production **dans Docker pour `linux/amd64`**, jamais par copie locale. Consigné aussi : `dxflrs/garage` publie des tags de hash de commit qui masquent les tags sémantiques dans un tri par date — toujours interroger par nom. |
 | 1.0.1 | 2026-07-30 | **Redis reculé de `8.10.0` à `8.8.1`** : `8.10.0` était en GA depuis un jour, avec neuf jours de RC, pour un nouvel encodage de hachage inutile à Kaya ; `8.8.1` porte les mêmes correctifs de sécurité du 2026-07-23 et deux mois de recul. **sqlx `0.9.0` confirmée** sur deux apports propres au projet (`#3918` erreur de violation d'exclusion pour HEB-02 ; `sqlx.toml` multi-schémas pour le principe II) et présence de `PgRange` vérifiée sur docs.rs. **PostgreSQL : arbitrage 18.4 / 17.10 ouvert**, rattaché à la décision B-01. Les neuf autres briques sont inchangées. |
