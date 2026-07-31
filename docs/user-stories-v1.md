@@ -8,10 +8,10 @@
 
 ### 0.1 Avec Claude Code + Spec Kit
 
-- **Un module = un epic = un cycle Spec Kit** : coller la section du module dans `/speckit.specify`, dérouler `/speckit.plan` en pointant le cadrage v1 (§13 stack, §14 provisions) comme contrainte, puis `/speckit.tasks` et implémentation.
+- **Un module = un epic = un cycle Spec Kit** : coller la section du module dans `/speckit-specify`, dérouler `/speckit-plan` en pointant le cadrage v1 (§13 stack, §14 provisions) comme contrainte, puis `/speckit-tasks` et implémentation.
 - **Implémenter par tranches verticales (§0.5)**, pas module par module de bout en bout.
 - Le **contrat OpenAPI est la source de vérité** : toute story qui touche l'API met d'abord à jour les annotations utoipa, puis régénère le client TypeScript (TRX-01).
-- **Dernières versions stables** : à l'initialisation, vérifier sur les registres officiels puis figer par lockfiles chaque brique (Rust, Actix, sqlx, utoipa, Nuxt 4, Tailwind 4, Tauri v2, Postgres, Redis, Garage) ; revue mensuelle groupée.
+- **Dernières versions stables** : à l'initialisation, le gel est fait et sourcé dans `docs/versions-gelees.md` — le consommer, ne pas revérifier ; revue mensuelle groupée.
 
 ### 0.2 Priorités
 
@@ -50,7 +50,7 @@
 
 | Tranche | Semaines | Contenu | Démo de fin de tranche |
 |---|---|---|---|
-| **T1 — Colonne vertébrale** | S4–S8 | TRX-01→05, ETB-01→05 **+ ETB-02b/02c**, CPT-01→04, HEB-01→05, SEJ-01/02/04, SYN-01/02 | Yao enregistre un client en chambre B3 pour 2 nuits, puis un passage de 4 h en A1 — la disponibilité empêche tout chevauchement, tout est tracé. |
+| **T1 — Colonne vertébrale** | S4–S8 | TRX-01→05a (TRX-05b en fin de tranche), ETB-01→05 **+ ETB-02b/02c**, CPT-01→04, HEB-01→05, SEJ-01/02/04, SYN-01/02 | Yao enregistre un client en chambre B3 pour 2 nuits, puis un passage de 4 h en A1 — la disponibilité empêche tout chevauchement, tout est tracé. |
 | **T2 — Services et note** | S9–S12 | PDV-01→06, SEJ-03/05, CAI-01→04, IMP-01/02 | Aminata prend une commande au bar hors réseau, elle s'ajoute à la note de la chambre B3 ; Adjoua encaisse, imprime un ticket, boucle son shift. |
 | **T3 — Fiscalité et clôture** | S13–S17 | FIS-01→07, CAI-05/06, IMP-03, DIR-01, SYN-03/04 | Une facture Deloria est certifiée FNE avec la taxe de nuitée en ligne distincte ; la clôture journalière tombe au franc près ; l'état de reversement communal est généré. |
 
@@ -67,7 +67,7 @@
 
 | Module | Préfixe | P0 | P1 | P2/Prov. | Tranche principale |
 |---|---|---|---|---|---|
-| Transverse & infrastructure | TRX | 5 | 3 | 1 | T1 |
+| Transverse & infrastructure | TRX | 6 | 3 | 1 | T1 |
 | Établissements & modules d'activité | ETB | 7 | 1 | 2 | T1 |
 | Comptes, rôles & appareils | CPT | 5 | 2 | — | T1/T4 |
 | Hébergement : unités & formules | HEB | 5 | 2 | 2 | T1 |
@@ -129,11 +129,17 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 - `pg_dump` quotidien chiffré externalisé + synchronisation Garage ; **restauration complète testée et documentée avant la bascule du pilote**, puis chaque trimestre.
 - Immutabilité des sauvegardes portée par le stockage externe (object lock), jamais par Garage.
 
-**TRX-05 — Seeds et démo (P0)**
-- Tenant Deloria : établissement Abengourou (non classé, commune d'Abengourou, fuseau Africa/Abidjan), modules hébergement + restauration + bar + pressing + salle de réunion.
-- 17 unités dans 5 catégories aux tarifs réels, salle de réunion, **barèmes de passage et de demi-journée**, 30 articles de catalogue répartis sur les points de vente, 5 comptes de test aux rôles cumulés.
-- Second tenant « Résidence Test » (module hébergement seul, 4 unités) pour valider l'universalité.
-- Rechargeables en une commande.
+**TRX-05a — Mécanique de seeds et tenants (P0, cycle 1)**
+- **Mécanique de seeds rejouable**, à part des migrations (principe I·b) : rechargeables en une commande, idempotents, exécutables autant de fois que voulu.
+- Tenant Deloria : établissement Abengourou (non classé, commune d'Abengourou, fuseau Africa/Abidjan), modules hébergement + restauration + bar + pressing + salle de réunion **activés** — l'activation seule, sans le contenu des modules.
+- Second tenant « Résidence Test » (module hébergement seul) pour valider l'universalité.
+- **Périmètre strict** : seules les tables du cycle 1 sont peuplées. Le reste relève de TRX-05b.
+
+**TRX-05b — Jeu de données Deloria complet (P0, fin de tranche T1)**
+- ⚠️ **Story à cheval, volontairement.** Les données décrites ici peuplent des tables qui **n'existent pas au cycle 1** : `unite`, `categorie`, `formule` et `bareme` appartiennent à HEB (cycle 4), `article` à PDV (cycle 7), les comptes à CPT (cycle 3). La livrer au cycle 1 est structurellement impossible.
+- **Chaque cycle de T1 ajoute ses propres seeds** à la mécanique de TRX-05a, dans la même tâche que ses migrations. TRX-05b est la **tâche de recollement** en fin de T1 qui vérifie l'ensemble.
+- Contenu cible : 17 unités dans 5 catégories aux tarifs réels, salle de réunion, **barèmes de passage et de demi-journée**, 30 articles de catalogue répartis sur les points de vente, 5 comptes de test aux rôles cumulés ; « Résidence Test » à 4 unités.
+- **Critère de clôture** : rechargement complet en une commande, les deux tenants peuplés, et la démo de fin de T1 (§0.5) exécutable sur ces seules données.
 
 **TRX-06 — Conformité ARTCI (P1)**
 - Export et suppression des données d'une personne (endpoint admin) ; registre des traitements versionné dans le dépôt.

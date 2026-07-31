@@ -1,0 +1,93 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.note_etablissement\n            (id, tenant_id, etablissement_id, auteur_compte_id, texte, horodatage_client)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        ON CONFLICT (id) DO NOTHING\n        RETURNING id,\n                  etablissement_id,\n                  auteur_compte_id,\n                  texte,\n                  horodatage_client,\n                  cree_le\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "etablissement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "auteur_compte_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "auteur_compte_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "texte",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "texte"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "horodatage_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "horodatage_client"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "cree_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "31c0f3177254345d367f4715be22852f6f2facea1704cea47ba3aed6c2e44026"
+}

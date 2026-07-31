@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, tenant_id, etablissement_id, sequence_etablissement,\n                   type_evenement, agregat, agregat_id, version_schema, payload, survenu_le\n            FROM synchronisation.evenement_outbox\n            WHERE publie_le IS NULL\n              AND ($2::uuid IS NULL OR tenant_id = $2)\n            ORDER BY id\n            FOR UPDATE SKIP LOCKED\n            LIMIT $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "tenant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "etablissement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sequence_etablissement",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "sequence_etablissement"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "type_evenement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "type_evenement"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "agregat",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "agregat"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "agregat_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "agregat_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "version_schema",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "version_schema"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "payload",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "payload"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "survenu_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "survenu_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "120462d849bfcf9ecac605417a8c3494f827ade0d001fd2d6dff4f987aa9d3ba"
+}

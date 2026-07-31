@@ -1,0 +1,22 @@
+{
+  "app": {
+    "coquille": "Kaya — socle technique",
+    "aucun_ecran": "Aucun écran n'est livré à ce cycle. Le premier écran vient du cycle Établissements."
+  },
+  "note_etablissement": {
+    "singulier": "Note interne",
+    "pluriel": "Notes internes",
+    "champ_texte": "Texte de la note",
+    "action_creer": "Ajouter une note interne"
+  },
+  "reseau": {
+    "connecte": "Connecté",
+    "degrade": "Réseau dégradé",
+    "hors_ligne": "Hors ligne",
+    "en_attente": "{n} élément en attente | {n} éléments en attente"
+  },
+  "capacite": {
+    "indisponible": "Cette action n'est pas disponible sur cet appareil.",
+    "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
+  }
+}

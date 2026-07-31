@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE synchronisation.evenement_outbox\n                SET publie_le = now()\n                WHERE id = ANY($1) AND publie_le IS NULL\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "193e34116cde5164fafcfdc3e81f85563fb5b452617e7d1b054d76412468617f"
+}

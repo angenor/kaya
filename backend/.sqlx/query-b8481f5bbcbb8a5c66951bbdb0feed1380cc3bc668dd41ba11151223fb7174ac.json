@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE synchronisation.evenement_outbox SET payload = '{}'::jsonb WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b8481f5bbcbb8a5c66951bbdb0feed1380cc3bc668dd41ba11151223fb7174ac"
+}

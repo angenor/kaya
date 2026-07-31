@@ -1,0 +1,20 @@
+{
+  "name": "@kaya/web-qr",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Surface publique de commande par QR — SSR, ouverte sans compte ni application",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "4.5.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}

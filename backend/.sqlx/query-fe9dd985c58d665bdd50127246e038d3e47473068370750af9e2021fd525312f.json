@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO synchronisation.evenement_outbox (\n            id, tenant_id, etablissement_id, sequence_etablissement,\n            type_evenement, agregat, agregat_id, version_schema, payload, survenu_le\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Text",
+        "Text",
+        "Uuid",
+        "Int2",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fe9dd985c58d665bdd50127246e038d3e47473068370750af9e2021fd525312f"
+}

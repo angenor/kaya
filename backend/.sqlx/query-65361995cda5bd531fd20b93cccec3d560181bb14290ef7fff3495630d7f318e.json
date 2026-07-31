@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, texte\n            FROM etablissements.note_etablissement\n            WHERE etablissement_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "texte",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "texte"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "65361995cda5bd531fd20b93cccec3d560181bb14290ef7fff3495630d7f318e"
+}

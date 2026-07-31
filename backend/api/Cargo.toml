@@ -1,0 +1,54 @@
+[package]
+name = "kaya-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Le crate est à la fois bibliothèque et binaire. La bibliothèque existe pour que les tests
+# d'intégration de `backend/tests/` puissent monter l'application réelle — un test qui
+# reconstruirait ses propres routes ne prouverait rien de celles qui sont servies.
+[lib]
+name = "kaya_api"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kaya-api"
+path = "src/main.rs"
+
+# Seeds : binaire distinct et **rejouable**, vivant à part des migrations (principe I(b)).
+[[bin]]
+name = "seeds"
+path = "src/bin/seeds.rs"
+
+# Contrat OpenAPI sur la sortie standard — consommé par la porte P-01. Ne demande ni base de
+# données, ni port d'écoute : trois occasions d'échec intermittent en moins sur une porte qui
+# doit rester stable.
+[[bin]]
+name = "contrat"
+path = "src/bin/contrat.rs"
+
+[dependencies]
+kaya-domain = { workspace = true }
+kaya-etablissements = { workspace = true }
+kaya-synchronisation = { workspace = true }
+kaya-fiscalite = { workspace = true }
+
+actix-web = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+utoipa-actix-web = { workspace = true }
+redis = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+sentry = { workspace = true }
+dotenvy = { workspace = true }

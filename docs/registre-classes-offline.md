@@ -81,6 +81,7 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 | `table_pdv` — création, modification du référentiel de tables | **C** | C2 — référentiel | ETB-03 |
 | `parametre_configuration` — toute valeur de la chaîne d'héritage | **C** | C2 — référentiel de paramètres | ETB-04 |
 | `branding` — logo, couleurs, en-têtes de documents | **C** | C2 — référentiel | ETB-05 |
+| `note_etablissement` — création | **A** | A4 — append-only, commutative, sans effet monétaire | TRX-01 |
 | Sélection d'établissement actif (contexte local) | **A** | A4 — préférence locale, sans effet | ETB-06 |
 
 ### 5.2 `socle/comptes`
@@ -462,3 +463,4 @@ l'entité, pas d'un lot de rattrapage.
 | Version | Date | Modification |
 |---|---|---|
 | 1.0.0 | 2026-07-30 | Création. Classement initial de toutes les entités des modules TRX, ETB, CPT, HEB, SEJ, RSV, PDV, QRC, CAI, FIS, SYN, IMP, STK, DIR, ADM, MET, plus les provisions du cadrage §14. Dérivé de `docs/cadrage-v1.md` §11 et `docs/user-stories-v1.md` §0.7. Trois décisions ouvertes consignées (O-01, O-02, O-03). |
+| 1.0.1 | 2026-07-31 | **`note_etablissement` ajoutée au §5.1, classe A, branche A4** — entité du module doré du cycle 001 (TRX-01). Append-only : ni `UPDATE` ni `DELETE` n'est accordé à `kaya_app`, une correction est une nouvelle note. Ses deux tests de classe A vivent dans `backend/tests/note_etablissement_classe_a.rs` et sont exécutés en intégration continue. À partir de ce cycle, le registre n'est plus seulement documentaire : `backend/tests/classes_offline.rs` compare les tables réelles aux entités déclarées ici et **fait échouer le build** sur toute table absente. Le sens de comparaison est table → registre : une entité déclarée mais pas encore implémentée est normale, une table non déclarée est l'erreur à attraper. |

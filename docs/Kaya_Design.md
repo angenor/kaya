@@ -112,7 +112,7 @@ docs/design/                        ← ÉTAT RÉEL DU DÉPÔT
 ├── mouvement.md       # durées, courbes, sept patrons
 ├── styleguide.html    # les 14 composants dans tous leurs états, clair + sombre
 ├── README.md          # ce qui se copie, ce qui se lit, valeurs arbitraires en attente
-├── lexique.md         # ⚠️ À RÉDIGER — traduction des concepts techniques
+├── lexique.md         # ✅ vocabulaire utilisateur — NORMATIF
 ├── derivation.md      # ⚠️ À RÉDIGER — quel écran hérite de quel motif
 ├── html/              # 27 fichiers — RÉFÉRENCE NORMATIVE, un par écran ET par état
 │                      #   Nommage : {code}-{nom-lisible}[-{etat}].html
@@ -181,7 +181,7 @@ Tout tient dans la phase 0, sans repousser le développement.
 
 **5. Annuler plutôt que confirmer.** Une modale de confirmation est un aveu : le produit ne sait pas revenir en arrière. Sur les actions réversibles — supprimer une ligne non envoyée, changer de chambre, modifier une quantité — l'action se fait immédiatement, avec une possibilité d'annuler pendant quelques secondes. La confirmation reste réservée à l'irréversible : certification fiscale, clôture, avoir, encaissement.
 
-**6. Zéro jargon.** Voir le lexique §6. Aucun terme technique, aucun sigle non expliqué, aucun mot que la gérante d'un maquis ne dirait pas spontanément. Le vocabulaire fiscal officiel apparaît uniquement sur les documents légaux, jamais dans les boutons ni les messages.
+**6. Zéro jargon.** Voir `docs/design/lexique.md`. Aucun terme technique, aucun sigle non expliqué, aucun mot que la gérante d'un maquis ne dirait pas spontanément. Le vocabulaire fiscal officiel apparaît uniquement sur les documents légaux, jamais dans les boutons ni les messages.
 
 **7. Une erreur dit toujours quoi faire ensuite.** Trois éléments obligatoires : ce qui s'est passé, pourquoi, l'action suivante. Une erreur sans porte de sortie est un défaut de conception, pas un message à réécrire. Et elle n'accuse jamais l'utilisateur.
 
@@ -191,29 +191,13 @@ Tout tient dans la phase 0, sans repousser le développement.
 
 ## 6. Lexique — ce que l'utilisateur lit
 
-Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne doit jamais les rencontrer sous leur nom d'origine.
+> 📦 **Déplacé le 2026-07-30 vers `docs/design/lexique.md`, qui fait désormais foi.**
+> Le tableau n'est pas dupliqué ici, pour la même raison qu'en partie V.
 
-| Concept interne | Ce qu'affiche l'interface |
-|---|---|
-| Certification FNE | « Envoi aux impôts » / « Validée par les impôts » |
-| Document en état `SOUMISE` | « Envoi en cours… » |
-| Document en état `INDETERMINEE` | « Nous ne savons pas si les impôts ont reçu cette facture » |
-| Document en état `ECHEC` | « Les impôts ont refusé cette facture » + motif en clair |
-| Stickers FNE restants | « Factures restantes » avec le nombre |
-| Idempotence, rejeu, file d'attente | **N'apparaît jamais.** L'utilisateur voit « en attente d'envoi » et un nombre |
-| Écriture orpheline, réconciliation | « Une consommation est arrivée après la facture » |
-| Classe hors-ligne A/B/C/D | **N'apparaît jamais.** L'utilisateur voit « disponible hors connexion » ou « nécessite internet » |
-| Taxe communale de nuitée | « Taxe de séjour (mairie) » — le nom légal reste sur la facture |
-| Rebascule de palier de passage | « Durée dépassée : passé au tarif 4 h » |
-| Temps de remise en état | « Chambre indisponible 30 min (ménage) » |
-| Tenant, établissement | « Votre établissement » — le mot « tenant » n'existe pas pour l'utilisateur |
-| Module d'activité | « Vos services » |
-| Unité louable | « Chambre » en hôtel, « logement » en résidence, « salle » pour la réunion — selon le contexte |
-| RBAC, permissions | « Ce que chacun peut faire » |
-| Synchronisation | « Enregistré » / « En attente d'envoi (4) » / « Hors connexion » |
-| Attestation d'intégrité, enrôlement | « Téléphones autorisés » |
-
-**Règle** : tout nouveau concept technique visible par l'utilisateur entre dans `docs/design/lexique.md` **avant** d'être codé. Fait partie de la Definition of Done.
+Le produit manipule des concepts fiscaux et techniques réels. **L'utilisateur ne doit jamais
+les rencontrer sous leur nom d'origine.** Les 15 correspondances — « certification FNE » →
+« envoi aux impôts », état `INDETERMINEE` → « nous ne savons pas si les impôts ont reçu cette
+facture » — sont dans `docs/design/lexique.md`, avec la procédure d'ajout d'une entrée.
 
 ## 7. Les cinq tests
 
@@ -933,42 +917,15 @@ MOTIF POSÉ : la configuration structurée avec paramètre sensible. Sept autres
 
 ## 25. Les 30 écrans codés sans maquette
 
-C'est le document qui rend sûr le fait de coder directement. Chaque écran déclare de quel motif il hérite. **Un écran qui n'hérite d'aucun motif ne se code pas — il se maquette d'abord.**
+> 📦 **Déplacé le 2026-07-30 vers `docs/design/derivation.md`, qui fait désormais foi.**
+> Le tableau n'est pas dupliqué ici : deux copies divergeraient, ce que le principe I de la
+> constitution interdit. `derivation.md` est le chemin que citent les prompts Spec Kit, la
+> Definition of Done et la porte P-19.
 
-| Écran | Hérite de | Ce qui change |
-|---|---|---|
-| `R2` Vue du jour | `R1` + composant 14 | Grille d'unités au lieu de tuiles |
-| `R3` Check-in nuitée | `R4` | Parcours long : plus de champs, même grammaire |
-| `R5` Fiche client et recherche | `R7` | Liste + fiche, pas de total |
-| `R6` Note temps réel | `R7` | Sans l'action finale |
-| `P1` Plan de salle | `R2` | Tables au lieu d'unités |
-| `P3` Addition et division | `R7` | Le fractionnement est le seul motif neuf — **à valider dans `R7`** |
-| `P4` Bon de dépôt pressing | `R7` | Cycle d'état en plus |
-| `C1` Ouverture de shift | `G2` | Formulaire simple |
-| `C2` Encaissement multi-modes | `R7` + `P3` | Fractionnement entre modes |
-| `C3` Comptage et écart | `R7` + `F2` | Saisie par coupure, registre sobre |
-| `F1` File de certification | `R5` | Liste filtrable, badges de `F2` |
-| `F3` Avoir | `F2` | Registre sobre, manipulation guidée |
-| `F4` État de reversement | `R7` | Document à lignes, export |
-| `G1` Établissement et modules | `G2` | Configuration |
-| `G3` Utilisateurs et rôles | `G2` | Configuration |
-| `G4` Journal d'audit | `R5` + `F2` | Liste filtrable, registre sobre |
-| `S1` Panneau de synchronisation | Composant 8 | Développement du composant |
-| `S3` États vides et erreurs | Famille d'illustrations | Couvert par la fondation |
-| `M1` Accueil mobile | `R1` + `M4` | Composition en régime mobile |
-| `M2` Commande mobile | `P2` | C'est déjà la cible mobile de `P2` |
-| `M3` Commandes QR à confirmer | `M4` + `P2` | Liste d'actions à un tap |
-| `M5` Enregistrement OCR | `R3` | Étape caméra + chemin dégradé obligatoire |
-| `V2` Création de réservation | `R3` | Même parcours, sans arrivée immédiate |
-| `Q2` `Q3` États de la surface QR | `Q1` | États de `Q1` |
-| `E1` Parc de tenants | `R5` | Liste filtrable |
-| `E2` Provisionnement | `G2` | Configuration guidée |
-| `E3` Abonnement | `G2` + `R7` | Paramètres + calcul |
-| `E4` Diagnostic à distance | `F1` | Liste technique |
-| `E5` Registre des paramètres | `G2` | Lecture seule |
-| `STK` Écrans de stock | `R5` + `G2` | Liste + formulaire |
-
-**Règle de conduite** : au moment de coder un écran dérivé, ouvrir la maquette dont il hérite et la respecter. Si l'écran a besoin d'un motif absent de la matrice, **arrêter et maquetter**.
+**Ce que le fichier contient** : les 30 écrans non maquettés, chacun avec le motif dont il
+hérite et ce qui change ; le décompte des 41 écrans du produit (11 maquettés en 29 fichiers
+d'états, 30 dérivés) ; et la règle opposable — un écran absent des deux cas ne se code pas,
+il part en maquettage.
 
 ---
 
@@ -1243,13 +1200,17 @@ respectant strictement cette arborescence dans leurs noms, et dis-le-moi.
 
 La maquette est déposée. Il reste six actions, dont trois bloquantes.
 
-### Bloquant — sans ça, aucun cycle ne démarre
+### Bloquant — ✅ les trois actions sont faites au 2026-07-30
 
-| # | Action | Où |
+| # | Action | État |
 |---|---|---|
-| 1 | **Rédiger `docs/design/derivation.md`** — les 30 écrans et le motif dont chacun hérite | Recopier la matrice de la partie V |
-| 2 | **Rédiger `docs/design/lexique.md`** — la traduction des concepts techniques | Recopier le tableau de la partie II §6, plus les entrées de la mise à niveau |
-| 3 | **Déposer `docs/Kaya_Design.md`** — ce fichier contient les deux sources ci-dessus et sert de référence de conception | Manquant du dépôt |
+| 1 | `docs/design/derivation.md` — les 30 écrans et le motif dont chacun hérite | ✅ **fait** — la partie V y a été **déplacée**, pas recopiée : une seule source |
+| 2 | `docs/design/lexique.md` — la traduction des concepts techniques | ✅ **fait** — le §6 y a été **déplacé**, pas recopié |
+| 3 | `docs/Kaya_Design.md` déposé au dépôt | ✅ **fait** — 1 266 lignes, présent |
+
+> Les deux tableaux ont été **déplacés et non dupliqués** : le document annonçait « recopier »,
+> mais deux copies divergeraient, ce que le principe I de la constitution interdit. Ce fichier
+> renvoie désormais vers eux (§6 et partie V).
 
 ### Non bloquant, mais à faire tôt
 

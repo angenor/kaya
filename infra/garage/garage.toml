@@ -1,0 +1,31 @@
+# Garage — stockage objet de développement.
+#
+# **Consommé via l'API S3 uniquement** (principe II) : aucun accès au système de fichiers, aucun
+# appel à l'API d'administration depuis le code métier. C'est ce qui rend le fournisseur
+# remplaçable — et c'est pourquoi le choix du stockage tiers de sauvegarde (R-13) ne change
+# aucune structure de code.
+#
+# Nœud unique, sans réplication : c'est un environnement de développement. La production a sa
+# propre configuration, hors de ce dépôt.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir     = "/var/lib/garage/data"
+db_engine    = "sqlite"
+
+replication_factor = 1
+
+# Secret de développement, sans valeur. Le secret de production vit dans le coffre chiffré par
+# tenant (principe IX) et n'est jamais commité.
+rpc_secret     = "0000000000000000000000000000000000000000000000000000000000000000"
+rpc_bind_addr  = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+s3_region    = "garage"
+api_bind_addr = "[::]:3900"
+root_domain  = ".s3.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+admin_token   = "kaya-dev-admin-token"
+metrics_token = "kaya-dev-metrics-token"

@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, etablissement_id, auteur_compte_id, texte, horodatage_client, cree_le\n        FROM etablissements.note_etablissement\n        WHERE etablissement_id = $1\n        ORDER BY cree_le DESC, id DESC\n        LIMIT $2 OFFSET $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "etablissement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "auteur_compte_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "auteur_compte_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "texte",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "texte"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "horodatage_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "horodatage_client"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.note_etablissement",
+            "name": "cree_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "98c22edce29de07e08b39db447c39d72b02a7d034ec996a886f3700ac6f9c70f"
+}

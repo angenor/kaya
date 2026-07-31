@@ -1,4 +1,41 @@
 <!--
+SYNC IMPACT REPORT — 1.2.0 — 2026-07-31
+========================================
+Changement de version : 1.1.0 → 1.2.0 (MINOR)
+Motif : nouvelle sous-section « Couverture des portes », qui ajoute trois exigences
+        applicables à toute porte — extension matérielle de la gouvernance → MINOR.
+Origine : revue du cycle 1 (TRX) après implémentation. Quatre portes vertes se sont
+        révélées défectueuses, AUCUNE trouvée par relecture : P-08 lisait un contrat
+        vide, P-18 validait 43 requêtes sur 47, et le mode vérification de P-18
+        écrasait le cache qu'il inspectait. Les portes savaient échouer ; elles ne
+        regardaient pas tout.
+Modifications :
+  - § Portes de conformité : sous-section « Couverture des portes » ajoutée
+    (déclarer le périmètre, vérifier la complétude, ne pas modifier l'inspecté).
+Aucun principe ajouté, renommé ni supprimé. Le jeu reste à 21 portes.
+
+SYNC IMPACT REPORT — 1.1.0 — 2026-07-30
+========================================
+Changement de version : 1.0.2 → 1.1.0 (MINOR)
+Motif : ajout d'une porte de CI (P-05b) et précision du mécanisme d'isolation du
+        principe III. L'ajout d'une porte est une extension matérielle de la
+        gouvernance → MINOR, pas PATCH.
+Origine : revue du plan du cycle 1 (TRX). Deux manques relevés par le plan :
+  1. TRX-02 exige la rétention illimitée de l'outbox, mais AUCUNE porte ne
+     l'imposait — P-01 à P-20 vérifiaient l'écriture de l'événement (P-05), jamais
+     l'absence de chemin de suppression. Ajout de P-05b.
+  2. Le principe III prescrivait littéralement « SET LOCAL app.current_tenant ».
+     SET LOCAL est une commande utilitaire qui n'accepte aucun paramètre lié : la
+     suivre imposerait d'interpoler l'UUID du tenant dans la chaîne SQL, donc
+     d'employer AssertSqlSafe (sqlx 0.9) sur le chemin de code exact qui décide
+     quelles lignes un client voit. Le principe impose désormais
+     SELECT set_config('app.current_tenant', $1, true) — une fonction, donc un
+     argument lié et une requête littérale vérifiable par query!.
+Modifications :
+  - Principe III : mécanisme d'isolation précisé et motivé.
+  - Portes de CI : P-05b ajoutée. Le jeu compte désormais 21 portes.
+Aucun principe ajouté, renommé ni supprimé.
+
 SYNC IMPACT REPORT — 1.0.2 — 2026-07-30
 ========================================
 Changement de version : 1.0.1 → 1.0.2 (PATCH)
@@ -160,8 +197,14 @@ réécriture.
 - Chaque table porte `tenant_id`.
 - **RLS `ENABLE` ET `FORCE`** sur toutes les tables, avec un **rôle applicatif distinct du
   propriétaire des tables**.
-- `SET LOCAL app.current_tenant` posé **DANS CHAQUE TRANSACTION**, jamais à l'ouverture de
-  connexion.
+- Le tenant courant est posé **DANS CHAQUE TRANSACTION**, jamais à l'ouverture de connexion.
+- **Le mécanisme est `SELECT set_config('app.current_tenant', $1, true)`, jamais
+  `SET LOCAL app.current_tenant = ...`.** `SET LOCAL` est une commande utilitaire qui n'accepte
+  aucun paramètre lié : l'employer imposerait d'interpoler l'identifiant du tenant dans la
+  chaîne SQL, donc de recourir à `AssertSqlSafe`, donc de placer une concaténation SQL sur le
+  chemin de code exact qui décide quelles lignes un client voit. `set_config` est une fonction :
+  l'argument se lie, la requête reste littérale, et `query!` la vérifie à la compilation. Le
+  troisième argument `true` donne la portée transactionnelle de `SET LOCAL`.
 - **Un test de CI échoue si une table du schéma n'a aucune politique RLS.**
 - **Un test d'isolation vérifie, sur chaque endpoint, que le tenant A ne lit ni n'écrit aucune
   ligne du tenant B.**
@@ -449,6 +492,7 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-03 | Aucun crate de `socle/` ne dépend d'un crate de `verticales/` | II |
 | P-04 | Aucune requête ne joint deux schémas de modules différents | II |
 | P-05 | Toute transition d'état émet un événement outbox dans sa transaction | II |
+| P-05b | **Aucun chemin de code ne supprime ni ne modifie un événement outbox** — pas de `DELETE`, pas d'`UPDATE` hors marquage de publication, aucune purge, aucune rétention bornée | II |
 | P-06 | Toute valeur de capacité autre que `STOCK`/`SIMPLE` est refusée explicitement | II |
 | P-07 | Toute table du schéma porte au moins une politique RLS, `ENABLE` et `FORCE` | III |
 | P-08 | Le tenant A ne lit ni n'écrit aucune ligne du tenant B, sur chaque endpoint | III |
@@ -464,6 +508,25 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-18 | `cargo sqlx prepare` vert | VIII |
 | P-19 | Aucun fichier de `docs/design/html/` copié sous `app/` | XII |
 | P-20 | Aucune dépendance déclarée en intervalle ; lockfiles commités et à jour | XI |
+
+### Couverture des portes — leçon du cycle 1
+
+Une porte n'est acquise que lorsque son **périmètre** est établi, pas seulement sa capacité à
+échouer. Le cycle 1 a produit quatre portes vertes défectueuses, dont **aucune n'a été trouvée par
+relecture** : P-08 lisait un contrat vide alors que deux endpoints étaient servis ; P-18 validait
+43 requêtes sur 47 ; et le mode vérification de P-18 écrasait le cache qu'il inspectait.
+
+> **Un test négatif prouve qu'une porte sait échouer. Il ne prouve pas qu'elle regarde tout.**
+
+Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée :
+
+1. **Déclarer le périmètre inspecté** en commentaire de tête : ce que la porte lit, et ce qu'elle
+   ne lit pas. Une limite assumée et écrite vaut mieux qu'une couverture supposée.
+2. **Vérifier la complétude, pas seulement l'échec** : compter les cibles réellement examinées et
+   les comparer au total attendu. Une porte qui inspecte un sous-ensemble sans le dire donne une
+   fausse assurance, ce qui est pire que pas de porte.
+3. **Ne jamais modifier l'artefact inspecté.** Un contrôle qui écrit dans ce qu'il vérifie peut
+   masquer le défaut qu'il cherche.
 
 ### Flux de développement
 
@@ -497,7 +560,7 @@ Un principe n'est jamais contourné en silence : il est amendé ou il est respec
 - **PATCH** — clarification, reformulation, correction sans effet sémantique.
 
 **Conformité.** Chaque plan de fonctionnalité passe un `Constitution Check` avant
-implémentation. Les portes P-01 à P-20 sont exécutées en intégration continue et leur échec
+implémentation. Les portes P-01 à P-20 (P-05b incluse) sont exécutées en intégration continue et leur échec
 bloque la fusion. Toute complexité ajoutée doit être justifiée par écrit dans le plan ; à
 justification absente, l'option la plus simple s'impose.
 
@@ -531,4 +594,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.0.2 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-30
+**Version**: 1.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31

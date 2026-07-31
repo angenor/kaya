@@ -1,0 +1,69 @@
+{
+  "_lisez_moi": [
+    "Jeu de cas FIGÉ du grand livre — version 1 du format de charge utile.",
+    "",
+    "Ce fichier est le cas doré du grand livre, au même titre que les jeux fiscaux du principe V.",
+    "Il est versionné avec le test de reconstitution autonome et ne change JAMAIS : une évolution",
+    "du format produit un `grand_livre_v2.json` et un décodeur de plus, jamais une modification",
+    "de celui-ci. C'est toute la raison d'être du champ `version_schema` (R-06) — en phase 2, la",
+    "génération SYSCOHADA rétroactive relira des événements écrits par des versions du code qui",
+    "n'existeront plus.",
+    "",
+    "Le critère de conception, opposable en revue : un lecteur qui n'a QUE cette charge utile et",
+    "le numéro de version doit pouvoir dire ce qui s'est passé, pour quel montant, avec quelles",
+    "taxes et sur quel document. Aucun identifiant renvoyant à une autre table."
+  ],
+
+  "version_schema": 1,
+  "type_evenement": "encaissement.enregistre",
+  "agregat": "encaissement",
+
+  "payload": {
+    "montant_mineur": 15500,
+    "devise": "XOF",
+    "mode_reglement": "ESPECES",
+    "contrepartie": {
+      "type": "CLIENT",
+      "libelle": "Kouassi Adjoua"
+    },
+    "taxes": [
+      {
+        "code": "TVA",
+        "assiette_mineur": 12712,
+        "taux_millieme": 180,
+        "montant_mineur": 2288
+      },
+      {
+        "code": "TAXE_NUITEE",
+        "assiette_mineur": null,
+        "taux_millieme": null,
+        "montant_mineur": 500
+      }
+    ],
+    "document": {
+      "type": "FACTURE",
+      "numero": "F-2026-000123"
+    }
+  },
+
+  "attendu": {
+    "_note": [
+      "Ce que la reconstitution doit retrouver depuis la seule charge utile ci-dessus.",
+      "",
+      "`total_taxes_mineur` = 2288 + 500 = 2788. La taxe de nuitée est un FORFAIT : ni assiette,",
+      "ni taux — d'où les deux `null`. Les rendre obligatoires forcerait à inventer une assiette",
+      "fictive, et le premier calcul qui la prendrait au sérieux produirait un montant faux.",
+      "",
+      "Les taux sont en MILLIÈMES ENTIERS : 180 vaut 18 %. Un taux en flottant rouvrirait par la",
+      "petite porte le risque d'arrondi que le principe V ferme sur les montants."
+    ],
+    "montant_mineur": 15500,
+    "devise": "XOF",
+    "total_taxes_mineur": 2788,
+    "assiette_hors_taxes_mineur": 12712,
+    "mode_reglement": "ESPECES",
+    "contrepartie_libelle": "Kouassi Adjoua",
+    "document_numero": "F-2026-000123",
+    "codes_taxes": ["TVA", "TAXE_NUITEE"]
+  }
+}

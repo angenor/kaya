@@ -1,0 +1,16 @@
+[package]
+name = "kaya-node"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "kaya-node"
+path = "src/main.rs"
+
+# **Coquille de l'incrément 3.** Le nœud de site est *le même binaire Actix avec une troisième
+# configuration* (constitution, § Pile technique imposée) — jamais un produit séparé. Il ne
+# déclare donc aucune dépendance propre : le jour où il sera activé, il consommera `kaya-api`.
+[dependencies]

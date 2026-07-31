@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT type_evenement, agregat, version_schema, payload\n        FROM synchronisation.evenement_outbox\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "type_evenement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "type_evenement"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "agregat",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "agregat"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "version_schema",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "version_schema"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "payload",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "payload"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "99f63beebf966c3d81b3ffbd1bb56a1cadc357c4a5eac0309ee615d044c9a839"
+}

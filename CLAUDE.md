@@ -44,6 +44,10 @@ En cas de contradiction, trancher dans cet ordre :
 5. `docs/versions-gelees.md` — versions épinglées, URL des registres, commandes de vérification.
 6. `docs/design/tokens.md`, puis `docs/design/mouvement.md` — valeurs de design.
 7. `docs/design/html/`, `fondation/`, `proto/`, `documents/` — référence normative d'écran.
+   **`docs/design/derivation.md`** dit de quel motif hérite chacun des 30 écrans non maquettés
+   (41 écrans en tout) ; **`docs/design/lexique.md`** donne le vocabulaire utilisateur. Les deux
+   sont opposables : un écran hors des deux ne se code pas, un terme technique hors du lexique
+   n'atteint jamais l'interface.
 8. `docs/Kaya_Vision_Plateforme.md` — **fermé jusqu'au jalon J1**, sans effet sur le MVP.
 
 ## L'architecture en une page
