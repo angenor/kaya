@@ -1,0 +1,56 @@
+# Configuration de compilation — Kaya
+#
+# Trois réglages, dont deux qui ne s'appliquent pas partout. La distinction est le sujet même de
+# R-01 et R-02 : une optimisation imposée là où elle n'existe pas ne ralentit pas la
+# construction, elle l'empêche.
+
+# ---------------------------------------------------------------------------------------------
+#  mold — CIBLES LINUX UNIQUEMENT (R-01)
+# ---------------------------------------------------------------------------------------------
+#  `mold` est un linker **ELF**. Il ne connaît ni le format Mach-O ni les options du linker
+#  d'Apple, et son auteur a fermé la demande de support macOS (rui314/mold#1171). L'imposer au
+#  poste de développement `darwin/arm64` produit un **échec de lien**, pas un gain.
+#
+#  Il est donc configuré là où il existe et où le gain est capitalisable : l'intégration continue
+#  et l'image de production, toutes deux `linux/amd64`. Sur macOS, le linker par défaut d'Apple
+#  (`ld_prime`, livré depuis Xcode 15) est déjà nettement plus rapide que l'ancien `ld64`.
+#
+#  Corollaire consigné en SC-010 : la mesure du temps de compilation incrémentale se fait **dans
+#  le conteneur Linux**. Une mesure sur le poste macOS ne prédit rien de la production.
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# ---------------------------------------------------------------------------------------------
+#  sccache — les deux architectures, mais activé par l'ENVIRONNEMENT (R-02, écart consigné)
+# ---------------------------------------------------------------------------------------------
+#  R-02 retient `sccache` parce qu'il est distribué pour `darwin/arm64` **et** `linux/amd64`,
+#  là où `mold` échoue à la contrainte bi-architecture.
+#
+#  Il n'est pourtant **pas écrit ici en dur**, et c'est délibéré : `rustc-wrapper` est résolu à
+#  chaque invocation de cargo. Sur un poste neuf où `sccache` n'est pas encore installé, la
+#  ligne ferait échouer `cargo build` avant même la première compilation — c'est-à-dire
+#  exactement le scénario que SC-001 (amorçage en moins de 30 minutes sur poste neuf) doit
+#  garantir.
+#
+#  Activation, identique sur les deux plateformes :
+#
+#      cargo install sccache        # ou : brew install sccache
+#      export RUSTC_WRAPPER=sccache
+#
+#  L'image de CI positionne cette variable et épingle la version de l'outil. `sccache` ne figure
+#  pas au gel `docs/versions-gelees.md` : c'est un outil de poste, il n'entre dans aucun
+#  lockfile et la porte P-20 ne le couvre pas.
+#
+#  [build]
+#  rustc-wrapper = "sccache"
+
+# ---------------------------------------------------------------------------------------------
+#  Profils
+# ---------------------------------------------------------------------------------------------
+#  `debug = "line-tables-only"` (R-02) est déclaré dans `backend/Cargo.toml`, section
+#  `[profile.dev]`, et non ici : un profil défini dans les deux fichiers est pris depuis le
+#  manifeste, ce qui rendrait cette copie muette et divergente à la première modification.

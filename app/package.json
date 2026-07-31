@@ -1,0 +1,33 @@
+{
+  "name": "@kaya/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Application unique Kaya — Nuxt 4 + Tauri v2, SPA, tous rôles, desktop/Android/iOS",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:i18n": "node --experimental-strip-types scripts/test-i18n.ts",
+    "lint:tokens": "node --experimental-strip-types scripts/lint-tokens.ts",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nuxtjs/i18n": "10.6.0",
+    "@tauri-apps/api": "2.11.1",
+    "nuxt": "4.5.1",
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "@kaya/client": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.11.4",
+    "eslint": "10.8.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

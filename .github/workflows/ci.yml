@@ -1,0 +1,194 @@
+name: CI
+
+# Filtrage par chemins — une modification de `docs/` seule ne déclenche pas la construction du
+# backend. Le calcul est fait par un job dédié plutôt que par une action tierce : la porte P-20
+# n'accepte aucune dépendance en intervalle, et une action non épinglée serait exactement cela.
+on:
+  push:
+    branches: ["main", "0*-*"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Versions du gel `docs/versions-gelees.md` — jamais `latest`, jamais un intervalle.
+  IMAGE_POSTGRES: postgres:18.4
+  IMAGE_REDIS: redis:8.8.1
+  NODE_VERSION: 24.18.1
+  PNPM_VERSION: 11.18.0
+  DATABASE_URL: postgres://kaya_owner:motdepasse_ci@localhost:5432/kaya
+  DATABASE_URL_APP: postgres://kaya_app:motdepasse_ci@localhost:5432/kaya
+  DATABASE_URL_LEDGER: postgres://kaya_ledger_reader:motdepasse_ci@localhost:5432/kaya
+
+jobs:
+  # ---------------------------------------------------------------------------------------------
+  #  Périmètre — quels chemins ont changé
+  # ---------------------------------------------------------------------------------------------
+  perimetre:
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.filtre.outputs.backend }}
+      app: ${{ steps.filtre.outputs.app }}
+      gouvernance: ${{ steps.filtre.outputs.gouvernance }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - id: filtre
+        run: bash scripts/ci/perimetre.sh
+
+  # ---------------------------------------------------------------------------------------------
+  #  Portes documentaires et de gel — s'exécutent TOUJOURS
+  # ---------------------------------------------------------------------------------------------
+  #  P-02, P-19 et P-20 ne dépendent d'aucune construction : les sauter sur une modification de
+  #  documentation laisserait passer une migration réécrite ou une maquette copiée.
+  portes-statiques:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: "P-02 — aucune migration appliquée modifiée"
+        run: bash scripts/ci/migrations-figees.sh
+      - name: "P-04 — aucune jointure entre schémas de modules"
+        run: bash scripts/ci/jointures-inter-schemas.sh
+      - name: "P-05b — aucun chemin de purge de l'outbox"
+        run: bash scripts/ci/outbox-sans-purge.sh
+      - name: "P-10 — montants entiers, quantités NUMERIC"
+        run: bash scripts/ci/types-monetaires.sh
+      - name: "P-19 — aucune maquette copiée sous app/"
+        run: bash scripts/ci/maquettes-non-copiees.sh
+      - name: "P-20 — versions épinglées exactement"
+        run: bash scripts/ci/versions-epinglees.sh
+
+  # ---------------------------------------------------------------------------------------------
+  #  Backend — compilation, requêtes vérifiées, tests d'intégration sur base réelle
+  # ---------------------------------------------------------------------------------------------
+  backend:
+    needs: perimetre
+    if: needs.perimetre.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        image: postgres:18.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: motdepasse_ci
+          POSTGRES_DB: kaya
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kaya"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      cache:
+        image: redis:8.8.1
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      # Le canal exact vient de `backend/rust-toolchain.toml` — rustup le lit tout seul. Aucune
+      # version n'est nommée ici : une seconde déclaration dériverait à la première revue.
+      - name: Chaîne Rust
+        run: rustup show active-toolchain
+
+      # `mold` n'a de sens QUE sur Linux (R-01), et c'est précisément la cible de ce job.
+      - name: Installer mold
+        run: sudo apt-get update && sudo apt-get install -y mold
+
+      - uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            backend/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('backend/Cargo.lock') }}
+
+      - name: "Amorcer le rôle propriétaire"
+        run: |
+          PGPASSWORD=motdepasse_ci psql -h localhost -U postgres -d kaya \
+            -v ON_ERROR_STOP=1 -f infra/postgres/init/00-kaya-owner.sql
+          PGPASSWORD=motdepasse_ci psql -h localhost -U postgres -d kaya \
+            -v ON_ERROR_STOP=1 -c "ALTER ROLE kaya_owner PASSWORD 'motdepasse_ci';"
+
+      - name: "P-18 — cargo sqlx prepare vert"
+        working-directory: backend
+        run: |
+          cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres,rustls
+          cargo sqlx migrate run
+          cargo sqlx prepare --workspace --check -- --all-targets
+
+      - name: Compilation
+        working-directory: backend
+        run: cargo build --workspace --locked
+
+      - name: "Tests — portes P-03, P-05, P-07, P-08, P-12, P-14 et registre hors-ligne"
+        working-directory: backend
+        run: cargo test --workspace --locked
+
+  # ---------------------------------------------------------------------------------------------
+  #  Contrat d'API et client généré — porte P-01
+  # ---------------------------------------------------------------------------------------------
+  contrat:
+    needs: [perimetre, backend]
+    if: needs.perimetre.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    services:
+      db:
+        image: postgres:18.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: motdepasse_ci
+          POSTGRES_DB: kaya
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kaya"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: "Amorcer le rôle propriétaire"
+        run: |
+          PGPASSWORD=motdepasse_ci psql -h localhost -U postgres -d kaya \
+            -v ON_ERROR_STOP=1 -f infra/postgres/init/00-kaya-owner.sql
+          PGPASSWORD=motdepasse_ci psql -h localhost -U postgres -d kaya \
+            -v ON_ERROR_STOP=1 -c "ALTER ROLE kaya_owner PASSWORD 'motdepasse_ci';"
+      - name: "P-01 — client TypeScript identique au client commité"
+        run: bash scripts/ci/generer-client.sh --verifier
+
+  # ---------------------------------------------------------------------------------------------
+  #  Application — portes P-15, P-16, P-17 et file de classe A
+  # ---------------------------------------------------------------------------------------------
+  app:
+    needs: perimetre
+    if: needs.perimetre.outputs.app == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: "P-16 — parité fr/en, aucune chaîne en dur"
+        run: pnpm --filter @kaya/app test:i18n
+      - name: "P-17 — aucune couleur ni espacement hors jetons"
+        run: pnpm --filter @kaya/app lint:tokens
+      - name: "P-15 — aucun @tauri-apps/api hors PlatformAdapter"
+        run: pnpm --filter @kaya/app lint
+      - name: "P-13 — aucune opération B/C/D dans la file hors ligne"
+        run: pnpm --filter @kaya/app test

@@ -1,0 +1,167 @@
+#  Workspace Kaya — backend
+#
+#  Toutes les versions sont ÉPINGLÉES EXACTEMENT (principe XI, porte P-20).
+#  Aucun `^`, aucun `~`, aucune plage. La source de vérité est `docs/versions-gelees.md`
+#  v1.0.3 (vérifié le 2026-07-30) ; ce fichier la matérialise, il ne la décide pas.
+#
+#  Ce paquet racine — `kaya-backend` — ne porte aucune logique : il n'existe que pour héberger
+#  les tests d'intégration transverses de `backend/tests/`, ceux qui traversent plusieurs crates
+#  (catalogue RLS, isolation multi-tenant, immuabilité de l'outbox, graphe des dépendances).
+
+[workspace]
+members = [
+    "crates/domain",
+    "crates/socle/etablissements",
+    "crates/socle/comptes",
+    "crates/socle/caisse",
+    "crates/socle/fiscalite",
+    "crates/socle/documents",
+    "crates/socle/synchronisation",
+    "crates/socle/pilotage",
+    "crates/socle/editeur",
+    "crates/socle/metriques",
+    "crates/capacites/stocks",
+    "crates/verticales/hebergement",
+    "crates/verticales/restauration",
+    "crates/verticales/bar",
+    "crates/verticales/pressing",
+    "api",
+    "node",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+license = "UNLICENSED"
+publish = false
+
+# ---------------------------------------------------------------------------------------------
+#  Les dix briques du principe XI et les dépendances directes du socle.
+#  `docs/versions-gelees.md` §2 et §3.1 — chaque ligne y porte l'URL du registre interrogé.
+# ---------------------------------------------------------------------------------------------
+[workspace.dependencies]
+
+# --- Crates internes (chemins, jamais de version publiée) ---
+kaya-domain = { path = "crates/domain" }
+kaya-etablissements = { path = "crates/socle/etablissements" }
+kaya-comptes = { path = "crates/socle/comptes" }
+kaya-caisse = { path = "crates/socle/caisse" }
+kaya-fiscalite = { path = "crates/socle/fiscalite" }
+kaya-documents = { path = "crates/socle/documents" }
+kaya-synchronisation = { path = "crates/socle/synchronisation" }
+kaya-pilotage = { path = "crates/socle/pilotage" }
+kaya-editeur = { path = "crates/socle/editeur" }
+kaya-metriques = { path = "crates/socle/metriques" }
+kaya-stocks = { path = "crates/capacites/stocks" }
+kaya-hebergement = { path = "crates/verticales/hebergement" }
+kaya-restauration = { path = "crates/verticales/restauration" }
+kaya-bar = { path = "crates/verticales/bar" }
+kaya-pressing = { path = "crates/verticales/pressing" }
+kaya-api = { path = "api" }
+
+# --- Gel §2 — briques du principe XI ---
+actix-web = { version = "=4.14.0", default-features = false, features = ["macros"] }
+# `sqlx-toml` est ce qui rend `backend/sqlx.toml` effectif (multi-schémas, renommage de la table
+# de migrations). Sans cette feature, le fichier existe mais n'est jamais lu.
+sqlx = { version = "=0.9.0", default-features = false, features = [
+    "postgres",
+    "runtime-tokio",
+    "tls-rustls-ring",
+    "macros",
+    "migrate",
+    "uuid",
+    "time",
+    "json",
+    "rust_decimal",
+    "sqlx-toml",
+] }
+# Ni `preserve_order` ni `preserve_path_order` : sans elles, utoipa sérialise chemins et schémas
+# dans un ordre trié, donc INDÉPENDANT de l'ordre de découverte des routes. C'est exactement
+# l'exigence n° 2 du gel §3.2 pour la porte P-01 ; les activer réintroduirait la dépendance à
+# l'ordre de déclaration.
+utoipa = { version = "=5.5.0", features = ["actix_extras", "uuid", "time"] }
+
+# --- Gel §3.1 — dépendances directes du socle ---
+utoipa-swagger-ui = { version = "=9.0.2", features = ["actix-web"] }
+utoipa-actix-web = { version = "=0.1.2" }
+tokio = { version = "=1.53.1", features = ["macros", "rt-multi-thread", "signal", "time", "sync"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+uuid = { version = "=1.24.0", features = ["v7", "serde"] }
+rust_decimal = { version = "=1.42.1" }
+redis = { version = "=1.5.0", features = ["tokio-comp"] }
+aws-sdk-s3 = { version = "=1.140.0", default-features = false, features = [
+    "behavior-version-latest",
+    "default-https-client",
+    "rt-tokio",
+    "rustls",
+] }
+sentry = { version = "=0.49.0", default-features = false, features = [
+    "backtrace",
+    "contexts",
+    "panic",
+    "reqwest",
+    "rustls",
+    "tracing",
+] }
+tracing = { version = "=0.1.44" }
+tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json"] }
+# CPT-01, hors périmètre de ce cycle. Épinglées ici pour que le gel soit matérialisé en un seul
+# endroit ; aucun crate ne les référence encore.
+jsonwebtoken = { version = "=11.0.0" }
+argon2 = { version = "=0.5.3" }
+
+# --- Extensions du gel introduites par ce cycle (voir docs/module-dore.md § « Écarts au gel ») ---
+# Vérifiées sur https://crates.io/api/v1/crates/<nom> le 2026-07-30, à porter au gel §3.1 à la
+# revue mensuelle du 2026-08-31.
+serde_json = { version = "=1.0.151" }
+time = { version = "=0.3.54", features = ["serde", "macros", "formatting", "parsing"] }
+thiserror = { version = "=2.0.19" }
+async-trait = { version = "=0.1.91" }
+futures = { version = "=0.3.33" }
+dotenvy = { version = "=0.15.7" }
+
+# ---------------------------------------------------------------------------------------------
+#  Paquet racine — harnais de tests d'intégration transverses
+# ---------------------------------------------------------------------------------------------
+[package]
+name = "kaya-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+kaya-api = { workspace = true }
+kaya-domain = { workspace = true }
+kaya-etablissements = { workspace = true }
+kaya-synchronisation = { workspace = true }
+actix-web = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+utoipa = { workspace = true }
+dotenvy = { workspace = true }
+
+# ---------------------------------------------------------------------------------------------
+#  Profils
+# ---------------------------------------------------------------------------------------------
+[profile.dev]
+# R-02 — conserve les numéros de ligne dans les traces de panique sans le volume complet des
+# informations de débogage.
+debug = "line-tables-only"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

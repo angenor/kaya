@@ -1,0 +1,20 @@
+{
+  "name": "@kaya/web-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Console éditeur — parc, télémétrie, support ; jamais mêlée à l'application métier",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "4.5.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2"
+  }
+}

@@ -1,0 +1,53 @@
+# --- Rust -------------------------------------------------------------------------------------
+target/
+debug/
+**/*.rs.bk
+*.pdb
+*.prof*
+
+# `Cargo.lock` et `backend/.sqlx/` sont COMMITÉS, y compris pour les binaires — c'est ce qui rend
+# la reconstruction identique à six mois d'écart, condition du support à distance du parc
+# auto-hébergé (cadrage §10.2, gel §4.1). Ne jamais les ajouter ici.
+
+# --- Node / pnpm ------------------------------------------------------------------------------
+node_modules/
+dist/
+.output/
+.nuxt/
+.nitro/
+.cache/
+*.tsbuildinfo
+
+# `pnpm-lock.yaml` est COMMITÉ (porte P-20).
+
+# --- Tauri ------------------------------------------------------------------------------------
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# --- Secrets et environnement -----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!infra/backup/*.key.example
+
+# --- Sauvegardes locales ----------------------------------------------------------------------
+infra/backup/local/
+*.dump
+*.sql.gz
+*.sql.age
+
+# --- Journaux et temporaires ------------------------------------------------------------------
+*.log
+*.tmp
+*.swp
+
+# --- Systèmes de fichiers ---------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# --- Éditeurs ---------------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json

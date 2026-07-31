@@ -1,0 +1,22 @@
+{
+  "name": "@kaya/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Client d'API Kaya — types GÉNÉRÉS depuis /api-docs/openapi.json, jamais écrits à la main",
+  "types": "./types.gen.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.gen.ts"
+  },
+  "scripts": {
+    "generer": "bash ../../scripts/ci/generer-client.sh"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "7.0.2"
+  }
+}

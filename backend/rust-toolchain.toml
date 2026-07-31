@@ -1,0 +1,11 @@
+# Canal EXACT du gel — jamais "stable".
+# `docs/versions-gelees.md` §2, brique 1 : Rust 1.97.1, publiée le 2026-07-14, vérifiée sur
+# https://static.rust-lang.org/dist/channel-rust-stable.toml (section [pkg.rust]).
+#
+# « stable » ferait de la reconstruction un pari : à six mois d'écart, la même commande
+# produirait un binaire différent — ce que le support du parc auto-hébergé interdit
+# (cadrage §10.2).
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

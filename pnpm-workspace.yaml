@@ -1,0 +1,24 @@
+# Espace de travail pnpm — Kaya
+#
+# Quatre paquets, et la séparation entre eux est structurante (principe VII) :
+#
+#   app/          UNE SEULE application Nuxt 4 + Tauri v2 pour tous les rôles métier — desktop,
+#                 Android, iOS — en mode SPA. Pas une application par rôle, pas une application
+#                 par plateforme.
+#   web/qr/       Surface publique de commande par QR, en **SSR** : elle est ouverte par un
+#                 client sur son propre téléphone, sans compte et sans application installée.
+#   web/console/  Console éditeur, `ssr: false`. Public interne, jamais mêlé à l'application
+#                 métier des établissements.
+#   clients/ts/   Client d'API **généré**. Jamais édité à la main (principe I(a), porte P-01).
+
+packages:
+  - "app"
+  - "web/qr"
+  - "web/console"
+  - "clients/ts"
+# Scripts d'installation autorisés. pnpm 11 exige une décision explicite pour chacun plutôt
+# qu'un `--ignore-scripts` global : un paquet qui compile un binaire natif doit être nommé, pas
+# subi. `esbuild` télécharge et place son exécutable — c'est le transpileur de Vite, donc de
+# Nuxt.
+allowBuilds:
+  esbuild: true

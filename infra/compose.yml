@@ -1,0 +1,91 @@
+# Environnement de développement — Kaya
+#
+# **Tags d'image EXACTS, jamais `latest`** (principe XI, porte P-20). Les trois versions et leur
+# disponibilité multi-architecture sont vérifiées au §4.2 de `docs/versions-gelees.md` : le même
+# fichier sert donc au poste de développement Apple Silicon (`arm64`) et au VPS Contabo
+# (`amd64`).
+#
+# Ce fichier ne construit **jamais** le binaire de production. Celui-ci se construit dans Docker
+# pour `linux/amd64` via `infra/Dockerfile.api` — un `cargo build` sur le poste produit un
+# binaire `aarch64-apple-darwin` non déployable.
+
+name: kaya
+
+services:
+  # -------------------------------------------------------------------------------------------
+  #  PostgreSQL — la SEULE vérité durable (principe II)
+  # -------------------------------------------------------------------------------------------
+  db:
+    image: postgres:18.4
+    container_name: kaya-db
+    environment:
+      # Le superutilisateur d'amorçage n'est PAS `kaya_owner`. C'est la seule façon de garder
+      # `FORCE ROW LEVEL SECURITY` effectif : PostgreSQL laisse tout superutilisateur contourner
+      # la RLS (attribut `BYPASSRLS` implicite). Un `kaya_owner` superutilisateur rendrait la
+      # politique d'isolation décorative — et le test P-07 passerait en mentant.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-motdepasse_dev}
+      POSTGRES_DB: kaya
+      # `btree_gist` et les contraintes d'exclusion exigent une collation stable.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Crée le rôle `kaya_owner` — un rôle n'est pas un objet de schéma, il ne relève donc pas
+      # du principe I(b). Tout le reste (schémas, tables, politiques) vient des migrations sqlx,
+      # sans exception.
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kaya"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------------------------
+  #  Redis — ÉPHÉMÈRE RECONSTRUCTIBLE uniquement (principe II)
+  # -------------------------------------------------------------------------------------------
+  #  Sessions, file FNE, verrous distribués, limitation de débit, cache de catalogue. **Jamais**
+  #  une donnée métier durable, et **jamais** la file de publication de l'outbox : une file qui
+  #  perdrait son état perdrait des événements, ce que la rétention illimitée de TRX-02 exclut.
+  cache:
+    image: redis:8.8.1
+    container_name: kaya-cache
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------------------------
+  #  Garage — stockage objet, consommé VIA L'API S3 UNIQUEMENT (principe II)
+  # -------------------------------------------------------------------------------------------
+  #  Garage tourne sur le même hôte que la base. Il ne porte donc **jamais** l'immutabilité des
+  #  sauvegardes (R-13) : un attaquant qui obtient le serveur obtient les deux. Les sauvegardes
+  #  verrouillées vont sur un stockage tiers, sur un hôte distinct.
+  objets:
+    image: dxflrs/garage:v2.3.0
+    container_name: kaya-objets
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - objets_meta:/var/lib/garage/meta
+      - objets_data:/var/lib/garage/data
+    ports:
+      - "${GARAGE_S3_PORT:-3900}:3900"
+      - "${GARAGE_ADMIN_PORT:-3903}:3903"
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  objets_meta:
+  objets_data:
