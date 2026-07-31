@@ -278,7 +278,7 @@ Une porte dont on n'a jamais constaté l'échec n'est pas une porte, c'est une i
 | P-15 | ✅ active ⚠️ une limite | Import de `@tauri-apps/api` + `window.__TAURI__` |
 | P-16 | ✅ active ⚠️ heuristique | Clé retirée de `en.json` + chaîne en dur dans un template |
 | P-17 | ✅ active | `#1a1a1a` et `14px` dans un composant |
-| P-18 | ✅ active | `cargo sqlx prepare --check` |
+| P-18 | ✅ active, **durcie** | Cache incomplet constaté par la construction Docker — voir 6.3 |
 | P-19 | ✅ active | `R1-accueil.html` copié sous `app/assets/` |
 | P-20 | ✅ active | `^4.14.0`, `redis:latest`, `channel = "stable"` |
 
@@ -286,10 +286,11 @@ Une porte dont on n'a jamais constaté l'échec n'est pas une porte, c'est une i
 
 ---
 
-## 6. Deux défauts que les portes ont trouvés dans le code de ce cycle
+## 6. Trois défauts trouvés pendant le cycle
 
-Ils méritent d'être nommés : ce sont les deux seuls cas où une porte a signalé un vrai problème
-plutôt que de confirmer une conformité.
+Ils méritent d'être nommés : ce sont les cas où une vérification a signalé un vrai problème
+plutôt que de confirmer une conformité. **Le troisième est le plus instructif : c'est une porte
+qui passait au vert sans vérifier ce qu'elle croyait vérifier.**
 
 ### 6.1 P-08 lisait le mauvais contrat, et passait au vert à tort
 
@@ -308,6 +309,39 @@ C'est pourquoi chaque porte de ce cycle porte un test négatif.
 `lister()` répondait `200 []` là où `creer()` répond `404`, pour le même établissement hors du
 tenant courant. Aucune fuite de données — mais deux réponses différentes sur le même chemin, pour
 la même situation. Trouvé par le test croisé de P-08, corrigé.
+
+### 6.3 P-18 vérifiait un cache incomplet, et l'image de production ne compilait pas
+
+`cargo sqlx prepare --workspace -- --all-targets` **ne collecte pas les requêtes des cibles
+`[[bin]]`**. Il ramassait **43 requêtes sur 47** : celles de `api/src/bin/seeds.rs` manquaient
+toutes.
+
+La cause est dans la nature de la commande : `prepare` passe ses arguments à `cargo rustc`, qui ne
+compile **qu'une seule cible** à la fois. Sur un workspace, `--all-targets` ne fait donc pas ce
+que son nom laisse croire.
+
+**Ce qui rend le cas intéressant, c'est que rien ne le signalait :**
+
+| Vérification | Résultat | Pourquoi elle ne voyait rien |
+|---|---|---|
+| `cargo build` local | ✅ vert | `DATABASE_URL` est défini : les macros interrogent la base, le cache est inutile |
+| `cargo sqlx prepare --check` | ✅ vert | Il vérifie ce qu'il **sait collecter** — donc pas ce qu'il ne collecte pas |
+| **Construction Docker** | ❌ **échec** | Compile avec `SQLX_OFFLINE=true` et **sans base**. Seul contexte où l'absence se voit |
+
+```
+error: `SQLX_OFFLINE=true` but there is no cached data for this query
+   --> api/src/bin/seeds.rs:96:5
+```
+
+**Correction** : `scripts/ci/preparer-sqlx.sh` ramasse les requêtes crate par crate et fusionne —
+les fichiers étant nommés par empreinte de la requête, la fusion est sûre. La CI gagne en outre une
+étape qui **compile en `SQLX_OFFLINE`** : vérifier le cache ne prouve pas que l'image se
+construira, seule la compilation hors ligne le prouve.
+
+**Leçon, à porter aux cycles suivants** : une porte peut être verte parce qu'elle ne regarde pas
+au bon endroit. Le test négatif prouve qu'elle sait échouer ; il ne prouve pas qu'elle regarde
+tout. Ici, c'est **le contexte le plus contraint — la construction sans base — qui a fait office
+de test**.
 
 ---
 
