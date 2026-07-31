@@ -22,12 +22,15 @@
     "openapi-fetch": "0.17.0"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@kaya/client": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/cli": "2.11.4",
     "eslint": "10.8.0",
+    "eslint-plugin-vue": "10.10.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0",
     "vitest": "4.1.10"
   }
 }

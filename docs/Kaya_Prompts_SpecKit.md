@@ -41,19 +41,17 @@ docs/
     └── notes-terrain.md       ⚠️ rempli à l'atelier d'Abengourou
 ```
 
-**État au 2026-07-30 — aucun blocage design.** `Kaya_Design.md` **existe** (1 266 lignes) et
-**porte déjà** ce que les anciens `docs/design/derivation.md` et `docs/design/lexique.md`
-devaient contenir :
+**État au 2026-07-30 — aucun blocage design.** Les deux références opposables existent
+désormais **à leur chemin annoncé**, extraites de `Kaya_Design.md` :
 
-- **PARTIE V §25 — matrice de dérivation** : les **30 écrans codés sans maquette**, chacun
-  avec le motif dont il hérite et ce qui change. Avec les 11 écrans maquettés
-  (29 fichiers d'états), le produit couvre **41 écrans**.
-- **§6 — lexique** : 15 concepts internes et leur formulation utilisateur (« certification
-  FNE » → « envoi aux impôts »).
+- **`docs/design/derivation.md`** — les **30 écrans codés sans maquette**, chacun avec le motif
+  dont il hérite et ce qui change. Avec les 11 écrans maquettés (29 fichiers d'états), le
+  produit couvre **41 écrans**.
+- **`docs/design/lexique.md`** — 15 concepts internes et leur formulation utilisateur
+  (« certification FNE » → « envoi aux impôts »), plus la procédure d'ajout d'une entrée.
 
-Les prompts pointaient vers deux fichiers séparés qui n'ont jamais été créés ; ils pointent
-désormais vers `Kaya_Design.md` §25 et §6. **Aucune duplication n'a été faite** : extraire ces
-tableaux dans `docs/design/` créerait deux sources de vérité qui divergeraient (principe I).
+Ces deux tableaux ont été **déplacés, pas recopiés** : `Kaya_Design.md` §6 et partie V y
+renvoient et ne les dupliquent pas. Une copie aurait divergé — principe I de la constitution.
 
 **Quatre documents ont été ajoutés depuis la rédaction de ce fichier** et font foi :
 `.specify/memory/constitution.md` (v1.0.2), `docs/registre-classes-offline.md` (v1.0.0),
@@ -338,8 +336,8 @@ résout par docs/design/html/{code}-{nom}[-{etat}].html (RÉFÉRENCE : valeurs
 exactes et hiérarchie DOM — par exemple R4-passage-hors-ligne.html,
 C4-cloture-bloquee.html), docs/design/tokens.md (qui PRIME en cas de divergence),
 docs/design/composants.md, docs/design/mouvement.md et la MATRICE DE DÉRIVATION
-docs/Kaya_Design.md §25 (30 écrans dérivés : de quel motif chacun hérite).
-Toute ambiguïté de VOCABULAIRE UTILISATEUR se résout par le LEXIQUE docs/Kaya_Design.md §6 —
+docs/design/derivation.md (30 écrans dérivés : de quel motif chacun hérite).
+Toute ambiguïté de VOCABULAIRE UTILISATEUR se résout par le LEXIQUE docs/design/lexique.md —
 si le terme n'y figure pas, propose-moi sa formulation avant de l'écrire en dur. Toute ambiguïté sur le
 comportement hors ligne se résout par docs/cadrage-v1.md §11 et
 docs/registre-classes-offline.md.
@@ -374,7 +372,8 @@ Stack imposée (cadrage v1 §13 + docs/versions-gelees.md — non négociable) :
 - sqlx est en 0.9 : AssertSqlSafe est exigé sur toute requête non littérale et la
   sortie des macros query!() a changé. Tout extrait visant 0.8.x ne compilera pas.
   Le patron de référence est docs/module-dore.md — aligne-toi dessus plutôt que sur
-  un exemple trouvé en ligne.
+  un exemple trouvé en ligne. Au cycle 1 seulement, ce fichier est un LIVRABLE et non
+  une entrée : ce cycle le produit au lieu de le suivre.
 
 Respecte la constitution (.specify/memory/constitution.md, v1.0.2), en particulier :
 l'établissement est l'entité centrale et aucun crate ne suppose qu'il a de
@@ -415,7 +414,7 @@ l'un de ces deux cas — jamais un troisième :
 (a) ÉCRAN MAQUETTÉ — 11 écrans, 29 fichiers d'états dans docs/design/html/, nommage
     {code}-{nom}[-{etat}].html. La référence est le fichier d'état exact.
 (b) ÉCRAN DÉRIVÉ — 30 écrans. La référence est sa ligne de la MATRICE DE DÉRIVATION,
-    docs/Kaya_Design.md PARTIE V §25, qui dit de quel motif il hérite et ce qui change
+    docs/design/derivation.md, qui dit de quel motif il hérite et ce qui change
     (ex. « R3 Check-in nuitée hérite de R4 : parcours long, plus de champs, même
     grammaire »). Ouvre la maquette dont il hérite et respecte-la.
 UN ÉCRAN QUI N'EST NI DANS (a) NI DANS (b) NE SE CODE PAS : la tâche s'arrête et
@@ -427,7 +426,7 @@ chargement paresseux — que l'export ne contient pas. Chaque écran est vérifi
 clair ET sombre.
 
 Tout terme technique visible par l'utilisateur passe par le LEXIQUE,
-docs/Kaya_Design.md §6 (« certification FNE » devient « envoi aux impôts », un état
+docs/design/lexique.md (« certification FNE » devient « envoi aux impôts », un état
 INDETERMINEE devient « nous ne savons pas si les impôts ont reçu cette facture »). Si le
 terme n'y figure pas, demande sa formulation avant de l'écrire.
 
@@ -481,11 +480,11 @@ qui resterait non conforme :
 [ ] Aucun window.__TAURI__ hors PlatformAdapter
 [ ] Aucune jointure SQL entre schémas de modules différents
 [ ] Chaque écran a sa référence : fichier de docs/design/html/ OU ligne de la matrice
-    de dérivation docs/Kaya_Design.md §25 — aucun écran inventé
+    de dérivation docs/design/derivation.md — aucun écran inventé
 [ ] Aucun bloc de docs/design/html/ copié dans app/ ; valeurs conformes à tokens.md
 [ ] Styles en utilitaires Tailwind du noyau ; CSS explicite justifié et regroupé
 [ ] Mode sombre par la variante dark:, pas par une palette dupliquée
-[ ] Aucun terme technique exposé sans entrée au lexique docs/Kaya_Design.md §6
+[ ] Aucun terme technique exposé sans entrée au lexique docs/design/lexique.md
 [ ] Rien construit au-delà du périmètre (provisions = données seulement)
 [ ] Quantités en NUMERIC, jamais en entier (ligne de vente, mouvement de stock)
 [ ] Aucune dépendance en intervalle ; lockfiles commités ; versions conformes à
@@ -1187,8 +1186,8 @@ Chaque cycle spécifie l'ensemble de son périmètre ; dans `/speckit-tasks`, le
 
 ## 5. Règles de conduite du dépôt
 
-- **Un écran ne se code pas sans référence visuelle.** Soit il existe dans `docs/design/html/` (29 fichiers pour 11 écrans, nommage `{code}-{nom}[-{etat}].html`), soit la matrice de dérivation `docs/Kaya_Design.md` §25 déclare de quel motif maquetté il hérite (30 écrans). Sans l'un ni l'autre, le cycle s'arrête et l'écran part en maquettage.
-- **Aucun terme technique visible par l'utilisateur sans entrée au lexique `docs/Kaya_Design.md` §6.** « Certification FNE », « état indéterminé », « écriture orpheline » ne doivent jamais atteindre un bouton ou un message. Tout nouveau concept exposé entre au lexique **avant** d'être codé.
+- **Un écran ne se code pas sans référence visuelle.** Soit il existe dans `docs/design/html/` (29 fichiers pour 11 écrans, nommage `{code}-{nom}[-{etat}].html`), soit la matrice de dérivation `docs/design/derivation.md` déclare de quel motif maquetté il hérite (30 écrans). Sans l'un ni l'autre, le cycle s'arrête et l'écran part en maquettage.
+- **Aucun terme technique visible par l'utilisateur sans entrée au lexique `docs/design/lexique.md`.** « Certification FNE », « état indéterminé », « écriture orpheline » ne doivent jamais atteindre un bouton ou un message. Tout nouveau concept exposé entre au lexique **avant** d'être codé.
 - **Une branche par cycle** (`feat/heb-formules`), merge quand la checklist du §2.5 passe.
 - **Commits conventionnels référençant les stories** : `feat(hebergement): HEB-02 disponibilité par contrainte d'exclusion GiST`.
 - **Si une décision produit change** : mettre à jour d'abord `docs/cadrage-v1.md` et `docs/user-stories-v1.md` (et `docs/design/` si visuel), puis relancer `/speckit-specify` du module concerné — jamais l'inverse.

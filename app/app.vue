@@ -16,6 +16,8 @@ const { t } = useI18n()
 <template>
   <div class="min-h-screen bg-surf text-ink">
     <NuxtPage />
-    <p class="sr-only">{{ t('app.coquille') }}</p>
+    <p class="sr-only">
+      {{ t('app.coquille') }}
+    </p>
   </div>
 </template>

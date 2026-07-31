@@ -6,6 +6,8 @@ const { t } = useI18n()
 
 <template>
   <main class="flex min-h-screen items-center justify-center p-lg">
-    <p class="font-texte text-corps text-ink-doux">{{ t('app.aucun_ecran') }}</p>
+    <p class="font-texte text-corps text-ink-doux">
+      {{ t('app.aucun_ecran') }}
+    </p>
   </main>
 </template>

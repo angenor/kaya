@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO fiscalite.exercice_comptable (id, tenant_id, debut, fin, statut)\n        VALUES ($1, $2, DATE '2027-01-01', DATE '2028-01-01', 'ouvert')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0e042b65439dd941a7e4b988ee5246e49c4fef30de0c2ec75275e3c4abe3239e"
+}
