@@ -105,6 +105,25 @@ export default [
   },
 
   {
+    // **Le parseur TypeScript, DANS le bloc `<script>` des composants.**
+    //
+    // `vue-eslint-parser` lit le gabarit et délègue le script à un sous-parseur — par défaut
+    // `espree`, qui ne connaît pas TypeScript. Un composant écrit en `<script setup lang="ts">`
+    // produit alors « Parsing error: Unexpected token », et **aucune règle ne s'exécute sur lui**.
+    //
+    // C'est exactement le défaut que l'en-tête de ce fichier décrit : une porte qui échoue à
+    // parser ses cibles ne vérifie rien. Il est resté invisible au cycle 001, dont l'unique
+    // composant ne portait aucune annotation de type — le premier écran réel du produit l'a
+    // révélé.
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: ts.parser,
+      },
+    },
+  },
+
+  {
     // Composants Vue sous Nuxt.
     //
     // Deux règles sont désactivées, et c'est un choix, pas une facilité :

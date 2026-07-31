@@ -71,6 +71,7 @@ pub struct PageNotes {
 // laisserait le contrat et la route diverger sans que rien ne le signale — le contrat annoncerait
 // une adresse que le serveur ne sert pas.
 #[utoipa::path(
+    operation_id = "notes_lister",
     tag = "etablissements",
     params(
         ("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement"),
@@ -120,6 +121,7 @@ pub async fn lister(
 /// traiter un cas d'erreur qui n'en est pas un. Le corps renvoyé est la note **telle qu'elle est
 /// en base** — le serveur fait foi en conflit.
 #[utoipa::path(
+    operation_id = "notes_creer",
     tag = "etablissements",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     request_body = CreerNoteRequete,

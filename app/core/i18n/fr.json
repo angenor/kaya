@@ -18,5 +18,90 @@
   "capacite": {
     "indisponible": "Cette action n'est pas disponible sur cet appareil.",
     "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
+  },
+  "etablissement": {
+    "sur_titre": "Réglages de l'établissement",
+    "resume": "{n} service · {commune} | {n} services · {commune}",
+    "origine": {
+      "herite": "Vaut pour tous vos établissements",
+      "modifie_ici": "Modifié ici"
+    },
+    "classement": {
+      "etoiles": "{n} étoile | {n} étoiles",
+      "NON_CLASSE": "Non classé",
+      "RESIDENCE_MEUBLEE": "Résidence meublée"
+    },
+    "champ": {
+      "classement": "Classement",
+      "commune": "Commune",
+      "fuseau": "Fuseau horaire",
+      "devise": "Devise",
+      "ncc": "Numéro de compte contribuable (NCC)",
+      "non_renseigne": "Non renseigné"
+    },
+    "identite": {
+      "titre": "Votre établissement",
+      "intro": "Ce que les impôts et la mairie voient de vous."
+    },
+    "services": {
+      "titre": "Vos services",
+      "intro": "Ce que vous proposez à vos clients. Vous n'y verrez que ce que vous rendez.",
+      "action_activer": "Ajouter un service"
+    },
+    "points_de_vente": {
+      "titre": "Vos points de vente",
+      "intro": "Là où vous encaissez.",
+      "comptoir": "Comptoir",
+      "avec_tables": "{n} table | {n} tables"
+    },
+    "identite_visuelle": {
+      "titre": "Votre identité visuelle",
+      "intro": "Ce qui apparaît en haut de vos documents.",
+      "logo": "Votre logo",
+      "logo_limite": "Image de 512 ko au maximum",
+      "action_apercu": "Voir ce que ça donne"
+    },
+    "chargement": "Chargement…",
+    "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez."
+  },
+  "services": {
+    "modules": {
+      "HEBERGEMENT": "Hébergement",
+      "RESTAURATION": "Restauration",
+      "BAR": "Bar",
+      "PRESSING": "Pressing",
+      "SALLE_REUNION": "Salle de réunion"
+    },
+    "capacites": {
+      "STOCK": "Suivi du stock",
+      "LIVRAISON": "Livraison",
+      "PRODUCTION": "Production",
+      "COMMERCE_EN_LIGNE": "Vente en ligne",
+      "FIDELITE": "Fidélité",
+      "DEVIS": "Devis",
+      "COMPTES_CLIENTS": "Comptes clients"
+    },
+    "profils": {
+      "SIMPLE": "Simple",
+      "AUCUN": "Aucun",
+      "VALORISE": "Valorisé",
+      "DETAILLE": "Détaillé"
+    },
+    "refus": {
+      "profil": {
+        "AUCUN": "Un service qui ne suit pas son stock n'a rien à déclarer : laissez ce réglage de côté.",
+        "VALORISE": "Le stock valorisé n'est pas encore disponible.",
+        "DETAILLE": "Le stock détaillé n'est pas encore disponible."
+      }
+    },
+    "obstacle": {
+      "sejours_en_cours": "{n} séjour en cours | {n} séjours en cours"
+    }
+  },
+  "configuration": {
+    "politique_impression": {
+      "libelle": "Ce qui s'imprime",
+      "description": "Ce qui part à l'imprimante quand vous encaissez."
+    }
   }
 }

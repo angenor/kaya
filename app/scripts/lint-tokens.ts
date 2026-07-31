@@ -92,6 +92,44 @@ function sansCommentaires(contenu: string): string {
     .replace(/<!--[\s\S]*?-->/g, '')
 }
 
+/**
+ * **`branding.couleur_primaire` n'est PAS un style d'application** — exclusion nommée.
+ *
+ * C'est une **donnée client**, stockée en hexadécimal et appliquée aux **documents produits**
+ * (FR-059). Un composant qui la lit manipule donc une valeur de couleur sans en poser aucune, et
+ * la porte la signalerait à tort.
+ *
+ * Sans cette exclusion écrite, le réflexe serait de désactiver la règle sur le fichier — ce qui
+ * l'aveuglerait aussi sur les vraies couleurs littérales qu'il pourrait porter un jour.
+ *
+ * **L'assertion ci-dessous remplace le signal supprimé** : elle vérifie que la couleur d'identité
+ * visuelle n'est APPLIQUÉE nulle part dans les composants. Une exclusion sans contrepartie serait
+ * un trou ; celle-ci en est une avec sa garde.
+ */
+const CHAMP_COULEUR_CLIENT = 'couleur_primaire'
+
+/**
+ * Un composant applique-t-il la couleur d'identité visuelle à l'interface ?
+ *
+ * On cherche les formes qui **posent** une couleur : liaison de style, propriété CSS custom,
+ * attribut `style`. Nommer le champ dans un commentaire, un type ou un libellé reste libre — c'est
+ * ce que fait la section d'identité visuelle de `G1`, qui l'affiche comme une valeur lisible.
+ */
+function appliqueLaCouleurClient(contenu: string): string[] {
+  const formes: { motif: RegExp, quoi: string }[] = [
+    { motif: /:style\s*=\s*["'][^"']*couleur_primaire/g, quoi: 'liaison :style' },
+    { motif: /style\s*=\s*["'][^"']*couleur_primaire/g, quoi: 'attribut style' },
+    { motif: /--[\w-]+\s*:\s*[^;]*couleur_primaire/g, quoi: 'propriété CSS custom' },
+    { motif: /(?:background|color|border-color|fill|stroke)\s*:\s*[^;]*couleur_primaire/g, quoi: 'propriété de couleur' },
+  ]
+
+  const trouves: string[] = []
+  for (const { motif, quoi } of formes) {
+    if (motif.test(contenu)) trouves.push(quoi)
+  }
+  return trouves
+}
+
 const fichiers = fichiersStyles(RACINE)
 console.log(`── P-17 — ${fichiers.length} fichier(s) analysé(s) ─────────────────────────────`)
 
@@ -103,6 +141,17 @@ for (const fichier of fichiers) {
   }
 
   const contenu = sansCommentaires(readFileSync(fichier, 'utf8'))
+
+  // **FR-059** — la couleur d'identité visuelle ne touche jamais l'interface.
+  for (const forme of appliqueLaCouleurClient(contenu)) {
+    signaler(
+      `${relatif} — « ${CHAMP_COULEUR_CLIENT} » est APPLIQUÉE à l'interface (${forme}).\n`
+      + '      C\'est une donnée client, pas un jeton de design : elle vaut pour les DOCUMENTS\n'
+      + '      produits, jamais pour l\'application (FR-059). L\'appliquer à un bouton ferait\n'
+      + '      prendre au produit la couleur de chaque client, et la bascule clair/sombre ne\n'
+      + '      s\'appliquerait plus à cet élément.',
+    )
+  }
 
   for (const { nom, motif, explication } of MOTIFS) {
     for (const capture of contenu.matchAll(motif)) {
@@ -122,3 +171,7 @@ if (echec) {
 }
 
 console.log('P-17 ✓ — aucune couleur ni espacement littéral hors des jetons.')
+console.log(
+  `  · « ${CHAMP_COULEUR_CLIENT} » exclue nommément — donnée client, jamais un style\n`
+  + '    d\'application. Vérifié en contrepartie : elle n\'est appliquée dans aucun composant.',
+)

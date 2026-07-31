@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO etablissements.table_pdv (id, tenant_id, point_de_vente_id, libelle)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (point_de_vente_id, libelle) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ce8cd68ea846861827e340981c9957c92dc5002861e3d173c4b6da8132131a2a"
+}

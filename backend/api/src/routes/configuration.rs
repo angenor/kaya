@@ -53,6 +53,7 @@ pub struct EcrireParametreRequete {
 /// Chaque valeur porte **son origine** — c'est ce qui permet à l'écran de distinguer « vaut pour
 /// tous vos établissements » de « modifié ici ».
 #[utoipa::path(
+    operation_id = "configuration_resoudre",
     tag = "configuration",
     params(CibleParams),
     responses(
@@ -119,6 +120,7 @@ pub async fn resoudre(
 /// `1500.75` entrerait sans qu'aucune colonne ne soit en cause, et le premier calcul fiscal
 /// produirait un montant à virgule dans une devise à zéro décimale.
 #[utoipa::path(
+    operation_id = "configuration_ecrire",
     tag = "configuration",
     request_body = EcrireParametreRequete,
     responses(

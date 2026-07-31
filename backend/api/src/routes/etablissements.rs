@@ -76,6 +76,7 @@ pub struct ModificationReponse {
 
 /// Liste les établissements du tenant.
 #[utoipa::path(
+    operation_id = "etablissements_lister",
     tag = "etablissements",
     responses(
         (status = 200, description = "Établissements du tenant", body = Vec<EtablissementVue>),
@@ -102,6 +103,7 @@ pub async fn lister(
 /// **`200` sur rejeu, pas `409`.** Le corps rendu est la ligne telle qu'elle est en base — le
 /// serveur fait foi en conflit (principe VI).
 #[utoipa::path(
+    operation_id = "etablissements_creer",
     tag = "etablissements",
     request_body = CreerEtablissementRequete,
     responses(
@@ -151,6 +153,7 @@ pub async fn creer(
 
 /// Lit un établissement.
 #[utoipa::path(
+    operation_id = "etablissements_lire",
     tag = "etablissements",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     responses(
@@ -183,6 +186,7 @@ pub async fn lire(
 /// opération financière. Le second est **posé à vide à ce cycle** : la fonction qui compte les
 /// opérations rend zéro tant qu'aucune n'existe, et le cycle CAI la branche.
 #[utoipa::path(
+    operation_id = "etablissements_modifier",
     tag = "etablissements",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     request_body = ModifierEtablissementRequete,

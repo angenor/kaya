@@ -63,6 +63,16 @@ kaya-api = { path = "api" }
 
 # --- Gel §2 — briques du principe XI ---
 actix-web = { version = "=4.14.0", default-features = false, features = ["macros"] }
+# CORS — **l'application est une SPA servie depuis une AUTRE origine que l'API** : `localhost:3100`
+# en développement, `tauri://localhost` sous Tauri. Sans en-têtes CORS, aucun écran ne peut appeler
+# l'API, et le préflight `OPTIONS` rend 404. Le cycle 001 ne pouvait pas le rencontrer — il
+# n'avait aucun écran.
+#
+# `0.7.1` est en `0.x`, ce que le gel §3.2 a retenu contre `@hey-api/openapi-ts`. La différence est
+# assumée et tient en une phrase : c'est le crate **officiel de l'écosystème Actix**, maintenu par
+# la même équipe, et sa branche 0.7 est stable depuis mars 2025. Écrire un CORS à la main sur un
+# chemin de sécurité serait le mauvais échange.
+actix-cors = { version = "=0.7.1" }
 # `sqlx-toml` est ce qui rend `backend/sqlx.toml` effectif (multi-schémas, renommage de la table
 # de migrations). Sans cette feature, le fichier existe mais n'est jamais lu.
 sqlx = { version = "=0.9.0", default-features = false, features = [

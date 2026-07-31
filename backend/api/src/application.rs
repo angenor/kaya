@@ -226,6 +226,67 @@ pub fn contrat_complet() -> utoipa::openapi::OpenApi {
     contrat
 }
 
+/// Origines autorisées à appeler l'API depuis un navigateur.
+///
+/// # Pourquoi CORS existe ici, et pourquoi jamais `*`
+///
+/// L'application est une **SPA** servie depuis une autre origine que l'API : `localhost:3000` en
+/// développement, `tauri://localhost` sous Tauri (principe VII, mode SPA). Sans en-têtes CORS, le
+/// navigateur bloque chaque appel et **aucun écran ne fonctionne** — le cycle 001 ne pouvait pas
+/// le rencontrer, n'ayant aucun écran.
+///
+/// `Access-Control-Allow-Origin: *` réglerait le symptôme et ouvrirait l'API à toute page web que
+/// l'utilisateur visite. La liste est donc **explicite et configurable**, et son défaut ne contient
+/// que des origines locales : une installation de production qui n'aurait pas réglé
+/// `KAYA_ORIGINES_AUTORISEES` refuse les navigateurs plutôt que de les accepter tous.
+fn origines_autorisees() -> Vec<String> {
+    std::env::var("KAYA_ORIGINES_AUTORISEES")
+        .map(|v| {
+            v.split(',')
+                .map(str::trim)
+                .filter(|o| !o.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_else(|_| {
+            vec![
+                "http://localhost:3000".to_owned(),
+                "http://localhost:3100".to_owned(),
+                // Origine de l'application empaquetée par Tauri. Elle diffère par plateforme —
+                // `tauri://localhost` sur macOS et iOS, `http://tauri.localhost` sur Windows et
+                // Android — d'où les deux formes.
+                "tauri://localhost".to_owned(),
+                "http://tauri.localhost".to_owned(),
+            ]
+        })
+}
+
+/// Construit la politique CORS.
+///
+/// Extraite pour être **testable sans lever de serveur** : une politique qui n'autorise pas les
+/// en-têtes de contexte laisserait chaque appel échouer au préflight, et le symptôme — « l'écran
+/// ne charge rien » — ne dirait pas d'où il vient.
+pub fn politique_cors() -> actix_cors::Cors {
+    let mut cors = actix_cors::Cors::default()
+        .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+        .allowed_headers(vec![
+            actix_web::http::header::CONTENT_TYPE,
+            actix_web::http::header::AUTHORIZATION,
+        ])
+        // Les deux en-têtes du provisoire `CONTEXTE_PAR_EN_TETES`. Ils disparaîtront avec CPT-01,
+        // qui portera le contexte dans le jeton — et cette ligne avec eux.
+        .allowed_header(crate::contexte::EN_TETE_TENANT)
+        .allowed_header(crate::contexte::EN_TETE_COMPTE)
+        // Une heure de cache de préflight : au-delà, on rejoue un aller-retour par requête sur un
+        // réseau que la persona Aminata n'a pas.
+        .max_age(3600);
+
+    for origine in origines_autorisees() {
+        cors = cors.allowed_origin(&origine);
+    }
+    cors
+}
+
 /// Démarre le serveur HTTP.
 pub async fn servir(pool: PgPool, port: u16) -> std::io::Result<()> {
     let etat = EtatApplication { pool };
@@ -239,6 +300,7 @@ pub async fn servir(pool: PgPool, port: u16) -> std::io::Result<()> {
 
     HttpServer::new(move || {
         let (app, api) = App::new()
+            .wrap(politique_cors())
             .wrap(Correlation)
             .app_data(web::Data::new(etat.clone()))
             .into_utoipa_app()

@@ -6,7 +6,16 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["vitest/globals", "node"]
+    "types": [
+      "vitest/globals",
+      "node"
+    ]
   },
-  "include": ["core/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "core/**/*.ts",
+    "modules/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.d.ts",
+    "scripts/**/*.ts"
+  ]
 }

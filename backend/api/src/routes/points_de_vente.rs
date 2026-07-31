@@ -55,6 +55,7 @@ pub struct TableRequete {
 /// **Une résidence meublée n'en a aucun, et la liste vide est la bonne réponse** — pas une erreur,
 /// pas un établissement mal configuré.
 #[utoipa::path(
+    operation_id = "points_de_vente_lister",
     tag = "points-de-vente",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     responses(
@@ -89,6 +90,7 @@ pub async fn lister(
 /// Le point de vente naît **sans table** — donc comptoir. Les tables se posent ensuite, par
 /// `PUT .../tables`.
 #[utoipa::path(
+    operation_id = "points_de_vente_creer",
     tag = "points-de-vente",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     request_body = CreerPointDeVenteRequete,
@@ -134,6 +136,7 @@ pub async fn creer(
 
 /// Modifie un point de vente.
 #[utoipa::path(
+    operation_id = "points_de_vente_modifier",
     tag = "points-de-vente",
     params(("point_de_vente_id" = Uuid, Path, description = "Identifiant du point de vente")),
     request_body = ModifierPointDeVenteRequete,
@@ -180,6 +183,7 @@ pub async fn modifier(
 /// Les tables retirées sont **désactivées, jamais supprimées** : les commandes déjà passées les
 /// référencent.
 #[utoipa::path(
+    operation_id = "points_de_vente_tables_remplacer",
     tag = "points-de-vente",
     params(("point_de_vente_id" = Uuid, Path, description = "Identifiant du point de vente")),
     request_body = RemplacerTablesRequete,

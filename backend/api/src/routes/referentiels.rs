@@ -42,6 +42,7 @@ pub struct EntreeReferentiel {
 
 /// Référentiel des modules d'activité — « Vos services ».
 #[utoipa::path(
+    operation_id = "referentiels_modules_activite",
     tag = "referentiels",
     responses(
         (status = 200, description = "Modules d'activité connus", body = Vec<EntreeReferentiel>),
@@ -60,6 +61,7 @@ pub async fn modules_activite(
 
 /// Référentiel des capacités transverses.
 #[utoipa::path(
+    operation_id = "referentiels_capacites",
     tag = "referentiels",
     responses(
         (status = 200, description = "Capacités connues", body = Vec<EntreeReferentiel>),
@@ -78,6 +80,7 @@ pub async fn capacites(
 
 /// Référentiel des profils de la capacité `STOCK`.
 #[utoipa::path(
+    operation_id = "referentiels_profils_stock",
     tag = "referentiels",
     responses(
         (status = 200, description = "Profils de stock connus", body = Vec<EntreeReferentiel>),

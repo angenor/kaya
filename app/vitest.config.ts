@@ -1,8 +1,19 @@
+import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
-// Tests de l'application. Ils ne montent pas Nuxt : ce cycle ne produit aucun écran, et les
-// modules testés — la file de classe A, l'adaptateur de plateforme — sont du TypeScript pur.
+// Tests de l'application.
+//
+// **Ils ne montent pas Nuxt**, et c'est délibéré : monter le framework pour vérifier qu'un
+// composant n'affiche pas un service inactif ferait dépendre le test du pipeline entier, avec
+// ses auto-imports et son routeur. Ce qui est testé ici est du TypeScript pur — file de classe A,
+// adaptateur de plateforme, sélection des services visibles — plus le **rendu** des composants de
+// `G1`, monté directement par `@vue/test-utils`.
+//
+// L'environnement reste `node` par défaut : les tests qui ont besoin d'un DOM le déclarent
+// fichier par fichier avec `// @vitest-environment happy-dom`. Basculer tout le monde sous un DOM
+// coûterait à chaque test celui qui n'en a pas besoin.
 export default defineConfig({
+  plugins: [vue()],
   test: {
     include: ['tests/**/*.spec.ts'],
     environment: 'node',

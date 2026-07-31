@@ -52,6 +52,7 @@ pub struct CheminService {
 
 /// Liste les services **actifs** d'un établissement.
 #[utoipa::path(
+    operation_id = "services_lister",
     tag = "services",
     params(("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement")),
     responses(
@@ -86,6 +87,7 @@ pub async fn lister(
 /// **La désactivation ne supprime rien** : déclarations de capacité et surcharges de configuration
 /// deviennent inertes sans être touchées, et la réactivation les restitue.
 #[utoipa::path(
+    operation_id = "services_basculer",
     tag = "services",
     params(
         ("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement"),
@@ -150,6 +152,7 @@ pub async fn basculer(
 
 /// Liste les capacités déclarées par un service.
 #[utoipa::path(
+    operation_id = "services_capacites_lister",
     tag = "services",
     params(
         ("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement"),
@@ -194,6 +197,7 @@ pub async fn lister_capacites(
 /// et `CHECK` en base — le tient même pour un import ou un script de reprise ; la troisième est
 /// l'absence pure à l'interface.
 #[utoipa::path(
+    operation_id = "services_capacites_declarer",
     tag = "services",
     params(
         ("etablissement_id" = Uuid, Path, description = "Identifiant de l'établissement"),

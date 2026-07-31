@@ -18,5 +18,90 @@
   "capacite": {
     "indisponible": "This action is not available on this device.",
     "indisponible_hors_ligne": "This action needs a connection. It will be possible as soon as the network returns."
+  },
+  "etablissement": {
+    "sur_titre": "Establishment settings",
+    "resume": "{n} service · {commune} | {n} services · {commune}",
+    "origine": {
+      "herite": "Applies to all your establishments",
+      "modifie_ici": "Changed here"
+    },
+    "classement": {
+      "etoiles": "{n} star | {n} stars",
+      "NON_CLASSE": "Unrated",
+      "RESIDENCE_MEUBLEE": "Serviced apartments"
+    },
+    "champ": {
+      "classement": "Rating",
+      "commune": "Municipality",
+      "fuseau": "Time zone",
+      "devise": "Currency",
+      "ncc": "Taxpayer account number (NCC)",
+      "non_renseigne": "Not set"
+    },
+    "identite": {
+      "titre": "Your establishment",
+      "intro": "What the tax office and the town hall see of you."
+    },
+    "services": {
+      "titre": "Your services",
+      "intro": "What you offer your guests. You will only see what you actually provide.",
+      "action_activer": "Add a service"
+    },
+    "points_de_vente": {
+      "titre": "Your points of sale",
+      "intro": "Where you take payment.",
+      "comptoir": "Counter",
+      "avec_tables": "{n} table | {n} tables"
+    },
+    "identite_visuelle": {
+      "titre": "Your visual identity",
+      "intro": "What appears at the top of your documents.",
+      "logo": "Your logo",
+      "logo_limite": "Image of 512 kB at most",
+      "action_apercu": "See how it looks"
+    },
+    "chargement": "Loading…",
+    "chargement_impossible": "Cannot display your establishment. Check your connection, then try again."
+  },
+  "services": {
+    "modules": {
+      "HEBERGEMENT": "Accommodation",
+      "RESTAURATION": "Restaurant",
+      "BAR": "Bar",
+      "PRESSING": "Laundry",
+      "SALLE_REUNION": "Meeting room"
+    },
+    "capacites": {
+      "STOCK": "Stock tracking",
+      "LIVRAISON": "Delivery",
+      "PRODUCTION": "Production",
+      "COMMERCE_EN_LIGNE": "Online sales",
+      "FIDELITE": "Loyalty",
+      "DEVIS": "Quotes",
+      "COMPTES_CLIENTS": "Customer accounts"
+    },
+    "profils": {
+      "SIMPLE": "Simple",
+      "AUCUN": "None",
+      "VALORISE": "Valued",
+      "DETAILLE": "Detailed"
+    },
+    "refus": {
+      "profil": {
+        "AUCUN": "A service that does not track stock has nothing to declare: leave this setting aside.",
+        "VALORISE": "Valued stock is not available yet.",
+        "DETAILLE": "Detailed stock is not available yet."
+      }
+    },
+    "obstacle": {
+      "sejours_en_cours": "{n} stay in progress | {n} stays in progress"
+    }
+  },
+  "configuration": {
+    "politique_impression": {
+      "libelle": "What gets printed",
+      "description": "What goes to the printer when you take payment."
+    }
   }
 }

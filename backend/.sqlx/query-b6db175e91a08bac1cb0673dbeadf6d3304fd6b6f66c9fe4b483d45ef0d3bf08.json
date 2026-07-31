@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.etablissement\n            (id, tenant_id, nom, fuseau_horaire, devise,\n             juridiction, classement, etoiles, commune, adresse)\n        VALUES ($1, $2, 'Résidence Hôtel Deloria — Abengourou', 'Africa/Abidjan', 'XOF',\n                'CI', 'NON_CLASSE', NULL, 'Abengourou', NULL)\n        ON CONFLICT (id) DO UPDATE\n        SET nom = EXCLUDED.nom,\n            fuseau_horaire = EXCLUDED.fuseau_horaire,\n            devise = EXCLUDED.devise,\n            juridiction = EXCLUDED.juridiction,\n            classement = EXCLUDED.classement,\n            etoiles = EXCLUDED.etoiles,\n            commune = EXCLUDED.commune,\n            adresse = EXCLUDED.adresse\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b6db175e91a08bac1cb0673dbeadf6d3304fd6b6f66c9fe4b483d45ef0d3bf08"
+}

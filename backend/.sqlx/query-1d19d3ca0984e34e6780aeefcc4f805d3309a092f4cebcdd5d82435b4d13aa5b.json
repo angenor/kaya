@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.etablissement_module\n            (id, tenant_id, etablissement_id, module_code, module_implemente)\n        VALUES ($1, $2, $3, 'HEBERGEMENT', true)\n        ON CONFLICT (etablissement_id, module_code) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d19d3ca0984e34e6780aeefcc4f805d3309a092f4cebcdd5d82435b4d13aa5b"
+}

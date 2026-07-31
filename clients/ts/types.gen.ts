@@ -12,14 +12,14 @@ export interface paths {
             cookie?: never;
         };
         /** Lit l'identité visuelle **résolue**, champ par champ, avec l'origine de chacun. */
-        get: operations["resoudre"];
+        get: operations["branding_resoudre"];
         /**
          * Écrit l'identité visuelle d'un niveau.
          * @description **Le corps décrit ce qui est posé À CE NIVEAU**, pas le résultat de la fusion : un champ absent
          *     reste hérité. Enregistrer la vue fusionnée figerait chez soi tout ce dont on héritait, et la
          *     première modification au niveau tenant ne redescendrait plus.
          */
-        put: operations["ecrire"];
+        put: operations["branding_ecrire"];
         post?: never;
         delete?: never;
         options?: never;
@@ -46,7 +46,7 @@ export interface paths {
          *     coordonnées et mentions légales. Sans cette phrase, le premier aperçu imprimé serait présenté à
          *     un client comme un justificatif.
          */
-        post: operations["apercu"];
+        post: operations["branding_apercu"];
         delete?: never;
         options?: never;
         head?: never;
@@ -69,7 +69,7 @@ export interface paths {
          *     exploitant n'a aucune raison de le régler, et l'inscrire au catalogue de paramètres ferait
          *     entrer au récapitulatif du principe I·c une valeur qui ne relève pas de l'exploitation.
          */
-        post: operations["televerser_logo"];
+        post: operations["branding_logo_televerser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -88,7 +88,7 @@ export interface paths {
          * @description Chaque valeur porte **son origine** — c'est ce qui permet à l'écran de distinguer « vaut pour
          *     tous vos établissements » de « modifié ici ».
          */
-        get: operations["resoudre"];
+        get: operations["configuration_resoudre"];
         /**
          * Écrit une valeur à un niveau de la chaîne.
          * @description **Deux refus `422`** : `cle_hors_catalogue` — la clé n'est pas au catalogue, ce que la clé
@@ -100,7 +100,7 @@ export interface paths {
          *     `1500.75` entrerait sans qu'aucune colonne ne soit en cause, et le premier calcul fiscal
          *     produirait un montant à virgule dans une devise à zéro décimale.
          */
-        put: operations["ecrire"];
+        put: operations["configuration_ecrire"];
         post?: never;
         delete?: never;
         options?: never;
@@ -116,14 +116,14 @@ export interface paths {
             cookie?: never;
         };
         /** Liste les établissements du tenant. */
-        get: operations["lister"];
+        get: operations["etablissements_lister"];
         put?: never;
         /**
          * Crée un établissement.
          * @description **`200` sur rejeu, pas `409`.** Le corps rendu est la ligne telle qu'elle est en base — le
          *     serveur fait foi en conflit (principe VI).
          */
-        post: operations["creer"];
+        post: operations["etablissements_creer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -138,7 +138,7 @@ export interface paths {
             cookie?: never;
         };
         /** Lit un établissement. */
-        get: operations["lire"];
+        get: operations["etablissements_lire"];
         put?: never;
         post?: never;
         delete?: never;
@@ -151,7 +151,7 @@ export interface paths {
          *     opération financière. Le second est **posé à vide à ce cycle** : la fonction qui compte les
          *     opérations rend zéro tant qu'aucune n'existe, et le cycle CAI la branche.
          */
-        patch: operations["modifier"];
+        patch: operations["etablissements_modifier"];
         trace?: never;
     };
     "/api/v1/etablissements/{etablissement_id}/notes": {
@@ -162,7 +162,7 @@ export interface paths {
             cookie?: never;
         };
         /** Liste les notes internes d'un établissement. */
-        get: operations["lister"];
+        get: operations["notes_lister"];
         put?: never;
         /**
          * Crée une note interne.
@@ -172,7 +172,7 @@ export interface paths {
          *     traiter un cas d'erreur qui n'en est pas un. Le corps renvoyé est la note **telle qu'elle est
          *     en base** — le serveur fait foi en conflit.
          */
-        post: operations["creer"];
+        post: operations["notes_creer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -191,7 +191,7 @@ export interface paths {
          * @description **Une résidence meublée n'en a aucun, et la liste vide est la bonne réponse** — pas une erreur,
          *     pas un établissement mal configuré.
          */
-        get: operations["lister"];
+        get: operations["points_de_vente_lister"];
         put?: never;
         /**
          * Crée un point de vente.
@@ -202,7 +202,7 @@ export interface paths {
          *     Le point de vente naît **sans table** — donc comptoir. Les tables se posent ensuite, par
          *     `PUT .../tables`.
          */
-        post: operations["creer"];
+        post: operations["points_de_vente_creer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -217,7 +217,7 @@ export interface paths {
             cookie?: never;
         };
         /** Liste les services **actifs** d'un établissement. */
-        get: operations["lister"];
+        get: operations["services_lister"];
         put?: never;
         post?: never;
         delete?: never;
@@ -243,7 +243,7 @@ export interface paths {
          *     **La désactivation ne supprime rien** : déclarations de capacité et surcharges de configuration
          *     deviennent inertes sans être touchées, et la réactivation les restitue.
          */
-        put: operations["basculer"];
+        put: operations["services_basculer"];
         post?: never;
         delete?: never;
         options?: never;
@@ -259,7 +259,7 @@ export interface paths {
             cookie?: never;
         };
         /** Liste les capacités déclarées par un service. */
-        get: operations["lister_capacites"];
+        get: operations["services_capacites_lister"];
         put?: never;
         /**
          * Déclare une capacité consommée par un service — **la porte P-06 vue de l'API**.
@@ -271,7 +271,7 @@ export interface paths {
          *     et `CHECK` en base — le tient même pour un import ou un script de reprise ; la troisième est
          *     l'absence pure à l'interface.
          */
-        post: operations["declarer_capacite"];
+        post: operations["services_capacites_declarer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -292,7 +292,7 @@ export interface paths {
         options?: never;
         head?: never;
         /** Modifie un point de vente. */
-        patch: operations["modifier"];
+        patch: operations["points_de_vente_modifier"];
         trace?: never;
     };
     "/api/v1/points-de-vente/{point_de_vente_id}/tables": {
@@ -312,7 +312,7 @@ export interface paths {
          *     Les tables retirées sont **désactivées, jamais supprimées** : les commandes déjà passées les
          *     référencent.
          */
-        put: operations["remplacer_tables"];
+        put: operations["points_de_vente_tables_remplacer"];
         post?: never;
         delete?: never;
         options?: never;
@@ -328,7 +328,7 @@ export interface paths {
             cookie?: never;
         };
         /** Référentiel des capacités transverses. */
-        get: operations["capacites"];
+        get: operations["referentiels_capacites"];
         put?: never;
         post?: never;
         delete?: never;
@@ -345,7 +345,7 @@ export interface paths {
             cookie?: never;
         };
         /** Référentiel des modules d'activité — « Vos services ». */
-        get: operations["modules_activite"];
+        get: operations["referentiels_modules_activite"];
         put?: never;
         post?: never;
         delete?: never;
@@ -362,7 +362,7 @@ export interface paths {
             cookie?: never;
         };
         /** Référentiel des profils de la capacité `STOCK`. */
-        get: operations["profils_stock"];
+        get: operations["referentiels_profils_stock"];
         put?: never;
         post?: never;
         delete?: never;
@@ -843,7 +843,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    resoudre: {
+    branding_resoudre: {
         parameters: {
             query?: {
                 etablissement_id?: string;
@@ -879,7 +879,7 @@ export interface operations {
             };
         };
     };
-    ecrire: {
+    branding_ecrire: {
         parameters: {
             query?: never;
             header?: never;
@@ -935,7 +935,7 @@ export interface operations {
             };
         };
     };
-    apercu: {
+    branding_apercu: {
         parameters: {
             query?: never;
             header?: never;
@@ -982,7 +982,7 @@ export interface operations {
             };
         };
     };
-    televerser_logo: {
+    branding_logo_televerser: {
         parameters: {
             query?: {
                 etablissement_id?: string;
@@ -1041,7 +1041,7 @@ export interface operations {
             };
         };
     };
-    resoudre: {
+    configuration_resoudre: {
         parameters: {
             query?: {
                 /** @description Sans lui, la résolution s'arrête au niveau tenant. */
@@ -1091,7 +1091,7 @@ export interface operations {
             };
         };
     };
-    ecrire: {
+    configuration_ecrire: {
         parameters: {
             query?: never;
             header?: never;
@@ -1156,7 +1156,7 @@ export interface operations {
             };
         };
     };
-    lister: {
+    etablissements_lister: {
         parameters: {
             query?: never;
             header?: never;
@@ -1183,7 +1183,7 @@ export interface operations {
             };
         };
     };
-    creer: {
+    etablissements_creer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1248,7 +1248,7 @@ export interface operations {
             };
         };
     };
-    lire: {
+    etablissements_lire: {
         parameters: {
             query?: never;
             header?: never;
@@ -1294,7 +1294,7 @@ export interface operations {
             };
         };
     };
-    modifier: {
+    etablissements_modifier: {
         parameters: {
             query?: never;
             header?: never;
@@ -1362,7 +1362,7 @@ export interface operations {
             };
         };
     };
-    lister: {
+    notes_lister: {
         parameters: {
             query?: {
                 /** @description Nombre maximal d'éléments renvoyés. Défaut 50, plafond 200. */
@@ -1411,7 +1411,7 @@ export interface operations {
             };
         };
     };
-    creer: {
+    notes_creer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1475,7 +1475,7 @@ export interface operations {
             };
         };
     };
-    lister: {
+    points_de_vente_lister: {
         parameters: {
             query?: never;
             header?: never;
@@ -1521,7 +1521,7 @@ export interface operations {
             };
         };
     };
-    creer: {
+    points_de_vente_creer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1598,7 +1598,7 @@ export interface operations {
             };
         };
     };
-    lister: {
+    services_lister: {
         parameters: {
             query?: never;
             header?: never;
@@ -1644,7 +1644,7 @@ export interface operations {
             };
         };
     };
-    basculer: {
+    services_basculer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1723,7 +1723,7 @@ export interface operations {
             };
         };
     };
-    lister_capacites: {
+    services_capacites_lister: {
         parameters: {
             query?: never;
             header?: never;
@@ -1780,7 +1780,7 @@ export interface operations {
             };
         };
     };
-    declarer_capacite: {
+    services_capacites_declarer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1859,7 +1859,7 @@ export interface operations {
             };
         };
     };
-    modifier: {
+    points_de_vente_modifier: {
         parameters: {
             query?: never;
             header?: never;
@@ -1918,7 +1918,7 @@ export interface operations {
             };
         };
     };
-    remplacer_tables: {
+    points_de_vente_tables_remplacer: {
         parameters: {
             query?: never;
             header?: never;
@@ -1977,7 +1977,7 @@ export interface operations {
             };
         };
     };
-    capacites: {
+    referentiels_capacites: {
         parameters: {
             query?: never;
             header?: never;
@@ -2004,7 +2004,7 @@ export interface operations {
             };
         };
     };
-    modules_activite: {
+    referentiels_modules_activite: {
         parameters: {
             query?: never;
             header?: never;
@@ -2031,7 +2031,7 @@ export interface operations {
             };
         };
     };
-    profils_stock: {
+    referentiels_profils_stock: {
         parameters: {
             query?: never;
             header?: never;

@@ -76,6 +76,7 @@ pub struct LogoReponse {
 
 /// Lit l'identité visuelle **résolue**, champ par champ, avec l'origine de chacun.
 #[utoipa::path(
+    operation_id = "branding_resoudre",
     tag = "branding",
     params(NiveauParams),
     responses(
@@ -106,6 +107,7 @@ pub async fn resoudre(
 /// reste hérité. Enregistrer la vue fusionnée figerait chez soi tout ce dont on héritait, et la
 /// première modification au niveau tenant ne redescendrait plus.
 #[utoipa::path(
+    operation_id = "branding_ecrire",
     tag = "branding",
     request_body = EcrireBrandingRequete,
     responses(
@@ -154,6 +156,7 @@ pub async fn ecrire(
 /// exploitant n'a aucune raison de le régler, et l'inscrire au catalogue de paramètres ferait
 /// entrer au récapitulatif du principe I·c une valeur qui ne relève pas de l'exploitation.
 #[utoipa::path(
+    operation_id = "branding_logo_televerser",
     tag = "branding",
     params(NiveauParams),
     request_body(content = Vec<u8>, description = "Binaire du logo", content_type = "application/octet-stream"),
@@ -228,6 +231,7 @@ pub async fn televerser_logo(
 /// coordonnées et mentions légales. Sans cette phrase, le premier aperçu imprimé serait présenté à
 /// un client comme un justificatif.
 #[utoipa::path(
+    operation_id = "branding_apercu",
     tag = "branding",
     request_body = ApercuRequete,
     responses(

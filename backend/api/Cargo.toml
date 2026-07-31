@@ -36,6 +36,7 @@ kaya-synchronisation = { workspace = true }
 kaya-fiscalite = { workspace = true }
 
 actix-web = { workspace = true }
+actix-cors = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }

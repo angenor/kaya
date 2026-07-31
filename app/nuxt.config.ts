@@ -66,6 +66,20 @@ export default defineNuxtConfig({
     },
   },
 
+  // **Aucune valeur d'environnement codée en dur dans un composant.** Les trois dernières sont
+  // le provisoire de contexte ouvert au cycle 001 (`CONTEXTE_PAR_EN_TETES`) : elles disparaissent
+  // avec CPT-01, qui livrera l'authentification par jeton. Les laisser ici, nommées et groupées,
+  // rend visible ce qu'il y aura à retirer — un identifiant dispersé dans cinq composants ne se
+  // retrouverait pas.
+  runtimeConfig: {
+    public: {
+      apiBaseUrl: 'http://localhost:8080',
+      tenantId: '',
+      compteId: '',
+      etablissementId: '',
+    },
+  },
+
   typescript: {
     strict: true,
     typeCheck: false,
