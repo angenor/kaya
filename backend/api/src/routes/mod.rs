@@ -10,19 +10,65 @@
 //! contrat**, donc absent du client généré et invisible pour P-08. C'est la raison pour laquelle
 //! chaque handler porte son propre attribut de routage.
 
+pub mod erreurs;
+pub mod etablissements;
 pub mod notes;
+pub mod referentiels;
 pub mod sante;
+pub mod services;
 
 use utoipa_actix_web::service_config::ServiceConfig;
 
+/// Monte toutes les routes du produit.
+///
+/// # L'ordre de montage n'est pas décoratif
+///
+/// Actix essaie les services **dans l'ordre d'enregistrement**, et un scope qui accepte le
+/// préfixe rend `404` sans laisser sa chance aux suivants. Les scopes les plus spécifiques sont
+/// donc montés d'abord : `.../services/{module_code}/capacites` avant `.../services/{module_code}`,
+/// avant `/api/v1/etablissements`. Monter le plus général en premier ferait disparaître les
+/// autres — sans erreur de compilation, et avec un contrat OpenAPI parfaitement exact.
 pub fn configurer(config: &mut ServiceConfig) {
+    use utoipa_actix_web::scope::scope;
+
     // Sonde de santé — publique, sans contexte de tenant, hors de tout préfixe de version : la
     // supervision externe doit pouvoir l'interroger sans rien savoir du produit.
     config.service(sante::sante);
 
+    // Référentiels — lecture seule, aucun verbe d'écriture exposé.
     config.service(
-        utoipa_actix_web::scope::scope("/api/v1/etablissements/{etablissement_id}/notes")
+        scope("/api/v1/referentiels")
+            .service(referentiels::modules_activite)
+            .service(referentiels::capacites)
+            .service(referentiels::profils_stock),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/notes")
             .service(notes::lister)
             .service(notes::creer),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/services/{module_code}/capacites")
+            .service(services::lister_capacites)
+            .service(services::declarer_capacite),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/services/{module_code}")
+            .service(services::basculer),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/services").service(services::lister),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements")
+            .service(etablissements::lister)
+            .service(etablissements::creer)
+            .service(etablissements::lire)
+            .service(etablissements::modifier),
     );
 }

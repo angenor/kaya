@@ -46,13 +46,12 @@ pub struct CreerNote {
 /// Un rejeu n'est pas une erreur : c'est le comportement normal d'un terminal qui vide sa file
 /// après une coupure. Répondre `409` obligerait chaque appelant à traiter comme un échec une
 /// écriture que le serveur a déjà acceptée (principe VI).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Issue {
-    /// La note n'existait pas — `201 Created`.
-    Creee,
-    /// La note existait déjà, à l'identique — `200 OK`, corps = la note en base.
-    DejaPresente,
-}
+///
+/// Le type a été **remonté au crate** au cycle 002, quand cinq sous-modules se sont mis à le
+/// partager : cinq énumérations identiques à deux variantes auraient laissé un lecteur se
+/// demander laquelle employer. Le nom `note::Issue` reste valide — le patron du module doré n'est
+/// pas altéré, seulement sa définition déplacée d'un cran.
+pub use crate::Issue;
 
 /// Erreur du domaine des notes.
 #[derive(Debug, thiserror::Error)]

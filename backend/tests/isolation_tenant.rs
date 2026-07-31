@@ -48,9 +48,38 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/etablissements/{etablissement_id}/notes",
         Regime::Isole,
     ),
-    // Sonde de santé — **seul** régime `SansTenant` légitime de ce cycle : publique, sans
-    // contexte, elle ne touche aucune table applicative (`contracts/http-api.md` §1). Toute
-    // autre route déclarée ainsi doit être justifiée par écrit, ici même.
+    // ── Cycle 002 — établissements, services, capacités ────────────────────────────────────
+    ("/api/v1/etablissements", Regime::Isole),
+    ("/api/v1/etablissements/{etablissement_id}", Regime::Isole),
+    (
+        "/api/v1/etablissements/{etablissement_id}/services",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/services/{module_code}",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/services/{module_code}/capacites",
+        Regime::Isole,
+    ),
+    // ── Les trois référentiels GLOBAUX ─────────────────────────────────────────────────────
+    //
+    // Ils rendent **les mêmes lignes à tous les tenants**, et c'est correct : ce sont des
+    // référentiels partagés, sans `tenant_id`. Ils sont déclarés `SansTenant` parce qu'ils ne
+    // touchent aucune donnée de client.
+    //
+    // **Cette exception est transformée en assertion** par
+    // `p08_les_referentiels_rendent_la_meme_chose_aux_deux_tenants` : sans elle, un futur
+    // relecteur verrait trois routes `SansTenant` et conclurait à une fuite — ou pire,
+    // « corrigerait » en y ajoutant un filtrage par tenant, ce qui multiplierait le référentiel
+    // par le nombre de clients (cadrage §14.3).
+    ("/api/v1/referentiels/modules-activite", Regime::SansTenant),
+    ("/api/v1/referentiels/capacites", Regime::SansTenant),
+    ("/api/v1/referentiels/profils-stock", Regime::SansTenant),
+    // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
+    // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
+    // écrit, ici même.
     ("/health", Regime::SansTenant),
 ];
 
@@ -149,10 +178,15 @@ async fn p08_un_tenant_ne_peut_pas_ecrire_chez_un_autre() {
         .await
         .expect("pose du tenant A");
 
+    // **Toutes les colonnes obligatoires sont renseignées**, `commune` comprise. Sans elle, la
+    // migration 0007 ferait échouer l'insertion sur une violation de `NOT NULL` — et le test
+    // passerait au vert **sans jamais exercer `WITH CHECK`**. Une porte qui échoue pour la
+    // mauvaise raison est indistinguable d'une porte qui fonctionne.
     let resultat = sqlx::query!(
         r#"
-        INSERT INTO etablissements.etablissement (id, tenant_id, nom, fuseau_horaire, devise)
-        VALUES ($1, $2, 'intrusion', 'Africa/Abidjan', 'XOF')
+        INSERT INTO etablissements.etablissement
+            (id, tenant_id, nom, fuseau_horaire, devise, commune)
+        VALUES ($1, $2, 'intrusion', 'Africa/Abidjan', 'XOF', 'Abengourou')
         "#,
         uuid::Uuid::now_v7(),
         b.tenant_id
@@ -160,10 +194,29 @@ async fn p08_un_tenant_ne_peut_pas_ecrire_chez_un_autre() {
     .execute(&mut *tx)
     .await;
 
-    assert!(
-        resultat.is_err(),
-        "le tenant A a inséré une ligne au nom du tenant B : WITH CHECK est absent ou inopérant. \
-         C'est la fuite la moins visible du produit — elle ne se voit dans aucune lecture."
+    let Err(erreur) = resultat else {
+        panic!(
+            "le tenant A a inséré une ligne au nom du tenant B : WITH CHECK est absent ou \
+             inopérant. C'est la fuite la moins visible du produit — elle ne se voit dans aucune \
+             lecture."
+        );
+    };
+
+    // Et l'échec vient bien de la **politique de sécurité**, pas d'une contrainte d'intégrité qui
+    // se trouverait passer par là. PostgreSQL rend `42501` (insufficient_privilege) sur une
+    // violation de `WITH CHECK`.
+    let code = erreur
+        .as_database_error()
+        .and_then(|e| e.code())
+        .map(|c| c.to_string())
+        .unwrap_or_default();
+    assert_eq!(
+        code, "42501",
+        "l'insertion croisée a échoué avec le code {code} au lieu de 42501 \
+         (insufficient_privilege).\n\
+         Ce n'est donc PAS la politique WITH CHECK qui l'a refusée, mais une contrainte \
+         d'intégrité — un NOT NULL, une clé étrangère. La porte passerait au vert sans avoir \
+         exercé l'isolation en écriture. Erreur complète : {erreur}"
     );
 
     let _ = tx.rollback().await;
@@ -245,4 +298,247 @@ async fn p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien() {
         compte, 0,
         "{compte} note(s) écrite(s) chez le tenant B par le tenant A"
     );
+}
+
+// =================================================================================================
+//  Cycle 002 — isolation des établissements, des services et des capacités
+// =================================================================================================
+
+/// Construit un en-tête de contexte pour un tenant donné.
+fn en_tetes(tenant_id: uuid::Uuid) -> [(&'static str, String); 2] {
+    [
+        (kaya_api::contexte::EN_TETE_TENANT, tenant_id.to_string()),
+        (
+            kaya_api::contexte::EN_TETE_COMPTE,
+            uuid::Uuid::now_v7().to_string(),
+        ),
+    ]
+}
+
+/// **Isolation par endpoint sur les cinq chemins du cycle 002.**
+///
+/// Le tenant A vise l'établissement du tenant B par identifiant direct, sur chaque verbe. Deux
+/// vérifications par appel : le statut refuse, **et** rien n'a été écrit chez B.
+///
+/// `404` plutôt que `403` : du point de vue de A, l'établissement de B **n'existe pas**. Un `403`
+/// confirmerait son existence — une fuite ténue mais réelle, qui permet d'énumérer les
+/// établissements des autres clients.
+#[actix_web::test]
+async fn p08_cycle_002_appels_croises_ne_voient_ni_n_ecrivent_rien() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 002 tenant A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 002 tenant B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+
+    // B active un service, pour que A ait quelque chose à essayer de voir.
+    let service_b = kaya_etablissements::modules::ServiceModules::nouveau(
+        pool.clone(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+    );
+    service_b
+        .basculer(
+            b.tenant_id,
+            b.etablissement_id,
+            "RESTAURATION",
+            kaya_etablissements::modules::BasculerService {
+                id: uuid::Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation chez B");
+
+    let etb_b = b.etablissement_id;
+    let lectures = [
+        format!("/api/v1/etablissements/{etb_b}"),
+        format!("/api/v1/etablissements/{etb_b}/services"),
+        format!("/api/v1/etablissements/{etb_b}/services/RESTAURATION/capacites"),
+    ];
+
+    for chemin in &lectures {
+        let requete = actix_web::test::TestRequest::get()
+            .uri(chemin)
+            .insert_header((tenant_a.0, tenant_a.1.clone()))
+            .insert_header((compte_a.0, compte_a.1.clone()))
+            .to_request();
+        let reponse = actix_web::test::call_service(&app, requete).await;
+        assert_eq!(
+            reponse.status().as_u16(),
+            404,
+            "le tenant A a obtenu {} sur {chemin} — l'établissement du tenant B doit lui être \
+             indiscernable d'un établissement inexistant",
+            reponse.status()
+        );
+    }
+
+    // --- Écriture croisée : A active un service chez B ------------------------------------
+    let requete = actix_web::test::TestRequest::put()
+        .uri(&format!("/api/v1/etablissements/{etb_b}/services/BAR"))
+        .insert_header((tenant_a.0, tenant_a.1.clone()))
+        .insert_header((compte_a.0, compte_a.1.clone()))
+        .set_json(serde_json::json!({ "id": uuid::Uuid::now_v7(), "actif": true }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a pu activer un service chez le tenant B : statut {}",
+        reponse.status()
+    );
+
+    // --- Écriture croisée : A déclare une capacité chez B ----------------------------------
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{etb_b}/services/RESTAURATION/capacites"
+        ))
+        .insert_header((tenant_a.0, tenant_a.1.clone()))
+        .insert_header((compte_a.0, compte_a.1.clone()))
+        .set_json(serde_json::json!({
+            "id": uuid::Uuid::now_v7(),
+            "capacite_code": "STOCK",
+            "profil_code": "SIMPLE",
+        }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a pu déclarer une capacité chez le tenant B"
+    );
+
+    // --- Et rien n'a été écrit chez B, quels que soient les statuts rendus -----------------
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, b.tenant_id)
+        .await
+        .expect("pose du tenant B");
+
+    let services: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "compte!"
+        FROM etablissements.etablissement_module
+        WHERE etablissement_id = $1
+        "#,
+        b.etablissement_id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des services");
+    assert_eq!(
+        services, 1,
+        "le tenant B porte {services} service(s) au lieu du seul qu'il a activé : le tenant A a \
+         écrit chez lui"
+    );
+
+    let capacites: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "compte!"
+        FROM etablissements.module_capacite mc
+        JOIN etablissements.etablissement_module em ON em.id = mc.etablissement_module_id
+        WHERE em.etablissement_id = $1
+        "#,
+        b.etablissement_id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des capacités");
+    assert_eq!(
+        capacites, 0,
+        "{capacites} capacité(s) déclarée(s) chez le tenant B par le tenant A"
+    );
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// **La liste des établissements ne rend QUE ceux du tenant appelant.**
+///
+/// Le cas le plus facile à casser : un handler qui oublierait de poser le tenant courant verrait
+/// zéro ligne — donc passerait les tests d'appel croisé ci-dessus, qui attendent justement de ne
+/// rien voir. Seule une lecture **nominale**, où l'on attend un résultat non vide, distingue
+/// « isolé » de « cassé ».
+#[actix_web::test]
+async fn p08_la_liste_des_etablissements_est_bornee_au_tenant() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 liste A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 liste B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+
+    let requete = actix_web::test::TestRequest::get()
+        .uri("/api/v1/etablissements")
+        .insert_header((tenant_a.0, tenant_a.1.clone()))
+        .insert_header((compte_a.0, compte_a.1.clone()))
+        .to_request();
+    let corps: serde_json::Value = actix_web::test::call_and_read_body_json(&app, requete).await;
+
+    let ids: Vec<String> = corps
+        .as_array()
+        .expect("la liste doit être un tableau")
+        .iter()
+        .map(|e| e["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+
+    assert!(
+        ids.contains(&a.etablissement_id.to_string()),
+        "le tenant A ne voit pas son PROPRE établissement : le handler ne pose pas le tenant \
+         courant, et tous les tests d'appel croisé passeraient pour la mauvaise raison"
+    );
+    assert!(
+        !ids.contains(&b.etablissement_id.to_string()),
+        "le tenant A voit l'établissement du tenant B dans sa liste"
+    );
+}
+
+/// **Les trois référentiels rendent la MÊME chose aux deux tenants** — et c'est correct.
+///
+/// Sans cette assertion, trois routes déclarées `SansTenant` dans [`COUVERTURE`] ressembleraient à
+/// une exception non vérifiée. Un futur relecteur conclurait à une fuite, ou « corrigerait » en y
+/// ajoutant un filtrage par tenant — ce qui multiplierait cinq lignes de référentiel par le nombre
+/// de clients et rendrait impossible l'ajout d'une valeur par configuration (cadrage §14.3).
+///
+/// **Ce test transforme une exception en assertion.**
+#[actix_web::test]
+async fn p08_les_referentiels_rendent_la_meme_chose_aux_deux_tenants() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 référentiel A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 référentiel B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+
+    for chemin in [
+        "/api/v1/referentiels/modules-activite",
+        "/api/v1/referentiels/capacites",
+        "/api/v1/referentiels/profils-stock",
+    ] {
+        let mut reponses = Vec::new();
+        for tenant in [a.tenant_id, b.tenant_id] {
+            let [t, c] = en_tetes(tenant);
+            let requete = actix_web::test::TestRequest::get()
+                .uri(chemin)
+                .insert_header((t.0, t.1))
+                .insert_header((c.0, c.1))
+                .to_request();
+            let corps: serde_json::Value =
+                actix_web::test::call_and_read_body_json(&app, requete).await;
+            reponses.push(corps);
+        }
+
+        assert!(
+            !reponses[0].as_array().is_some_and(|a| a.is_empty()),
+            "{chemin} rend une liste vide : le référentiel est inaccessible, et l'égalité \
+             ci-dessous serait vraie sans rien prouver"
+        );
+        assert_eq!(
+            reponses[0], reponses[1],
+            "{chemin} rend des lignes DIFFÉRENTES aux deux tenants.\n\
+             Les référentiels sont GLOBAUX et partagés : c'est voulu (research.md R-01). Une \
+             divergence signifie qu'un filtrage par tenant a été introduit — ce qui obligerait à \
+             écrire chaque valeur chez chaque client, contre le cadrage §14.3."
+        );
+    }
 }

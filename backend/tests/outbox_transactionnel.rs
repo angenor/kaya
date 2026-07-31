@@ -223,3 +223,315 @@ async fn la_sequence_est_strictement_croissante_par_etablissement() {
 
     tx.rollback().await.expect("rollback");
 }
+
+// =================================================================================================
+//  Cycle 002 — un événement par transition, et AUCUN sur rejeu
+// =================================================================================================
+
+/// Lit les types d'événements écrits pour un agrégat donné, dans l'ordre de séquence.
+async fn types_evenements(
+    pool_owner: &sqlx::PgPool,
+    tenant_id: Uuid,
+    agregat_id: Uuid,
+) -> Vec<String> {
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    let types = sqlx::query_scalar!(
+        r#"
+        SELECT type_evenement
+        FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1
+        ORDER BY sequence_etablissement
+        "#,
+        agregat_id
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture du grand livre");
+
+    tx.rollback().await.expect("rollback");
+    types
+}
+
+/// **`etablissement.cree` — un événement, et un seul, malgré trois envois.**
+///
+/// Un rejeu ne produit **aucun** nouvel événement. L'émettre à chaque tentative ferait du grand
+/// livre le journal des tentatives réseau du terminal, et non celui des transitions d'état : la
+/// reconstitution compterait trois fois un établissement créé une fois.
+#[tokio::test]
+async fn p05_creation_d_etablissement_un_seul_evenement_malgre_le_rejeu() {
+    use kaya_etablissements::etablissement::{CreerEtablissement, ServiceEtablissement};
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 création établissement").await;
+    let service = ServiceEtablissement::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    let id = Uuid::now_v7();
+    let demande = || CreerEtablissement {
+        id,
+        nom: "Établissement P-05".to_owned(),
+        juridiction: "CI".to_owned(),
+        classement: kaya_etablissements::Classement::NonClasse,
+        commune: "Abengourou".to_owned(),
+        fuseau_horaire: "Africa/Abidjan".to_owned(),
+        devise: "XOF".to_owned(),
+        adresse: None,
+        ncc: None,
+    };
+
+    for passage in 1..=3 {
+        service
+            .creer(jeu.tenant_id, demande())
+            .await
+            .unwrap_or_else(|e| panic!("passage {passage} : {e}"));
+    }
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+    assert_eq!(
+        types,
+        vec!["etablissement.cree"],
+        "trois envois du même identifiant ont produit {} événement(s) au lieu d'un seul : le \
+         grand livre enregistrerait les tentatives réseau et non les transitions d'état",
+        types.len()
+    );
+}
+
+/// **Les trois types de modification, chacun émis pour sa propre raison.**
+///
+/// `classement_change` et `fuseau_change` pourraient tenir dans `etablissement.modifie` — et c'est
+/// justement le problème : ils y seraient noyés. Le classement décide du barème de la taxe de
+/// nuitée, le fuseau réinterprète tout regroupement par journée locale. Les retrouver dans le
+/// grand livre ne doit pas demander de relire toutes les modifications.
+#[tokio::test]
+async fn p05_les_changements_sensibles_ont_leur_propre_type() {
+    use kaya_etablissements::etablissement::{
+        CreerEtablissement, ModifierEtablissement, ServiceEtablissement,
+    };
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 modification").await;
+    let service = ServiceEtablissement::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    let id = Uuid::now_v7();
+    service
+        .creer(
+            jeu.tenant_id,
+            CreerEtablissement {
+                id,
+                nom: "Avant".to_owned(),
+                juridiction: "CI".to_owned(),
+                classement: kaya_etablissements::Classement::NonClasse,
+                commune: "Abengourou".to_owned(),
+                fuseau_horaire: "Africa/Abidjan".to_owned(),
+                devise: "XOF".to_owned(),
+                adresse: None,
+                ncc: None,
+            },
+        )
+        .await
+        .expect("création");
+
+    // Une seule requête touche les trois : nom (modifie), classement, fuseau.
+    let resultat = service
+        .modifier(
+            jeu.tenant_id,
+            id,
+            ModifierEtablissement {
+                nom: Some("Après".to_owned()),
+                classement: Some(kaya_etablissements::Classement::Etoiles(3)),
+                fuseau_horaire: Some("Africa/Accra".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("modification");
+
+    assert_eq!(
+        resultat.avertissement,
+        Some("fuseau_change"),
+        "la modification du fuseau doit rendre un avertissement que l'interface présente avant de \
+         confirmer : une clôture déjà produite ne couvre plus la même période"
+    );
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+    for attendu in [
+        "etablissement.cree",
+        "etablissement.modifie",
+        "etablissement.classement_change",
+        "etablissement.fuseau_change",
+    ] {
+        assert!(
+            types.iter().any(|t| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types trouvés : {types:?}"
+        );
+    }
+
+    // **Une modification qui ne change rien n'émet aucun événement.** Même principe que le rejeu :
+    // le grand livre enregistre les transitions, pas les requêtes reçues.
+    let avant = types.len();
+    service
+        .modifier(
+            jeu.tenant_id,
+            id,
+            ModifierEtablissement {
+                nom: Some("Après".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("modification sans changement");
+    let apres = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+    assert_eq!(
+        apres.len(),
+        avant,
+        "une modification qui ne change rien a émis {} événement(s) supplémentaire(s)",
+        apres.len() - avant
+    );
+}
+
+/// **`etablissement_module.active` / `.desactive` et `module_capacite.declaree`.**
+///
+/// Une bascule vers l'état courant n'émet rien : réactiver un service déjà actif n'est pas une
+/// transition.
+#[tokio::test]
+async fn p05_activation_desactivation_et_declaration_de_capacite() {
+    use kaya_etablissements::modules::{BasculerService, DeclarerCapacite, ServiceModules};
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 services").await;
+    let service = ServiceModules::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    let activation = service
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "RESTAURATION",
+            BasculerService {
+                id: Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation");
+    let service_id = activation.service_id;
+
+    // Rejeu de l'activation : aucune transition, donc aucun événement.
+    service
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "RESTAURATION",
+            BasculerService {
+                id: Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("rejeu de l'activation");
+
+    let apres_activation = types_evenements(&pool_owner, jeu.tenant_id, service_id).await;
+    assert_eq!(
+        apres_activation,
+        vec!["etablissement_module.active"],
+        "l'activation puis son rejeu ont produit {apres_activation:?} : une bascule vers l'état \
+         courant n'est pas une transition"
+    );
+
+    let capacite_id = Uuid::now_v7();
+    service
+        .declarer_capacite(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "RESTAURATION",
+            DeclarerCapacite {
+                id: capacite_id,
+                capacite_code: "STOCK".to_owned(),
+                profil_code: "SIMPLE".to_owned(),
+            },
+        )
+        .await
+        .expect("déclaration de capacité");
+
+    let capacite = types_evenements(&pool_owner, jeu.tenant_id, capacite_id).await;
+    assert_eq!(
+        capacite,
+        vec!["module_capacite.declaree"],
+        "la déclaration de capacité doit émettre exactement un événement"
+    );
+
+    service
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "RESTAURATION",
+            BasculerService {
+                id: Uuid::now_v7(),
+                actif: false,
+            },
+        )
+        .await
+        .expect("désactivation");
+
+    let final_ = types_evenements(&pool_owner, jeu.tenant_id, service_id).await;
+    assert_eq!(
+        final_,
+        vec![
+            "etablissement_module.active",
+            "etablissement_module.desactive"
+        ],
+        "la désactivation doit émettre son propre événement, à la suite de l'activation"
+    );
+}
+
+/// **Un refus n'écrit ni ligne ni événement** — la garantie transactionnelle vue de l'échec.
+///
+/// Le test de rollback provoqué plus haut vérifie qu'une transaction annulée ne laisse rien. Ce
+/// test-ci vérifie le cas réel qui l'exerce : une capacité refusée. Sans lui, on saurait que le
+/// rollback fonctionne, sans savoir qu'il est bien déclenché par le refus.
+#[tokio::test]
+async fn p05_un_refus_de_capacite_ne_laisse_ni_ligne_ni_evenement() {
+    use kaya_etablissements::modules::{BasculerService, DeclarerCapacite, ServiceModules};
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 refus").await;
+    let service = ServiceModules::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    service
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "BAR",
+            BasculerService {
+                id: Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation");
+
+    let capacite_id = Uuid::now_v7();
+    let refus = service
+        .declarer_capacite(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "BAR",
+            DeclarerCapacite {
+                id: capacite_id,
+                capacite_code: "LIVRAISON".to_owned(),
+                profil_code: "SIMPLE".to_owned(),
+            },
+        )
+        .await;
+
+    assert!(refus.is_err(), "LIVRAISON doit être refusée");
+
+    let evenements = types_evenements(&pool_owner, jeu.tenant_id, capacite_id).await;
+    assert!(
+        evenements.is_empty(),
+        "un refus a laissé {evenements:?} au grand livre : le journal enregistrerait des \
+         transitions qui n'ont pas eu lieu"
+    );
+}

@@ -34,6 +34,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod etablissement;
+pub mod modules;
 pub mod note;
 pub mod tenant_context;
 pub mod traits;
@@ -45,6 +47,27 @@ pub use traits::{
 };
 
 use uuid::Uuid;
+
+/// Résultat d'une écriture idempotente — **la distinction que le contrat HTTP transforme en `201`
+/// ou `200`**.
+///
+/// Un rejeu n'est pas une erreur : c'est le comportement normal d'un terminal qui vide sa file
+/// après une coupure. Répondre `409` obligerait chaque appelant à traiter comme un échec une
+/// écriture que le serveur a déjà acceptée (principe VI).
+///
+/// # Pourquoi ce type vit ici et non dans chaque sous-module
+///
+/// Le module doré l'avait défini dans `note/modele.rs`, seul endroit qui en avait besoin au cycle
+/// 001. Cinq sous-modules le partagent désormais, et cinq énumérations identiques à deux variantes
+/// laisseraient un lecteur se demander laquelle employer. `note::Issue` reste accessible sous son
+/// ancien nom — le patron n'est pas altéré, seulement remonté d'un cran.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Issue {
+    /// La ligne n'existait pas — `201 Created`.
+    Creee,
+    /// La ligne existait déjà — `200 OK`, corps = la ligne **telle qu'elle est en base**.
+    DejaPresente,
+}
 
 /// Classement de l'établissement — **il décide du barème de la taxe communale de nuitée**
 /// (cadrage §9.6).

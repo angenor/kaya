@@ -34,6 +34,113 @@ impl EtatApplication {
             kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
         )
     }
+
+    /// Service des établissements — ETB-01.
+    pub fn service_etablissement(
+        &self,
+    ) -> kaya_etablissements::etablissement::ServiceEtablissement<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+    > {
+        kaya_etablissements::etablissement::ServiceEtablissement::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
+    /// Service des modules d'activité — ETB-02, ETB-02b.
+    ///
+    /// # Le point d'accrochage des obstacles est construit ICI, et il est vide
+    ///
+    /// `backend/api/` est la famille « assemblage » — **le seul endroit du produit qui a le droit
+    /// de connaître à la fois le socle et les verticales** (principe II). C'est donc ici que
+    /// chaque verticale enregistrera son implémentation d'`ObstacleDesactivation`, par
+    /// `.avec_obstacle(...)`, au cycle où elle crée des opérations en cours.
+    ///
+    /// Aucune n'en crée encore : la liste est vide et la désactivation est libre. C'est exact, pas
+    /// un trou — et le poser maintenant évite qu'au cycle SEJ la voie facile soit d'ajouter une
+    /// dépendance de `socle/etablissements` vers `verticales/hebergement` « juste cette fois »,
+    /// exactement la faute que la porte P-03 attrape.
+    pub fn service_modules(
+        &self,
+    ) -> kaya_etablissements::modules::ServiceModules<kaya_synchronisation::outbox::PgOutboxWriter>
+    {
+        kaya_etablissements::modules::ServiceModules::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
+    /// Le référentiel des modules, tel que l'API le rend.
+    ///
+    /// Les trois lectures de référentiel ne passent par aucun service : elles ne portent aucune
+    /// règle métier, aucune transition d'état, aucun événement. Y interposer une couche service
+    /// vide donnerait l'illusion qu'il s'y passe quelque chose.
+    pub async fn referentiel_modules(
+        &self,
+    ) -> Result<
+        Vec<crate::routes::referentiels::EntreeReferentiel>,
+        kaya_etablissements::modules::ErreurModules,
+    > {
+        use crate::routes::referentiels::EntreeReferentiel;
+        let mut tx = self.pool.begin().await?;
+        let entrees = kaya_etablissements::modules::repository::referentiel_modules(&mut tx).await?;
+        tx.rollback().await?;
+        Ok(entrees
+            .into_iter()
+            .map(|e| EntreeReferentiel {
+                code: e.code,
+                libelle_cle: e.libelle_cle,
+                implementee: e.implementee,
+                ordre: e.ordre,
+                motif_refus_cle: None,
+            })
+            .collect())
+    }
+
+    pub async fn referentiel_capacites(
+        &self,
+    ) -> Result<
+        Vec<crate::routes::referentiels::EntreeReferentiel>,
+        kaya_etablissements::modules::ErreurModules,
+    > {
+        use crate::routes::referentiels::EntreeReferentiel;
+        let mut tx = self.pool.begin().await?;
+        let entrees =
+            kaya_etablissements::modules::repository::referentiel_capacites(&mut tx).await?;
+        tx.rollback().await?;
+        Ok(entrees
+            .into_iter()
+            .map(|e| EntreeReferentiel {
+                code: e.code,
+                libelle_cle: e.libelle_cle,
+                implementee: e.implementee,
+                ordre: e.ordre,
+                motif_refus_cle: None,
+            })
+            .collect())
+    }
+
+    pub async fn referentiel_profils(
+        &self,
+    ) -> Result<
+        Vec<crate::routes::referentiels::EntreeReferentiel>,
+        kaya_etablissements::modules::ErreurModules,
+    > {
+        use crate::routes::referentiels::EntreeReferentiel;
+        let mut tx = self.pool.begin().await?;
+        let entrees = kaya_etablissements::modules::repository::referentiel_profils(&mut tx).await?;
+        tx.rollback().await?;
+        Ok(entrees
+            .into_iter()
+            .map(|e| EntreeReferentiel {
+                code: e.code,
+                libelle_cle: e.libelle_cle,
+                implementee: e.implementee,
+                ordre: e.ordre,
+                motif_refus_cle: e.motif_refus_cle,
+            })
+            .collect())
+    }
 }
 
 /// Swagger UI est-elle montée ?

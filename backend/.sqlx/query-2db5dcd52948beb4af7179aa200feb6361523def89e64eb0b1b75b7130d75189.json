@@ -1,0 +1,148 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, tenant_id, nom, fuseau_horaire, devise,\n                   juridiction, classement, etoiles, commune, adresse, ncc\n            FROM etablissements.etablissement\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tenant_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "tenant_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "nom",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "nom"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "fuseau_horaire",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "fuseau_horaire"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "devise",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "devise"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "juridiction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "juridiction"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "classement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "classement"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "etoiles",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "etoiles"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "commune",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "commune"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "adresse",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "adresse"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "ncc",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "ncc"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "2db5dcd52948beb4af7179aa200feb6361523def89e64eb0b1b75b7130d75189"
+}

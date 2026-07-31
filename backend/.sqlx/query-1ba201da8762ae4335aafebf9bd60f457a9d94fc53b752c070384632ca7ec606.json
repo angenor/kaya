@@ -1,0 +1,170 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.etablissement\n            (id, tenant_id, nom, fuseau_horaire, devise,\n             juridiction, classement, etoiles, commune, adresse, ncc)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n        ON CONFLICT (id) DO NOTHING\n        RETURNING id, nom, juridiction, classement, etoiles, commune,\n                  fuseau_horaire, devise, adresse, ncc, cree_le, modifie_le\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "nom",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "nom"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "juridiction",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "juridiction"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "classement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "classement"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "etoiles",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "etoiles"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "commune",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "commune"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "fuseau_horaire",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "fuseau_horaire"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "devise",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "devise"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "adresse",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "adresse"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "ncc",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "ncc"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "cree_le"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "modifie_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "modifie_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Bpchar",
+        "Text",
+        "Text",
+        "Int2",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "1ba201da8762ae4335aafebf9bd60f457a9d94fc53b752c070384632ca7ec606"
+}

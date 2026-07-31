@@ -17,6 +17,8 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
     tags(
         (name = "systeme", description = "Sonde de santé et diagnostic."),
         (name = "etablissements", description = "Tenants, établissements et notes internes."),
+        (name = "referentiels", description = "Référentiels globaux — lecture seule."),
+        (name = "services", description = "Services d'un établissement et capacités déclarées."),
     ),
     modifiers(&SecuriteBearer),
 )]

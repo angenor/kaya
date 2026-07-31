@@ -1,0 +1,74 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT code, implementee, libelle_cle, motif_refus_cle, ordre\n        FROM etablissements.profil_stock\n        ORDER BY ordre, code\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.profil_stock",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "implementee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "etablissements.profil_stock",
+            "name": "implementee"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.profil_stock",
+            "name": "libelle_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "motif_refus_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.profil_stock",
+            "name": "motif_refus_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "ordre",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "etablissements.profil_stock",
+            "name": "ordre"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "4a12cb9db8cb73a92b2632e5c957b62e91c546cc4a8df81cccd7b08964f657ad"
+}

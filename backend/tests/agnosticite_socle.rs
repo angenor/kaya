@@ -186,19 +186,19 @@ pub fn etapes(_parcours: Parcours) -> Vec<Etape> {
             nom: "creation_etablissement",
             cycle_du: "002-ETB (ETB-01)",
             sentinelle: Sentinelle::Chemin(CHEMIN_ETABLISSEMENTS),
-            branchement: Branchement::Absente,
+            branchement: Branchement::Branchee,
         },
         Etape {
             nom: "activation_module",
             cycle_du: "002-ETB (ETB-02)",
             sentinelle: Sentinelle::Chemin(CHEMIN_SERVICE),
-            branchement: Branchement::Absente,
+            branchement: Branchement::Branchee,
         },
         Etape {
             nom: "refus_capacite",
             cycle_du: "002-ETB (ETB-02b)",
             sentinelle: Sentinelle::Chemin(CHEMIN_CAPACITES),
-            branchement: Branchement::Absente,
+            branchement: Branchement::Branchee,
         },
         Etape {
             nom: "resolution_configuration",
@@ -326,6 +326,354 @@ impl Observation {
 // =================================================================================================
 //  La porte — une étape réalisable et non branchée fait échouer le build
 // =================================================================================================
+
+// =================================================================================================
+//  Les parcours, réellement exécutés
+// =================================================================================================
+
+/// **Parcours (a) — un maquis.** `RESTAURATION` seule, capacité `STOCK` au profil `SIMPLE`.
+///
+/// Ni chambre, ni séjour, ni formule : aucune opération de ce parcours ne réclame quoi que ce soit
+/// d'hôtelier. Il exerce les services **métier réels** — ceux que l'API monte — sur un tenant
+/// jetable qui lui appartient (FR-028).
+#[tokio::test]
+async fn us1_parcours_maquis() {
+    let exercees = executer(Parcours::Maquis).await;
+    assert!(
+        exercees.contains(&"creation_etablissement"),
+        "le maquis n'a même pas créé son établissement"
+    );
+    assert!(
+        exercees.contains(&"activation_module"),
+        "le maquis n'a pas activé RESTAURATION"
+    );
+    println!(
+        "parcours maquis — {} étape(s) exercée(s) : {exercees:?}",
+        exercees.len()
+    );
+}
+
+/// **Parcours (b) — une résidence meublée.** `HEBERGEMENT` seul, **aucune capacité**.
+///
+/// Exploitable **sans qu'aucun point de vente n'existe** : c'est la moitié de la promesse
+/// structurante du produit, et la seule que le second tenant de démonstration incarne déjà.
+#[tokio::test]
+async fn us1_parcours_residence_meublee() {
+    let exercees = executer(Parcours::ResidenceMeublee).await;
+    assert!(
+        exercees.contains(&"activation_module"),
+        "la résidence n'a pas activé HEBERGEMENT"
+    );
+    println!(
+        "parcours résidence meublée — {} étape(s) exercée(s) : {exercees:?}",
+        exercees.len()
+    );
+}
+
+/// **Parcours (c) — le service fictif. La preuve formelle de FR-022.**
+///
+/// Un module d'activité qui n'existe dans aucune verticale, ne consomme **aucune** capacité, et
+/// n'a aucun point de vente. Si ce parcours passe, le socle ne suppose ni hébergement, ni point de
+/// vente, ni stock — il ne suppose rien du tout.
+///
+/// # Pourquoi il s'exécute en SQL, dans une transaction ANNULÉE
+///
+/// `MODULE_FICTIF_TEST` doit exister au référentiel le temps du parcours, et **ne doit exister
+/// nulle part ensuite** (FR-027). Une transaction annulée est la seule forme qui garantit les
+/// deux : la ligne n'est jamais visible d'un autre lecteur, et il n'y a aucun nettoyage à écrire —
+/// donc aucun nettoyage à oublier le jour où le test échouera au milieu.
+///
+/// C'est aussi ce qui interdit de passer par les services métier : chacun ouvre sa propre
+/// transaction et commiterait. Le parcours exerce donc le **schéma** directement, ce qui est
+/// exactement ce que FR-022 demande de prouver — que rien dans la structure ne réclame de
+/// verticale.
+#[tokio::test]
+async fn us1_parcours_agnosticite_service_fictif() {
+    let exercees = executer(Parcours::Agnosticite).await;
+    assert!(
+        exercees.contains(&"activation_module"),
+        "le service fictif n'a pas pu être activé : le socle suppose donc quelque chose d'une \
+         verticale réelle"
+    );
+    assert!(
+        exercees.contains(&"refus_capacite"),
+        "l'étape « aucune capacité déclarée » n'a pas été exercée"
+    );
+    println!(
+        "parcours agnosticité — {} étape(s) exercée(s) : {exercees:?}",
+        exercees.len()
+    );
+}
+
+/// Exécute les étapes **branchées et réalisables** d'un parcours, et rend leurs noms.
+async fn executer(parcours: Parcours) -> Vec<&'static str> {
+    let pool_owner = commun::pool_owner().await;
+    let observation = Observation::prendre(&pool_owner).await;
+
+    let a_exercer: Vec<&'static str> = etapes(parcours)
+        .iter()
+        .filter(|e| observation.statut(e) == Statut::Exercee)
+        .map(|e| e.nom)
+        .collect();
+
+    match parcours {
+        Parcours::Agnosticite => executer_agnosticite(&pool_owner, &a_exercer).await,
+        _ => executer_verticale_reelle(&pool_owner, parcours, &a_exercer).await,
+    }
+
+    a_exercer
+}
+
+/// Parcours (a) et (b) — les services métier réels, sur un tenant jetable.
+async fn executer_verticale_reelle(
+    pool_owner: &PgPool,
+    parcours: Parcours,
+    a_exercer: &[&'static str],
+) {
+    use kaya_etablissements::etablissement::{CreerEtablissement, ServiceEtablissement};
+    use kaya_etablissements::modules::{BasculerService, DeclarerCapacite, ServiceModules};
+    use kaya_synchronisation::outbox::PgOutboxWriter;
+    use uuid::Uuid;
+
+    let jeu = commun::creer_tenant(pool_owner, parcours.nom()).await;
+    let pool_app = commun::pool_app().await;
+
+    if a_exercer.contains(&"creation_etablissement") {
+        // Un SECOND établissement, créé par le service réel : celui du harnais commun est inséré
+        // en SQL, et n'exercerait donc pas le chemin que l'API sert.
+        let service = ServiceEtablissement::nouveau(pool_app.clone(), PgOutboxWriter::nouveau());
+        service
+            .creer(
+                jeu.tenant_id,
+                CreerEtablissement {
+                    id: Uuid::now_v7(),
+                    nom: format!("Parcours {}", parcours.nom()),
+                    juridiction: "CI".to_owned(),
+                    classement: kaya_etablissements::Classement::NonClasse,
+                    commune: "Abengourou".to_owned(),
+                    fuseau_horaire: "Africa/Abidjan".to_owned(),
+                    devise: "XOF".to_owned(),
+                    adresse: None,
+                    ncc: None,
+                },
+            )
+            .await
+            .expect("création de l'établissement du parcours");
+    }
+
+    let modules = ServiceModules::nouveau(pool_app.clone(), PgOutboxWriter::nouveau());
+
+    if a_exercer.contains(&"activation_module") {
+        modules
+            .basculer(
+                jeu.tenant_id,
+                jeu.etablissement_id,
+                parcours.module_code(),
+                BasculerService {
+                    id: Uuid::now_v7(),
+                    actif: true,
+                },
+            )
+            .await
+            .unwrap_or_else(|e| panic!("activation de {} : {e}", parcours.module_code()));
+
+        let actifs = modules
+            .services_actifs(jeu.tenant_id, jeu.etablissement_id)
+            .await
+            .expect("lecture des services actifs");
+
+        // **Le cœur du parcours.** Un seul service actif, et c'est le sien : rien d'autre n'a été
+        // activé par effet de bord, et surtout pas HEBERGEMENT pour le maquis.
+        let codes: Vec<&str> = actifs.iter().map(|s| s.module_code.as_str()).collect();
+        assert_eq!(
+            codes,
+            vec![parcours.module_code()],
+            "le parcours « {} » porte {codes:?} alors qu'il ne doit rendre QUE {}",
+            parcours.nom(),
+            parcours.module_code()
+        );
+    }
+
+    if a_exercer.contains(&"refus_capacite") {
+        match parcours {
+            // Le maquis suit son stock — c'est la seule capacité implémentée, et son cas nominal.
+            Parcours::Maquis => {
+                modules
+                    .declarer_capacite(
+                        jeu.tenant_id,
+                        jeu.etablissement_id,
+                        parcours.module_code(),
+                        DeclarerCapacite {
+                            id: Uuid::now_v7(),
+                            capacite_code: "STOCK".to_owned(),
+                            profil_code: "SIMPLE".to_owned(),
+                        },
+                    )
+                    .await
+                    .expect("déclaration de STOCK/SIMPLE par le maquis");
+            }
+            // **La résidence meublée ne déclare AUCUNE capacité**, et c'est ce qui est vérifié :
+            // un établissement sans capacité n'est pas un établissement incomplet.
+            _ => {
+                let capacites = modules
+                    .capacites_du_service(
+                        jeu.tenant_id,
+                        jeu.etablissement_id,
+                        parcours.module_code(),
+                    )
+                    .await
+                    .expect("lecture des capacités");
+                assert!(
+                    capacites.is_empty(),
+                    "le parcours « {} » déclare {capacites:?} alors qu'il ne doit consommer aucune \
+                     capacité",
+                    parcours.nom()
+                );
+            }
+        }
+    }
+}
+
+/// Parcours (c) — SQL direct, **transaction annulée**, service fictif.
+async fn executer_agnosticite(pool_owner: &PgPool, a_exercer: &[&'static str]) {
+    use uuid::Uuid;
+
+    let tenant_id = Uuid::now_v7();
+    let etablissement_id = Uuid::now_v7();
+    let module_id = Uuid::now_v7();
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    // Le service fictif entre au référentiel — visible de cette seule transaction.
+    sqlx::query(
+        r#"
+        INSERT INTO etablissements.module_activite (code, implementee, libelle_cle, ordre)
+        VALUES ($1, true, 'services.modules.FICTIF_TEST', 999)
+        "#,
+    )
+    .bind(MODULE_FICTIF)
+    .execute(&mut *tx)
+    .await
+    .expect("insertion du service fictif au référentiel");
+
+    if a_exercer.contains(&"creation_etablissement") {
+        sqlx::query("INSERT INTO etablissements.tenant (id, nom) VALUES ($1, 'Agnosticité')")
+            .bind(tenant_id)
+            .execute(&mut *tx)
+            .await
+            .expect("insertion du tenant");
+
+        sqlx::query(
+            r#"
+            INSERT INTO etablissements.etablissement
+                (id, tenant_id, nom, fuseau_horaire, devise, commune)
+            VALUES ($1, $2, 'Établissement au service fictif', 'Africa/Abidjan', 'XOF', 'Abidjan')
+            "#,
+        )
+        .bind(etablissement_id)
+        .bind(tenant_id)
+        .execute(&mut *tx)
+        .await
+        .expect("insertion de l'établissement");
+    }
+
+    if a_exercer.contains(&"activation_module") {
+        sqlx::query(
+            r#"
+            INSERT INTO etablissements.etablissement_module
+                (id, tenant_id, etablissement_id, module_code, module_implemente)
+            VALUES ($1, $2, $3, $4, true)
+            "#,
+        )
+        .bind(module_id)
+        .bind(tenant_id)
+        .bind(etablissement_id)
+        .bind(MODULE_FICTIF)
+        .execute(&mut *tx)
+        .await
+        .expect(
+            "activation du service fictif : si elle échoue, une contrainte du socle suppose une \
+             verticale réelle",
+        );
+    }
+
+    if a_exercer.contains(&"refus_capacite") {
+        // **Aucune capacité déclarée, et l'établissement fonctionne malgré tout.** C'est la forme
+        // de l'étape pour ce parcours : la preuve n'est pas qu'un refus survient, c'est qu'aucune
+        // déclaration n'est nécessaire.
+        let capacites: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM etablissements.module_capacite WHERE etablissement_module_id = $1",
+        )
+        .bind(module_id)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("comptage des capacités");
+
+        assert_eq!(
+            capacites, 0,
+            "le service fictif déclare {capacites} capacité(s) alors qu'il ne doit en consommer \
+             aucune"
+        );
+
+        // Et le service reste lisible : un établissement sans capacité n'est pas un établissement
+        // incomplet.
+        let actif: bool = sqlx::query_scalar(
+            "SELECT actif FROM etablissements.etablissement_module WHERE id = $1",
+        )
+        .bind(module_id)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("relecture du service fictif");
+        assert!(actif, "le service fictif n'est pas actif après activation");
+    }
+
+    // **Annulation.** Rien de ce qui précède n'a jamais existé pour un autre lecteur.
+    tx.rollback().await.expect("rollback du parcours fictif");
+}
+
+/// **FR-027** — le service fictif ne laisse aucune trace, nulle part.
+///
+/// Une transaction annulée garantit qu'il n'a jamais été visible. Ce test vérifie l'autre moitié :
+/// qu'il n'a pas non plus été **introduit ailleurs** — dans un jeu de données de démonstration, un
+/// seed, une migration. Le parcours (c) resterait vert dans les deux cas ; seul ce test distingue
+/// « le harnais crée son service fictif » de « quelqu'un l'a mis en production ».
+#[tokio::test]
+async fn us1_le_service_fictif_ne_laisse_aucune_trace() {
+    let pool = commun::pool_owner().await;
+
+    let au_referentiel: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM etablissements.module_activite WHERE code = $1",
+    )
+    .bind(MODULE_FICTIF)
+    .fetch_one(&pool)
+    .await
+    .expect("lecture du référentiel");
+
+    assert_eq!(
+        au_referentiel, 0,
+        "« {MODULE_FICTIF} » figure au référentiel des modules d'activité.\n\
+         Il ne doit exister QUE dans le harnais de test, le temps d'une transaction annulée \
+         (FR-027). Sa présence ici signifie qu'un seed, une migration ou un jeu de démonstration \
+         l'a introduit — et un client verrait un service qui n'existe pas."
+    );
+
+    let active: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM etablissements.etablissement_module WHERE module_code = $1",
+    )
+    .bind(MODULE_FICTIF)
+    .fetch_one(&pool)
+    .await
+    .expect("lecture des activations");
+
+    assert_eq!(
+        active, 0,
+        "« {MODULE_FICTIF} » est activé sur {active} établissement(s) : une transaction du harnais \
+         a été commitée au lieu d'être annulée"
+    );
+}
 
 /// **FR-025** — l'intégration continue échoue dès qu'une étape due devient réalisable sans être
 /// branchée aux trois parcours, en nommant l'étape et le parcours.

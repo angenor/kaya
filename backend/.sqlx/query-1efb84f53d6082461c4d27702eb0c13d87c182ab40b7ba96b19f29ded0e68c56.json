@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT em.id, em.module_code, ma.libelle_cle, ma.ordre, em.active_le\n        FROM etablissements.etablissement_module em\n        JOIN etablissements.module_activite ma ON ma.code = em.module_code\n        WHERE em.etablissement_id = $1 AND em.actif\n        ORDER BY ma.ordre, em.module_code\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement_module",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "module_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement_module",
+            "name": "module_code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "libelle_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ordre",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "ordre"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "active_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement_module",
+            "name": "active_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1efb84f53d6082461c4d27702eb0c13d87c182ab40b7ba96b19f29ded0e68c56"
+}

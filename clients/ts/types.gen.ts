@@ -4,6 +4,52 @@
  */
 
 export interface paths {
+    "/api/v1/etablissements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les établissements du tenant. */
+        get: operations["lister"];
+        put?: never;
+        /**
+         * Crée un établissement.
+         * @description **`200` sur rejeu, pas `409`.** Le corps rendu est la ligne telle qu'elle est en base — le
+         *     serveur fait foi en conflit (principe VI).
+         */
+        post: operations["creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit un établissement. */
+        get: operations["lire"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Modifie un établissement.
+         * @description **Deux refus `422` nommés** : `classement_incoherent` — un nombre d'étoiles sans classement
+         *     étoilé, ou l'inverse ; `devise_figee` — la devise ne se modifie plus après la première
+         *     opération financière. Le second est **posé à vide à ce cycle** : la fonction qui compte les
+         *     opérations rend zéro tant qu'aucune n'existe, et le cycle CAI la branche.
+         */
+        patch: operations["modifier"];
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/notes": {
         parameters: {
             query?: never;
@@ -23,6 +69,126 @@ export interface paths {
          *     en base** — le serveur fait foi en conflit.
          */
         post: operations["creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les services **actifs** d'un établissement. */
+        get: operations["lister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/services/{module_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Active ou désactive un service.
+         * @description **Idempotent, et il porte les deux sens.** `201` à la première activation, `200` ensuite. Deux
+         *     points d'entrée distincts laisseraient deux chemins pour un état, et un jour deux
+         *     comportements.
+         *
+         *     **La désactivation ne supprime rien** : déclarations de capacité et surcharges de configuration
+         *     deviennent inertes sans être touchées, et la réactivation les restitue.
+         */
+        put: operations["basculer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/services/{module_code}/capacites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste les capacités déclarées par un service. */
+        get: operations["lister_capacites"];
+        put?: never;
+        /**
+         * Déclare une capacité consommée par un service — **la porte P-06 vue de l'API**.
+         * @description **Les neuf refus du cycle**, tous en `422`, tous nommant la valeur, **aucune ligne écrite** :
+         *     six capacités (`LIVRAISON`, `PRODUCTION`, `COMMERCE_EN_LIGNE`, `FIDELITE`, `DEVIS`,
+         *     `COMPTES_CLIENTS`) et trois profils (`AUCUN`, `VALORISE`, `DETAILLE`).
+         *
+         *     Le `422` est la **deuxième** des trois couches du refus. La première — clé étrangère composite
+         *     et `CHECK` en base — le tient même pour un import ou un script de reprise ; la troisième est
+         *     l'absence pure à l'interface.
+         */
+        post: operations["declarer_capacite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referentiels/capacites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Référentiel des capacités transverses. */
+        get: operations["capacites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referentiels/modules-activite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Référentiel des modules d'activité — « Vos services ». */
+        get: operations["modules_activite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referentiels/profils-stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Référentiel des profils de la capacité `STOCK`. */
+        get: operations["profils_stock"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -50,6 +216,76 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Corps d'activation ou de désactivation — **le même point d'entrée porte les deux sens**. */
+        BasculerServiceRequete: {
+            actif: boolean;
+            /**
+             * Format: uuid
+             * @description UUID v7 client, utilisé à la **première** activation. Une réactivation est un `UPDATE` de
+             *     la ligne existante, jamais une seconde ligne : c'est ce qui restitue l'état antérieur.
+             */
+            id: string;
+        };
+        /** @description Une capacité déclarée par un service. */
+        CapaciteDuService: {
+            /** @description `STOCK` seule au MVP. */
+            capacite_code: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Clé i18n du libellé de la capacité — « Suivi du stock ». */
+            libelle_cle: string;
+            /** @description `SIMPLE` seul au MVP. */
+            profil_code: string;
+        };
+        /** @description Corps rendu par tout refus métier de ce cycle. */
+        CorpsErreur: {
+            /**
+             * @description Identifiant stable — `capacite_non_implementee`, `module_non_actif`, `portee_interdite`…
+             *     **Jamais traduit** : c'est sur lui que le client branche sa clé i18n.
+             */
+            code: string;
+            /** @description Diagnostic pour les journaux et le développeur. **Jamais affiché tel quel.** */
+            message: string;
+            /**
+             * @description Clé i18n d'un motif explicatif, quand le référentiel en fournit un.
+             *
+             *     C'est ce qui permet à `AUCUN` de dire « une capacité non consommée ne se déclare pas » là
+             *     où `VALORISE` dit « pas encore implémenté » — deux refus dont l'un enseigne et l'autre
+             *     constate.
+             */
+            motif_cle?: string | null;
+            /** @description Obstacles à une désactivation, chacun avec son motif et son nombre. */
+            obstacles?: components["schemas"]["ObstacleVue"][];
+            /** @description Ce qui a été refusé, quand il y a quelque chose à nommer. */
+            valeur?: string | null;
+        };
+        /** @description Corps de création d'un établissement. */
+        CreerEtablissementRequete: {
+            adresse?: string | null;
+            /** @description `ETOILES` | `NON_CLASSE` | `RESIDENCE_MEUBLEE`. */
+            classement: string;
+            /** @description Commune de rattachement — assiette du reversement communal. */
+            commune: string;
+            /** @description ISO 4217. */
+            devise: string;
+            /**
+             * Format: int32
+             * @description Obligatoire **si et seulement si** `classement = "ETOILES"`.
+             */
+            etoiles?: number | null;
+            fuseau_horaire: string;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client**. C'est lui qui rend le rejeu inoffensif : un double-clic
+             *     sur « Créer » ne produit pas deux établissements.
+             */
+            id: string;
+            /** @description Sélectionne le `JurisdictionAdapter`. `CI` au MVP — **n'encode aucune règle fiscale**. */
+            juridiction: string;
+            /** @description Numéro de compte contribuable. */
+            ncc?: string | null;
+            nom: string;
+        };
         /** @description Corps de création d'une note. */
         CreerNoteRequete: {
             /**
@@ -65,6 +301,75 @@ export interface components {
             id: string;
             /** @description Texte de la note — entre 1 et 2000 caractères après nettoyage. */
             texte: string;
+        };
+        /** @description Corps de déclaration de capacité. */
+        DeclarerCapaciteRequete: {
+            /** @description `STOCK` seule est implémentée au MVP. */
+            capacite_code: string;
+            /** Format: uuid */
+            id: string;
+            /** @description `SIMPLE` seul est implémenté au MVP. */
+            profil_code: string;
+        };
+        /** @description Une entrée de référentiel, telle que l'API la rend. */
+        EntreeReferentiel: {
+            code: string;
+            /** @description Voir l'en-tête du module : rendu délibérément, filtré à l'affichage. */
+            implementee: boolean;
+            /**
+             * @description **Clé i18n, jamais un libellé.** Une chaîne utilisateur en base échapperait à la porte
+             *     P-16 : ni parité fr/en, ni relecture de vocabulaire.
+             */
+            libelle_cle: string;
+            /** @description Clé i18n du motif de refus — profils seulement, et `null` pour un profil implémenté. */
+            motif_refus_cle?: string | null;
+            /**
+             * Format: int32
+             * @description Ordre d'affichage stable, indépendant de l'alphabet et de la locale.
+             */
+            ordre: number;
+        };
+        /**
+         * @description Un établissement tel que l'API le rend.
+         *
+         *     # Pourquoi ce type existe à côté de [`crate::Etablissement`]
+         *
+         *     [`crate::Etablissement`] est le type **du domaine**, celui que les autres crates lisent par
+         *     `EstablishmentDirectory`. Il porte `Classement` en type somme, qui ne se sérialise pas
+         *     directement en JSON sans imposer une forme au contrat HTTP.
+         *
+         *     Ce type-ci est la **vue transportée** : `classement` et `etoiles` y sont deux champs, comme
+         *     dans le corps de requête et comme en base. La conversion se fait ici, en un seul endroit —
+         *     le reste du code ne manipule que le type somme.
+         */
+        EtablissementVue: {
+            adresse?: string | null;
+            /**
+             * @description `ETOILES` | `NON_CLASSE` | `RESIDENCE_MEUBLEE`. Vocabulaire fiscal officiel, conservé tel
+             *     quel à l'écran (lexique, règle 2).
+             */
+            classement: string;
+            commune: string;
+            /** Format: date-time */
+            cree_le: string;
+            /** @description ISO 4217. */
+            devise: string;
+            /**
+             * Format: int32
+             * @description Renseigné **si et seulement si** `classement = "ETOILES"`.
+             */
+            etoiles?: number | null;
+            /** @description **Le fuseau appartient à l'établissement, pas au serveur** (principe IV). */
+            fuseau_horaire: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Sélectionne le `JurisdictionAdapter`. **N'encode aucune règle fiscale** (principe V). */
+            juridiction: string;
+            /** Format: date-time */
+            modifie_le: string;
+            /** @description Numéro de compte contribuable — vocabulaire fiscal officiel (lexique, règle 2). */
+            ncc?: string | null;
+            nom: string;
         };
         /** @description État d'une dépendance. */
         EtatDependance: {
@@ -87,6 +392,29 @@ export interface components {
              */
             version: string;
         };
+        /** @description Réponse de modification — la vue à jour et, le cas échéant, un avertissement à présenter. */
+        ModificationReponse: components["schemas"]["EtablissementVue"] & {
+            /**
+             * @description `fuseau_change` quand le fuseau horaire a été modifié.
+             *
+             *     **Un code, pas une phrase** : l'interface doit le présenter avant de confirmer, dans la
+             *     langue de l'utilisateur. Changer de fuseau réinterprète tout regroupement par journée
+             *     locale — une clôture déjà produite ne couvre plus la même période.
+             */
+            avertissement?: string | null;
+        };
+        /** @description Corps de modification — **tout champ absent est laissé tel quel**. */
+        ModifierEtablissementRequete: {
+            adresse?: string | null;
+            classement?: string | null;
+            commune?: string | null;
+            devise?: string | null;
+            /** Format: int32 */
+            etoiles?: number | null;
+            fuseau_horaire?: string | null;
+            ncc?: string | null;
+            nom?: string | null;
+        };
         /** @description Une note interne, telle qu'elle existe en base. */
         NoteEtablissement: {
             /** Format: uuid */
@@ -107,6 +435,18 @@ export interface components {
             id: string;
             texte: string;
         };
+        /** @description Un obstacle à la désactivation d'un service, tel que l'API le rend. */
+        ObstacleVue: {
+            module_code: string;
+            /** @description **Clé i18n — jamais une phrase.** */
+            motif_cle: string;
+            /**
+             * Format: int32
+             * @description Séparé du motif pour que la phrase se compose dans la langue de l'utilisateur, où le
+             *     pluriel ne s'accorde pas partout de la même façon.
+             */
+            nombre: number;
+        };
         /** @description Une page de notes. */
         PageNotes: {
             /** Format: int64 */
@@ -116,6 +456,33 @@ export interface components {
             limite: number;
             /** Format: int64 */
             total: number;
+        };
+        /**
+         * @description Un service **actif** d'un établissement, tel que l'API le rend.
+         *
+         *     # Aucun service inactif ne franchit cette frontière
+         *
+         *     Il n'y a pas de champ `actif` : ce type ne décrit que des services actifs. Un booléen ici
+         *     serait la porte d'entrée du grisé qu'interdit le principe VII — donné à l'interface, il
+         *     produirait une liste où figurent les services que l'établissement n'a pas, et quelqu'un
+         *     finirait par les afficher « pour information ».
+         */
+        ServiceActif: {
+            /** Format: date-time */
+            active_le: string;
+            /** @description Capacités déclarées par ce service. Vide est la forme normale. */
+            capacites: components["schemas"]["CapaciteDuService"][];
+            /** Format: uuid */
+            id: string;
+            /** @description **Clé i18n, jamais un libellé.** Le texte vit dans `app/core/i18n/{fr,en}.json`. */
+            libelle_cle: string;
+            /** @description `HEBERGEMENT`, `RESTAURATION`, `BAR`, `PRESSING`, `SALLE_REUNION`. */
+            module_code: string;
+            /**
+             * Format: int32
+             * @description Ordre d'affichage du référentiel — stable, indépendant de la locale.
+             */
+            ordre: number;
         };
         /**
          * @description État global du service.
@@ -131,6 +498,212 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    lister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Établissements du tenant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtablissementVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    creer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerEtablissementRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà créé (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtablissementVue"];
+                };
+            };
+            /** @description Établissement créé */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtablissementVue"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Règle métier — classement incohérent */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Établissement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtablissementVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    modifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierEtablissementRequete"];
+            };
+        };
+        responses: {
+            /** @description Établissement modifié */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModificationReponse"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Règle métier — classement incohérent, devise figée */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     lister: {
         parameters: {
             query?: {
@@ -237,6 +810,348 @@ export interface operations {
             };
             /** @description Établissement inconnu */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Services actifs, avec leurs capacités */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceActif"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    basculer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Code du module d'activité */
+                module_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BasculerServiceRequete"];
+            };
+        };
+        responses: {
+            /** @description État atteint (rejeu ou bascule) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceActif"];
+                };
+            };
+            /** @description Service activé pour la première fois */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceActif"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Module non implémenté, ou désactivation bloquée */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    lister_capacites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Code du module d'activité */
+                module_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Capacités déclarées */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapaciteDuService"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service non actif */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    declarer_capacite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Code du module d'activité */
+                module_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeclarerCapaciteRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà déclarée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapaciteDuService"][];
+                };
+            };
+            /** @description Capacité déclarée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapaciteDuService"][];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Capacité ou profil non implémenté, ou service non actif */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    capacites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Capacités connues */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntreeReferentiel"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    modules_activite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Modules d'activité connus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntreeReferentiel"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    profils_stock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profils de stock connus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntreeReferentiel"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

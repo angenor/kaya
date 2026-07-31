@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT code, implementee, libelle_cle, ordre\n        FROM etablissements.module_activite\n        ORDER BY ordre, code\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "implementee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "implementee"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "libelle_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ordre",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "etablissements.module_activite",
+            "name": "ordre"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "fdfad3e30a5f39fe6f5d1166653ffad2de521874d9092f7a1c9863d2a5304273"
+}

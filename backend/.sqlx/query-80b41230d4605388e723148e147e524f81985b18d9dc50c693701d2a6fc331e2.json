@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT type_evenement\n        FROM synchronisation.evenement_outbox\n        WHERE agregat_id = $1\n        ORDER BY sequence_etablissement\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "type_evenement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.evenement_outbox",
+            "name": "type_evenement"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "80b41230d4605388e723148e147e524f81985b18d9dc50c693701d2a6fc331e2"
+}

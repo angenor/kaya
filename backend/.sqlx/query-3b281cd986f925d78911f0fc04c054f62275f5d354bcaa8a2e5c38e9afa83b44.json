@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE etablissements.etablissement_module\n        SET actif = $2,\n            active_le    = CASE WHEN $2 THEN now() ELSE active_le END,\n            desactive_le = CASE WHEN $2 THEN NULL  ELSE now()      END,\n            modifie_le   = now()\n        WHERE id = $1 AND actif <> $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b281cd986f925d78911f0fc04c054f62275f5d354bcaa8a2e5c38e9afa83b44"
+}
