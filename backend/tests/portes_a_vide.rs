@@ -42,27 +42,28 @@ async fn table_existe(pool: &sqlx::PgPool, schema: &str, table: &str) -> bool {
     .get("existe")
 }
 
-/// **P-06** — toute valeur de capacité autre que `STOCK`/`SIMPLE` est refusée **explicitement**.
+/// **P-06 — LEVÉE au cycle 002.** La porte a désormais ses cibles, elle n'est plus à vide.
 ///
-/// Cible attendue : la table `capacite` et sa colonne `profil_stock`, créées par **ETB-02b**.
+/// L'assertion de non-régression a fonctionné exactement comme prévu : la migration
+/// `0008_referentiels_activite.sql` a créé `etablissements.capacite`, ce test a échoué, et la
+/// porte a été activée **dans le même changement**. C'est le comportement qu'on attendait d'elle
+/// sans jamais l'avoir vu — il est consigné ici plutôt que dans un message de commit, parce que
+/// c'est la seule preuve qu'une porte à vide sait se réveiller.
 ///
-/// La règle qu'elle protégera : « toute autre valeur est **REFUSÉE EXPLICITEMENT, jamais
-/// ignorée** » (principe II). La nuance est le sujet — une valeur ignorée laisse croire que la
-/// capacité est active, et le défaut se découvre au premier inventaire faux.
-#[tokio::test]
-async fn p06_capacite_hors_stock_simple_refusee() {
-    let pool = commun::pool_owner().await;
-    let cible_existe = table_existe(&pool, "etablissements", "capacite").await;
+/// Ce qui reste ici est le **chaînage** : P-06 vit maintenant dans
+/// `backend/tests/capacites_refusees.rs`, et ce test échoue si ce fichier disparaît. Sans ce
+/// relais, supprimer la porte réelle ne casserait plus rien — l'assertion à vide ayant été
+/// retirée, plus personne ne réclamerait sa présence.
+#[test]
+fn p06_est_levee_et_vit_desormais_dans_son_propre_fichier() {
+    use std::path::Path;
 
     assert!(
-        !cible_existe,
-        "P-06 : la table `capacite` existe désormais, mais la porte est toujours installée à \
-         vide.\n\
-         Le cycle qui l'a créée (ETB-02b) doit, dans le MÊME changement :\n\
-           1. écrire ici la vérification que toute valeur autre que STOCK/SIMPLE est refusée \
-              explicitement ;\n\
-           2. ajouter le test négatif correspondant.\n\
-         Sans quoi la porte resterait verte en ne vérifiant rien."
+        Path::new("tests/capacites_refusees.rs").exists(),
+        "P-06 : `backend/tests/capacites_refusees.rs` a disparu.\n\
+         La porte a été levée de `portes_a_vide.rs` au cycle 002 quand `etablissements.capacite` \
+         est apparue ; son contenu réel vit désormais dans ce fichier. Le supprimer laisserait \
+         P-06 sans aucune cible ET sans assertion à vide — c'est-à-dire silencieusement absente."
     );
 }
 
@@ -155,14 +156,22 @@ fn p11_tests_dores_fiscaux() {
 /// relire trois tests.
 #[test]
 fn recapitulatif_des_portes_installees_a_vide() {
-    let a_vide = ["P-06 (ETB-02b)", "P-09 (HEB-02)", "P-11 (T3, FIS-01 à FIS-07)"];
+    let a_vide = ["P-09 (HEB-02)", "P-11 (T3, FIS-01 à FIS-07)"];
+    let levees = ["P-06 (ETB-02b) → backend/tests/capacites_refusees.rs"];
 
-    println!("Portes installées à vide au cycle 001, avec assertion de non-régression :");
+    println!("Portes encore installées à vide, avec assertion de non-régression :");
     for porte in a_vide {
         println!("  · {porte}");
     }
     println!();
-    println!("Chacune échouera dès que sa cible apparaîtra sans qu'elle soit activée.");
+    println!("Levées depuis le cycle 001 — leur cible existe et la porte est active :");
+    for porte in levees {
+        println!("  · {porte}");
+    }
+    println!();
+    println!("Chaque porte à vide échouera dès que sa cible apparaîtra sans qu'elle soit activée.");
 
-    assert_eq!(a_vide.len(), 3);
+    // Trois au cycle 001, deux désormais : P-06 a été levée par le cycle 002. Le décompte est
+    // asserté pour qu'une porte retirée sans être levée — donc sans remplaçante — se voie.
+    assert_eq!(a_vide.len() + levees.len(), 3);
 }

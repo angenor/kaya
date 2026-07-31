@@ -72,12 +72,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Tenant du pilote.
+/// Tenant du pilote — **identité complète depuis ETB-01**.
 ///
-/// Les colonnes `classement`, `commune`, `ncc` et `adresse` du cadrage §2.1 **n'existent pas
-/// encore** : `etablissement` est en forme minimale à ce cycle et ETB-01 l'enrichira par migration
-/// additive. Ce qui peut être seedé aujourd'hui l'est ; le reste est décrit dans le README des
-/// seeds plutôt qu'inventé ici.
+/// Le cycle 001 ne pouvait seeder que le nom, le fuseau et la devise : `etablissement` était en
+/// forme minimale. La migration `0007_etablissement_identite.sql` a livré les sept colonnes
+/// d'identité, et `commune` est `NOT NULL` **sans défaut** — une création qui l'omettrait est
+/// désormais refusée, ce qui est exactement le but.
 async fn seeder_deloria(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>> {
     let mut tx = pool.begin().await?;
     tenant_context::poser_tenant(&mut tx, TENANT_DELORIA).await?;
@@ -96,8 +96,10 @@ async fn seeder_deloria(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>>
     sqlx::query!(
         r#"
         INSERT INTO etablissements.etablissement
-            (id, tenant_id, nom, fuseau_horaire, devise)
-        VALUES ($1, $2, 'Résidence Hôtel Deloria — Abengourou', 'Africa/Abidjan', 'XOF')
+            (id, tenant_id, nom, fuseau_horaire, devise,
+             juridiction, classement, etoiles, commune, adresse)
+        VALUES ($1, $2, 'Résidence Hôtel Deloria — Abengourou', 'Africa/Abidjan', 'XOF',
+                'CI', 'NON_CLASSE', NULL, 'Abengourou', NULL)
         ON CONFLICT (id) DO NOTHING
         "#,
         ETABLISSEMENT_DELORIA,
@@ -140,8 +142,10 @@ async fn seeder_residence_test(pool: &PgPool) -> Result<(), Box<dyn std::error::
     sqlx::query!(
         r#"
         INSERT INTO etablissements.etablissement
-            (id, tenant_id, nom, fuseau_horaire, devise)
-        VALUES ($1, $2, 'Résidence Test — hébergement seul', 'Africa/Abidjan', 'XOF')
+            (id, tenant_id, nom, fuseau_horaire, devise,
+             juridiction, classement, etoiles, commune, adresse)
+        VALUES ($1, $2, 'Résidence Test — hébergement seul', 'Africa/Abidjan', 'XOF',
+                'CI', 'RESIDENCE_MEUBLEE', NULL, 'Abidjan', NULL)
         ON CONFLICT (id) DO NOTHING
         "#,
         ETABLISSEMENT_RESIDENCE_TEST,

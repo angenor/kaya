@@ -76,13 +76,33 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 | `module_activite` — référentiel | **C** | C2 — référentiel partagé | ETB-02 |
 | `etablissement_module` — activation, désactivation | **C** | C2 — modules activés | ETB-02, §11.3 |
 | `capacite` — référentiel | **C** | C2 — référentiel partagé | ETB-02b |
+| `profil_stock` — référentiel | **C** | C2 — référentiel partagé | ETB-02b |
 | `module_capacite` — déclaration de consommation, `profil_stock` | **C** | C2 — référentiel | ETB-02b |
+| `parametre_catalogue` — référentiel des clés de configuration | **C** | C2 — référentiel partagé | ETB-04 |
 | `point_de_vente` — création, modification | **C** | C2 — référentiel | ETB-03 |
 | `table_pdv` — création, modification du référentiel de tables | **C** | C2 — référentiel | ETB-03 |
 | `parametre_configuration` — toute valeur de la chaîne d'héritage | **C** | C2 — référentiel de paramètres | ETB-04 |
 | `branding` — logo, couleurs, en-têtes de documents | **C** | C2 — référentiel | ETB-05 |
 | `note_etablissement` — création | **A** | A4 — append-only, commutative, sans effet monétaire | TRX-01 |
 | Sélection d'établissement actif (contexte local) | **A** | A4 — préférence locale, sans effet | ETB-06 |
+| **Lecture en cache** de tout référentiel et de tout paramètre ci-dessus | **A** | A4 — lecture seule, avec **fraîcheur affichée** | ETB-02, ETB-04 |
+
+> **L'écriture et la lecture d'un référentiel ne sont pas de la même classe, et il faut le dire.**
+>
+> Toutes les écritures ci-dessus sont en **C** : aucun référentiel ne se modifie hors ligne. Mais
+> leur **lecture** doit rester possible sans connexion, avec la date de dernière synchronisation
+> affichée — sinon le produit devient inutilisable dès la première coupure. Une serveuse qui ne
+> peut pas lire la liste des services de son établissement ne peut rien faire du tout, alors même
+> qu'elle n'a rien à y modifier.
+>
+> C'est la même dualité que `encaissement`, **B** en espèces et **D** en Mobile Money (§5.3) : le
+> registre classe des **opérations**, pas des tables. Sans cette ligne, un cycle ultérieur
+> trancherait dans un sens ou dans l'autre sans que la décision soit visible — et le sens le plus
+> probable serait « tout est C, donc rien ne se lit hors ligne ».
+>
+> **Le mécanisme de cache et le témoin de fraîcheur ne sont pas livrés par ETB** : ils relèvent de
+> SYN-01/02 et d'ETB-06. Ce qui est arrêté ici est la **classe**, pour que le cycle qui écrira le
+> cache n'ait pas à la deviner.
 
 ### 5.2 `socle/comptes`
 
@@ -463,4 +483,5 @@ l'entité, pas d'un lot de rattrapage.
 | Version | Date | Modification |
 |---|---|---|
 | 1.0.0 | 2026-07-30 | Création. Classement initial de toutes les entités des modules TRX, ETB, CPT, HEB, SEJ, RSV, PDV, QRC, CAI, FIS, SYN, IMP, STK, DIR, ADM, MET, plus les provisions du cadrage §14. Dérivé de `docs/cadrage-v1.md` §11 et `docs/user-stories-v1.md` §0.7. Trois décisions ouvertes consignées (O-01, O-02, O-03). |
+| 1.0.2 | 2026-07-31 | **`profil_stock` et `parametre_catalogue` ajoutées au §5.1, classe C** — les deux référentiels globaux que le cycle 002 crée et que le registre ne nommait pas. `profil_stock` n'existait qu'en tant que colonne dans la ligne de `module_capacite` ; devenue table (research.md R-03 : ouvrir un profil est une écriture de configuration, pas une migration), elle doit s'y déclarer pour elle-même. **Ajout d'une ligne de portée générale : la LECTURE EN CACHE de tout référentiel est de classe A, avec fraîcheur affichée**, quand son écriture reste C. Le registre classe des opérations, pas des tables — sans cette distinction écrite, un cycle ultérieur aurait conclu qu'un référentiel de classe C ne se lit pas hors ligne, ce qui rendrait le produit inutilisable dès la première coupure. Le mécanisme de cache relève de SYN-01/02 et d'ETB-06 ; seule la classe est arrêtée ici. |
 | 1.0.1 | 2026-07-31 | **`note_etablissement` ajoutée au §5.1, classe A, branche A4** — entité du module doré du cycle 001 (TRX-01). Append-only : ni `UPDATE` ni `DELETE` n'est accordé à `kaya_app`, une correction est une nouvelle note. Ses deux tests de classe A vivent dans `backend/tests/note_etablissement_classe_a.rs` et sont exécutés en intégration continue. À partir de ce cycle, le registre n'est plus seulement documentaire : `backend/tests/classes_offline.rs` compare les tables réelles aux entités déclarées ici et **fait échouer le build** sur toute table absente. Le sens de comparaison est table → registre : une entité déclarée mais pas encore implémentée est normale, une table non déclarée est l'erreur à attraper. |

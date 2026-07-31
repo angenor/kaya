@@ -43,6 +43,26 @@ const SCHEMAS_APPLICATIFS: &[&str] = &["etablissements", "synchronisation", "fis
 /// configuration changerait.
 const TABLES_EXCLUES: &[&str] = &["kaya_migrations._migrations_appliquees"];
 
+/// **Les quatre référentiels globaux — conformes, et NOMMÉS.**
+///
+/// Ils n'ont pas de `tenant_id` : ils sont le même référentiel pour tous les clients. Ce n'est
+/// **pas une dispense** de la porte P-07 mais un **régime nommé** (research.md R-01) — deux
+/// politiques au lieu d'une, et un jeu de privilèges asymétrique :
+///
+/// - `lecture_universelle` — `FOR SELECT USING (true)` ;
+/// - `administration_editeur` — `FOR ALL TO kaya_owner`, l'écriture appartient à l'éditeur ;
+/// - `GRANT SELECT` seul à `kaya_app`, qui est donc refusé **deux fois**.
+///
+/// Les nommer ici plutôt que les exclure change ce que la porte garantit : une table de
+/// référentiel ajoutée demain sans sa politique d'administration serait attrapée, alors qu'une
+/// exclusion par motif l'aurait laissée passer.
+const REFERENTIELS_GLOBAUX: &[&str] = &[
+    "etablissements.module_activite",
+    "etablissements.capacite",
+    "etablissements.profil_stock",
+    "etablissements.parametre_catalogue",
+];
+
 struct EtatTable {
     nom_complet: String,
     rls_activee: bool,
@@ -140,6 +160,203 @@ async fn p07_toute_table_applicative_est_isolee() {
         "P-07 ÉCHOUE — {} manquement(s) :\n  {}",
         manquements.len(),
         manquements.join("\n  ")
+    );
+}
+
+/// Applique les trois conditions du régime des référentiels globaux.
+///
+/// Extraite pour que le **test négatif** puisse l'exercer sur un référentiel délibérément non
+/// conforme, sans créer la table fautive en base — les fichiers de test s'exécutent en parallèle
+/// sur une base partagée, et une table apparue le temps d'un inventaire ferait échouer au hasard
+/// les deux portes qui inventorient (leçon du cycle 001, plus bas dans ce fichier).
+fn manquements_referentiel(
+    nom_complet: &str,
+    politiques: &[String],
+    ecritures_kaya_app: &[String],
+    a_tenant_id: bool,
+) -> Vec<String> {
+    let mut manquements = Vec::new();
+
+    for attendue in ["lecture_universelle", "administration_editeur"] {
+        if !politiques.iter().any(|p| p == attendue) {
+            manquements.push(format!(
+                "{nom_complet} — politique « {attendue} » absente. Le régime des référentiels \
+                 globaux en exige DEUX : sans `lecture_universelle`, aucun tenant ne voit le \
+                 référentiel ; sans `administration_editeur`, le propriétaire lui-même ne peut \
+                 plus l'alimenter sous FORCE ROW LEVEL SECURITY — et la migration qui essaiera \
+                 échouera sur une table pourtant vide."
+            ));
+        }
+    }
+
+    if !ecritures_kaya_app.is_empty() {
+        manquements.push(format!(
+            "{nom_complet} — `kaya_app` détient {ecritures_kaya_app:?} sur un RÉFÉRENTIEL. Il doit \
+             être refusé deux fois : aucun privilège d'écriture, et aucune politique qui \
+             l'autoriserait. Un GRANT accordé par erreur suffit à défaire la seconde barrière."
+        ));
+    }
+
+    if a_tenant_id {
+        manquements.push(format!(
+            "{nom_complet} — porte une colonne `tenant_id` alors qu'il est déclaré référentiel \
+             GLOBAL. Dupliquer le référentiel par client multiplie ses lignes par le nombre de \
+             tenants et rend impossible l'ajout d'une valeur « par configuration » (cadrage \
+             §14.3) : il faudrait l'écrire chez chacun."
+        ));
+    }
+
+    manquements
+}
+
+/// **T008 — le régime des référentiels globaux, vérifié plutôt que supposé.**
+///
+/// Trois conditions, chacune contre une faute précise :
+///
+/// 1. **deux politiques nommées** — `lecture_universelle` et `administration_editeur`. Une table
+///    de référentiel qui n'aurait que la première serait en lecture seule pour tout le monde, y
+///    compris pour les migrations de l'éditeur ; qui n'aurait que la seconde serait invisible aux
+///    tenants ;
+/// 2. **aucun droit d'écriture pour `kaya_app`** — le privilège dit la règle mieux qu'un
+///    commentaire : l'enrichissement du référentiel relève d'ETB-08, aucun tenant n'y écrit ;
+/// 3. **aucune colonne `tenant_id`** — sa présence signifierait que quelqu'un a commencé à
+///    dupliquer le référentiel par client, ce que le cadrage §14.3 exclut.
+#[tokio::test]
+async fn p07_les_referentiels_globaux_ont_leur_regime_nomme() {
+    let pool = commun::pool_owner().await;
+    let mut manquements = Vec::new();
+
+    for nom_complet in REFERENTIELS_GLOBAUX {
+        let (schema, table) = nom_complet.split_once('.').expect("nom qualifié");
+
+        let politiques: Vec<String> = sqlx::query_scalar(
+            "SELECT policyname FROM pg_policies WHERE schemaname = $1 AND tablename = $2",
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(&pool)
+        .await
+        .expect("lecture des politiques");
+
+        let ecritures: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT privilege_type
+            FROM information_schema.role_table_grants
+            WHERE table_schema = $1 AND table_name = $2 AND grantee = 'kaya_app'
+              AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(&pool)
+        .await
+        .expect("lecture des privilèges");
+
+        let a_tenant_id: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = $1 AND table_name = $2 AND column_name = 'tenant_id'
+            )
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_one(&pool)
+        .await
+        .expect("lecture des colonnes");
+
+        manquements.extend(manquements_referentiel(
+            nom_complet,
+            &politiques,
+            &ecritures,
+            a_tenant_id,
+        ));
+    }
+
+    assert!(
+        manquements.is_empty(),
+        "P-07 (régime des référentiels globaux) ÉCHOUE — {} manquement(s) :\n  {}",
+        manquements.len(),
+        manquements.join("\n  ")
+    );
+
+    println!(
+        "P-07 — {} référentiels globaux inspectés et conformes :",
+        REFERENTIELS_GLOBAUX.len()
+    );
+    for nom in REFERENTIELS_GLOBAUX {
+        println!("  · {nom} — lecture_universelle + administration_editeur, SELECT seul à kaya_app");
+    }
+}
+
+/// **T008 — test négatif.** Un référentiel sans `administration_editeur` fait échouer la porte.
+///
+/// C'est le manquement le plus vraisemblable, et le plus trompeur : la table serait lisible par
+/// tous, tous les tests de lecture passeraient, et l'échec ne surviendrait qu'à la **prochaine
+/// migration** qui tenterait d'y insérer une valeur — sous `FORCE ROW LEVEL SECURITY`, le
+/// propriétaire sans politique d'écriture n'écrit rien.
+#[test]
+fn p07_test_negatif_un_referentiel_sans_administration_editeur_est_signale() {
+    let conforme = manquements_referentiel(
+        "etablissements.module_activite",
+        &[
+            "lecture_universelle".to_owned(),
+            "administration_editeur".to_owned(),
+        ],
+        &[],
+        false,
+    );
+    assert!(
+        conforme.is_empty(),
+        "la porte signale un référentiel pourtant conforme : elle échouerait sur les quatre, et \
+         serait désactivée dans la semaine :\n  {}",
+        conforme.join("\n  ")
+    );
+
+    let sans_administration = manquements_referentiel(
+        "etablissements.referentiel_non_conforme",
+        &["lecture_universelle".to_owned()],
+        &[],
+        false,
+    );
+    assert!(
+        sans_administration
+            .iter()
+            .any(|m| m.contains("referentiel_non_conforme") && m.contains("administration_editeur")),
+        "la porte n'a pas signalé l'absence d'`administration_editeur` : elle laisserait passer le \
+         manquement dont l'échec est le plus tardif et le plus obscur.\n  {}",
+        sans_administration.join("\n  ")
+    );
+
+    // Les deux autres conditions, exercées séparément : leurs échecs veulent dire des choses
+    // très différentes, et un message unique ferait chercher la mauvaise chose.
+    let ecriture_ouverte = manquements_referentiel(
+        "etablissements.referentiel_non_conforme",
+        &[
+            "lecture_universelle".to_owned(),
+            "administration_editeur".to_owned(),
+        ],
+        &["INSERT".to_owned()],
+        false,
+    );
+    assert!(
+        ecriture_ouverte.iter().any(|m| m.contains("kaya_app")),
+        "un privilège d'écriture accordé à kaya_app sur un référentiel n'est pas signalé"
+    );
+
+    let avec_tenant_id = manquements_referentiel(
+        "etablissements.referentiel_non_conforme",
+        &[
+            "lecture_universelle".to_owned(),
+            "administration_editeur".to_owned(),
+        ],
+        &[],
+        true,
+    );
+    assert!(
+        avec_tenant_id.iter().any(|m| m.contains("tenant_id")),
+        "un `tenant_id` apparu sur un référentiel global n'est pas signalé"
     );
 }
 

@@ -134,10 +134,15 @@ pub async fn creer_tenant(pool: &PgPool, nom: &str) -> JeuTenant {
     .await
     .expect("insertion du tenant");
 
+    // `commune` est `NOT NULL` sans défaut depuis la migration 0007 : le défaut n'y servait qu'à
+    // remplir les lignes existantes et a été retiré aussitôt, pour qu'aucune création ultérieure
+    // ne puisse l'omettre en silence. Le classement reste `NON_CLASSE`, valeur par défaut : les
+    // tests qui ont besoin d'un classement étoilé le posent eux-mêmes.
     sqlx::query!(
         r#"
-        INSERT INTO etablissements.etablissement (id, tenant_id, nom, fuseau_horaire, devise)
-        VALUES ($1, $2, $3, 'Africa/Abidjan', 'XOF')
+        INSERT INTO etablissements.etablissement
+            (id, tenant_id, nom, fuseau_horaire, devise, commune)
+        VALUES ($1, $2, $3, 'Africa/Abidjan', 'XOF', 'Abengourou')
         "#,
         etablissement_id,
         tenant_id,

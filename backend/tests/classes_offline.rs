@@ -210,3 +210,67 @@ fn les_entites_du_cycle_001_sont_declarees() {
         );
     }
 }
+
+/// **Les onze entités du cycle 002 sont déclarées au registre.**
+///
+/// # Pourquoi onze, et pas dix
+///
+/// Le cycle crée **dix tables** et en enrichit une onzième — `etablissement`, à qui ETB-01 ajoute
+/// sept colonnes d'identité. Le décompte de la porte P-07 est celui des tables *créées* (dix) ;
+/// celui du registre est celui des *entités* (onze). Les confondre ferait inspecter un
+/// sous-ensemble en croyant tout couvrir — le défaut exact que la constitution a documenté après
+/// le cycle 001.
+///
+/// Deux d'entre elles — `profil_stock` et `parametre_catalogue` — étaient **absentes du registre**
+/// avant ce cycle, et le test principal ci-dessus les aurait attrapées dès l'application de la
+/// migration 0008. Ce test-ci les nomme explicitement, pour que leur ajout soit une décision
+/// visible plutôt que la conséquence mécanique d'un build rouge.
+#[test]
+fn les_entites_du_cycle_002_sont_declarees() {
+    let declarees = entites_declarees();
+
+    for entite in [
+        "etablissement",  // enrichie par ETB-01 — la onzième entité, sans table nouvelle
+        "module_activite",
+        "capacite",
+        "profil_stock",   // AJOUTÉE par ce cycle
+        "etablissement_module",
+        "module_capacite",
+        "point_de_vente",
+        "table_pdv",
+        "parametre_catalogue", // AJOUTÉE par ce cycle
+        "parametre_configuration",
+        "branding",
+    ] {
+        assert!(
+            declarees.contains(entite),
+            "« {entite} » n'est pas déclarée au §5.1 de docs/registre-classes-offline.md alors que \
+             le cycle 002 la crée ou l'enrichit.\n\
+             La déclaration se fait dans le MÊME changement que la migration (principe VI), avec \
+             une entrée au journal §13."
+        );
+    }
+}
+
+/// **La lecture en cache d'un référentiel est déclarée de classe A** — la distinction qui manquait.
+///
+/// Le registre classe des **opérations**, pas des tables. L'écriture d'un référentiel est de
+/// classe C ; sa **lecture** doit rester possible hors connexion, avec fraîcheur affichée. Sans
+/// cette ligne au registre, un cycle ultérieur conclurait qu'une entité de classe C ne se lit pas
+/// hors ligne — et le produit deviendrait inutilisable dès la première coupure, une serveuse ne
+/// pouvant même pas afficher la liste des services de son établissement.
+///
+/// Le test porte sur le **texte du registre**, pas sur du code : le mécanisme de cache relève de
+/// SYN-01/02 et d'ETB-06. Ce qui est vérifié ici est que la décision a été prise et écrite, au
+/// même titre que la classe d'une entité.
+#[test]
+fn la_lecture_en_cache_des_referentiels_est_declaree() {
+    assert!(
+        REGISTRE.contains("**Lecture en cache** de tout référentiel"),
+        "la ligne distinguant l'ÉCRITURE (C) de la LECTURE EN CACHE (A) a disparu du §5.1 de \
+         docs/registre-classes-offline.md.\n\
+         Sans elle, rien ne dit qu'un référentiel de classe C reste lisible hors ligne, et le \
+         premier cycle qui écrira le cache tranchera dans le sens le plus simple — celui qui \
+         rend le produit inutilisable dès la première coupure."
+    );
+}
