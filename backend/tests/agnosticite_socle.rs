@@ -919,12 +919,35 @@ fn us1_chaque_etape_est_nommee_et_attribuee_a_un_cycle() {
 
 /// **Test négatif de la porte, sur un état simulé.**
 ///
-/// La version réelle — créer une table portant le nom d'une sentinelle due — est exercée **à la
-/// main** en fin de cycle (T039), sortie observée consignée ci-dessous. Elle ne peut pas être
-/// automatisée ici : les fichiers de test s'exécutent en parallèle sur une base partagée, et une
-/// table créée le temps d'un inventaire ferait échouer au hasard la porte P-07 et celle du
-/// registre. Un test qui casse ses voisins est un test qu'on finit par ignorer (leçon du
-/// cycle 001, `rls_catalogue.rs`).
+/// # La porte a été vue échouer pour de vrai — T039, 2026-07-31
+///
+/// `CREATE TABLE fiscalite.document_fiscal (id UUID PRIMARY KEY);` puis
+/// `cargo test --test agnosticite_socle`. Sortie **observée**, reproduite ici mot pour mot :
+///
+/// ```text
+/// Les trois parcours structurels ne couvrent plus tout ce qui est réalisable — 3 manquement(s) :
+///   parcours « maquis (RESTAURATION seule) » — étape « document_fiscal » (due au cycle
+///   FIS (FIS-02)) est RÉALISABLE : sa sentinelle, table fiscalite.document_fiscal, existe
+///   désormais. Elle doit être branchée aux TROIS parcours dans le même changement que la
+///   migration ou la route qui la rend possible.
+///   parcours « résidence meublée (HEBERGEMENT seul) » — étape « document_fiscal » …
+///   parcours « agnosticité (service fictif, aucune capacité) » — étape « document_fiscal » …
+/// ```
+///
+/// Trois manquements — **un par parcours**, comme il se doit : brancher l'étape sur un seul ne
+/// suffirait pas. Table supprimée aussitôt après.
+///
+/// **Sans avoir vu cet échec une fois, on ne sait pas si la porte regarde.** C'est l'exigence du
+/// § « Couverture des portes » de la constitution, née de quatre portes vertes défectueuses au
+/// cycle 001.
+///
+/// # Pourquoi cette manœuvre n'est PAS automatisée ici
+///
+/// Les fichiers de test s'exécutent en parallèle sur une base partagée : une table créée le temps
+/// d'un inventaire ferait échouer au hasard la porte P-07 et celle du registre, qui inventorient
+/// toutes deux le catalogue. Un test qui casse ses voisins est un test qu'on finit par ignorer
+/// (leçon du cycle 001, `rls_catalogue.rs`). La vérification automatique porte donc sur un état
+/// **simulé**, ce qui exerce exactement ce qui compte : la fonction de statut.
 ///
 /// Ce qui est vérifié ici est ce qui compte : la fonction de statut **classe bien** une étape
 /// réalisable et non branchée en `RealisableNonBranchee`, et ne se trompe ni dans un sens ni dans
