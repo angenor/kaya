@@ -1922,6 +1922,7 @@ name = "kaya-backend"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "async-trait",
  "dotenvy",
  "futures",
  "kaya-api",

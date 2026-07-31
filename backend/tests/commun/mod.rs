@@ -27,6 +27,12 @@ pub fn url_ledger() -> String {
     variable("DATABASE_URL_LEDGER")
 }
 
+/// Chaîne de connexion du rôle **worker de publication** — lecture tous tenants sur le seul
+/// grand livre, marquage `publie_le` seul (migration 0005).
+pub fn url_worker() -> String {
+    variable("DATABASE_URL_WORKER")
+}
+
 fn variable(nom: &str) -> String {
     charger_env();
     std::env::var(nom).unwrap_or_else(|_| {
@@ -57,6 +63,10 @@ pub async fn pool_app() -> PgPool {
 
 pub async fn pool_ledger() -> PgPool {
     connecter(&url_ledger()).await
+}
+
+pub async fn pool_worker() -> PgPool {
+    connecter(&url_worker()).await
 }
 
 async fn connecter(url: &str) -> PgPool {

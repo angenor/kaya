@@ -54,6 +54,20 @@ pub async fn pool_migrations() -> Result<PgPool, ErreurBase> {
         .await?)
 }
 
+/// Pool du **worker de publication**, sous `kaya_worker`.
+///
+/// Rôle distinct des trois autres, introduit par la migration 0005 : il lit `evenement_outbox`
+/// tous tenants confondus — ce que la politique `isolation_tenant` interdit aux autres — et ne
+/// peut écrire que la colonne `publie_le`.
+pub async fn pool_worker() -> Result<PgPool, ErreurBase> {
+    let url = variable("DATABASE_URL_WORKER")?;
+    Ok(PgPoolOptions::new()
+        .max_connections(2)
+        .acquire_timeout(Duration::from_secs(5))
+        .connect(&url)
+        .await?)
+}
+
 /// Applique les migrations, **avant l'ouverture du port d'écoute** (R-12).
 ///
 /// Deux instances qui démarrent en même temps appliqueraient les migrations en concurrence ;

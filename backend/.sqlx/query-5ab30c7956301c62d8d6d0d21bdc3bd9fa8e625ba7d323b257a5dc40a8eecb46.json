@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE synchronisation.evenement_outbox SET publie_le = NULL WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5ab30c7956301c62d8d6d0d21bdc3bd9fa8e625ba7d323b257a5dc40a8eecb46"
+}

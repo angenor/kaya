@@ -155,6 +155,7 @@ utoipa-actix-web = { workspace = true }
 dotenvy = { workspace = true }
 futures = { workspace = true }
 kaya-fiscalite = { workspace = true }
+async-trait = { workspace = true }
 
 # ---------------------------------------------------------------------------------------------
 #  Profils

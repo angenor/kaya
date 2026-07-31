@@ -65,6 +65,7 @@ echo "── Mots de passe applicatifs ─────────────�
 PGPASSWORD="$MDP_DEV" psql -h "$HOTE" -p "$PORT" -U kaya_owner -d "$BASE" -v ON_ERROR_STOP=1 <<SQL
 ALTER ROLE kaya_app            PASSWORD '${MDP_DEV}';
 ALTER ROLE kaya_ledger_reader  PASSWORD '${MDP_DEV}';
+ALTER ROLE kaya_worker         PASSWORD '${MDP_DEV}';
 SQL
 
 echo
@@ -72,3 +73,4 @@ echo "Base prête. Chaînes de connexion du poste de développement :"
 echo "  DATABASE_URL          postgres://kaya_owner:***@${HOTE}:${PORT}/${BASE}"
 echo "  DATABASE_URL_APP      postgres://kaya_app:***@${HOTE}:${PORT}/${BASE}"
 echo "  DATABASE_URL_LEDGER   postgres://kaya_ledger_reader:***@${HOTE}:${PORT}/${BASE}"
+echo "  DATABASE_URL_WORKER   postgres://kaya_worker:***@${HOTE}:${PORT}/${BASE}"

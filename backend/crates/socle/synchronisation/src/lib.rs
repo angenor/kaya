@@ -9,7 +9,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod consommateurs;
 pub mod outbox;
+pub mod worker;
 
 use serde_json::Value;
 use time::OffsetDateTime;

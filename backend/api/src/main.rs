@@ -41,6 +41,33 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("connexion applicative impossible");
 
+    // Worker de publication — **in-process**, démarré avec le serveur (R-08). Aucune file
+    // externe, aucun second processus à superviser : le paquet auto-hébergé (mode B) doit tenir
+    // en un binaire et trois conteneurs.
+    //
+    // Son pool est celui de `kaya_worker`, jamais celui de l'application : la politique
+    // `isolation_tenant` filtre sur un contexte que le worker ne pose pas, et il publierait
+    // silencieusement zéro événement.
+    match db::pool_worker().await {
+        Ok(pool_worker) => {
+            let worker = kaya_synchronisation::worker::WorkerPublication::nouveau(
+                pool_worker,
+                // Aucun consommateur à ce cycle : le grand livre est écrit et marqué publié, mais
+                // rien n'en dérive encore. Les projections de pilotage viendront avec PIL.
+                Vec::new(),
+                kaya_synchronisation::worker::ConfigurationWorker::default(),
+            );
+            tokio::spawn(worker.boucler());
+            tracing::info!("worker de publication démarré");
+        }
+        Err(erreur) => {
+            // Un worker absent ne perd aucun événement : ils restent en attente, et un
+            // redémarrage les reprendra. Refuser de servir pour autant priverait le pilote de
+            // son outil de travail pour un défaut de configuration réparable à distance.
+            tracing::error!(erreur = %erreur, "worker de publication NON démarré — les événements s'accumuleront en attente");
+        }
+    }
+
     let port: u16 = std::env::var("KAYA_PORT")
         .ok()
         .and_then(|v| v.parse().ok())
