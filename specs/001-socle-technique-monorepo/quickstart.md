@@ -31,12 +31,13 @@ Le poste de développement est `darwin/arm64`, la production `linux/amd64`. Les 
 git clone <dépôt> && cd kaya
 docker compose -f infra/compose.yml up -d      # base, cache, stockage objet
 scripts/dev/preparer-base.sh                   # migrations + mots de passe locaux — voir ci-dessous
+scripts/dev/preparer-stockage.sh               # cluster Garage, clé d'accès, compartiment
 cd backend && cargo build --workspace          # le workspace Rust vit dans backend/
 cargo run -p kaya-api --bin kaya-api           # applique les migrations, puis écoute
 cd .. && pnpm install && pnpm --filter @kaya/app dev
 ```
 
-> **Pourquoi une étape de plus que prévu.** Les mots de passe des rôles ne sont **pas** dans les
+> **Pourquoi deux étapes de plus que prévu.** Les mots de passe des rôles ne sont **pas** dans les
 > migrations : un secret écrit dans une migration est un secret dans l'historique Git, en clair,
 > pour toujours — et une migration appliquée ne se modifie jamais, donc l'erreur serait
 > définitive. `scripts/dev/preparer-base.sh` les pose après migration ; la CI fait de même avec
@@ -50,6 +51,8 @@ cd .. && pnpm install && pnpm --filter @kaya/app dev
 - Les migrations s'appliquent **au démarrage de l'API** (R-12), sous le rôle propriétaire — les
   journaux le disent explicitement.
 - `curl localhost:<port>/health` → `200` avec les trois dépendances à l'état opérationnel.
+  **Constaté au cycle 001** : `{"statut":"operationnel"}` avec `base`, `cache` et
+  `stockage_objet` à `operationnel`.
 
 **Piège attendu** : si `cargo build` échoue sur le linker, vérifier que la configuration `mold` est
 bien **conditionnée à la cible Linux** (R-01). `mold` n'existe pas sur macOS ; l'imposer au poste

@@ -14,7 +14,7 @@ silence.
 
 | § | Objet | Résultat | Écart |
 |---|---|---|---|
-| 1 | Amorçage | ✅ | 3 écarts de commande, voir 1.1 |
+| 1 | Amorçage | ✅ | `/health` **200**, trois dépendances opérationnelles. 4 écarts de commande, voir 1.1 |
 | 2 | Contrat et client généré | ✅ | — |
 | 3 | Isolation multi-tenant | ✅ | 7 tests verts |
 | 4 | Grand livre | ✅ | 8 tests verts |
@@ -34,10 +34,16 @@ l'implémentation ; ce sont des précisions que le guide devra reprendre.
 | `cargo build --workspace` depuis la racine | depuis **`backend/`** | Le workspace Rust vit dans `backend/`, comme le fixe `plan.md` § Project Structure |
 | `cargo test -p kaya-api --test isolation_tenant` | `-p kaya-backend` | Les tests transverses appartiennent au paquet racine `kaya-backend`, pas à `kaya-api` — chemins de `tasks.md` T045/T046 |
 | `docker compose up` puis `cargo run` | **plus** `scripts/dev/preparer-base.sh` | Les mots de passe des rôles ne sont pas dans les migrations : un secret dans une migration est un secret dans l'historique Git, en clair, pour toujours |
+| — | **plus** `scripts/dev/preparer-stockage.sh` | Un conteneur Garage qui démarre est **sain sans être utilisable** : nœud sans rôle, aucune clé, aucun compartiment |
 
-Le troisième mérite d'être lu deux fois : c'est une **étape supplémentaire à l'amorçage**, donc un
-écart réel à SC-001 (« moins de 30 minutes sur un poste neuf »). Elle reste largement dans le
-budget, mais elle doit figurer au guide.
+Les deux derniers sont des **étapes supplémentaires à l'amorçage**, donc un écart réel à SC-001
+(« moins de 30 minutes sur un poste neuf »). Elles restent largement dans le budget — quelques
+secondes chacune — mais elles doivent figurer au guide, et elles y figurent désormais.
+
+Le second a été **trouvé par la sonde elle-même**. `docker compose ps` rapportait Garage
+`healthy`, ce qui était exact : le service répondait. `/health`, qui tente un appel S3 réel,
+rapportait `degrade`. C'est exactement la différence que la sonde sert à faire, et la meilleure
+démonstration de la raison pour laquelle elle ne lit pas l'état d'un pool.
 
 ### 1.2 §8 — Sauvegarde et restauration : **exercice non réalisé**
 
@@ -191,22 +197,6 @@ sur `tstzrange`.
 Sans elle, la porte P-08 n'aurait aucun moyen de se présenter comme deux tenants différents, et
 elle aurait attendu CPT-01 — trois cycles auraient écrit des endpoints sans qu'elle les voie.
 
-### 4.3 bis — Redis non démarré localement, sonde vérifiée malgré tout
-
-L'image `redis:8.8.1` du gel §4.2 n'a **pas pu être téléchargée** sur le poste : le
-téléchargement, lancé plusieurs fois, n'a jamais abouti dans le temps du cycle. Ni le tag ni la
-configuration ne sont en cause — l'image est vérifiée disponible en `amd64` et `arm64` au §4.2 du
-gel, et le service est déclaré dans `infra/compose.yml`.
-
-**Ce que cela n'empêche pas** : la sonde `/health` a été exercée et rapporte le cache comme
-`degrade`, avec la base `operationnel`. C'est précisément le comportement attendu, et il constitue
-la meilleure démonstration possible du point qui fait la valeur de la sonde — **elle vérifie par
-requête réelle, pas par l'état d'un pool en mémoire**. Un pool aurait rapporté « sain ».
-
-**Ce qui reste dû** : démarrer les trois services ensemble et constater `/health` en `200` avec
-les trois dépendances opérationnelles. En CI, le service `cache` est déclaré et Redis y sera
-disponible.
-
 ### 4.4 Deux tâches non exécutées
 
 | Tâche | Ce qui manque | Effet |
@@ -334,6 +324,21 @@ la même situation. Trouvé par le test croisé de P-08, corrigé.
 
 ---
 
+## 7 bis. La sonde de santé, constatée dans ses trois états
+
+Trois observations successives, toutes réelles — c'est ce qui rend la sonde crédible :
+
+| Observation | Réponse | Ce qu'elle démontre |
+|---|---|---|
+| Ni cache ni stockage démarrés | `503` · base `operationnel`, deux dépendances `degrade` | La sonde ne se fie pas au démarrage du service applicatif |
+| Redis démarré, Garage non initialisé | `503` · **cache `operationnel`**, stockage `degrade` | `docker compose ps` rapportait Garage `healthy` — la sonde, elle, tente un **appel S3 réel** |
+| Les trois configurés | `200` · **les trois `operationnel`** | Amorçage de SC-001 complet |
+
+Le deuxième cas est celui qui compte. Un conteneur peut être sain sans être utilisable, et
+c'est exactement l'écart qu'une sonde adossée à l'état d'un pool en mémoire ne verrait jamais.
+
+---
+
 ## 8. Ce que le cycle livre — récapitulatif
 
 - **17 paquets Rust**, hiérarchie du principe II tenue par les arêtes réelles du graphe
@@ -345,3 +350,5 @@ la même situation. Trouvé par le test croisé de P-08, corrigé.
 - **37 tests d'intégration** sur base réelle + **18 tests** d'application
 - **21 portes de CI**, dont 18 actives et toutes vérifiées en échec
 - **0 écran** — décision vérifiée contre les onze maquettes et la matrice de dérivation
+- **Deux scripts d'amorçage** — `preparer-base.sh` et `preparer-stockage.sh` — sans lesquels
+  l'environnement démarre sans être utilisable
