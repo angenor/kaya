@@ -22,7 +22,7 @@ silence.
 | 6 | Fondations d'interface | ✅ | — |
 | 7 | Seeds | ✅ | 2 tests verts |
 | 8 | Sauvegarde et restauration | ⚠️ **partiel** | Voir 1.2 |
-| 9 | Construction de production | ⚠️ **partiel** | Voir 1.3 |
+| 9 | Construction de production | ✅ | Image construite et **exercée**. `amd64` non produit, voir 1.3 |
 
 ### 1.1 Écarts de commande — le guide dit vrai, mais pas tout à fait
 
@@ -63,26 +63,36 @@ manque trois éléments qui ne relèvent pas du code :
 **Conséquence** : FR-060 n'est pas satisfaite et SC-006 reste ouvert. Consigné dans
 `infra/backup/README.md` §6.
 
-### 1.3 §9 — Construction de production : Dockerfile écrit, image `amd64` non produite
+### 1.3 §9 — Construction de production : image construite et exercée
 
-`infra/Dockerfile.api` est écrit et ses deux images de base sont vérifiées sur le registre
-(`rust:1.97.1-trixie`, `debian:trixie-slim`). Il construit **sans base de données**, grâce à
-`backend/.sqlx` et `SQLX_OFFLINE=true`.
+`infra/Dockerfile.api` produit une image de **198 Mo**, en deux étapes, compilant **sans base de
+données** grâce à `backend/.sqlx` et `SQLX_OFFLINE=true`.
 
-L'image `linux/amd64` n'a pas été produite : sur un poste Apple Silicon, la construction croisée
-passe par l'émulation et la mesure obtenue ne dirait rien de la production. **SC-010 — le temps de
-compilation incrémentale mesuré dans le conteneur Linux — reste donc non mesuré**, ce que R-01
-annonçait déjà : « une mesure sur le poste macOS ne prédit rien de la CI ».
+L'image a été **démarrée contre les trois services** et exercée de bout en bout :
 
-Une construction **native `arm64`** a été lancée pour valider le Dockerfile lui-même. Elle
-dépassait **27 minutes** sans avoir abouti au moment de la revue — compilation `--release` de
-l'ensemble du workspace, dans un conteneur, avec les entrées-sorties de Docker Desktop sur macOS.
-**Le Dockerfile n'est donc pas validé de bout en bout**, seulement écrit et vérifié statiquement :
-ses deux images de base existent au registre, et `SQLX_OFFLINE=true` avec `backend/.sqlx` lui
-permet de compiler sans base de données.
+| Vérification | Résultat |
+|---|---|
+| Démarrage | Migrations appliquées, worker démarré, **puis** port ouvert — l'ordre de R-12 |
+| `GET /health` | `200`, les trois dépendances `operationnel` |
+| `POST` note, trois fois le même identifiant | **`201`, `200`, `200`** — une seule ligne en base |
+| `GET` liste | La note, `total = 1` |
+| Appel croisé — tenant « Résidence Test » vers l'établissement Deloria | **`404`** |
+| `HEALTHCHECK` du conteneur | `healthy` — le drapeau `--verifier-sante` fonctionne |
 
-**Ce qui reste dû** : une construction complète, en CI Linux où elle est native et mise en cache,
-avant le premier déploiement.
+Le rejeu idempotent et l'isolation multi-tenant sont donc constatés **sur l'artefact de
+déploiement**, pas seulement en test d'intégration.
+
+**Deux réserves subsistent, et elles ne sont pas levables sur ce poste :**
+
+1. L'image est `arm64`. La production est `linux/amd64` ; la construction croisée sur Apple
+   Silicon passe par l'émulation, et l'image produite ne serait pas celle qui sera déployée. La
+   construction `amd64` se fait en CI, où elle est native.
+2. **SC-010 reste non mesuré.** Le temps de compilation incrémentale doit être relevé dans le
+   conteneur Linux — le seul endroit où `mold` est actif. R-01 l'annonçait : « une mesure sur le
+   poste macOS ne prédit rien de la CI ».
+
+**Ce qui reste dû** : une construction `linux/amd64` en CI, et la mesure de SC-010 au même
+endroit.
 
 ---
 
@@ -386,3 +396,5 @@ c'est exactement l'écart qu'une sonde adossée à l'état d'un pool en mémoire
 - **0 écran** — décision vérifiée contre les onze maquettes et la matrice de dérivation
 - **Deux scripts d'amorçage** — `preparer-base.sh` et `preparer-stockage.sh` — sans lesquels
   l'environnement démarre sans être utilisable
+- **Une image de production de 198 Mo**, construite sans base de données, démarrée et exercée :
+  rejeu idempotent `201`/`200`/`200` et isolation croisée `404` constatés sur l'artefact
