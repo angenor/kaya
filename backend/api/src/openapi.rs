@@ -19,6 +19,7 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         (name = "etablissements", description = "Tenants, établissements et notes internes."),
         (name = "referentiels", description = "Référentiels globaux — lecture seule."),
         (name = "services", description = "Services d'un établissement et capacités déclarées."),
+        (name = "points-de-vente", description = "Points de vente et tables — un comptoir est un point de vente sans table."),
     ),
     modifiers(&SecuriteBearer),
 )]

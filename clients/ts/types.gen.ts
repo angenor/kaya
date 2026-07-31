@@ -75,6 +75,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/points-de-vente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les points de vente d'un établissement.
+         * @description **Une résidence meublée n'en a aucun, et la liste vide est la bonne réponse** — pas une erreur,
+         *     pas un établissement mal configuré.
+         */
+        get: operations["lister"];
+        put?: never;
+        /**
+         * Crée un point de vente.
+         * @description **`422 module_non_actif`** si le service n'est pas activé sur l'établissement : la clé
+         *     étrangère vers `etablissement_module` rend le cas structurellement impossible, et le `422`
+         *     donne le message qui **nomme le service**.
+         *
+         *     Le point de vente naît **sans table** — donc comptoir. Les tables se posent ensuite, par
+         *     `PUT .../tables`.
+         */
+        post: operations["creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/services": {
         parameters: {
             query?: never;
@@ -138,6 +168,48 @@ export interface paths {
          *     l'absence pure à l'interface.
          */
         post: operations["declarer_capacite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/points-de-vente/{point_de_vente_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie un point de vente. */
+        patch: operations["modifier"];
+        trace?: never;
+    };
+    "/api/v1/points-de-vente/{point_de_vente_id}/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * **Remplace l'ensemble des tables** d'un point de vente.
+         * @description Une liste vide fait du point de vente un **comptoir** — transition légitime, exactement ce
+         *     qu'un maquis fait quand il retire ses tables pour ne plus servir qu'au comptoir. Ce n'est pas
+         *     une suppression accidentelle, et rien ne demande de confirmation particulière.
+         *
+         *     Les tables retirées sont **désactivées, jamais supprimées** : les commandes déjà passées les
+         *     référencent.
+         */
+        put: operations["remplacer_tables"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -302,6 +374,20 @@ export interface components {
             /** @description Texte de la note — entre 1 et 2000 caractères après nettoyage. */
             texte: string;
         };
+        /** @description Corps de création d'un point de vente. */
+        CreerPointDeVenteRequete: {
+            /**
+             * Format: uuid
+             * @description Rattachement de caisse. **Non vérifié à ce cycle** : `socle/caisse` n'a pas de table, et la
+             *     vérification arrivera au cycle CAI par trait (research.md R-12).
+             */
+            caisse_id?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description Le service doit être **activé** sur l'établissement — sinon `422 module_non_actif`. */
+            module_code: string;
+            nom: string;
+        };
         /** @description Corps de déclaration de capacité. */
         DeclarerCapaciteRequete: {
             /** @description `STOCK` seule est implémentée au MVP. */
@@ -415,6 +501,13 @@ export interface components {
             ncc?: string | null;
             nom?: string | null;
         };
+        /** @description Corps de modification. */
+        ModifierPointDeVenteRequete: {
+            actif?: boolean | null;
+            /** Format: uuid */
+            caisse_id?: string | null;
+            nom?: string | null;
+        };
         /** @description Une note interne, telle qu'elle existe en base. */
         NoteEtablissement: {
             /** Format: uuid */
@@ -457,6 +550,33 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        /** @description Un point de vente, tel que l'API le rend. */
+        PointDeVenteVue: {
+            actif: boolean;
+            /**
+             * Format: uuid
+             * @description **Aucune clé étrangère en base** : frontière de module (principe II).
+             */
+            caisse_id?: string | null;
+            /** Format: date-time */
+            cree_le: string;
+            /** Format: uuid */
+            etablissement_id: string;
+            /** Format: uuid */
+            id: string;
+            /** @description Le service auquel il est rattaché — `RESTAURATION`, `BAR`, `PRESSING`… */
+            module_code: string;
+            nom: string;
+            /**
+             * @description **Vide ⇒ comptoir.** Aucun champ `est_comptoir` : un drapeau pourrait contredire cette
+             *     liste, et il faudrait alors décider lequel des deux ment.
+             */
+            tables: components["schemas"]["TableVue"][];
+        };
+        /** @description Corps de remplacement des tables — **une liste vide fait un comptoir**. */
+        RemplacerTablesRequete: {
+            tables: components["schemas"]["TableRequete"][];
+        };
         /**
          * @description Un service **actif** d'un établissement, tel que l'API le rend.
          *
@@ -489,6 +609,19 @@ export interface components {
          * @enum {string}
          */
         StatutSante: "operationnel" | "degrade";
+        TableRequete: {
+            /** Format: uuid */
+            id: string;
+            /** @description « 12 », « Terrasse 3 ». */
+            libelle: string;
+        };
+        /** @description Une table d'un point de vente. */
+        TableVue: {
+            /** Format: uuid */
+            id: string;
+            /** @description « 12 », « Terrasse 3 » — tel que le personnel le dit. */
+            libelle: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -829,6 +962,129 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Points de vente, chacun avec ses tables */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointDeVenteVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    creer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerPointDeVenteRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà créé (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointDeVenteVue"];
+                };
+            };
+            /** @description Point de vente créé */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointDeVenteVue"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service non activé sur cet établissement */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    lister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description Services actifs, avec leurs capacités */
             200: {
                 headers: {
@@ -1069,6 +1325,124 @@ export interface operations {
             };
             /** @description Capacité ou profil non implémenté, ou service non actif */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    modifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du point de vente */
+                point_de_vente_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierPointDeVenteRequete"];
+            };
+        };
+        responses: {
+            /** @description Point de vente modifié */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointDeVenteVue"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Point de vente inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    remplacer_tables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du point de vente */
+                point_de_vente_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemplacerTablesRequete"];
+            };
+        };
+        responses: {
+            /** @description Tables remplacées — liste vide = comptoir */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointDeVenteVue"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Point de vente inconnu */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

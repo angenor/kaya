@@ -70,6 +70,18 @@ impl EtatApplication {
         )
     }
 
+    /// Service des points de vente — ETB-03.
+    pub fn service_points_de_vente(
+        &self,
+    ) -> kaya_etablissements::points_de_vente::ServicePointsDeVente<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+    > {
+        kaya_etablissements::points_de_vente::ServicePointsDeVente::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
     /// Le référentiel des modules, tel que l'API le rend.
     ///
     /// Les trois lectures de référentiel ne passent par aucun service : elles ne portent aucune

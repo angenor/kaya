@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE etablissements.point_de_vente\n        SET nom = $2, caisse_id = $3, actif = $4, modifie_le = now()\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d3b896e5710f6ea06c220dec37186a7b2941df610b90b451258ff6a6c09b57dc"
+}

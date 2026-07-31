@@ -63,6 +63,15 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/etablissements/{etablissement_id}/services/{module_code}/capacites",
         Regime::Isole,
     ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/points-de-vente",
+        Regime::Isole,
+    ),
+    ("/api/v1/points-de-vente/{point_de_vente_id}", Regime::Isole),
+    (
+        "/api/v1/points-de-vente/{point_de_vente_id}/tables",
+        Regime::Isole,
+    ),
     // ── Les trois référentiels GLOBAUX ─────────────────────────────────────────────────────
     //
     // Ils rendent **les mêmes lignes à tous les tenants**, et c'est correct : ce sont des
@@ -541,4 +550,103 @@ async fn p08_les_referentiels_rendent_la_meme_chose_aux_deux_tenants() {
              écrire chaque valeur chez chaque client, contre le cadrage §14.3."
         );
     }
+}
+
+/// **Isolation des points de vente** — y compris par identifiant direct, hors du chemin de
+/// l'établissement.
+///
+/// `PATCH /points-de-vente/{id}` et `PUT /points-de-vente/{id}/tables` ne portent **pas**
+/// l'identifiant de l'établissement dans leur chemin : rien dans l'URL ne rattache la ressource à
+/// un tenant. C'est exactement la forme où l'isolation repose entièrement sur la politique de
+/// sécurité — et donc celle qu'il faut vérifier en premier.
+#[actix_web::test]
+async fn p08_les_points_de_vente_sont_isoles_meme_par_identifiant_direct() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 PDV A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 PDV B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+
+    // B active RESTAURATION et crée son point de vente.
+    let modules_b = kaya_etablissements::modules::ServiceModules::nouveau(
+        pool.clone(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+    );
+    modules_b
+        .basculer(
+            b.tenant_id,
+            b.etablissement_id,
+            "RESTAURATION",
+            kaya_etablissements::modules::BasculerService {
+                id: uuid::Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation chez B");
+
+    let pdv_b = kaya_etablissements::points_de_vente::ServicePointsDeVente::nouveau(
+        pool.clone(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+    );
+    let (point_b, _) = pdv_b
+        .creer(
+            b.tenant_id,
+            b.etablissement_id,
+            kaya_etablissements::points_de_vente::CreerPointDeVente {
+                id: uuid::Uuid::now_v7(),
+                module_code: "RESTAURATION".to_owned(),
+                nom: "Terrasse de B".to_owned(),
+                caisse_id: None,
+            },
+        )
+        .await
+        .expect("création du point de vente de B");
+
+    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+
+    // A modifie le point de vente de B, par identifiant direct.
+    let requete = actix_web::test::TestRequest::patch()
+        .uri(&format!("/api/v1/points-de-vente/{}", point_b.id))
+        .insert_header((tenant_a.0, tenant_a.1.clone()))
+        .insert_header((compte_a.0, compte_a.1.clone()))
+        .set_json(serde_json::json!({ "nom": "détourné" }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a modifié le point de vente du tenant B par identifiant direct : statut {}",
+        reponse.status()
+    );
+
+    // A pose des tables sur le point de vente de B.
+    let requete = actix_web::test::TestRequest::put()
+        .uri(&format!("/api/v1/points-de-vente/{}/tables", point_b.id))
+        .insert_header((tenant_a.0, tenant_a.1.clone()))
+        .insert_header((compte_a.0, compte_a.1.clone()))
+        .set_json(serde_json::json!({
+            "tables": [{ "id": uuid::Uuid::now_v7(), "libelle": "intrusion" }]
+        }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a posé une table chez le tenant B"
+    );
+
+    // Et le point de vente de B est intact.
+    let apres = pdv_b
+        .lister(b.tenant_id, b.etablissement_id)
+        .await
+        .expect("relecture chez B");
+    assert_eq!(apres.len(), 1);
+    assert_eq!(apres[0].nom, "Terrasse de B", "le nom a été modifié par A");
+    assert!(
+        apres[0].tables.is_empty(),
+        "des tables ont été posées chez B par A : {:?}",
+        apres[0].tables
+    );
 }

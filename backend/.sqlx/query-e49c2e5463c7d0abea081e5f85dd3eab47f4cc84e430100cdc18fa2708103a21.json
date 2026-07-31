@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.table_pdv\n            (id, tenant_id, point_de_vente_id, libelle, actif)\n        VALUES ($1, $2, $3, $4, true)\n        ON CONFLICT (point_de_vente_id, libelle) DO UPDATE SET actif = true\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.table_pdv",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e49c2e5463c7d0abea081e5f85dd3eab47f4cc84e430100cdc18fa2708103a21"
+}

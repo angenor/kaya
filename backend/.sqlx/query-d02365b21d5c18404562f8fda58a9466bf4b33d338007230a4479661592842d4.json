@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT pdv.id, pdv.etablissement_id, em.module_code, pdv.nom,\n               pdv.caisse_id, pdv.actif, pdv.cree_le\n        FROM etablissements.point_de_vente pdv\n        JOIN etablissements.etablissement_module em ON em.id = pdv.etablissement_module_id\n        WHERE pdv.etablissement_id = $1 AND pdv.actif AND em.actif\n        ORDER BY pdv.nom, pdv.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "etablissement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "module_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement_module",
+            "name": "module_code"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "nom",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "nom"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "caisse_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "caisse_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "actif",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "actif"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "etablissements.point_de_vente",
+            "name": "cree_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "d02365b21d5c18404562f8fda58a9466bf4b33d338007230a4479661592842d4"
+}

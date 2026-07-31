@@ -13,6 +13,7 @@
 pub mod erreurs;
 pub mod etablissements;
 pub mod notes;
+pub mod points_de_vente;
 pub mod referentiels;
 pub mod sante;
 pub mod services;
@@ -62,6 +63,22 @@ pub fn configurer(config: &mut ServiceConfig) {
 
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/services").service(services::lister),
+    );
+
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/points-de-vente")
+            .service(points_de_vente::lister)
+            .service(points_de_vente::creer),
+    );
+
+    config.service(
+        scope("/api/v1/points-de-vente/{point_de_vente_id}/tables")
+            .service(points_de_vente::remplacer_tables),
+    );
+
+    config.service(
+        scope("/api/v1/points-de-vente/{point_de_vente_id}")
+            .service(points_de_vente::modifier),
     );
 
     config.service(

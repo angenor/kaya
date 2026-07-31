@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM etablissements.etablissement WHERE tenant_id = $1",
+  "query": "\n        UPDATE etablissements.table_pdv\n        SET actif = false\n        WHERE point_de_vente_id = $1 AND actif\n        RETURNING id\n        ",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "etablissements.etablissement",
+            "table": "etablissements.table_pdv",
             "name": "id"
           }
         }
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "0f066e68898302c45e87d4541c366b86e66642fb2ba4f0b2abb7dc1faba5e7bd"
+  "hash": "ba516b415f178b8cf574f62cc932b45241305b234963cd9cfccf734722c429f5"
 }

@@ -532,6 +532,59 @@ async fn executer_verticale_reelle(
             }
         }
     }
+
+    // ── Points de vente — la moitié la plus visible de la promesse du produit ────────────────
+    //
+    // **Le maquis a le sien ; la résidence meublée n'en a AUCUN, et c'est ce qui est vérifié.**
+    // Un socle qui supposerait l'existence d'un point de vente échouerait ici, sur le parcours (b),
+    // et nulle part ailleurs.
+    let points = kaya_etablissements::points_de_vente::ServicePointsDeVente::nouveau(
+        pool_app.clone(),
+        PgOutboxWriter::nouveau(),
+    );
+
+    match parcours {
+        Parcours::Maquis => {
+            points
+                .creer(
+                    jeu.tenant_id,
+                    jeu.etablissement_id,
+                    kaya_etablissements::points_de_vente::CreerPointDeVente {
+                        id: Uuid::now_v7(),
+                        module_code: parcours.module_code().to_owned(),
+                        nom: "Comptoir du maquis".to_owned(),
+                        caisse_id: None,
+                    },
+                )
+                .await
+                .expect("création du point de vente du maquis");
+
+            let liste = points
+                .lister(jeu.tenant_id, jeu.etablissement_id)
+                .await
+                .expect("lecture des points de vente");
+            assert_eq!(liste.len(), 1, "le maquis doit avoir exactement un point de vente");
+            assert!(
+                liste[0].tables.is_empty(),
+                "le point de vente du maquis naît SANS table — c'est un comptoir, et c'est la \
+                 forme normale, pas un cas dégradé"
+            );
+        }
+        _ => {
+            let liste = points
+                .lister(jeu.tenant_id, jeu.etablissement_id)
+                .await
+                .expect("lecture des points de vente");
+            assert!(
+                liste.is_empty(),
+                "le parcours « {} » porte {} point(s) de vente alors qu'il ne doit en avoir aucun. \
+                 C'est la moitié la plus visible de la promesse du produit : aucune opération du \
+                 socle ne réclame de point de vente.",
+                parcours.nom(),
+                liste.len()
+            );
+        }
+    }
 }
 
 /// Parcours (c) — SQL direct, **transaction annulée**, service fictif.
@@ -599,6 +652,22 @@ async fn executer_agnosticite(pool_owner: &PgPool, a_exercer: &[&'static str]) {
              verticale réelle",
         );
     }
+
+    // **Le parcours d'agnosticité ne crée AUCUN point de vente**, et n'en réclame aucun. La
+    // vérification est faite ici plutôt qu'omise : une absence non vérifiée est indistinguable
+    // d'un oubli d'écriture.
+    let points: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM etablissements.point_de_vente WHERE etablissement_id = $1",
+    )
+    .bind(etablissement_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des points de vente");
+    assert_eq!(
+        points, 0,
+        "le parcours d'agnosticité porte {points} point(s) de vente alors qu'il ne doit en avoir \
+         aucun"
+    );
 
     if a_exercer.contains(&"refus_capacite") {
         // **Aucune capacité déclarée, et l'établissement fonctionne malgré tout.** C'est la forme

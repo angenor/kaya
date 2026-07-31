@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, texte\n            FROM etablissements.note_etablissement\n            WHERE etablissement_id = $1\n            ",
+  "query": "\n        SELECT id, libelle\n        FROM etablissements.table_pdv\n        WHERE point_de_vente_id = $1 AND actif\n        ORDER BY libelle, id\n        ",
   "describe": {
     "columns": [
       {
@@ -9,19 +9,19 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "etablissements.note_etablissement",
+            "table": "etablissements.table_pdv",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "texte",
+        "name": "libelle",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "etablissements.note_etablissement",
-            "name": "texte"
+            "table": "etablissements.table_pdv",
+            "name": "libelle"
           }
         }
       }
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "65361995cda5bd531fd20b93cccec3d560181bb14290ef7fff3495630d7f318e"
+  "hash": "fab57e66b8ecd0ba1413eb40860806b826aaaf5f5e00fbd20bf30c032c3a1607"
 }

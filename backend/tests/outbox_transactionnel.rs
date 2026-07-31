@@ -535,3 +535,139 @@ async fn p05_un_refus_de_capacite_ne_laisse_ni_ligne_ni_evenement() {
          transitions qui n'ont pas eu lieu"
     );
 }
+
+/// **`point_de_vente.cree` / `.modifie` et `table_pdv.creee` / `.desactivee`.**
+///
+/// Le point délicat est le **remplacement d'ensemble** : enregistrer un plan de salle inchangé ne
+/// doit produire aucun événement. Sans filtrage, chaque enregistrement produirait douze
+/// désactivations et douze créations, et le grand livre deviendrait illisible sur la seule table
+/// qu'un exploitant touche souvent.
+#[tokio::test]
+async fn p05_points_de_vente_et_tables() {
+    use kaya_etablissements::modules::{BasculerService, ServiceModules};
+    use kaya_etablissements::points_de_vente::{
+        CreerPointDeVente, ModifierPointDeVente, ServicePointsDeVente, TableDemandee,
+    };
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 points de vente").await;
+    let pool_app = commun::pool_app().await;
+
+    ServiceModules::nouveau(pool_app.clone(), PgOutboxWriter::nouveau())
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "RESTAURATION",
+            BasculerService {
+                id: Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation");
+
+    let service = ServicePointsDeVente::nouveau(pool_app.clone(), PgOutboxWriter::nouveau());
+    let pdv_id = Uuid::now_v7();
+
+    // Création — et rejeu, qui ne doit rien émettre de plus.
+    for _ in 0..2 {
+        service
+            .creer(
+                jeu.tenant_id,
+                jeu.etablissement_id,
+                CreerPointDeVente {
+                    id: pdv_id,
+                    module_code: "RESTAURATION".to_owned(),
+                    nom: "Salle".to_owned(),
+                    caisse_id: None,
+                },
+            )
+            .await
+            .expect("création du point de vente");
+    }
+
+    let apres_creation = types_evenements(&pool_owner, jeu.tenant_id, pdv_id).await;
+    assert_eq!(
+        apres_creation,
+        vec!["point_de_vente.cree"],
+        "création + rejeu ont produit {apres_creation:?}"
+    );
+
+    service
+        .modifier(
+            jeu.tenant_id,
+            pdv_id,
+            ModifierPointDeVente {
+                nom: Some("Grande salle".to_owned()),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("modification");
+
+    let apres_modification = types_evenements(&pool_owner, jeu.tenant_id, pdv_id).await;
+    assert_eq!(
+        apres_modification,
+        vec!["point_de_vente.cree", "point_de_vente.modifie"]
+    );
+
+    // Deux tables posées.
+    let table_1 = Uuid::now_v7();
+    let table_2 = Uuid::now_v7();
+    let tables = || {
+        vec![
+            TableDemandee {
+                id: table_1,
+                libelle: "12".to_owned(),
+            },
+            TableDemandee {
+                id: table_2,
+                libelle: "Terrasse 3".to_owned(),
+            },
+        ]
+    };
+    service
+        .remplacer_tables(jeu.tenant_id, pdv_id, tables())
+        .await
+        .expect("pose des tables");
+
+    for id in [table_1, table_2] {
+        let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+        assert_eq!(types, vec!["table_pdv.creee"], "table {id}");
+    }
+
+    // **Le même plan de salle, réenregistré : AUCUN événement supplémentaire.**
+    service
+        .remplacer_tables(jeu.tenant_id, pdv_id, tables())
+        .await
+        .expect("réenregistrement du même plan de salle");
+
+    for id in [table_1, table_2] {
+        let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+        assert_eq!(
+            types,
+            vec!["table_pdv.creee"],
+            "réenregistrer un plan de salle inchangé a produit {types:?} pour la table {id} : le \
+             grand livre deviendrait illisible sur la table qu'un exploitant touche le plus souvent"
+        );
+    }
+
+    // **Liste vide ⇒ comptoir.** Transition légitime, et les deux tables sont désactivées.
+    let comptoir = service
+        .remplacer_tables(jeu.tenant_id, pdv_id, Vec::new())
+        .await
+        .expect("passage en comptoir");
+    assert!(
+        comptoir.tables.is_empty(),
+        "le point de vente doit être devenu un comptoir"
+    );
+
+    for id in [table_1, table_2] {
+        let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+        assert_eq!(
+            types,
+            vec!["table_pdv.creee", "table_pdv.desactivee"],
+            "table {id} : le retrait doit émettre sa désactivation"
+        );
+    }
+}

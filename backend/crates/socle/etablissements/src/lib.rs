@@ -37,6 +37,7 @@
 pub mod etablissement;
 pub mod modules;
 pub mod note;
+pub mod points_de_vente;
 pub mod tenant_context;
 pub mod traits;
 
