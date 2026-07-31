@@ -46,7 +46,13 @@ ENV SQLX_OFFLINE=true
 # `--locked` : le lockfile fait foi. Sans lui, une construction à six mois d'écart pourrait
 # résoudre des versions différentes, et le support à distance du parc auto-hébergé perdrait sa
 # condition (cadrage §10.2).
-RUN cargo build --release --locked --bin kaya-api --bin seeds
+#
+# **`-p kaya-api` n'est pas facultatif.** Depuis la racine d'un workspace, `--bin <nom>` seul
+# cherche la cible parmi les « default-run packages » — c'est-à-dire le paquet racine, ici le
+# harnais de tests, qui ne produit aucun binaire. Le message d'erreur est particulièrement
+# trompeur : « no bin target named `kaya-api` » suivi de « available bin in `kaya-api` package:
+# kaya-api ». Cargo dit à la fois qu'il ne trouve pas la cible et qu'elle existe.
+RUN cargo build --release --locked -p kaya-api --bin kaya-api --bin seeds
 
 # =================================================================================================
 #  Étape 2 — exécution
