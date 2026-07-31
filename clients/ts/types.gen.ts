@@ -29,6 +29,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sonde de santé du service. */
+        get: operations["sante"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -48,6 +65,27 @@ export interface components {
             id: string;
             /** @description Texte de la note — entre 1 et 2000 caractères après nettoyage. */
             texte: string;
+        };
+        /** @description État d'une dépendance. */
+        EtatDependance: {
+            /**
+             * @description Durée de la vérification, en millisecondes. Utile au diagnostic à distance : une base qui
+             *     répond en 1 800 ms n'est pas encore en panne, mais le sera.
+             */
+            duree_ms: number;
+            /** @description `base`, `cache` ou `stockage_objet`. */
+            nom: string;
+            statut: components["schemas"]["StatutSante"];
+        };
+        /** @description Réponse de la sonde. */
+        EtatSante: {
+            dependances: components["schemas"]["EtatDependance"][];
+            statut: components["schemas"]["StatutSante"];
+            /**
+             * @description Version du binaire — **télémétrie du parc auto-hébergé** (principe VIII), pas une fuite :
+             *     c'est la version de Kaya, jamais celle d'une dépendance.
+             */
+            version: string;
         };
         /** @description Une note interne, telle qu'elle existe en base. */
         NoteEtablissement: {
@@ -79,6 +117,11 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        /**
+         * @description État global du service.
+         * @enum {string}
+         */
+        StatutSante: "operationnel" | "degrade";
     };
     responses: never;
     parameters: never;
@@ -198,6 +241,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    sante: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service opérationnel */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtatSante"];
+                };
+            };
+            /** @description Service dégradé */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtatSante"];
+                };
             };
         };
     };

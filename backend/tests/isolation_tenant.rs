@@ -48,6 +48,10 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/etablissements/{etablissement_id}/notes",
         Regime::Isole,
     ),
+    // Sonde de santé — **seul** régime `SansTenant` légitime de ce cycle : publique, sans
+    // contexte, elle ne touche aucune table applicative (`contracts/http-api.md` §1). Toute
+    // autre route déclarée ainsi doit être justifiée par écrit, ici même.
+    ("/health", Regime::SansTenant),
 ];
 
 /// Les routes **réellement montées**, pas le squelette déclaratif.

@@ -11,10 +11,15 @@
 //! chaque handler porte son propre attribut de routage.
 
 pub mod notes;
+pub mod sante;
 
 use utoipa_actix_web::service_config::ServiceConfig;
 
 pub fn configurer(config: &mut ServiceConfig) {
+    // Sonde de santé — publique, sans contexte de tenant, hors de tout préfixe de version : la
+    // supervision externe doit pouvoir l'interroger sans rien savoir du produit.
+    config.service(sante::sante);
+
     config.service(
         utoipa_actix_web::scope::scope("/api/v1/etablissements/{etablissement_id}/notes")
             .service(notes::lister)
