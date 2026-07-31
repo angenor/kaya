@@ -10,7 +10,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "vitest run",
+    "test": "vitest run --typecheck",
     "test:i18n": "node --experimental-strip-types scripts/test-i18n.ts",
     "lint:tokens": "node --experimental-strip-types scripts/lint-tokens.ts",
     "lint": "eslint ."

@@ -194,3 +194,56 @@ jobs:
         run: pnpm --filter @kaya/app lint
       - name: "P-13 — aucune opération B/C/D dans la file hors ligne"
         run: pnpm --filter @kaya/app test
+
+  # ---------------------------------------------------------------------------------------------
+  #  Récapitulatif — les 21 portes de la constitution
+  # ---------------------------------------------------------------------------------------------
+  #  Un job qui ne fait rien d'autre que refuser de passer au vert si l'un des précédents a
+  #  échoué. Il existe pour une raison précise : `needs` seul laisse un job SAUTÉ compter comme
+  #  un succès. Sans cette vérification explicite, une demande de fusion dont le job `backend`
+  #  aurait été sauté par erreur de filtrage apparaîtrait entièrement verte.
+  portes:
+    needs: [perimetre, portes-statiques, backend, contrat, app]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Bilan des portes
+        run: |
+          echo "P-01 client TS identique          → job contrat"
+          echo "P-02 migrations figées            → job portes-statiques"
+          echo "P-03 hiérarchie des crates        → job backend (tests/architecture.rs)"
+          echo "P-04 jointures inter-schémas      → job portes-statiques (heuristique)"
+          echo "P-05 événement dans la transaction→ job backend (tests/outbox_transactionnel.rs)"
+          echo "P-05b aucune purge du grand livre → job portes-statiques"
+          echo "P-06 capacité hors STOCK/SIMPLE   → job backend (à vide, ETB-02b)"
+          echo "P-07 RLS ENABLE + FORCE           → job backend (tests/rls_catalogue.rs)"
+          echo "P-08 isolation par endpoint       → job backend (tests/isolation_tenant.rs)"
+          echo "P-09 occupation en tstzrange      → job backend (à vide, HEB-02)"
+          echo "P-10 montants entiers             → job portes-statiques"
+          echo "P-11 tests dorés fiscaux          → job backend (à vide, T3)"
+          echo "P-12 fiscalité confinée           → job backend (tests/architecture.rs)"
+          echo "P-13 file de classe A             → job app"
+          echo "P-14 rejeu et désordre            → job backend"
+          echo "P-15 pas de __TAURI__ hors adapt. → job app"
+          echo "P-16 i18n fr/en                   → job app"
+          echo "P-17 jetons de design             → job app"
+          echo "P-18 sqlx prepare                 → job backend"
+          echo "P-19 maquettes non copiées        → job portes-statiques"
+          echo "P-20 versions épinglées           → job portes-statiques"
+
+      - name: Aucun job requis n'a échoué ni été sauté par erreur
+        run: |
+          echec=0
+          for resultat in \
+            "portes-statiques=${{ needs.portes-statiques.result }}" \
+            "backend=${{ needs.backend.result }}" \
+            "contrat=${{ needs.contrat.result }}" \
+            "app=${{ needs.app.result }}"; do
+              nom="${resultat%%=*}"; etat="${resultat#*=}"
+              case "$etat" in
+                  success) echo "  ✓ $nom" ;;
+                  skipped) echo "  · $nom sauté (filtrage par chemins)" ;;
+                  *)       echo "  ✗ $nom : $etat" >&2; echec=1 ;;
+              esac
+          done
+          exit $echec
