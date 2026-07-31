@@ -108,6 +108,31 @@ Trois éléments, aucun optionnel :
   lève une erreur au lieu de ne rien voir. Un résultat vide ne peut se dégrader qu'en résultat
   vide ; une erreur peut être avalée par un `catch` mal placé et devenir un accès ouvert.
 
+### Aucune migration n'écrit de données sur une table en `FORCE ROW LEVEL SECURITY`
+
+*Règle générale issue du cycle 002, à appliquer à toute migration désormais.*
+
+**`INSERT` et `UPDATE` de migration ne fonctionnent pas** sur une table protégée par `FORCE ROW
+LEVEL SECURITY` — et le pire est qu'ils **ne se plaignent pas**.
+
+Une migration s'exécute sous `kaya_owner`. `FORCE` applique les politiques au propriétaire lui-même,
+et `current_setting('app.current_tenant', true)` vaut `NULL` hors requête applicative. La
+comparaison vaut `NULL`, **aucune ligne n'est touchée, et aucune erreur n'est levée** : la migration
+réussit en n'écrivant rien. Le défaut se découvre au premier calcul qui lit la colonne vide.
+
+Trois formes, et laquelle employer :
+
+| Ce qu'on veut écrire | La forme qui marche |
+|---|---|
+| Remplir une colonne ajoutée sur une table peuplée | **`ADD COLUMN ... NOT NULL DEFAULT`** — c'est du DDL, il ne passe par aucune politique. Puis `DROP DEFAULT` si la valeur n'a pas de sens permanent |
+| Peupler un **référentiel global** | `CREATE TABLE` → **`INSERT`** → `ENABLE`/`FORCE` → `CREATE POLICY`. Les valeurs entrent quand la table n'est encore gardée par rien. L'ordre n'est pas interchangeable |
+| Alimenter un référentiel **après** son activation | Une politique `administration_editeur ... FOR ALL TO kaya_owner`, posée à la création. C'est elle qui rend possible un `INSERT` de migration ultérieure |
+| Écrire des données de client | **La mécanique de seeds**, qui pose le tenant courant — jamais une migration |
+
+Le cycle 002 a rencontré les trois : `0007` remplit sept colonnes par `DEFAULT`, `0008` insère les
+quatre référentiels avant d'activer, et `0011` peuple le catalogue **après** activation grâce à la
+politique posée en `0008`.
+
 ### Les privilèges disent la classe hors-ligne
 
 ```sql

@@ -175,3 +175,167 @@ fn recapitulatif_des_portes_installees_a_vide() {
     // asserté pour qu'une porte retirée sans être levée — donc sans remplaçante — se voie.
     assert_eq!(a_vide.len() + levees.len(), 3);
 }
+
+// =================================================================================================
+//  Cycle 002 — des exigences satisfaites PAR CONSTRUCTION, et que rien ne tenait
+// =================================================================================================
+//
+// Elles n'ont ni table ni ligne de code : elles disent ce qui ne doit **pas** exister. Une exigence
+// de cette forme est tenue tant que personne n'écrit le code qui la casse — c'est-à-dire tenue par
+// personne. Les tests ci-dessous la confient à la CI.
+
+/// **FR-008** — aucun compteur d'établissements à visée tarifaire dans ce cycle.
+///
+/// La tarification par paliers d'unités est **ADM-03**, une provision. Compter les établissements
+/// « pour plus tard » ferait entrer une logique d'abonnement dans le socle, à un endroit où
+/// personne ne la chercherait au moment de l'implémenter vraiment.
+#[test]
+fn fr008_aucun_compteur_d_etablissements_a_visee_tarifaire() {
+    let mut suspects = Vec::new();
+    let motifs = ["palier", "abonnement", "facturation_editeur", "quota_etablissement"];
+
+    for repertoire in ["crates/socle/etablissements/src", "api/src"] {
+        for fichier in sources_rust(std::path::Path::new(repertoire)) {
+            let contenu = std::fs::read_to_string(&fichier).unwrap_or_default();
+            // Le corps du code, pas les commentaires : ce fichier nomme lui-même les motifs, et
+            // une exigence qui échouerait sur sa propre justification serait vite désactivée.
+            for (n, ligne) in contenu.lines().enumerate() {
+                let nu = ligne.trim();
+                if nu.starts_with("//") || nu.starts_with('*') {
+                    continue;
+                }
+                for motif in motifs {
+                    if nu.to_lowercase().contains(motif) {
+                        suspects.push(format!("{}:{} — « {motif} »", fichier.display(), n + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    assert!(
+        suspects.is_empty(),
+        "FR-008 — {} occurrence(s) d'une logique tarifaire dans le périmètre du cycle 002 :\n  \
+         {}\n\nLa tarification par paliers est ADM-03, une PROVISION : aucune ligne de code.",
+        suspects.len(),
+        suspects.join("\n  ")
+    );
+}
+
+/// **FR-009** — rien n'empêche un compte d'être rattaché à plusieurs établissements.
+///
+/// Le rattachement lui-même relève de **CPT**. Ce qui se vérifie ici est que le schéma de ce cycle
+/// ne l'a pas rendu impossible par avance : une contrainte d'unicité sur un `compte_id` obligerait
+/// le cycle CPT à une migration corrective, et le défaut ne se verrait qu'au premier gérant
+/// multi-sites.
+#[tokio::test]
+async fn fr009_aucune_contrainte_n_interdit_un_compte_multi_etablissements() {
+    let pool = commun::pool_owner().await;
+
+    let contraintes: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT c.conname || ' → ' || pg_get_constraintdef(c.oid)
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'etablissements'
+          AND c.contype IN ('u', 'f')
+          AND pg_get_constraintdef(c.oid) ILIKE '%compte%'
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture des contraintes");
+
+    assert!(
+        contraintes.is_empty(),
+        "FR-009 — {} contrainte(s) portant sur un compte dans le schéma `etablissements` :\n  \
+         {}\n\n\
+         Le rattachement compte ↔ établissement relève de CPT. Une unicité posée ici par avance \
+         obligerait ce cycle à une migration corrective.",
+        contraintes.len(),
+        contraintes.join("\n  ")
+    );
+}
+
+/// **FR-019** — `SALLE_REUNION` reste une spécialisation d'hébergement, sans entité nouvelle.
+///
+/// C'est un **module d'activité**, une ligne de référentiel — pas un domaine. Lui donner ses
+/// propres tables dupliquerait la disponibilité, l'occupation et la tarification que
+/// `verticales/hebergement` porte déjà, et les deux divergeraient au premier barème.
+#[tokio::test]
+async fn fr019_salle_reunion_n_a_ni_table_ni_colonne_propre() {
+    let pool = commun::pool_owner().await;
+
+    let objets: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT table_name || '.' || column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'etablissements'
+          AND (table_name ILIKE '%salle%' OR column_name ILIKE '%salle%'
+               OR table_name ILIKE '%reunion%' OR column_name ILIKE '%reunion%')
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture du catalogue");
+
+    assert!(
+        objets.is_empty(),
+        "FR-019 — {} objet(s) de schéma propre(s) à SALLE_REUNION :\n  {}\n\n\
+         C'est un module d'activité, donc une LIGNE DE RÉFÉRENTIEL.",
+        objets.len(),
+        objets.join("\n  ")
+    );
+}
+
+/// **FR-079 / FR-080** — aucune table de provision, aucun sélecteur de contexte.
+///
+/// ETB-07 (partenaires, compensation) et ETB-08 (enrichissement du référentiel) sont des
+/// **provisions** : le principe X impose « prêt ≠ construit ». ETB-06 (sélecteur de contexte) est
+/// P1, hors périmètre.
+///
+/// ETB-08 est d'ailleurs **déjà satisfaite sans écrire une valeur** : les référentiels étant en
+/// table, ajouter `SPA` sera un `INSERT`, pas une migration.
+#[tokio::test]
+async fn fr079_fr080_aucune_provision_ni_selecteur_construit() {
+    let pool = commun::pool_owner().await;
+
+    let interdites: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'etablissements'
+          AND table_name IN ('partenaire', 'demande_partenaire', 'compte_compensation',
+                             'selection_etablissement', 'contexte_utilisateur')
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture du catalogue");
+
+    assert!(
+        interdites.is_empty(),
+        "FR-079/FR-080 — {} table(s) de provision ou hors périmètre créée(s) :\n  {}\n\n\
+         « Prêt » veut dire que rien ne bloque, pas que c'est écrit (principe X).",
+        interdites.len(),
+        interdites.join("\n  ")
+    );
+}
+
+/// Parcourt un répertoire de sources Rust.
+fn sources_rust(racine: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut trouves = Vec::new();
+    let Ok(entrees) = std::fs::read_dir(racine) else {
+        return trouves;
+    };
+    for entree in entrees.flatten() {
+        let chemin = entree.path();
+        if chemin.is_dir() {
+            trouves.extend(sources_rust(&chemin));
+        } else if chemin.extension().is_some_and(|e| e == "rs") {
+            trouves.push(chemin);
+        }
+    }
+    trouves
+}

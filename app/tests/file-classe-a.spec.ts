@@ -117,3 +117,67 @@ describe('registre des types de classe A', () => {
     expect(estTypeClasseA('encaissement.enregistre')).toBe(false)
   })
 })
+
+/**
+ * **P-13, côté application — le cycle 002 n'a ajouté AUCUN type à la file locale.**
+ *
+ * Les onze entités du cycle sont toutes de **classe C** : référentiels, activations, points de
+ * vente, configuration, identité visuelle. Aucune ne s'écrit hors ligne, donc aucune n'entre ici.
+ *
+ * # Pourquoi vérifier une absence
+ *
+ * Parce qu'une absence ne se voit pas. `TYPES_CLASSE_A` est une liste que chaque cycle est invité
+ * à remplir — le commentaire qui la suit le dit explicitement. Le jour où quelqu'un y ajoutera
+ * `etablissement_module.active` « pour que l'activation marche hors ligne », rien d'autre ne
+ * l'arrêtera : le type compile, la file l'accepte, et l'activation d'un service partirait dans une
+ * file locale alors qu'elle exige la base.
+ *
+ * Ce test est ce qui rend cette liste **opposable**.
+ */
+describe('P-13 — le cycle 002 n’ajoute aucun type de classe A', () => {
+  /** Les onze entités du cycle 002, toutes de classe C au registre. */
+  const ENTITES_CYCLE_002 = [
+    'etablissement',
+    'module_activite',
+    'capacite',
+    'profil_stock',
+    'etablissement_module',
+    'module_capacite',
+    'point_de_vente',
+    'table_pdv',
+    'parametre_catalogue',
+    'parametre_configuration',
+    'branding',
+  ]
+
+  it('aucune entité du cycle 002 ne figure dans TYPES_CLASSE_A', () => {
+    const intrus = TYPES_CLASSE_A.filter((type) =>
+      ENTITES_CYCLE_002.some((entite) => type.startsWith(`${entite}.`)),
+    )
+
+    expect(
+      intrus,
+      'Ces types appartiennent à des entités de classe C : elles ne s’écrivent JAMAIS hors ligne '
+      + '(docs/registre-classes-offline.md §5.1). Les mettre en file locale ferait partir une '
+      + 'activation de service ou une écriture de configuration dans une file qui sera rejouée — '
+      + 'alors que ces opérations exigent la base pour valider leurs contraintes.\n  '
+      + intrus.join('\n  '),
+    ).toEqual([])
+  })
+
+  it('la file locale ne porte encore que le type du module doré', () => {
+    // Assertion de non-régression : si un cycle ajoute légitimement un type de classe A, ce test
+    // échoue et l'oblige à venir écrire ici pourquoi. Sans elle, la liste grossirait sans que
+    // personne ne repasse sur la question.
+    expect(TYPES_CLASSE_A).toEqual(['note_etablissement.creee'])
+  })
+
+  it('aucune entité du cycle 002 n’est réalisable hors ligne', () => {
+    for (const entite of ENTITES_CYCLE_002) {
+      expect(
+        estTypeClasseA(`${entite}.creee`),
+        `« ${entite} » est de classe C : aucune de ses opérations ne doit être réalisable hors ligne`,
+      ).toBe(false)
+    }
+  })
+})

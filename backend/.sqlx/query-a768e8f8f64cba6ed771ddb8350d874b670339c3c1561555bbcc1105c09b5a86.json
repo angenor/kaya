@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.etablissement\n            (id, tenant_id, nom, fuseau_horaire, devise, commune)\n        VALUES ($1, $2, $3, 'Africa/Abidjan', 'XOF', 'Abengourou')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a768e8f8f64cba6ed771ddb8350d874b670339c3c1561555bbcc1105c09b5a86"
+}

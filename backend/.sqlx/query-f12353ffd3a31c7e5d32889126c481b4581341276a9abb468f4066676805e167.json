@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"compte!\"\n        FROM etablissements.module_capacite mc\n        JOIN etablissements.etablissement_module em ON em.id = mc.etablissement_module_id\n        WHERE em.etablissement_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "compte!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f12353ffd3a31c7e5d32889126c481b4581341276a9abb468f4066676805e167"
+}

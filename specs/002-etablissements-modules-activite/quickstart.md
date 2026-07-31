@@ -252,6 +252,55 @@ psql "$DATABASE_URL_APP" -c "…"   # avec app.current_tenant posé
 
 ---
 
+## Déroulé réel — 2026-07-31, T053
+
+*Consigné plutôt que corrigé en silence : le quickstart décrit l'attendu, cette section dit
+l'observé.*
+
+Les huit vérifications ont été déroulées dans l'ordre, sur la base des seeds rechargés. **Toutes
+vertes.** Quatre écarts entre l'attendu et l'observé, tous en faveur du produit sauf le dernier.
+
+| § | Écart entre l'attendu et l'observé |
+|---|---|
+| **1** | Décompte à **3 exercées / 8** au moment de la rédaction du guide, **4 / 8** à la clôture — l'étape `resolution_configuration` a été branchée par la Phase 6, postérieure au guide. Le message d'échec observé au test négatif diffère aussi de celui écrit ici : il nomme `fiscalite.document_fiscal` et **les trois parcours séparément**, alors que le guide n'en montrait qu'un. Trois manquements, pas un — brancher l'étape sur un seul parcours ne suffirait pas |
+| **6** | `ls backend/api/.sqlx` est le **mauvais chemin** : le cache vit à `backend/.sqlx`, à la racine du workspace. Le décompte réel est **95 fichiers pour 109 macros `query!`** — l'écart de 14 est la déduplication par empreinte du SQL, deux requêtes littéralement identiques ne produisant qu'un fichier. Le guide laissait attendre l'égalité |
+| **7** | Le recollement annonce **11/11 types d'événements** ; le décompte réel est **13**. Le tableau de `data-model.md` compte onze *lignes*, mais deux d'entre elles portent chacune deux types (`point_de_vente.cree` / `.modifie`, `table_pdv.creee` / `.desactivee`). C'est le décompte du recollement qui fait foi — un total tiré du nombre de lignes d'un tableau compte des lignes, pas des types |
+| **2** | **Le guide ne pouvait pas être suivi tel quel** : `pnpm dev` seul ne suffit pas, l'écran a besoin de quatre variables d'environnement (`NUXT_PUBLIC_API_BASE_URL`, `TENANT_ID`, `COMPTE_ID`, `ETABLISSEMENT_ID`) — le contexte d'appel étant encore le provisoire `CONTEXTE_PAR_EN_TETES`. Corrigé ci-dessous |
+
+**Commande réelle pour la vérification 2** :
+
+```sh
+cd app && NUXT_PUBLIC_API_BASE_URL=http://localhost:8080 \
+  NUXT_PUBLIC_TENANT_ID=0198c4a0-0000-7000-8000-000000000001 \
+  NUXT_PUBLIC_COMPTE_ID=<un uuid quelconque> \
+  NUXT_PUBLIC_ETABLISSEMENT_ID=0198c4a0-0000-7000-8000-000000000002 \
+  pnpm dev
+```
+
+Pour la **Résidence Test**, remplacer le tenant par `…011` et l'établissement par `…012`. Les deux
+identifiants vont **ensemble** : viser l'établissement d'un autre tenant rend `404`, ce qui est
+l'isolation qui fonctionne, pas une erreur de manipulation.
+
+### Les deux critères chiffrés, mesurés
+
+*Un critère chiffré que personne ne mesure n'est pas un critère.*
+
+Mesures d'**aller-retour d'API**, binaire en `--release`, base locale, trois exécutions chacune :
+
+| Critère | Cible | Mesuré | Marge |
+|---|---|---|---|
+| **SC-008** — activation d'un service | 30 s à l'écran | **10 à 42 ms** | l'aller-retour est négligeable devant les 30 s, qui couvrent la saisie humaine |
+| **SC-009** — aperçu d'identité visuelle | 2 s | **0,5 à 0,7 ms** | l'aperçu ne touche aucune table et n'écrit rien |
+| Résolution de configuration | une descente | **4 à 7 ms** | une seule requête, conforme à la conception |
+
+**Ce que ces chiffres ne disent pas.** Ils sont pris sur un poste de développement `arm64`, base
+locale, sans latence réseau. La production est un VPS Contabo `linux/amd64` atteint depuis
+Abengourou : les mesures ne se transposent pas. Ce qu'elles établissent est qu'**aucune des trois
+opérations n'est structurellement lente** — pas qu'elles tiendront la cible sur le terrain, ce que
+seule une mesure sur le pilote dira.
+
+---
+
 ## Ce qui n'est pas vérifiable à ce cycle
 
 Consigné explicitement plutôt que coché en silence — même règle qu'au cycle 001.
