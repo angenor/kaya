@@ -191,6 +191,22 @@ sur `tstzrange`.
 Sans elle, la porte P-08 n'aurait aucun moyen de se présenter comme deux tenants différents, et
 elle aurait attendu CPT-01 — trois cycles auraient écrit des endpoints sans qu'elle les voie.
 
+### 4.3 bis — Redis non démarré localement, sonde vérifiée malgré tout
+
+L'image `redis:8.8.1` du gel §4.2 n'a **pas pu être téléchargée** sur le poste : le
+téléchargement, lancé plusieurs fois, n'a jamais abouti dans le temps du cycle. Ni le tag ni la
+configuration ne sont en cause — l'image est vérifiée disponible en `amd64` et `arm64` au §4.2 du
+gel, et le service est déclaré dans `infra/compose.yml`.
+
+**Ce que cela n'empêche pas** : la sonde `/health` a été exercée et rapporte le cache comme
+`degrade`, avec la base `operationnel`. C'est précisément le comportement attendu, et il constitue
+la meilleure démonstration possible du point qui fait la valeur de la sonde — **elle vérifie par
+requête réelle, pas par l'état d'un pool en mémoire**. Un pool aurait rapporté « sain ».
+
+**Ce qui reste dû** : démarrer les trois services ensemble et constater `/health` en `200` avec
+les trois dépendances opérationnelles. En CI, le service `cache` est déclaré et Redis y sera
+disponible.
+
 ### 4.4 Deux tâches non exécutées
 
 | Tâche | Ce qui manque | Effet |
