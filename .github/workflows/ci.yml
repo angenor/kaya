@@ -116,11 +116,13 @@ jobs:
             -v ON_ERROR_STOP=1 -c "ALTER ROLE kaya_owner PASSWORD 'motdepasse_ci';"
 
       - name: "P-18 — cargo sqlx prepare vert"
-        working-directory: backend
         run: |
           cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres,rustls
-          cargo sqlx migrate run
-          cargo sqlx prepare --workspace --check -- --all-targets
+          # Depuis `backend/api` : sqlx-cli cherche `sqlx.toml` dans le répertoire courant, et
+          # c'est là qu'il vit. Le lancer depuis `backend/` ferait tenir au CLI et à la macro
+          # `sqlx::migrate!()` deux tables de suivi distinctes.
+          ( cd backend/api && cargo sqlx migrate run --source ../migrations )
+          ( cd backend && cargo sqlx prepare --workspace --check -- --all-targets )
 
       - name: Compilation
         working-directory: backend

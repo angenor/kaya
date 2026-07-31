@@ -31,7 +31,12 @@ services:
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      # **PostgreSQL 18 monte `/var/lib/postgresql`, plus `/var/lib/postgresql/data`.** L'image
+      # place désormais les données dans un sous-répertoire nommé d'après la version majeure,
+      # pour rendre `pg_upgrade --link` possible sans franchir une frontière de montage. Monter
+      # l'ancien chemin fait échouer le conteneur au démarrage, avec un message qui parle de
+      # migration alors que le volume est vide — piège coûteux, consigné ici plutôt que redécouvert.
+      - db_data:/var/lib/postgresql
       # Crée le rôle `kaya_owner` — un rôle n'est pas un objet de schéma, il ne relève donc pas
       # du principe I(b). Tout le reste (schémas, tables, politiques) vient des migrations sqlx,
       # sans exception.

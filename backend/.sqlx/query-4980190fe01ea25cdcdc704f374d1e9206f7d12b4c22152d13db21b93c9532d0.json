@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT synchronisation.prochaine_sequence($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "prochaine_sequence",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4980190fe01ea25cdcdc704f374d1e9206f7d12b4c22152d13db21b93c9532d0"
+}

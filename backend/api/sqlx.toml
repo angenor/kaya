@@ -1,0 +1,40 @@
+# Configuration sqlx — apport propre à la version 0.9 du gel.
+#
+# Ce fichier n'existait pas en 0.8 : c'est l'une des deux raisons pour lesquelles
+# `docs/versions-gelees.md` retient `0.9.0` malgré la rupture d'API qu'elle impose.
+#
+# ## Pourquoi il est ici et pas à la racine du workspace — piège coûteux, à connaître
+#
+# sqlx résout `sqlx.toml` depuis `$CARGO_MANIFEST_DIR`, c'est-à-dire **le répertoire du
+# `Cargo.toml` du crate qui appelle la macro**, jamais la racine du workspace. Un `sqlx.toml`
+# posé dans `backend/` est bien lu par `sqlx-cli` — qui, lui, part du répertoire courant — mais
+# ignoré par `sqlx::migrate!()` compilé dans `backend/api`.
+#
+# Le symptôme est trompeur : les deux outils tiennent alors **deux tables de suivi
+# différentes**. Le CLI inscrit les migrations dans `kaya_migrations._migrations_appliquees`, la
+# macro cherche dans `public._sqlx_migrations`, n'y trouve rien, et rejoue tout au démarrage du
+# binaire — échec sur « relation "tenant" already exists », qui ne dit rien de la cause réelle.
+#
+# Conséquence pour les outils : `cargo sqlx migrate run` s'exécute **depuis `backend/api`**, avec
+# `--source ../migrations`. C'est ce que font `scripts/dev/preparer-base.sh` et la CI.
+
+[migrate]
+# La table de suivi quitte `public`. Deux effets :
+#
+#   1. Elle cesse d'être une table sans politique de sécurité au milieu d'un schéma applicatif.
+#      La porte P-07 la traite par une **liste d'exclusion nommée** (R-09) — et une exclusion est
+#      d'autant plus sûre que la table exclue est identifiable, pas noyée parmi les autres.
+#   2. Elle ne peut plus entrer en collision avec une table métier, ni être confondue avec une
+#      par un script de maintenance.
+table-name = "kaya_migrations._migrations_appliquees"
+
+# Le schéma de la table ci-dessus doit exister avant la première migration.
+create-schemas = ["kaya_migrations"]
+
+[macros.preferred-crates]
+# Les macros `query!` doivent produire `time::OffsetDateTime` pour `TIMESTAMPTZ`, pas `chrono`.
+# Sans cette ligne, la préférence dépendrait des features actives, donc de l'ordre de résolution
+# des dépendances. Le contrat HTTP (`contracts/http-api.md` §2.2) nomme `OffsetDateTime` ; une
+# divergence ferait échouer la compilation loin de sa cause.
+date-time = "time"
+numeric = "rust_decimal"

@@ -152,6 +152,8 @@ serde_json = { workspace = true }
 time = { workspace = true }
 utoipa = { workspace = true }
 dotenvy = { workspace = true }
+futures = { workspace = true }
+kaya-fiscalite = { workspace = true }
 
 # ---------------------------------------------------------------------------------------------
 #  Profils
