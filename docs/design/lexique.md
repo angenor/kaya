@@ -29,6 +29,19 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | Synchronisation | « Enregistré » / « En attente d'envoi (4) » / « Hors connexion » |
 | Attestation d'intégrité, enrôlement | « Téléphones autorisés » |
 | `note_etablissement` | « **Note interne** » / *Internal note* — jamais « note d'établissement » : le §6 pose déjà que l'utilisateur est toujours dans le sien, le mot serait superflu sur un bouton |
+| `capacite` | **N'apparaît jamais.** Le mot est un terme d'architecture — il nomme le transverse (stock, livraison, fidélité) par opposition au module d'activité. L'utilisateur ne voit que la **capacité concrète**, sous le service qui la consomme |
+| `STOCK` (capacité) | « **Suivi du stock** » / *Stock tracking* — affiché sous le service qui le consomme, jamais comme une rubrique à part |
+| `point_de_vente` | « **Point de vente** » / *Point of sale* |
+| `point_de_vente` sans `table_pdv` | « **Comptoir** » / *Counter* — l'absence de tables **est** le comptoir. Jamais « point de vente sans tables », qui décrit un manque là où il s'agit d'une forme normale |
+| Valeur héritée d'un niveau supérieur | « **Vaut pour tous vos établissements** » / *Applies to all your establishments* — jamais « hérité », « valeur par défaut » ni « niveau tenant » |
+| Valeur surchargée au niveau courant | « **Modifié ici** » / *Changed here* — jamais « surcharge », « override » ni « exception » |
+
+**Deux termes fiscaux conservés tels quels — règle 2 ci-dessous.** `classement` (« non classé »,
+« résidence meublée », le nombre d'étoiles) et **« numéro de compte contribuable (NCC) »** gardent
+leur nom officiel à l'écran comme sur les documents. Ce ne sont pas des noms techniques traduits en
+jargon : ce sont les termes que l'administration emploie, que l'exploitant lit sur ses propres
+papiers, et qu'il reconnaîtrait mal sous une reformulation. Consigné ici explicitement pour qu'une
+relecture future ne les prenne pas pour un oubli d'entrée au lexique.
 
 **Règle** : tout nouveau concept technique visible par l'utilisateur entre **dans ce fichier**
 avant d'être codé. Fait partie de la Definition of Done (`docs/user-stories-v1.md` §0.4)

@@ -59,5 +59,25 @@ opposables. Les choix réellement ouverts — schéma exact, forme du trait de r
 taille du logo, mécanisme de détection des étapes dues — sont explicitement renvoyés à
 `/speckit-plan`. Même arbitrage qu'au cycle 001.
 
+**Itération 2 — 2026-07-31, après `/speckit-analyze`.** L'analyse croisée spec ↔ plan ↔ tâches ↔
+constitution a relevé quinze écarts, dont deux critiques. Corrections appliquées à la
+spécification :
+
+1. **FR-070 réduit à ce que le cycle livre.** Il exigeait une lecture en cache hors connexion
+   « avec fraîcheur affichée » — que **rien** n'implémentait : le mot n'apparaissait que dans la
+   tâche de mise à jour du registre. Le mécanisme de cache relève de SYN-01/02 et le témoin de
+   fraîcheur d'ETB-06, tous deux hors périmètre. L'exigence porte désormais sur la
+   **classification** (écriture C / lecture A) et sur l'absence de chemin d'écriture hors ligne.
+2. **FR-072 : « consultable » retiré.** L'événement de changement de classement ou de fuseau
+   s'écrit ici ; l'écran qui le donne à lire est le journal d'audit (CPT-04). La spécification
+   promettait ce que le cycle ne livre pas.
+3. **Deux lignes ajoutées au § Out of Scope** pour nommer ces deux frontières, plutôt que de les
+   laisser se deviner.
+
+Les douze autres écarts portaient sur le plan, les tâches et le modèle de données — dont trois
+portes à décompte (P-05, P-07, P-08) dont l'extension répartie sur plusieurs phases laissait
+huit opérations et trois types d'événements sans vérification. Ils sont corrigés dans leurs
+fichiers respectifs.
+
 **Prêt pour la suite.** Les huit décisions par défaut sont consignées en § Assumptions et
-révisables. Aucune ne bloque `/speckit-plan`.
+révisables. Aucune ne bloque `/speckit-implement`.

@@ -4,7 +4,7 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.4 — vérifié le 2026-07-31**
+**Version du gel : 1.0.5 — vérifié le 2026-07-31**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
@@ -147,6 +147,55 @@ entrent dans le lockfile et la porte P-20 les couvre.
 | `openapi-typescript` | **7.13.0** | **Génère les types TS depuis `openapi.json`** — le seul artefact généré (principe I·a, porte P-01) |
 | `openapi-fetch` | **0.17.0** | Client fetch typé, ~6 kB — **écrit à la main, jamais généré** |
 | `typescript` | **5.9.3** ⚠️ | `peerDependency` de `openapi-typescript` — **dernière 5.x, pas la dernière stable** |
+| `vitest` | **4.1.10** | Tests de l'application et des surfaces web |
+| `eslint` | **10.8.0** | Lint — porte **P-15** (`window.__TAURI__` hors PlatformAdapter) |
+| `@eslint/js` | **10.0.1** | Configuration de base d'eslint |
+| `eslint-plugin-vue` | **10.10.0** | Règles Vue |
+| `typescript-eslint` | **8.65.0** | Règles TypeScript |
+| `@tailwindcss/vite` | **4.3.3** | Greffon Vite de Tailwind 4 — aligné sur `tailwindcss` |
+| `@vue/test-utils` | **2.4.11** | Montage de composants Vue en test — **SC-005** : aucun service inactif dans le HTML rendu |
+| `happy-dom` | **20.11.1** | Environnement DOM de Vitest, requis par le montage ci-dessus |
+| `@vitejs/plugin-vue` | **6.0.8** | Compile les composants monofichiers pour Vitest **hors Nuxt** — sans lui, `@vue/test-utils` ne peut monter aucun `.vue` |
+| `@types/node` | **24.13.3** ⚠️ | Types du runtime — **dernière `24.x`, alignée sur Node `24.18.1`**, pas la dernière stable |
+
+> **`@types/node` — dette du cycle 001, réparée au gel 1.0.6.** `app/tsconfig.test.json` typait
+> déjà `scripts/**/*.ts`, mais aucun paquet ne fournissait les types de `node:fs` et `node:path` :
+> `pnpm test` sortait en **échec permanent** sur six `TypeCheckError`, avec dix-huit tests pourtant
+> verts. Un `pnpm test` rouge en permanence est un `pnpm test` que personne ne lit — et les deux
+> fichiers non typés sont ceux des portes **P-16** et **P-17**.
+>
+> **`24.13.3`, pas `26.1.2`.** Les types du runtime suivent la ligne majeure du runtime : Node est
+> gelé en `24.18.1` LTS (§3.3), donc la dernière `24.x` est la seule valeur cohérente. Même
+> dérogation raisonnée au « dernière stable » que Node lui-même. Vérifiée sur
+> `https://registry.npmjs.org/@types/node` le 2026-07-31 (`dist-tags.latest` = `26.1.2`, dernière
+> `24.x` = `24.13.3`, publiée le 2026-07-08). **Condition de suivi** : toute montée de Node au gel
+> §3.3 impose de remonter ce paquet à la même majeure.
+
+> **Trois paquets ajoutés au gel 1.0.6 — la décision ouverte du cycle 002 (T004), tranchée.**
+> `plan.md` la laissait ouverte entre *ajouter* et *refuser*, sans proposer de version
+> (principe XI). **Ajout retenu** : SC-005 exige de constater qu'aucun libellé ni code de service
+> inactif n'apparaît **dans le HTML rendu** de `G1`. Le vérifier sur la seule fonction de sélection
+> testerait l'intention, pas le résultat — or « un service inactif est **absent**, jamais grisé »
+> (principe VII) est une garantie de rendu, et c'est exactement le genre de propriété qu'un
+> composant peut perdre sans que sa fonction de sélection change.
+>
+> Le troisième paquet n'était pas prévu par le plan, qui n'en annonçait que deux. `@vue/test-utils`
+> monte un composant **déjà compilé** ; hors du pipeline Nuxt, rien ne compile un fichier `.vue`
+> pour Vitest. `@vitejs/plugin-vue` est donc une dépendance technique du choix, pas un ajout de
+> confort — signalé plutôt que glissé dans le lot.
+>
+> Vérifiés sur `https://registry.npmjs.org/` le 2026-07-31 : `@vue/test-utils` **2.4.11**
+> (2026-06-04, `peerDependencies: { vue: "3.x" }` — satisfaite par le Vue 3 de Nuxt 4.5.1),
+> `happy-dom` **20.11.1** (2026-07-22, aucune `peerDependency`), `@vitejs/plugin-vue` **6.0.8**
+> (2026-07-14, `peerDependencies: { vue: "^3.2.25", vite: "^5 || ^6 || ^7 || ^8" }` — satisfaite
+> par le Vite de Nuxt 4.5.1). Les trois sont à la dernière stable.
+
+> **Six paquets ajoutés au gel 1.0.5.** Ils étaient déclarés dans `app/package.json` depuis le
+> cycle 001 **sans figurer au gel** — donc épinglés dans la bonne forme, mais adossés à aucune
+> décision tracée. Écart relevé par l'analyse du cycle 002 (T004), pas par la porte P-20 : c'est
+> précisément le trou décrit au **§4.3**. Les six ont été vérifiés sur le registre npm au
+> 2026-07-31 et sont chacun à la dernière stable — les valeurs du dépôt sont donc confirmées, non
+> corrigées.
 
 #### Génération du client TypeScript — ajoutée au gel 1.0.3
 
@@ -371,7 +420,10 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.6 | 2026-07-31 | **`@types/node` `24.13.3` inscrit — dette du cycle 001.** `app/tsconfig.test.json` typait `scripts/**/*.ts` sans qu'aucun paquet ne fournisse les types de `node:fs` / `node:path` : `pnpm test` échouait en permanence sur six `TypeCheckError`, alors que ses dix-huit tests passaient. Les deux fichiers non typés portent les portes **P-16** et **P-17**. Version alignée sur la ligne majeure du runtime gelé (Node `24.18.1` LTS), donc dernière `24.x` et non `latest` (`26.1.2`) — même dérogation raisonnée que Node. Vérifiée sur `https://registry.npmjs.org/@types/node` le 2026-07-31. Suivi : toute montée de Node au §3.3 impose la même montée ici. |
+| 1.0.6 | 2026-07-31 | **Trois paquets de test front inscrits — décision T004 du cycle 002, tranchée dans le sens de l'ajout.** `@vue/test-utils` **2.4.11**, `happy-dom` **20.11.1**, `@vitejs/plugin-vue` **6.0.8**, vérifiés sur `https://registry.npmjs.org/` le 2026-07-31, `peerDependencies` contrôlées une par une contre Vue 3 / Vite de Nuxt 4.5.1. `plan.md` laissait le choix ouvert entre ajouter et refuser, sans version : refuser aurait réduit SC-005 à un test de la fonction de sélection, c'est-à-dire à vérifier l'intention plutôt que le HTML produit — or « un service inactif est absent, jamais grisé » est une propriété de rendu. **Le plan n'en annonçait que deux** : le troisième est la dépendance technique qui compile un `.vue` hors du pipeline Nuxt, signalée ici plutôt que glissée dans le lot. À reporter à la revue du 2026-08-31 comme les six du gel 1.0.5. |
 | 1.0.4 | 2026-07-31 | **TypeScript reculé de `7.0.2` à `5.9.3`** — corrige une erreur du gel 1.0.3, constatée à l'exécution au cycle 001. `openapi-typescript` 7.13.0 déclare `peerDependencies: { typescript: "^5.x" }` et TypeScript 7 a modifié l'API `ts.factory` : la génération du client échoue sur `TypeError: Cannot read properties of undefined (reading 'createKeywordTypeNode')`, donc la porte **P-01** ne peut pas s'exécuter. `5.9.3` vérifiée sur `https://registry.npmjs.org/typescript` le 2026-07-31 comme dernière `5.x`. Dérogation raisonnée au « dernière stable », de même nature que Node LTS. Condition de levée : `openapi-typescript` déclare `typescript ^7`. **Leçon de gouvernance** : le §3.1 vérifiait la compatibilité inter-crates, le §3.2 ne le faisait pas pour les paquets npm — l'écart est comblé. |
+| 1.0.5 | 2026-07-31 | **Six paquets JS inscrits au gel** — `vitest` 4.1.10, `eslint` 10.8.0, `@eslint/js` 10.0.1, `eslint-plugin-vue` 10.10.0, `typescript-eslint` 8.65.0, `@tailwindcss/vite` 4.3.3. Ils vivaient dans `app/package.json` depuis le cycle 001 sans décision tracée. Vérifiés sur npm : tous à la dernière stable, valeurs du dépôt confirmées. Écart trouvé par l'analyse du cycle 002, **pas par P-20** — le complément du §4.3 reste à écrire. |
 | 1.0.4 | 2026-07-31 | **`typescript` corrigé de `7.0.2` à `5.9.3`** — le gel se contredisait : `openapi-typescript` 7.13.0 exige `peerDependencies: { typescript: "^5.x" }`, que `7.0.2` violait. Divergence relevée par l'implémentation du cycle 1, qui avait déclaré `5.9.3` dans les quatre manifestes JS — **la déviation était juste**. La porte P-20 ne l'a pas signalée parce qu'elle vérifie la **forme** (numéro exact) et non les **valeurs** ; complément à écrire, cf. §4.3. |
 | 1.0.3 | 2026-07-30 | **Générateur de client TypeScript ajouté** — lacune du gel initial signalée par le plan du cycle 1 : la porte P-01 était inapplicable faute de générateur. Retenus : `openapi-typescript` **7.13.0** (types seulement) + `openapi-fetch` **0.17.0** (runtime écrit à la main) + `typescript` **7.0.2** (peerDependency). Critère de choix : minimiser la surface générée soumise à P-01. Écartés avec motif : `@hey-api/openapi-ts` 0.99.0 (`0.x`), `orval` 8.23.0, `oazapfts` 7.5.0. Deux exigences à valider au cycle 1 avant de clore US5 : déterminisme d'octet vérifié par `cmp`, et ordre de membres stable indépendant de l'ordre de découverte utoipa. |
 | 1.0.2 | 2026-07-30 | **Cible de déploiement arrêtée : Docker sur VPS Contabo** (mode A). **PostgreSQL `18.4` confirmée, arbitrage fermé** — version maîtrisée en auto-géré, EOL 2030-11-14 retenu pour la conservation fiscale de 10 ans ; `17.10` reste l'option du paquet auto-hébergé (mode B). Ajout du §4.2 : les trois images Docker vérifiées disponibles en **amd64 et arm64**, donc un seul `compose.yml` pour le poste Apple Silicon et le VPS. Consigné : le binaire Rust n'est pas multi-architecture — construction de production **dans Docker pour `linux/amd64`**, jamais par copie locale. Consigné aussi : `dxflrs/garage` publie des tags de hash de commit qui masquent les tags sémantiques dans un tri par date — toujours interroger par nom. |

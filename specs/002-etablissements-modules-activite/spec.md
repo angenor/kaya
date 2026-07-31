@@ -389,10 +389,11 @@ réponse est testable.
 - **Écriture d'un référentiel par un tenant.** Refusée : les deux référentiels sont globaux à la
   plateforme et en lecture seule pour les tenants. Leur enrichissement relève de l'éditeur
   (ETB-08, provision).
-- **Lecture de la configuration hors connexion.** Autorisée, avec **fraîcheur affichée** :
-  l'écriture d'un référentiel est de classe C, sa lecture en cache est de classe A. Confondre les
-  deux rendrait le produit inutilisable hors ligne, ou ouvrirait une écriture de référentiel sur un
-  terminal.
+- **Lecture de la configuration hors connexion.** L'écriture d'un référentiel est de classe C, sa
+  lecture en cache est de classe A — avec fraîcheur affichée. Confondre les deux rendrait le
+  produit inutilisable hors ligne, ou ouvrirait une écriture de référentiel sur un terminal. **Ce
+  cycle pose cette classification au registre ; le cache lui-même et son témoin de fraîcheur sont
+  construits par SYN-01/02 et ETB-06** (voir § Out of Scope).
 
 ## Requirements *(mandatory)*
 
@@ -597,17 +598,21 @@ réponse est testable.
 - **FR-069**: Toutes les entités de ce cycle DOIVENT être déclarées de classe hors-ligne **C** dans
   `docs/registre-classes-offline.md` §5.1, et un test DOIT **échouer si l'une de leurs écritures
   est atteignable depuis un chemin de code exécutable hors ligne** (porte P-13, §0.7).
-- **FR-070**: La **lecture en cache** d'un référentiel ou d'un paramètre résolu DOIT rester
-  possible hors connexion, **avec fraîcheur affichée**, sans jamais ouvrir un chemin d'écriture hors
-  ligne. La distinction entre l'écriture (classe C) et la lecture en cache (classe A) DOIT être
-  écrite au registre.
+- **FR-070**: La distinction entre **l'écriture d'un référentiel ou d'un paramètre (classe C)** et
+  sa **lecture en cache (classe A)** DOIT être écrite au registre des classes hors-ligne, et aucun
+  chemin d'écriture de ce cycle NE DOIT être atteignable hors connexion. **La mise en cache
+  elle-même et l'affichage de fraîcheur relèvent de SYN-01/02 et d'ETB-06 — hors périmètre.** Ce
+  cycle pose la classification que ces cycles consommeront, jamais leur mécanisme : le promettre
+  ici en ferait une exigence que rien n'implémente.
 - **FR-071**: Toute transition d'état de ce cycle — création d'établissement, activation ou
   désactivation de service, déclaration de capacité, création ou modification de point de vente,
   écriture d'un paramètre, changement d'identité visuelle — DOIT émettre un événement de journal
   **dans la même transaction** (porte P-05).
 - **FR-072**: Le changement de **classement** et le changement de **fuseau horaire** DOIVENT être
-  tracés de façon durable et consultable : le premier détermine le barème de la taxe communale de
-  nuitée, le second réinterprète tout regroupement par journée locale.
+  tracés de façon **durable et immuable** par un type d'événement propre : le premier détermine le
+  barème de la taxe communale de nuitée, le second réinterprète tout regroupement par journée
+  locale. **La consultation de cette trace relève du journal d'audit (CPT-04), hors périmètre** —
+  l'événement s'écrit ici, l'écran qui le donne à lire vient au cycle CPT.
 - **FR-073**: Les annotations du contrat d'API DOIVENT être à jour et le client TypeScript
   régénéré **sans diff manuel** (porte P-01, DoD point 2).
 - **FR-074**: Les requêtes DOIVENT être vérifiées à la compilation et le cache de requêtes
@@ -658,7 +663,7 @@ réponse est testable.
   ici, exploitée au cycle PDV. Classe **C**.
 - **Paramètre de configuration** — valeur portée à l'un des quatre niveaux de la chaîne d'héritage.
   Sa résolution est le composant le plus réutilisé du produit. Classe **C** en écriture, **A** en
-  lecture de cache avec fraîcheur affichée.
+  lecture de cache — classification posée ici, cache construit au cycle SYN.
 - **Identité visuelle (`branding`)** — logo, couleur primaire, en-tête et pied de documents,
   mentions légales, coordonnées. Par tenant, surchargeable par établissement. Classe **C**.
 - **Service fictif minimal** — module d'activité **de test uniquement**, ne consommant aucune
@@ -793,6 +798,8 @@ Explicitement exclu de ce cycle.
 | Exploitation des points de vente — catalogue, tables ouvertes, commandes, additions | PDV, tranche T2 | Ce cycle crée le référentiel, pas son exploitation |
 | Exploitation du stock — mouvements, seuils, inventaire | STK, tranche T5 | La capacité se **déclare** ici ; elle ne fait rien avant STK |
 | Accueil à tuiles filtrées par permission | `R1`, cycle CPT | Le filtrage par permission suppose des rôles ; livrer l'écran à moitié imposerait de le rouvrir |
+| **Mise en cache locale des référentiels et affichage de fraîcheur** | SYN-01/02 ; indicateur permanent en ETB-06 | Ce cycle **classe** l'écriture en C et la lecture en A (FR-070) ; le mécanisme de cache et son témoin de fraîcheur appartiennent au cycle SYN |
+| **Consultation du journal des changements sensibles** | CPT-04 | L'événement de changement de classement ou de fuseau est **écrit** ici (FR-072) ; l'écran qui le donne à lire vient au cycle CPT |
 | Écran de note interne | Dette du cycle 001 | Cet écran n'hérite d'aucun motif de `docs/design/derivation.md` ; il se maquette avant de se coder |
 | Impression réelle d'un document | IMP, tranche T2 | ETB-05 livre un **aperçu à l'écran** ; l'imprimante thermique est vérifiée au cycle IMP |
 | Convention inter-établissements | Cadrage §4.3, §14.9 | Provision, tables uniquement, hors de ce cycle |
