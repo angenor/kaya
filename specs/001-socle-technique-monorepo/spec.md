@@ -61,6 +61,12 @@ Questions posées :
 - Q: Quelle référence visuelle l'écran du module doré doit-il suivre ? → A: un écran nouveau et
   minimal composé **exclusivement** de composants déjà spécifiés dans `docs/design/composants.md`,
   consommant `docs/design/theme.css`. Aucune nouvelle maquette normative n'est produite.
+  **↳ RÉVISÉ lors de `/speckit-tasks`** : vérification faite, cet écran n'est ni maquetté (11
+  codes de `docs/design/html/`) ni dérivé (matrice `docs/Kaya_Design.md` §25), et la règle « un
+  écran qui n'hérite d'aucun motif ne se code pas » prime. **Le module doré est réduit à six
+  couches** ; la couche écran est reportée au cycle ETB, qui dispose d'écrans maquettés.
+- Q: Comment l'interface doit-elle nommer une `note_etablissement` ? → A: **« Note interne »** /
+  *Internal note*, à ajouter au lexique `docs/Kaya_Design.md` §6.
 - Q: Que doit contenir `infra/` concernant le paquet auto-hébergé (mode B) au cycle 1 ? → A:
   **emplacement seulement** — répertoire et note de périmètre. Le paquet est livré avec TRX-07.
   **Précision apportée** : le binaire d'API applique les migrations **au démarrage**
@@ -131,9 +137,10 @@ et que le manifeste de chaque brique porte une version exacte identique au gel.
 Avant toute génération assistée, l'Admin éditeur écrit **à la main** une tranche verticale
 complète sur `note_etablissement` — une note interne libre attachée à un établissement, de classe
 A : migration versionnée avec politique de sécurité au niveau ligne, accès aux données, service,
-point d'entrée d'API documenté, tests unitaires et d'intégration, écran vérifié en clair et en
-sombre. Cette tranche est documentée couche par couche et devient la référence que tous les
-cycles suivants recopient.
+point d'entrée d'API documenté, tests unitaires et d'intégration. Cette tranche est documentée
+couche par couche et devient la référence que tous les cycles suivants recopient. **La couche
+écran est reportée au cycle ETB** — l'écran de notes n'hérite d'aucun motif de la matrice de
+dérivation, et un tel écran ne se code pas.
 
 **Why this priority**: exigence explicite du cadrage §13.1 et de la constitution (« module doré
 d'abord »). Sans elle, chaque cycle réintroduira des tournures d'une version d'outil obsolète —
@@ -147,22 +154,21 @@ source ni chercher d'exemple en ligne.
 
 **Acceptance Scenarios**:
 
-1. **Given** le module doré livré, **When** on parcourt ses couches, **Then** les sept couches
+1. **Given** le module doré livré, **When** on parcourt ses couches, **Then** les **six** couches
    sont présentes et écrites à la main : entité, migration avec sécurité au niveau ligne, accès
-   aux données, service, point d'entrée d'API documenté, tests unitaires et d'intégration, écran
-   applicatif.
+   aux données, service, point d'entrée d'API documenté, tests unitaires et d'intégration.
 2. **Given** le module doré, **When** on l'évalue contre les dix points de la Definition of Done
-   (`docs/user-stories-v1.md` §0.4), **Then** les dix sont satisfaits — le point 10 (impression
-   thermique) étant sans objet, ce qui est consigné explicitement.
-3. **Given** l'écran du module doré, **When** on le consulte en mode clair puis en mode sombre,
-   **Then** il est correct dans les deux modes, aucune chaîne n'est en dur, et les clés
-   françaises et anglaises sont à parité.
-4. **Given** le module doré, **When** on cherche une couleur ou un espacement littéral hors des
-   jetons de conception, **Then** on n'en trouve aucun.
-5. **Given** l'écran du module doré, **When** on inventorie ses éléments d'interface, **Then**
-   ils proviennent **exclusivement** de `docs/design/composants.md` — ligne de liste, bouton
-   principal, état vide illustré, témoin de synchronisation — et aucune nouvelle maquette
-   normative n'a été produite dans `docs/design/html/`.
+   (`docs/user-stories-v1.md` §0.4), **Then** les dix sont satisfaits — les points **8** (écran
+   clair et sombre) et **10** (impression thermique) étant **sans objet**, ce qui est consigné
+   explicitement et non coché en silence.
+3. **Given** `docs/module-dore.md`, **When** on cherche ce que le patron ne démontre pas, **Then**
+   le report de la couche écran y figure comme **manque connu**, avec les quatre points qui
+   restent à figer au cycle ETB : i18n, mode sombre, contrôle d'accès, chargement paresseux.
+4. **Given** le dépôt entier, **When** on cherche un écran ajouté par ce cycle, **Then** on n'en
+   trouve aucun, et aucune nouvelle maquette n'a été produite dans `docs/design/html/`.
+5. **Given** le lexique `docs/Kaya_Design.md` §6, **When** on cherche `note_etablissement`,
+   **Then** il s'y affiche **« Note interne »** en français et *Internal note* en anglais, et les
+   clés i18n correspondantes existent dans les deux catalogues.
 6. **Given** `docs/module-dore.md`, **When** on le lit, **Then** chaque couche y figure avec son
    extrait de référence, sa raison d'être et les pièges de la version gelée qu'elle neutralise.
 7. **Given** `note_etablissement`, **When** on consulte `docs/registre-classes-offline.md`,
@@ -513,16 +519,20 @@ colonnes, et l'absence totale de point d'entrée, d'écran et de règle métier 
 
 #### Module doré — cadrage §13.1, constitution « module doré d'abord »
 
-- **FR-023**: Une tranche verticale complète DOIT être écrite **à la main** sur
-  `note_etablissement` — note interne libre attachée à un établissement, **classe A**, dans
-  `socle/etablissements` — avant toute génération assistée, et couvrir les sept couches : entité,
-  migration avec sécurité au niveau ligne, accès aux données, service, point d'entrée d'API
-  documenté, tests unitaires **et** d'intégration, écran applicatif.
-- **FR-024**: L'écran du module doré DOIT être vérifié en mode clair **et** en mode sombre, sans
-  aucune chaîne en dur, avec parité des clés françaises et anglaises.
-- **FR-024b**: L'écran du module doré DOIT être composé **exclusivement** de composants déjà
-  spécifiés dans `docs/design/composants.md` et consommer `docs/design/theme.css`. **Aucune
-  nouvelle maquette normative** ne DOIT être produite dans `docs/design/html/` par ce cycle.
+- **FR-023**: Une tranche verticale DOIT être écrite **à la main** sur `note_etablissement` — note
+  interne libre attachée à un établissement, **classe A**, dans `socle/etablissements` — avant
+  toute génération assistée, et couvrir **six couches** : entité, migration avec sécurité au
+  niveau ligne, accès aux données, service, point d'entrée d'API documenté, tests unitaires **et**
+  d'intégration.
+- **FR-024**: La **septième couche — l'écran — est reportée au cycle ETB.** L'écran de notes n'est
+  ni maquetté ni dérivé (`docs/Kaya_Design.md` §25), et un écran qui n'hérite d'aucun motif ne se
+  code pas. `docs/module-dore.md` DOIT consigner ce report comme un **manque connu** du patron :
+  i18n, mode sombre, contrôle d'accès et chargement paresseux restent à démontrer au cycle ETB.
+- **FR-024b**: **Aucune nouvelle maquette normative** ne DOIT être produite dans
+  `docs/design/html/` par ce cycle, et aucun écran ne DOIT être codé sans référence (a) ou (b).
+- **FR-024c**: Le libellé utilisateur de `note_etablissement` — **« Note interne »** / *Internal
+  note* — DOIT être ajouté au lexique `docs/Kaya_Design.md` §6 et aux catalogues i18n `fr` et `en`
+  avant toute utilisation.
 - **FR-025**: Le module doré DOIT satisfaire les dix points de la Definition of Done
   (`docs/user-stories-v1.md` §0.4) ; tout point sans objet DOIT être consigné comme tel.
 - **FR-026**: Le module doré DOIT être écrit contre la version gelée de la bibliothèque d'accès
@@ -688,8 +698,8 @@ colonnes, et l'absence totale de point d'entrée, d'écran et de règle métier 
   attachée à un établissement : identifiant de tenant, identifiant d'établissement, auteur, texte,
   horodatage d'autorité. **Classe A** (append-only, commutatif, sans unicité, sans effet
   monétaire — arbre de décision du cadrage §11.2), dans `socle/etablissements`. Ne suppose ni
-  hébergement ni point de vente. Support du patron : elle traverse les sept couches et porte les
-  tests de rejeu triple et de désordre commutatif.
+  hébergement ni point de vente. Support du patron : elle traverse les **six** couches et porte
+  les tests de rejeu triple et de désordre commutatif.
 - **Tenant** et **établissement** — présents ici uniquement comme porteurs de l'isolation et des
   seeds. Leur modèle complet relève du cycle ETB, hors périmètre.
 
@@ -720,8 +730,9 @@ colonnes, et l'absence totale de point d'entrée, d'écran et de règle métier 
   commande** et produit un **état final identique** sur trois exécutions successives.
 - **SC-008**: Un développeur reproduit une **seconde tranche verticale complète** en ne consultant
   que `docs/module-dore.md`, sans autre source ni recherche en ligne.
-- **SC-009**: **100 % des écrans livrés** sont vérifiés en mode clair et en mode sombre, et la
-  **parité des clés françaises et anglaises est de 100 %**.
+- **SC-009**: **Aucun écran n'est livré par ce cycle** — la couche écran du module doré est
+  reportée au cycle ETB. La **parité des clés françaises et anglaises est de 100 %** sur les clés
+  posées, et la porte qui la vérifie est active dès maintenant.
 - **SC-010**: Le temps de recompilation incrémentale après modification d'une ligne est **mesuré
   et consigné**, avant et après activation des trois optimisations, et la réduction est constatée.
 - **SC-011**: **Zéro numéro de version proposé de mémoire** : chaque version épinglée du dépôt
@@ -770,11 +781,13 @@ raisonnable, révisable en `/speckit-clarify` ou `/speckit-plan`.
 10. **Point 10 de la Definition of Done** — « tout document imprimé vérifié sur imprimante
     thermique réelle » est **sans objet** sur ce cycle : aucun document n'est imprimé. Cette
     absence est consignée explicitement plutôt que passée sous silence.
-11. **Vocabulaire utilisateur** — `docs/design/lexique.md` et `docs/design/derivation.md` sont
-    cités comme sources normatives mais **n'existent pas encore**. Le glossaire de l'annexe C de
-    `docs/cadrage-v1.md` et `docs/design/composants.md` en tiennent lieu. Les libellés utilisateur
-    de l'écran du module doré — le terme retenu pour `note_etablissement` en français et en
-    anglais — sont **soumis avant d'être écrits en dur**.
+11. **Vocabulaire utilisateur — correction.** Le lexique et la matrice de dérivation **existent**,
+    à d'autres emplacements que ceux cherchés initialement : `docs/Kaya_Design.md` **§6** (lexique
+    — ce que l'utilisateur lit) et **PARTIE V §25** (matrice de dérivation des 30 écrans non
+    maquettés). Les fichiers `docs/design/lexique.md` et `docs/design/derivation.md` n'existent pas
+    encore, mais leur contenu, lui, est disponible et normatif. **Conséquence** : `note_etablissement`
+    ne figure ni au lexique §6 ni à la matrice §25 — son libellé utilisateur et sa référence
+    visuelle sont **soumis avant d'être écrits en dur** (tâche T031, bloquée).
 
 ## Dependencies
 
@@ -808,6 +821,7 @@ rien de plus.
 | Toute entité métier — établissements, comptes, unités, séjours, caisse, fiscalité | Modules ETB, CPT, HEB, SEJ, CAI, FIS | Cycles suivants de la tranche T1 |
 | Nœud de site fonctionnel | Incrément 3 | Le binaire existe en coquille, sans logique |
 | Paquet auto-hébergé (mode B) | Cadrage §10.1–10.2, TRX-07 | Emplacement seul dans `infra/`. Les migrations idempotentes au démarrage sont **dans** le périmètre (FR-010c) |
-| Nouvelle maquette normative dans `docs/design/html/` | TRX-08, P1 | L'écran du module doré se compose des composants existants (FR-024b) |
+| Tout écran, y compris celui du module doré | `docs/Kaya_Design.md` §25 | L'écran de notes n'hérite d'aucun motif ; couche reportée au cycle ETB (FR-024) |
+| Nouvelle maquette normative dans `docs/design/html/` | TRX-08, P1 | Aucun écran codé, donc aucune maquette à produire (FR-024b) |
 | Extraction d'un service, file de messages externe | Cadrage §13.2 | Aucun service extrait au MVP |
 | Toute logique sur les provisions comptables | TRX-02b | **Tables seulement** |
