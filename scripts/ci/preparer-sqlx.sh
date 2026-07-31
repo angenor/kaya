@@ -50,9 +50,28 @@ MODE_VERIFICATION=0
 CRATES_AVEC_BINAIRES=(api node)
 
 destination="$racine/backend/.sqlx"
+sauvegarde=""
+
 if [[ $MODE_VERIFICATION -eq 1 ]]; then
     destination="$(mktemp -d)/.sqlx"
-    trap 'rm -rf "$(dirname "$destination")"' EXIT
+
+    # `cargo sqlx prepare` écrit TOUJOURS dans `<workspace>/.sqlx` — il n'a pas d'option de
+    # sortie. Une vérification naïve écraserait donc le cache qu'elle est censée vérifier, et
+    # laisserait le dépôt modifié après un simple contrôle. Le cache commité est mis de côté et
+    # restauré quoi qu'il arrive.
+    sauvegarde="$(mktemp -d)/sqlx-commite"
+    mkdir -p "$sauvegarde"
+    cp "$racine/backend/.sqlx"/query-*.json "$sauvegarde/" 2>/dev/null || true
+
+    restaurer() {
+        if [[ -n "$sauvegarde" && -d "$sauvegarde" ]]; then
+            rm -f "$racine/backend/.sqlx"/query-*.json
+            cp "$sauvegarde"/query-*.json "$racine/backend/.sqlx/" 2>/dev/null || true
+            rm -rf "$(dirname "$sauvegarde")"
+        fi
+        rm -rf "$(dirname "$destination")"
+    }
+    trap restaurer EXIT
 fi
 
 echo "── P-18 · 1/3 — requêtes du workspace ────────────────────────────────────────"
@@ -99,11 +118,12 @@ if [[ "$total" -eq 0 ]]; then
 fi
 
 if [[ $MODE_VERIFICATION -eq 1 ]]; then
-    commite=$(find "$racine/backend/.sqlx" -name 'query-*.json' 2>/dev/null | wc -l | tr -d ' ')
+    # Comparaison contre la SAUVEGARDE, pas contre `.sqlx` — que `prepare` vient d'écraser.
+    commite=$(find "$sauvegarde" -name 'query-*.json' 2>/dev/null | wc -l | tr -d ' ')
     manquantes=()
     for fichier in "$destination"/query-*.json; do
         nom="$(basename "$fichier")"
-        [[ -f "$racine/backend/.sqlx/$nom" ]] || manquantes+=("$nom")
+        [[ -f "$sauvegarde/$nom" ]] || manquantes+=("$nom")
     done
 
     if [[ ${#manquantes[@]} -gt 0 ]]; then
