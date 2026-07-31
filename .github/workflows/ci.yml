@@ -115,14 +115,24 @@ jobs:
           PGPASSWORD=motdepasse_ci psql -h localhost -U postgres -d kaya \
             -v ON_ERROR_STOP=1 -c "ALTER ROLE kaya_owner PASSWORD 'motdepasse_ci';"
 
-      - name: "P-18 — cargo sqlx prepare vert"
+      - name: "P-18 — cache de requêtes complet"
         run: |
           cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres,rustls
           # Depuis `backend/api` : sqlx-cli cherche `sqlx.toml` dans le répertoire courant, et
           # c'est là qu'il vit. Le lancer depuis `backend/` ferait tenir au CLI et à la macro
           # `sqlx::migrate!()` deux tables de suivi distinctes.
           ( cd backend/api && cargo sqlx migrate run --source ../migrations )
-          ( cd backend && cargo sqlx prepare --workspace --check -- --all-targets )
+          # `cargo sqlx prepare --workspace --check` NE SUFFIT PAS : il ne collecte pas les
+          # requêtes des cibles `[[bin]]`, donc il ne voit pas ce qu'il manque. Le script les
+          # ramasse crate par crate — voir son en-tête.
+          bash scripts/ci/preparer-sqlx.sh --verifier
+
+      # Ce que la porte P-18 protège réellement : la construction de l'image, qui compile SANS
+      # base de données. C'est le seul contexte où un cache incomplet se voit — et c'est ainsi
+      # que le trou a été trouvé.
+      - name: "Compilation hors ligne, comme l'image de production"
+        working-directory: backend
+        run: SQLX_OFFLINE=true DATABASE_URL= cargo check --workspace --all-targets --locked
 
       - name: Compilation
         working-directory: backend
