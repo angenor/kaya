@@ -68,6 +68,16 @@ passe par l'émulation et la mesure obtenue ne dirait rien de la production. **S
 compilation incrémentale mesuré dans le conteneur Linux — reste donc non mesuré**, ce que R-01
 annonçait déjà : « une mesure sur le poste macOS ne prédit rien de la CI ».
 
+Une construction **native `arm64`** a été lancée pour valider le Dockerfile lui-même. Elle
+dépassait **27 minutes** sans avoir abouti au moment de la revue — compilation `--release` de
+l'ensemble du workspace, dans un conteneur, avec les entrées-sorties de Docker Desktop sur macOS.
+**Le Dockerfile n'est donc pas validé de bout en bout**, seulement écrit et vérifié statiquement :
+ses deux images de base existent au registre, et `SQLX_OFFLINE=true` avec `backend/.sqlx` lui
+permet de compiler sans base de données.
+
+**Ce qui reste dû** : une construction complète, en CI Linux où elle est native et mise en cache,
+avant le premier déploiement.
+
 ---
 
 ## 2. T091 — Definition of Done, les dix points
