@@ -22,6 +22,10 @@ async fn main() -> std::io::Result<()> {
 
     observabilite::initialiser_journaux();
 
+    // La garde doit vivre aussi longtemps que le processus : la lier à `_` la détruirait
+    // immédiatement, ce qui coupe la remontée sans le moindre message.
+    let _sentry = observabilite::initialiser_sentry();
+
     // Refus de démarrer si la dérogation d'authentification n'est pas ouverte
     // explicitement. Une dérogation qu'on peut oublier d'ouvrir se retrouve ouverte en
     // production sans que personne ne l'ait décidé.

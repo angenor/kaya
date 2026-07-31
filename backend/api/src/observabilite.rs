@@ -117,3 +117,46 @@ where
         })
     }
 }
+
+// =================================================================================================
+//  Sentry — remontée des erreurs avec leur contexte
+// =================================================================================================
+
+/// Initialise Sentry si un DSN est configuré.
+///
+/// Renvoie une garde qu'il faut **conserver vivante pour toute la durée du processus** : sa
+/// destruction vide la file d'envoi et coupe la remontée. La lier à une variable `_` la
+/// détruirait immédiatement — erreur classique, silencieuse, et qui ne se voit qu'à l'absence
+/// d'alertes.
+///
+/// # Ce qui ne part jamais chez Sentry
+///
+/// `send_default_pii` reste à **`false`** : ni adresse IP, ni identifiant de compte, ni corps de
+/// requête. Le produit traite des pièces d'identité de clients et des montants ; le registre des
+/// traitements ARTCI (TRX-06) n'a pas à couvrir un service tiers d'observation d'erreurs.
+///
+/// Les chaînes de connexion et les secrets ne partent pas non plus : ils ne sont ni dans les
+/// messages d'erreur exposés, ni dans les champs de `tracing` — c'est pourquoi `db.rs` ne
+/// journalise jamais l'URL qu'il consomme.
+pub fn initialiser_sentry() -> Option<sentry::ClientInitGuard> {
+    let dsn = std::env::var("SENTRY_DSN").ok().filter(|d| !d.is_empty())?;
+
+    let environnement = std::env::var("KAYA_ENVIRONNEMENT")
+        .unwrap_or_else(|_| "developpement".to_owned());
+
+    // `ClientOptions` est `#[non_exhaustive]` : elle se construit par mutation d'un défaut, pas
+    // par expression de structure. Une version future peut y ajouter un champ sans casser ce
+    // code — c'est le but de l'attribut, et la raison pour laquelle le compilateur refuse la
+    // forme littérale.
+    let mut options = sentry::ClientOptions::default();
+    options.release = Some(env!("CARGO_PKG_VERSION").into());
+    options.environment = Some(environnement.into());
+    // **Jamais de données personnelles.** Voir ci-dessus.
+    options.send_default_pii = false;
+    options.attach_stacktrace = true;
+
+    let garde = sentry::init((dsn, options));
+
+    tracing::info!("remontée des erreurs activée");
+    Some(garde)
+}
