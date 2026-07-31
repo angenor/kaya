@@ -4,6 +4,78 @@
  */
 
 export interface paths {
+    "/api/v1/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit l'identité visuelle **résolue**, champ par champ, avec l'origine de chacun. */
+        get: operations["resoudre"];
+        /**
+         * Écrit l'identité visuelle d'un niveau.
+         * @description **Le corps décrit ce qui est posé À CE NIVEAU**, pas le résultat de la fusion : un champ absent
+         *     reste hérité. Enregistrer la vue fusionnée figerait chez soi tout ce dont on héritait, et la
+         *     première modification au niveau tenant ne redescendrait plus.
+         */
+        put: operations["ecrire"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/branding/apercu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rend le document de test — **sans rien enregistrer** (FR-057).
+         * @description Le corps porte l'identité **telle qu'elle est à l'écran**, y compris non enregistrée : c'est ce
+         *     qui permet à l'exploitant de voir avant de valider, plutôt que d'enregistrer pour voir.
+         *
+         *     **Le document porte obligatoirement la mention « Document non fiscal — ne tient pas lieu de
+         *     facture »** (principe V, FR-058). Un aperçu ressemble à une facture : mêmes en-tête, logo,
+         *     coordonnées et mentions légales. Sans cette phrase, le premier aperçu imprimé serait présenté à
+         *     un client comme un justificatif.
+         */
+        post: operations["apercu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/branding/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Téléverse un logo.
+         * @description **`413` si la taille dépasse le plafond, et le message DONNE la limite** — jamais un refus
+         *     muet. Le plafond est une constante technique nommée dans le code, avec sa justification : un
+         *     exploitant n'a aucune raison de le régler, et l'inscrire au catalogue de paramètres ferait
+         *     entrer au récapitulatif du principe I·c une valeur qui ne relève pas de l'exploitation.
+         */
+        post: operations["televerser_logo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/configuration": {
         parameters: {
             query?: never;
@@ -320,6 +392,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Le document de test rendu. */
+        ApercuReponse: {
+            /** @description Contenu textuel du document. */
+            document: string;
+            /**
+             * @description **Toujours présente.** Reprise ici pour que le client puisse la mettre en évidence sans
+             *     analyser le corps du document.
+             */
+            mention_non_fiscale: string;
+        };
+        /**
+         * @description Corps d'aperçu — **l'identité telle qu'elle est à l'écran, y compris non enregistrée**
+         *     (FR-057).
+         */
+        ApercuRequete: {
+            coordonnees?: string | null;
+            couleur_primaire?: string | null;
+            entete_document?: string | null;
+            logo_objet_cle?: string | null;
+            mentions_legales?: string | null;
+            nom_etablissement: string;
+            pied_document?: string | null;
+        };
         /** @description Corps d'activation ou de désactivation — **le même point d'entrée porte les deux sens**. */
         BasculerServiceRequete: {
             actif: boolean;
@@ -329,6 +424,33 @@ export interface components {
              *     la ligne existante, jamais une seconde ligne : c'est ce qui restitue l'état antérieur.
              */
             id: string;
+        };
+        /** @description Identité visuelle telle qu'elle est posée à **un** niveau. */
+        BrandingNiveau: {
+            coordonnees?: string | null;
+            couleur_primaire?: string | null;
+            entete_document?: string | null;
+            logo_objet_cle?: string | null;
+            mentions_legales?: string | null;
+            pied_document?: string | null;
+        };
+        /**
+         * @description Identité visuelle **résolue**, champ par champ, avec l'origine de chacun.
+         *
+         *     # Pourquoi une origine PAR CHAMP et non une origine globale
+         *
+         *     La surcharge est **partielle** : un établissement peut porter son propre logo tout en héritant
+         *     de l'en-tête, du pied et des mentions légales. Une origine globale mentirait sur cinq champs
+         *     pour en décrire un — et l'écran afficherait « modifié ici » sur des valeurs que personne n'a
+         *     touchées.
+         */
+        BrandingResolu: {
+            coordonnees?: null | components["schemas"]["ChampResolu"];
+            couleur_primaire?: null | components["schemas"]["ChampResolu"];
+            entete_document?: null | components["schemas"]["ChampResolu"];
+            logo_objet_cle?: null | components["schemas"]["ChampResolu"];
+            mentions_legales?: null | components["schemas"]["ChampResolu"];
+            pied_document?: null | components["schemas"]["ChampResolu"];
         };
         /** @description Une capacité déclarée par un service. */
         CapaciteDuService: {
@@ -340,6 +462,12 @@ export interface components {
             libelle_cle: string;
             /** @description `SIMPLE` seul au MVP. */
             profil_code: string;
+        };
+        /** @description Un champ résolu, avec son origine. */
+        ChampResolu: {
+            /** @description `TENANT` ou `ETABLISSEMENT`. */
+            origine: string;
+            valeur: string;
         };
         /** @description Corps rendu par tout refus métier de ce cycle. */
         CorpsErreur: {
@@ -428,6 +556,26 @@ export interface components {
             id: string;
             /** @description `SIMPLE` seul est implémenté au MVP. */
             profil_code: string;
+        };
+        /** @description Corps d'écriture de l'identité visuelle. */
+        EcrireBrandingRequete: {
+            coordonnees?: string | null;
+            /**
+             * @description Hexadécimal `#RRGGBB`. **S'applique aux documents produits, jamais à l'interface**
+             *     (FR-059).
+             */
+            couleur_primaire?: string | null;
+            entete_document?: string | null;
+            /**
+             * Format: uuid
+             * @description Absent = niveau tenant.
+             */
+            etablissement_id?: string | null;
+            /** Format: uuid */
+            id: string;
+            logo_objet_cle?: string | null;
+            mentions_legales?: string | null;
+            pied_document?: string | null;
         };
         /** @description Corps d'écriture d'une valeur. */
         EcrireParametreRequete: {
@@ -523,6 +671,14 @@ export interface components {
              *     c'est la version de Kaya, jamais celle d'une dépendance.
              */
             version: string;
+        };
+        /** @description La clé d'objet d'un logo téléversé. */
+        LogoReponse: {
+            /**
+             * @description **Une clé d'objet, jamais une URL de stockage** : l'accès passe par une URL signée de
+             *     courte durée, produite à la demande.
+             */
+            logo_objet_cle: string;
         };
         /** @description Réponse de modification — la vue à jour et, le cas échéant, un avertissement à présenter. */
         ModificationReponse: components["schemas"]["EtablissementVue"] & {
@@ -687,6 +843,204 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    resoudre: {
+        parameters: {
+            query?: {
+                etablissement_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identité visuelle résolue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingResolu"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ecrire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EcrireBrandingRequete"];
+            };
+        };
+        responses: {
+            /** @description Identité visuelle enregistrée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingNiveau"];
+                };
+            };
+            /** @description Couleur invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    apercu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApercuRequete"];
+            };
+        };
+        responses: {
+            /** @description Document de test — porte la mention non fiscale */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApercuReponse"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    televerser_logo: {
+        parameters: {
+            query?: {
+                etablissement_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Binaire du logo */
+        requestBody: {
+            content: {
+                "application/octet-stream": number[];
+            };
+        };
+        responses: {
+            /** @description Logo téléversé — rend sa clé d'objet */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoReponse"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Logo trop volumineux — le message donne la limite */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     resoudre: {
         parameters: {
             query?: {

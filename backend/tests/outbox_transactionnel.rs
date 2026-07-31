@@ -768,3 +768,87 @@ async fn p05_ecriture_de_parametre_porte_l_ancienne_valeur() {
          transition qui n'a pas eu lieu"
     );
 }
+
+/// **`branding.modifie` — et la clé d'objet, jamais le binaire.**
+///
+/// Le grand livre est à rétention illimitée : y écrire des logos le ferait grossir sans fin pour
+/// une information que le stockage objet porte déjà.
+#[tokio::test]
+async fn p05_modification_d_identite_visuelle() {
+    use kaya_etablissements::branding::{BrandingNiveau, EcrireBranding, ServiceBranding};
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 branding").await;
+    let service = ServiceBranding::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    let id = Uuid::now_v7();
+    service
+        .ecrire(
+            jeu.tenant_id,
+            EcrireBranding {
+                id,
+                etablissement_id: None,
+                contenu: BrandingNiveau {
+                    logo_objet_cle: Some("branding/x/tenant/logo".to_owned()),
+                    couleur_primaire: Some("#0A7B5F".to_owned()),
+                    ..Default::default()
+                },
+            },
+        )
+        .await
+        .expect("écriture de l'identité visuelle");
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+    assert_eq!(types, vec!["branding.modifie"]);
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+    let payload: serde_json::Value = sqlx::query_scalar!(
+        r#"SELECT payload AS "payload!" FROM synchronisation.evenement_outbox WHERE agregat_id = $1"#,
+        id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("lecture de l'événement");
+    tx.rollback().await.expect("rollback");
+
+    assert_eq!(payload["niveau"], serde_json::json!("TENANT"));
+    assert_eq!(
+        payload["logo_objet_cle"],
+        serde_json::json!("branding/x/tenant/logo"),
+        "l'événement doit porter la CLÉ d'objet, jamais le binaire — le grand livre est à rétention \
+         illimitée. Charge utile : {payload}"
+    );
+    let champs = payload["champs_touches"]
+        .as_array()
+        .expect("champs_touches doit être un tableau");
+    assert!(
+        champs.iter().any(|c| c == "logo_objet_cle") && champs.iter().any(|c| c == "couleur_primaire"),
+        "les champs réellement touchés doivent être nommés : {champs:?}"
+    );
+
+    // Réécrire à l'identique n'émet rien.
+    let second = Uuid::now_v7();
+    service
+        .ecrire(
+            jeu.tenant_id,
+            EcrireBranding {
+                id: second,
+                etablissement_id: None,
+                contenu: BrandingNiveau {
+                    logo_objet_cle: Some("branding/x/tenant/logo".to_owned()),
+                    couleur_primaire: Some("#0A7B5F".to_owned()),
+                    ..Default::default()
+                },
+            },
+        )
+        .await
+        .expect("réécriture identique");
+    let types = types_evenements(&pool_owner, jeu.tenant_id, second).await;
+    assert!(
+        types.is_empty(),
+        "réécrire une identité identique a émis {types:?}"
+    );
+}

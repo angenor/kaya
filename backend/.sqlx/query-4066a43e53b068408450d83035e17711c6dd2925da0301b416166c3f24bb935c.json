@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO etablissements.branding (id, tenant_id, etablissement_id, logo_objet_cle)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT ON CONSTRAINT branding_unicite DO UPDATE\n        SET logo_objet_cle = EXCLUDED.logo_objet_cle, modifie_le = now()\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4066a43e53b068408450d83035e17711c6dd2925da0301b416166c3f24bb935c"
+}

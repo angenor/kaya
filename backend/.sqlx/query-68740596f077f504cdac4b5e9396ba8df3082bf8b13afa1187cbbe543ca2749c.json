@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT logo_objet_cle, couleur_primaire, entete_document,\n               pied_document, mentions_legales, coordonnees\n        FROM etablissements.branding\n        WHERE etablissement_id IS NOT DISTINCT FROM $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "logo_objet_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "logo_objet_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "couleur_primaire",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "couleur_primaire"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "entete_document",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "entete_document"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "pied_document",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "pied_document"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "mentions_legales",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "mentions_legales"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "coordonnees",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.branding",
+            "name": "coordonnees"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "68740596f077f504cdac4b5e9396ba8df3082bf8b13afa1187cbbe543ca2749c"
+}

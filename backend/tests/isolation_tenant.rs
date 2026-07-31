@@ -72,6 +72,14 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/points-de-vente/{point_de_vente_id}/tables",
         Regime::Isole,
     ),
+    // Identité visuelle — trois chemins, tous isolés. Le téléversement écrit au stockage objet
+    // sous une clé qui PORTE LE TENANT : lire l'objet d'un autre client est impossible même en
+    // devinant le reste du chemin.
+    ("/api/v1/branding", Regime::Isole),
+    ("/api/v1/branding/logo", Regime::Isole),
+    // L'aperçu n'enregistre rien et ne lit aucune table : il rend le corps reçu, mis en forme.
+    // C'est le seul régime `SansTenant` du cycle 002, et il est justifié ici.
+    ("/api/v1/branding/apercu", Regime::SansTenant),
     // Configuration héritée — la cible vient des paramètres de requête. L'isolation à CHAQUE
     // niveau de la descente est vérifiée par `backend/tests/configuration_heritee.rs`.
     ("/api/v1/configuration", Regime::Isole),

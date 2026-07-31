@@ -34,6 +34,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod branding;
 pub mod configuration;
 pub mod etablissement;
 pub mod modules;

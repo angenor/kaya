@@ -94,6 +94,28 @@ impl EtatApplication {
         )
     }
 
+    /// Service de l'identité visuelle — ETB-05.
+    pub fn service_branding(
+        &self,
+    ) -> kaya_etablissements::branding::ServiceBranding<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+    > {
+        kaya_etablissements::branding::ServiceBranding::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
+    /// Accès au stockage objet — **via l'API S3 uniquement** (principe II).
+    ///
+    /// Construit à la demande comme les services : le client S3 est clonable et sans état de
+    /// session. Le construire ici, plutôt que de le conserver dans l'état, garde visible le fait
+    /// que le seul objet stocké par ce cycle est le logo d'identité visuelle.
+    pub fn stockage(&self) -> crate::stockage::Stockage {
+        crate::stockage::Stockage::depuis_environnement()
+            .expect("configuration du stockage objet absente — voir S3_* dans backend/.env")
+    }
+
     /// Le référentiel des modules, tel que l'API le rend.
     ///
     /// Les trois lectures de référentiel ne passent par aucun service : elles ne portent aucune

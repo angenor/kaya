@@ -15,3 +15,4 @@ pub mod db;
 pub mod observabilite;
 pub mod openapi;
 pub mod routes;
+pub mod stockage;
