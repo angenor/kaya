@@ -30,10 +30,17 @@ Le poste de développement est `darwin/arm64`, la production `linux/amd64`. Les 
 ```sh
 git clone <dépôt> && cd kaya
 docker compose -f infra/compose.yml up -d      # base, cache, stockage objet
-cargo build --workspace                        # tous les crates, y compris les crates vides
-cargo run -p kaya-api                          # applique les migrations, puis écoute
-pnpm install && pnpm --filter app dev          # application unique
+scripts/dev/preparer-base.sh                   # migrations + mots de passe locaux — voir ci-dessous
+cd backend && cargo build --workspace          # le workspace Rust vit dans backend/
+cargo run -p kaya-api --bin kaya-api           # applique les migrations, puis écoute
+cd .. && pnpm install && pnpm --filter @kaya/app dev
 ```
+
+> **Pourquoi une étape de plus que prévu.** Les mots de passe des rôles ne sont **pas** dans les
+> migrations : un secret écrit dans une migration est un secret dans l'historique Git, en clair,
+> pour toujours — et une migration appliquée ne se modifie jamais, donc l'erreur serait
+> définitive. `scripts/dev/preparer-base.sh` les pose après migration ; la CI fait de même avec
+> les siens, la production les tient hors du dépôt.
 
 **À constater** :
 
@@ -68,17 +75,30 @@ curl localhost:<port>/api-docs/openapi.json | jq '.paths | keys'
 **À constater** : le build **échoue** sur un diff de client non commité. Un build vert ici
 signifierait que la porte P-01 n'est pas branchée.
 
-> **Blocage connu** : aucun générateur de client TypeScript ne figure au gel
-> (`research.md` R-14). Cette section n'est exécutable qu'après l'ajout de l'outil au gel.
+> **R-14 est levée.** Le gel 1.0.3 a ajouté `openapi-typescript` ; le gel **1.0.4** a corrigé la
+> version de TypeScript qui l'accompagne — `7.0.2` rendait la génération impossible, l'outil
+> exigeant `^5.x`. Section exécutable :
+>
+> ```sh
+> scripts/ci/generer-client.sh --verifier
+> ```
+>
+> Le mode `--verifier` exécute d'abord les **deux exigences du gel §3.2** : déterminisme d'octet
+> constaté par `cmp`, et ordre de membres stable constaté en ajoutant un endpoint.
 
 ---
 
 ## 3. Isolation multi-tenant — SC-005 (portes P-07, P-08)
 
 ```sh
-cargo test -p kaya-api --test isolation_tenant
-cargo test -p kaya-api --test rls_catalogue
+cd backend
+cargo test -p kaya-backend --test isolation_tenant
+cargo test -p kaya-backend --test rls_catalogue
 ```
+
+> Les tests transverses appartiennent au paquet racine **`kaya-backend`**, pas à `kaya-api` : ils
+> traversent plusieurs crates et ne peuvent donc appartenir à aucun d'eux sans lui donner une
+> dépendance vers tous les autres — ce que la hiérarchie du principe II interdit.
 
 **À constater** :
 
@@ -112,7 +132,7 @@ COMMIT;
 ### 4.1 Reconstitution autonome — le test central du cycle
 
 ```sh
-cargo test -p kaya-synchronisation --test reconstitution_autonome
+cargo test -p kaya-backend --test reconstitution_autonome
 ```
 
 **Ce que le test fait** : il se connecte avec le rôle `kaya_ledger_reader`, qui a le droit de lire
@@ -147,7 +167,7 @@ Seule mutation acceptée : `publie_le` passant de `NULL` à une valeur, une seul
 ### 4.3 Redémarrage brutal du worker — SC-004
 
 ```sh
-cargo test -p kaya-synchronisation --test worker_redemarrage
+cargo test -p kaya-backend --test worker_redemarrage
 ```
 
 **À constater** : le nombre d'événements en base est **identique avant et après**, et les
@@ -158,7 +178,7 @@ consommateurs voient l'effet d'une seule présentation malgré la republication.
 ## 5. Module doré et tests hors-ligne — §0.7 des user stories
 
 ```sh
-cargo test -p kaya-etablissements --test note_etablissement_classe_a
+cargo test -p kaya-backend --test note_etablissement_classe_a
 ```
 
 **À constater** :
@@ -169,7 +189,7 @@ cargo test -p kaya-etablissements --test note_etablissement_classe_a
   final.
 
 ```sh
-cargo test --workspace --test classes_offline
+cargo test -p kaya-backend --test classes_offline
 ```
 
 **À constater** : toute table d'un schéma applicatif absente de `docs/registre-classes-offline.md`
@@ -185,7 +205,7 @@ motif ne se code pas. Ce qui se valide ici, ce sont les **fondations** que le cy
 consommera.
 
 ```sh
-pnpm --filter app dev
+pnpm --filter @kaya/app dev
 ```
 
 | Vérification | Attendu |
@@ -198,8 +218,10 @@ pnpm --filter app dev
 | Aucun écran | Aucun fichier de `docs/design/html/` copié sous `app/` |
 
 ```sh
-pnpm --filter app test:i18n      # parité fr/en — porte P-16
-pnpm --filter app lint:tokens    # littéraux hors jetons — porte P-17
+pnpm --filter @kaya/app test:i18n      # parité fr/en — porte P-16
+pnpm --filter @kaya/app lint:tokens    # littéraux hors jetons — porte P-17
+pnpm --filter @kaya/app lint           # @tauri-apps/api hors PlatformAdapter — porte P-15
+pnpm --filter @kaya/app test           # file de classe A — porte P-13
 ```
 
 ---
@@ -207,8 +229,10 @@ pnpm --filter app lint:tokens    # littéraux hors jetons — porte P-17
 ## 7. Seeds — SC-007
 
 ```sh
+cd backend
 cargo run -p kaya-api --bin seeds
 cargo run -p kaya-api --bin seeds        # deuxième exécution : même état final
+cargo test -p kaya-backend --test seeds_rejouables   # trois exécutions, même état
 ```
 
 **À constater** : deux tenants — Deloria (établissement d'Abengourou, fuseau `Africa/Abidjan`) et
@@ -232,6 +256,12 @@ infra/backup/restaurer.sh <horodatage> <cible>  # restauration en environnement 
 procédure est suivie **par quelqu'un qui n'a pas écrit le système** (c'est la seule façon de
 savoir si elle est complète).
 
+> **⚠ Section non exécutée au cycle 001.** Les deux scripts sont écrits et leurs garde-fous ont
+> été déclenchés pour vérifier qu'ils refusent bien. L'exercice complet demande un fournisseur de
+> stockage tiers provisionné, une paire de clés `age` de production et un serveur vierge — aucun
+> des trois n'existe. **FR-060 n'est donc pas satisfaite et SC-006 reste ouvert.** Consigné dans
+> `infra/backup/README.md` §6.
+
 **À vérifier explicitement** : la sauvegarde est déposée sur un **hôte distinct** du serveur de
 production, avec verrouillage d'objet. Une sauvegarde présente uniquement dans le stockage objet
 local **ne satisfait pas** FR-060 — les deux tomberaient ensemble.
@@ -250,3 +280,9 @@ depuis le poste. Un `cargo build` local produit un binaire `aarch64-apple-darwin
 
 **Corollaire à ne pas oublier** : les mesures de temps de compilation de SC-010 se font **dans ce
 conteneur**, pas sur le poste — c'est le seul endroit où `mold` est actif.
+
+> **⚠ Image `linux/amd64` non produite au cycle 001.** `infra/Dockerfile.api` est écrit, ses deux
+> images de base sont vérifiées sur le registre, et il construit **sans base de données** grâce à
+> `backend/.sqlx` et `SQLX_OFFLINE=true`. Sur un poste Apple Silicon, la construction croisée
+> passe par l'émulation : la mesure obtenue ne dirait rien de la production. **SC-010 reste donc
+> non mesuré** — ce que R-01 annonçait déjà.

@@ -179,39 +179,39 @@ async fn p07_sans_contexte_de_tenant_zero_ligne_jamais_une_erreur() {
     tx.rollback().await.expect("rollback");
 }
 
-/// **T048 — test négatif.** Une table créée sans politique fait échouer la porte, avec son nom
-/// dans le message.
+/// **T048 — test négatif.** Une table sans politique fait échouer la porte, avec son nom dans le
+/// message.
 ///
-/// Le test crée délibérément une table non conforme dans un schéma applicatif, constate que la
-/// porte la signale, puis la supprime. Sans cette vérification, rien ne distinguerait une porte
-/// qui fonctionne d'une porte qui ne trouve jamais rien.
-#[tokio::test]
-async fn p07_test_negatif_une_table_sans_politique_fait_echouer_la_porte() {
-    let pool = commun::pool_owner().await;
+/// # Pourquoi la table fautive n'est PAS créée en base
+///
+/// Une première version la créait réellement, le temps de l'inventaire. Les fichiers de test
+/// s'exécutent en parallèle sur une base partagée : la table apparaissait donc dans le catalogue
+/// pendant que `p07_toute_table_applicative_est_isolee` et la porte du registre inventoriaient —
+/// et l'un ou l'autre échouait, au hasard de l'ordonnancement.
+///
+/// Un test qui casse ses voisins est un test qu'on finit par ignorer. Les trois conditions sont
+/// donc exercées sur un état **simulé**, ce qui vérifie exactement ce qui compte : la fonction
+/// `manquements` signale bien chaque défaut, et le nomme.
+#[test]
+fn p07_test_negatif_une_table_sans_politique_fait_echouer_la_porte() {
+    let tables = vec![
+        // Conforme — ne doit rien produire.
+        EtatTable {
+            nom_complet: "etablissements.note_etablissement".to_owned(),
+            rls_activee: true,
+            rls_forcee: true,
+            nombre_politiques: 1,
+        },
+        // Les trois défauts, sur une même table fictive.
+        EtatTable {
+            nom_complet: "etablissements.table_non_conforme_p07".to_owned(),
+            rls_activee: false,
+            rls_forcee: false,
+            nombre_politiques: 0,
+        },
+    ];
 
-    // `AssertSqlSafe` est légitime **ici et seulement ici** : le SQL est un littéral du test,
-    // sans la moindre donnée d'utilisateur (R-03). Sur le chemin qui décide de la visibilité des
-    // données, il n'apparaît nulle part — c'est pourquoi `poser_tenant` passe par `set_config`.
-    sqlx::raw_sql(sqlx::AssertSqlSafe(
-        "CREATE TABLE IF NOT EXISTS etablissements.table_non_conforme_p07 (
-             id UUID PRIMARY KEY, tenant_id UUID NOT NULL
-         )",
-    ))
-    .execute(&pool)
-    .await
-    .expect("création de la table de test");
-
-    let tables = inventorier(&pool).await;
     let manquements = manquements(&tables);
-
-    // Nettoyage avant les assertions : un échec ne doit pas laisser la table derrière lui et
-    // faire échouer tous les tests suivants pour une raison sans rapport.
-    sqlx::raw_sql(sqlx::AssertSqlSafe(
-        "DROP TABLE IF EXISTS etablissements.table_non_conforme_p07",
-    ))
-    .execute(&pool)
-    .await
-    .expect("suppression de la table de test");
 
     assert!(
         !manquements.is_empty(),
@@ -226,10 +226,24 @@ async fn p07_test_negatif_une_table_sans_politique_fait_echouer_la_porte() {
          sinon il faut la chercher à la main :\n  {}",
         manquements.join("\n  ")
     );
+    // Les trois conditions sont vérifiées SÉPARÉMENT, avec des messages distincts : `ENABLE`
+    // sans `FORCE` laisse le propriétaire hors politique, `ENABLE FORCE` sans politique bloque
+    // tout au lieu d'isoler. Deux situations très différentes — un message unique ferait
+    // chercher la mauvaise chose pendant une heure.
+    for motif in ["NON ACTIVÉE", "NON FORCÉE", "AUCUNE politique"] {
+        assert!(
+            manquements
+                .iter()
+                .any(|m| m.contains("table_non_conforme_p07") && m.contains(motif)),
+            "le motif « {motif} » doit apparaître dans les manquements :\n  {}",
+            manquements.join("\n  ")
+        );
+    }
+
     assert!(
-        manquements
+        !manquements
             .iter()
-            .any(|m| m.contains("table_non_conforme_p07") && m.contains("AUCUNE politique")),
-        "le motif exact doit apparaître, pas seulement le nom de la table"
+            .any(|m| m.contains("note_etablissement")),
+        "la porte signale une table pourtant conforme : elle échouerait sur tout"
     );
 }

@@ -150,28 +150,26 @@ async fn toute_table_est_declaree_au_registre_des_classes_hors_ligne() {
 ///
 /// Sans lui, rien ne distinguerait une porte qui fonctionne d'une porte dont l'extraction est
 /// cassée et qui déclarerait tout conforme.
-#[tokio::test]
-async fn test_negatif_une_table_non_declaree_est_signalee() {
-    let pool = commun::pool_owner().await;
-
-    // `AssertSqlSafe` est légitime : le SQL est un littéral du test, sans donnée d'utilisateur.
-    sqlx::raw_sql(sqlx::AssertSqlSafe(
-        "CREATE TABLE IF NOT EXISTS etablissements.zzz_table_non_declaree (id UUID PRIMARY KEY)",
-    ))
-    .execute(&pool)
-    .await
-    .expect("création de la table de test");
-
-    let tables = tables_reelles(&pool).await;
+///
+/// # Pourquoi la table fautive n'est PAS créée en base
+///
+/// Une première version créait réellement `etablissements.zzz_table_non_declaree`, le temps de
+/// l'inventaire. Les fichiers de test s'exécutent en parallèle sur une base partagée : cette
+/// table apparaissait donc dans le catalogue pendant que `toute_table_est_declaree_au_registre`
+/// et la porte P-07 inventoriaient — et l'un ou l'autre échouait, au hasard de l'ordonnancement.
+///
+/// Un test qui casse ses voisins est un test qu'on finit par ignorer. La comparaison est donc
+/// exercée sur un ensemble **simulé**, ce qui vérifie exactement ce qui compte : la fonction de
+/// différence signale bien une table absente du registre.
+#[test]
+fn test_negatif_une_table_non_declaree_est_signalee() {
     let declarees = entites_declarees();
-    let non_declarees: Vec<&String> = tables.difference(&declarees).collect();
 
-    sqlx::raw_sql(sqlx::AssertSqlSafe(
-        "DROP TABLE IF EXISTS etablissements.zzz_table_non_declaree",
-    ))
-    .execute(&pool)
-    .await
-    .expect("suppression de la table de test");
+    let mut tables_simulees = BTreeSet::new();
+    tables_simulees.insert("note_etablissement".to_owned()); // déclarée
+    tables_simulees.insert("zzz_table_non_declaree".to_owned()); // absente du registre
+
+    let non_declarees: Vec<&String> = tables_simulees.difference(&declarees).collect();
 
     assert!(
         non_declarees
@@ -179,6 +177,13 @@ async fn test_negatif_une_table_non_declaree_est_signalee() {
             .any(|t| t.as_str() == "zzz_table_non_declaree"),
         "la porte n'a pas signalé une table absente du registre : elle ne protège rien. \
          Trouvées : {non_declarees:?}"
+    );
+    assert!(
+        !non_declarees
+            .iter()
+            .any(|t| t.as_str() == "note_etablissement"),
+        "la porte signale une table pourtant déclarée : elle échouerait sur tout, et serait \
+         désactivée dans la semaine"
     );
 }
 

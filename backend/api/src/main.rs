@@ -15,6 +15,23 @@ use kaya_api::{application, contexte, db, observabilite};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Sonde de conteneur — `HEALTHCHECK` de `infra/Dockerfile.api`.
+    //
+    // Le drapeau évite d'installer `curl` ou `wget` dans l'image d'exécution : une image de
+    // production ne porte que ce qui sert à servir. Le binaire connaît déjà son port ; lui faire
+    // interroger sa propre sonde coûte quinze lignes et aucune dépendance.
+    if std::env::args().any(|a| a == "--verifier-sante") {
+        let port = std::env::var("KAYA_PORT").unwrap_or_else(|_| "8080".to_owned());
+        let adresse = format!("127.0.0.1:{port}");
+        return match std::net::TcpStream::connect(&adresse) {
+            Ok(_) => Ok(()),
+            Err(erreur) => {
+                eprintln!("sonde : {adresse} injoignable — {erreur}");
+                std::process::exit(1);
+            }
+        };
+    }
+
     // Le fichier `.env` n'existe qu'en développement ; son absence n'est pas une erreur.
     if dotenvy::from_path("backend/.env").is_err() {
         let _ = dotenvy::dotenv();

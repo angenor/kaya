@@ -1,0 +1,80 @@
+# Image de production de l'API — **construite pour `linux/amd64`, dans Docker**.
+#
+#     docker buildx build --platform linux/amd64 -f infra/Dockerfile.api -t kaya-api:<tag> .
+#
+# ## Pourquoi jamais par copie d'un binaire local
+#
+# Le poste de développement est `darwin/arm64`, la production `linux/amd64`. Les images Postgres,
+# Redis et Garage sont multi-architecture ; **le binaire Rust ne l'est pas** (gel §4.2). Un
+# `cargo build` local produit un `aarch64-apple-darwin` non déployable, et l'erreur ne se voit
+# qu'au démarrage sur le VPS.
+#
+# Corollaire consigné en SC-010 : les mesures de temps de compilation se font **dans ce
+# conteneur**, jamais sur le poste — c'est le seul endroit où `mold` est actif.
+
+# =================================================================================================
+#  Étape 1 — construction
+# =================================================================================================
+# Version épinglée du gel §2, jamais `latest`. La porte P-20 échoue sur un tag flottant.
+FROM --platform=$BUILDPLATFORM rust:1.97.1-trixie AS constructeur
+
+# `mold` — cibles Linux uniquement (R-01). Il n'existe pas sur macOS ; ici, il est chez lui.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends mold pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Les manifestes d'abord : tant qu'ils ne changent pas, la couche de dépendances compilées reste
+# en cache. Sans cette séparation, chaque modification d'une ligne de code recompilerait actix,
+# sqlx et l'ensemble du SDK S3 — plusieurs minutes à chaque itération.
+COPY backend/Cargo.toml backend/Cargo.lock backend/rust-toolchain.toml ./
+COPY backend/.cargo ./.cargo
+COPY backend/crates ./crates
+COPY backend/api ./api
+COPY backend/node ./node
+COPY backend/src ./src
+COPY backend/migrations ./migrations
+
+# `.sqlx` porte les requêtes préparées : la compilation n'a donc **besoin d'aucune base de
+# données** (porte P-18). Sans ce répertoire, l'image ne pourrait se construire qu'avec un
+# PostgreSQL joignable depuis le moteur Docker — ce qui n'existe pas en environnement de
+# construction reproductible.
+COPY backend/.sqlx ./.sqlx
+ENV SQLX_OFFLINE=true
+
+# `--locked` : le lockfile fait foi. Sans lui, une construction à six mois d'écart pourrait
+# résoudre des versions différentes, et le support à distance du parc auto-hébergé perdrait sa
+# condition (cadrage §10.2).
+RUN cargo build --release --locked --bin kaya-api --bin seeds
+
+# =================================================================================================
+#  Étape 2 — exécution
+# =================================================================================================
+# Image minimale : pas de compilateur, pas de gestionnaire de paquets, pas de shell superflu.
+FROM debian:trixie-slim AS execution
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 kaya
+
+COPY --from=constructeur /build/target/release/kaya-api /usr/local/bin/kaya-api
+COPY --from=constructeur /build/target/release/seeds    /usr/local/bin/kaya-seeds
+# Les migrations voyagent avec le binaire : elles s'appliquent au démarrage (R-12), et une image
+# sans elles démarrerait sur un schéma qu'elle ne sait pas amener à jour.
+COPY --from=constructeur /build/migrations /opt/kaya/migrations
+
+# **Jamais root.** Un conteneur compromis ne doit pas l'être avec les droits de l'hôte.
+USER kaya
+WORKDIR /opt/kaya
+
+EXPOSE 8080
+
+# La sonde interroge `/health`, qui vérifie chaque dépendance par une requête réelle — jamais
+# l'état d'un pool en mémoire. Un pool peut se croire sain plusieurs minutes après la mort de la
+# base, et c'est exactement l'intervalle où l'alerte des 2 minutes ne partirait pas.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/usr/local/bin/kaya-api", "--verifier-sante"]
+
+ENTRYPOINT ["/usr/local/bin/kaya-api"]
