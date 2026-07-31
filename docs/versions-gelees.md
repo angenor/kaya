@@ -4,7 +4,7 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.2 — vérifié le 2026-07-30**
+**Version du gel : 1.0.4 — vérifié le 2026-07-31**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
@@ -144,6 +144,64 @@ entrent dans le lockfile et la porte P-20 les couvre.
 | `@tauri-apps/cli` | **2.11.4** | CLI Tauri (build Android/iOS/desktop) |
 | `@tauri-apps/api` | **2.11.1** | Pont JS ↔ Rust — **consommé uniquement par `PlatformAdapter`** (principe VII) |
 | `@nuxtjs/i18n` | **10.6.0** | i18n fr/en, fr par défaut (principe VIII) |
+| `openapi-typescript` | **7.13.0** | **Génère les types TS depuis `openapi.json`** — le seul artefact généré (principe I·a, porte P-01) |
+| `openapi-fetch` | **0.17.0** | Client fetch typé, ~6 kB — **écrit à la main, jamais généré** |
+| `typescript` | **5.9.3** ⚠️ | `peerDependency` de `openapi-typescript` — **dernière 5.x, pas la dernière stable** |
+
+#### Génération du client TypeScript — ajoutée au gel 1.0.3
+
+Le gel initial ne portait **aucun générateur**, ce qui rendait la porte **P-01** inapplicable :
+sans générateur, pas de client régénéré, donc pas de diff à comparer. Lacune comblée.
+
+**Le choix repose sur une séparation, pas sur un outil** : `openapi-typescript` produit
+**uniquement un fichier de types**, dérivé mécaniquement du contrat ; `openapi-fetch` est une
+bibliothèque runtime **installée, jamais générée**. L'unique artefact soumis à P-01 est donc un
+fichier de types, sans code d'exécution — ce qui réduit la surface de diff au strict dérivé du
+contrat. Un générateur de SDK complet (`@hey-api/openapi-ts`, `orval`) produirait des fichiers
+de client à chaque exécution, multipliant les occasions de faux positif.
+
+Écartés, avec le motif : `@hey-api/openapi-ts` **0.99.0** est encore en `0.x`, donc à API
+instable par convention sémantique ; `orval` **8.23.0** génère des couches de requêtes dont le
+projet n'a pas besoin ; `oazapfts` **7.5.0** est un générateur de SDK, même objection que
+Hey-API. Tous sont MIT et viables — le critère retenu est la **taille de la sortie générée**.
+
+Deux exigences que l'outil doit satisfaire, **à valider au cycle 1 avant de clore US5** :
+
+1. **Déterminisme d'octet.** Deux exécutions successives sur le même `openapi.json` DOIVENT
+   produire deux fichiers identiques. À vérifier par `cmp`, pas par lecture. Sans cette
+   propriété, P-01 échoue au hasard et sera désactivée sous trois semaines.
+2. **Ordre stable des membres**, indépendant de l'ordre de découverte des routes par utoipa.
+   À vérifier en ajoutant un endpoint en fin de fichier Rust et en constatant que le diff
+   généré reste local.
+
+`openapi-fetch` pèse ~6 kB, ce qui compte : la persona Aminata travaille sur un Android
+d'entrée de gamme en réseau intermittent.
+
+#### TypeScript reculé de 7.0.2 à 5.9.3 — corrigé au gel 1.0.4
+
+Le gel 1.0.3 avait retenu `typescript` **7.0.2**, dernière stable au registre npm. La combinaison
+**ne fonctionne pas** : `openapi-typescript` 7.13.0 déclare `peerDependencies: { "typescript":
+"^5.x" }`, et TypeScript 7 — la réimplémentation native — a modifié l'API `ts.factory` sur
+laquelle le générateur s'appuie. L'exécution échoue immédiatement :
+
+```
+TypeError: Cannot read properties of undefined (reading 'createKeywordTypeNode')
+    at openapi-typescript/dist/lib/ts.mjs:11:28
+```
+
+**Ce que l'erreur du gel 1.0.3 apprend** : la règle « dernière version stable » du principe XI
+suppose que les versions sont compatibles entre elles. Elle ne remplace pas la vérification de
+compatibilité, que le §3.1 pratique déjà pour les crates Rust (colonne « Contrainte vérifiée »).
+La même colonne manquait au §3.2 ; l'écart est comblé ici.
+
+`5.9.3` est la dernière `5.x`, vérifiée sur `https://registry.npmjs.org/typescript` le
+2026-07-31 (`dist-tags.latest` = `7.0.2`, dernière `5.x` = `5.9.3`). C'est une **dérogation
+raisonnée** au « dernière stable », de même nature que celle de Node LTS : la contrainte d'un
+outil prime sur la fraîcheur.
+
+**Condition de levée** : `openapi-typescript` publie une version déclarant `typescript ^7`. À
+vérifier à chaque revue mensuelle, sur `peerDependencies` — pas sur le numéro de version de
+l'outil, qui peut monter sans changer sa contrainte.
 
 > Le décalage `tauri` 2.11.5 (crate) / `@tauri-apps/cli` 2.11.4 est normal : les deux
 > versionnements sont indépendants dans la même branche 2.11.x.
@@ -226,7 +284,8 @@ for c in actix-web sqlx utoipa utoipa-swagger-ui utoipa-actix-web tauri tauri-bu
 done
 
 # Paquets npm
-for p in nuxt tailwindcss @tauri-apps/cli @tauri-apps/api @nuxtjs/i18n pnpm; do
+for p in nuxt tailwindcss @tauri-apps/cli @tauri-apps/api @nuxtjs/i18n pnpm \
+         openapi-typescript openapi-fetch typescript; do
   printf "%-22s " "$p"
   curl -sS "https://registry.npmjs.org/$(echo $p | sed 's|/|%2F|')/latest" \
     | python3 -c "import sys,json;print(json.load(sys.stdin)['version'])"
@@ -277,6 +336,8 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.4 | 2026-07-31 | **TypeScript reculé de `7.0.2` à `5.9.3`** — corrige une erreur du gel 1.0.3, constatée à l'exécution au cycle 001. `openapi-typescript` 7.13.0 déclare `peerDependencies: { typescript: "^5.x" }` et TypeScript 7 a modifié l'API `ts.factory` : la génération du client échoue sur `TypeError: Cannot read properties of undefined (reading 'createKeywordTypeNode')`, donc la porte **P-01** ne peut pas s'exécuter. `5.9.3` vérifiée sur `https://registry.npmjs.org/typescript` le 2026-07-31 comme dernière `5.x`. Dérogation raisonnée au « dernière stable », de même nature que Node LTS. Condition de levée : `openapi-typescript` déclare `typescript ^7`. **Leçon de gouvernance** : le §3.1 vérifiait la compatibilité inter-crates, le §3.2 ne le faisait pas pour les paquets npm — l'écart est comblé. |
+| 1.0.3 | 2026-07-30 | **Générateur de client TypeScript ajouté** — lacune du gel initial signalée par le plan du cycle 1 : la porte P-01 était inapplicable faute de générateur. Retenus : `openapi-typescript` **7.13.0** (types seulement) + `openapi-fetch` **0.17.0** (runtime écrit à la main) + `typescript` **7.0.2** (peerDependency). Critère de choix : minimiser la surface générée soumise à P-01. Écartés avec motif : `@hey-api/openapi-ts` 0.99.0 (`0.x`), `orval` 8.23.0, `oazapfts` 7.5.0. Deux exigences à valider au cycle 1 avant de clore US5 : déterminisme d'octet vérifié par `cmp`, et ordre de membres stable indépendant de l'ordre de découverte utoipa. |
 | 1.0.2 | 2026-07-30 | **Cible de déploiement arrêtée : Docker sur VPS Contabo** (mode A). **PostgreSQL `18.4` confirmée, arbitrage fermé** — version maîtrisée en auto-géré, EOL 2030-11-14 retenu pour la conservation fiscale de 10 ans ; `17.10` reste l'option du paquet auto-hébergé (mode B). Ajout du §4.2 : les trois images Docker vérifiées disponibles en **amd64 et arm64**, donc un seul `compose.yml` pour le poste Apple Silicon et le VPS. Consigné : le binaire Rust n'est pas multi-architecture — construction de production **dans Docker pour `linux/amd64`**, jamais par copie locale. Consigné aussi : `dxflrs/garage` publie des tags de hash de commit qui masquent les tags sémantiques dans un tri par date — toujours interroger par nom. |
 | 1.0.1 | 2026-07-30 | **Redis reculé de `8.10.0` à `8.8.1`** : `8.10.0` était en GA depuis un jour, avec neuf jours de RC, pour un nouvel encodage de hachage inutile à Kaya ; `8.8.1` porte les mêmes correctifs de sécurité du 2026-07-23 et deux mois de recul. **sqlx `0.9.0` confirmée** sur deux apports propres au projet (`#3918` erreur de violation d'exclusion pour HEB-02 ; `sqlx.toml` multi-schémas pour le principe II) et présence de `PgRange` vérifiée sur docs.rs. **PostgreSQL : arbitrage 18.4 / 17.10 ouvert**, rattaché à la décision B-01. Les neuf autres briques sont inchangées. |
 | 1.0.0 | 2026-07-30 | Gel initial. 10 briques du principe XI + 14 crates + 3 paquets npm + Node LTS et pnpm. Compatibilité `utoipa-swagger-ui` / `utoipa-actix-web` avec `utoipa 5.5.0` vérifiée sur crates.io. Présence de la feature `uuid/v7` vérifiée. Deux points d'attention consignés : rupture d'API sqlx 0.8 → 0.9, et fraîcheur d'un jour de Redis 8.10.0. Dérogation raisonnée sur Node : LTS 24.18.1 retenue plutôt que la stable 26.5.1. |

@@ -151,6 +151,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 time = { workspace = true }
 utoipa = { workspace = true }
+utoipa-actix-web = { workspace = true }
 dotenvy = { workspace = true }
 futures = { workspace = true }
 kaya-fiscalite = { workspace = true }

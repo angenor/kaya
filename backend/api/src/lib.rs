@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 pub mod application;
+pub mod contexte;
 pub mod db;
 pub mod observabilite;
 pub mod openapi;

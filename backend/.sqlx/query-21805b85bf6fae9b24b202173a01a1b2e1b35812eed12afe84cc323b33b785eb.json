@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"compte!\"\n        FROM synchronisation.evenement_outbox\n        WHERE agregat = 'note_etablissement' AND agregat_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "compte!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "21805b85bf6fae9b24b202173a01a1b2e1b35812eed12afe84cc323b33b785eb"
+}

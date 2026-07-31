@@ -21,7 +21,7 @@ mod commun;
 
 use std::collections::BTreeSet;
 
-use kaya_api::openapi;
+use kaya_api::application;
 
 /// Régime d'isolation d'un endpoint.
 // Les variantes ne sont pas encore construites : `COUVERTURE` est vide tant qu'aucune route
@@ -42,13 +42,23 @@ enum Regime {
 /// fait échouer la porte, dans les deux sens : une route non déclarée, comme une déclaration qui
 /// ne correspond à aucune route.
 const COUVERTURE: &[(&str, Regime)] = &[
-    // Ce cycle ne monte encore aucune route. La table reste vide, et c'est vérifié :
-    // `p08_toute_route_du_contrat_est_couverte` échouera dès la première route ajoutée sans
-    // décision. C'est précisément ce qu'on attend d'elle.
+    // Module doré. `GET` et `POST` partagent le chemin ; les deux sont vérifiés par
+    // `p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien`.
+    (
+        "/api/v1/etablissements/{etablissement_id}/notes",
+        Regime::Isole,
+    ),
 ];
 
+/// Les routes **réellement montées**, pas le squelette déclaratif.
+///
+/// `application::contrat_complet()` assemble l'application comme le fait `servir` et en extrait
+/// le contrat. Lire `openapi::contrat()` à la place ne renverrait que titre et étiquettes : la
+/// porte constaterait zéro route et passerait au vert avec des endpoints servis — le premier
+/// état dans lequel cette porte s'est trouvée, et la raison pour laquelle la distinction est
+/// écrite ici.
 fn routes_du_contrat() -> BTreeSet<String> {
-    openapi::contrat()
+    application::contrat_complet()
         .paths
         .paths
         .keys()
@@ -153,4 +163,82 @@ async fn p08_un_tenant_ne_peut_pas_ecrire_chez_un_autre() {
     );
 
     let _ = tx.rollback().await;
+}
+
+/// Isolation **par endpoint** — le tenant A vise l'établissement du tenant B, par HTTP.
+///
+/// C'est le scénario exact de la porte P-08 : deux tenants seedés, chaque endpoint visé en
+/// croisé. Un test au niveau de la base ne suffirait pas — il resterait possible qu'un handler
+/// ouvre une transaction sans poser le tenant courant, et voie alors tout ou rien selon le
+/// hasard du code.
+#[actix_web::test]
+async fn p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 endpoint A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 endpoint B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+
+    let compte_a = uuid::Uuid::now_v7();
+    let chemin_de_b = format!("/api/v1/etablissements/{}/notes", b.etablissement_id);
+
+    // --- Lecture croisée : A demande les notes de l'établissement de B --------------------
+    let requete = actix_web::test::TestRequest::get()
+        .uri(&chemin_de_b)
+        .insert_header((kaya_api::contexte::EN_TETE_TENANT, a.tenant_id.to_string()))
+        .insert_header((kaya_api::contexte::EN_TETE_COMPTE, compte_a.to_string()))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+
+    // `404` : du point de vue de A, l'établissement de B **n'existe pas**. Un `403` confirmerait
+    // son existence — une fuite d'information ténue, mais réelle : elle permet d'énumérer les
+    // établissements des autres clients.
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a obtenu {} en lisant les notes de l'établissement du tenant B",
+        reponse.status()
+    );
+
+    // --- Écriture croisée : A crée une note chez B ----------------------------------------
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&chemin_de_b)
+        .insert_header((kaya_api::contexte::EN_TETE_TENANT, a.tenant_id.to_string()))
+        .insert_header((kaya_api::contexte::EN_TETE_COMPTE, compte_a.to_string()))
+        .set_json(serde_json::json!({
+            "id": uuid::Uuid::now_v7(),
+            "texte": "intrusion",
+        }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a pu écrire chez le tenant B : statut {}",
+        reponse.status()
+    );
+
+    // Et rien n'a été écrit, quel que soit le statut renvoyé.
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, b.tenant_id)
+        .await
+        .expect("pose du tenant B");
+    let compte: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "compte!"
+        FROM etablissements.note_etablissement
+        WHERE etablissement_id = $1
+        "#,
+        b.etablissement_id
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage");
+
+    assert_eq!(
+        compte, 0,
+        "{compte} note(s) écrite(s) chez le tenant B par le tenant A"
+    );
 }

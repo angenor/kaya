@@ -19,6 +19,23 @@ pub struct EtatApplication {
     pub pool: PgPool,
 }
 
+impl EtatApplication {
+    /// Construit le service des notes.
+    ///
+    /// Le service est **assemblé à la demande** plutôt que conservé dans l'état : il ne détient
+    /// qu'un pool clonable et un écrivain sans état, donc le construire ne coûte rien, et
+    /// l'injection de l'écrivain d'outbox reste visible ici — là où l'on cherchera un jour à
+    /// savoir par où passent les événements.
+    pub fn service_note(
+        &self,
+    ) -> kaya_etablissements::note::ServiceNote<kaya_synchronisation::outbox::PgOutboxWriter> {
+        kaya_etablissements::note::ServiceNote::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+}
+
 /// Swagger UI est-elle montée ?
 ///
 /// **Décision de configuration au démarrage, jamais un test de variable dispersé dans les
@@ -30,6 +47,30 @@ pub fn swagger_ui_activee() -> bool {
         std::env::var("KAYA_SWAGGER_UI").as_deref(),
         Ok("1") | Ok("true")
     )
+}
+
+/// Le contrat OpenAPI **assemblé**, routes montées comprises.
+///
+/// # Pourquoi cette fonction existe
+///
+/// `openapi::contrat()` ne renvoie que le squelette déclaré par la macro `#[derive(OpenApi)]` :
+/// titre, étiquettes, schéma d'authentification. Les chemins, eux, sont collectés par
+/// `utoipa-actix-web` **au montage des routes** — donc seulement dans `split_for_parts()`.
+///
+/// La distinction a failli rendre la porte P-08 muette : paramétrée sur le squelette, elle
+/// constatait zéro route et passait au vert alors que deux endpoints étaient servis. Une porte
+/// qui ne trouve jamais rien est indistinguable d'une porte qui n'a rien à trouver.
+///
+/// Le contrat est donc extrait en construisant une application jetable — le même montage que
+/// `servir`, sans écoute. C'est ce que consomment la porte P-08 et la génération du client
+/// TypeScript.
+pub fn contrat_complet() -> utoipa::openapi::OpenApi {
+    let (_, contrat) = App::new()
+        .into_utoipa_app()
+        .openapi(crate::openapi::contrat())
+        .configure(crate::routes::configurer)
+        .split_for_parts();
+    contrat
 }
 
 /// Démarre le serveur HTTP.

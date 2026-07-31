@@ -22,3 +22,5 @@ packages:
 # Nuxt.
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - '@nuxtjs/i18n@10.6.0'

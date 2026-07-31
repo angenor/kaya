@@ -11,7 +11,7 @@
 //! partiellement migré — un état où les erreurs sont incompréhensibles et où le client n'a aucun
 //! moyen de savoir qu'il doit réessayer.
 
-use kaya_api::{application, db, observabilite};
+use kaya_api::{application, contexte, db, observabilite};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -21,6 +21,11 @@ async fn main() -> std::io::Result<()> {
     }
 
     observabilite::initialiser_journaux();
+
+    // Refus de démarrer si la dérogation d'authentification n'est pas ouverte
+    // explicitement. Une dérogation qu'on peut oublier d'ouvrir se retrouve ouverte en
+    // production sans que personne ne l'ait décidé.
+    contexte::verifier_derogation();
 
     let pool_migrations = db::pool_migrations()
         .await

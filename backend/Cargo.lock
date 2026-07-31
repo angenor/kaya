@@ -1935,6 +1935,7 @@ dependencies = [
  "time",
  "tokio",
  "utoipa",
+ "utoipa-actix-web",
  "uuid",
 ]
 

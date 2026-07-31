@@ -9,4 +9,5 @@
 
 #![forbid(unsafe_code)]
 
+pub mod note;
 pub mod tenant_context;

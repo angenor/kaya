@@ -22,6 +22,13 @@ path = "src/main.rs"
 name = "seeds"
 path = "src/bin/seeds.rs"
 
+# Contrat OpenAPI sur la sortie standard — consommé par la porte P-01. Ne demande ni base de
+# données, ni port d'écoute : trois occasions d'échec intermittent en moins sur une porte qui
+# doit rester stable.
+[[bin]]
+name = "contrat"
+path = "src/bin/contrat.rs"
+
 [dependencies]
 kaya-domain = { workspace = true }
 kaya-etablissements = { workspace = true }

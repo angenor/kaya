@@ -67,6 +67,30 @@ async fn connecter(url: &str) -> PgPool {
         .expect("connexion à la base de test impossible")
 }
 
+/// Monte **l'application réelle**, celle que sert le binaire.
+///
+/// Le montage passe par `kaya_api::routes::configurer`, la même fonction qu'appelle
+/// `application::servir`. Un test qui déclarerait ses propres routes prouverait quelque chose sur
+/// lui-même et rien sur le service : c'est exactement le trou que la porte P-08 cherche à fermer.
+#[macro_export]
+macro_rules! monter_application {
+    ($pool:expr) => {{
+        use actix_web::{App, web};
+        use utoipa_actix_web::AppExt;
+
+        let (app, _contrat) = App::new()
+            .app_data(web::Data::new(kaya_api::application::EtatApplication {
+                pool: $pool,
+            }))
+            .into_utoipa_app()
+            .openapi(kaya_api::openapi::contrat())
+            .configure(kaya_api::routes::configurer)
+            .split_for_parts();
+
+        actix_web::test::init_service(app).await
+    }};
+}
+
 /// Un tenant et son établissement, créés pour un test.
 #[derive(Debug, Clone, Copy)]
 pub struct JeuTenant {
