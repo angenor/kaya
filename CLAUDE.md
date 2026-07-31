@@ -4,12 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Il n'y a aucun code.** Ni `Cargo.toml`, ni `package.json`, ni `compose.yml`, ni un seul `.rs`
-ou `.vue`. Le dépôt est en **phase 0** : documentation produit, gouvernance et gel des versions.
-Ne cherchez pas de source, ne supposez pas d'arborescence existante.
+**Le socle technique est en place** (cycle 001, TRX, fusionné le 2026-07-30) : 18 crates Rust,
+6 migrations, 15 tests d'intégration, 9 portes de CI scriptées, et une image de production
+construite et exercée. Le **cycle 002 (ETB — établissements et modules d'activité)** est
+spécifié, non implémenté.
 
-Le premier code viendra du cycle Spec Kit sur le module **TRX** (tranche T1). Tout ce qui suit
-décrit ce qui est **arrêté**, pas ce qui existe.
+**Le patron de référence est `docs/module-dore.md`** (451 lignes) : une tranche verticale écrite
+à la main contre sqlx 0.9. **Le lire avant d'écrire du Rust** — tout extrait trouvé en ligne vise
+sqlx 0.8 et ne compilera pas.
+
+Un manque connu et assumé : le module doré **n'a pas de couche écran**. Le cycle 001 n'avait
+aucun écran maquetté ni dérivé à produire, donc le patron ne démontre ni i18n, ni mode sombre,
+ni RBAC, ni chargement paresseux. **Le cycle 002 produit `G1`** (dérivé de `G2`) et solde cette
+dette : c'est lui qui fixera le patron front.
+
+État par tranche : **T1 en cours** (TRX fait, ETB spécifié ; restent CPT, HEB, SYN, SEJ-1).
 
 ## Langue et conventions de nommage
 
@@ -33,8 +42,10 @@ Chaînes visibles par l'utilisateur : **jamais en dur**, clés i18n **fr et en**
 
 En cas de contradiction, trancher dans cet ordre :
 
-1. `.specify/memory/constitution.md` — 12 principes non négociables, 20 portes de CI bloquantes.
-   **À lire avant toute décision d'architecture.**
+1. `.specify/memory/constitution.md` — 12 principes non négociables, **21 portes de CI**
+   bloquantes (P-01 à P-20, dont P-05b). **À lire avant toute décision d'architecture.** Sa
+   section « Couverture des portes » est née de quatre portes vertes défectueuses au cycle 001 :
+   *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde tout.*
 2. `docs/cadrage-v1.md` — périmètre, modèle d'entité, fiscalité, classes hors-ligne, déploiement,
    provisions §14.
 3. `docs/user-stories-v1.md` — critères d'acceptation, priorités P0/P1/P2/PROVISION, Definition
@@ -163,16 +174,34 @@ Le dépôt utilise **Spec Kit** (skills `speckit-*` dans `.claude/skills/`).
 
 ## Commandes
 
-Aucune commande de build n'existe encore. Celles-ci sont **arrêtées par la constitution et le
-gel**, et seront créées par le cycle TRX :
-
 ```sh
-cargo sqlx prepare          # requêtes vérifiées à la compilation — porte P-18
-cargo tauri android|ios     # builds mobiles (MOB-01)
+# Services de développement — Postgres 18.4, Redis 8.8.1, Garage 2.3.0
+docker compose -f infra/compose.yml up -d        # services db, cache, objets
+bash scripts/dev/preparer-base.sh                # rôles, schémas, migrations
+bash scripts/dev/preparer-stockage.sh            # amorçage des buckets Garage
+
+# Backend (depuis backend/)
+cargo test --workspace                           # 15 tests d'intégration
+cargo test --test isolation_tenant                # un seul fichier de test
+cargo sqlx prepare --workspace                    # cache de requêtes (porte P-18)
+SQLX_OFFLINE=true cargo check --workspace --all-targets --locked   # comme l'image
+
+# Portes de CI, exécutables une par une depuis la racine
+pnpm porte:p01   # client TS régénéré sans diff       pnpm porte:p10   # entiers / NUMERIC
+pnpm porte:p02   # migration appliquée non modifiée   pnpm porte:p19   # maquette non copiée
+pnpm porte:p04   # pas de jointure inter-schémas      pnpm porte:p20   # versions épinglées
+pnpm porte:p05b  # pas de purge de l'outbox
+pnpm generer:client                               # types TS depuis openapi.json
+
+# Application (depuis app/)
+pnpm dev · pnpm build · pnpm test · pnpm lint · pnpm lint:tokens · pnpm test:i18n
+
+# Image de production — TOUJOURS pour linux/amd64, jamais un binaire local
+docker buildx build --platform linux/amd64 -f infra/Dockerfile.api -t kaya-api:<tag> .
 ```
 
-Aujourd'hui, seule la vérification des versions est exécutable — voir §5 de
-`docs/versions-gelees.md` (interrogation de crates.io, npm, postgresql.org, Docker Hub).
+Les mesures de temps de compilation se font **dans le conteneur**, seul endroit où `mold` est
+actif — il n'existe pas sur macOS.
 
 ## Décisions ouvertes qui bloqueraient si elles étaient ignorées
 

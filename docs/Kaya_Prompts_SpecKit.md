@@ -15,16 +15,16 @@ cd kaya
 
 ```
 CLAUDE.md                      guide de session — à lire en premier
-.specify/memory/constitution.md  v1.0.2 — 12 principes, 20 portes P-01→P-20
+.specify/memory/constitution.md  v1.2.0 — 12 principes, 21 portes P-01→P-20
 docs/
 ├── cadrage-v1.md              source de vérité produit et technique
 ├── user-stories-v1.md         source de vérité fonctionnelle, priorités
 ├── registre-classes-offline.md v1.0.0 — 157 opérations classées A/B/C/D
-├── versions-gelees.md         v1.0.2 — versions épinglées + URL des registres
+├── versions-gelees.md         v1.0.4 — versions épinglées + URL des registres
 ├── Kaya_Prompts_SpecKit.md    ce fichier
 ├── Kaya_Design.md             ✅ présent — matrice de dérivation, lexique
 ├── Kaya_Vision_Plateforme.md  fermé jusqu'au jalon J1
-├── module-dore.md             ⚠️ produit par le cycle 1 — patron sqlx 0.9
+├── module-dore.md             ✅ patron sqlx 0.9 — À LIRE avant tout Rust
 └── design/
     ├── theme.css              ⚠️ copié vers app/assets/css/ AU CYCLE 1
     ├── tokens.md              valeurs curées — PRIME sur tout export
@@ -32,8 +32,8 @@ docs/
     ├── mouvement.md           durées, courbes, sept patrons
     ├── styleguide.html        les 14 composants, tous états, clair + sombre
     ├── README.md              ce qui se copie, ce qui se lit, valeurs arbitraires
-    ├── derivation.md          ⚠️ À RÉDIGER — sans lui, aucun écran dérivé ne se code
-    ├── lexique.md             ⚠️ À RÉDIGER — sans lui, le jargon atteint l'interface
+    ├── derivation.md          ✅ 30 écrans dérivés + leur motif — NORMATIF
+    ├── lexique.md             ✅ vocabulaire utilisateur — NORMATIF
     ├── html/                  29 fichiers {code}-{nom}[-{etat}].html — 11 écrans — RÉFÉRENCE
     ├── fondation/             directions, mouvement, plaisir, difficiles, illustrations
     ├── documents/             D1-D5 tickets, D6 note provisoire, D7 facture
@@ -53,9 +53,13 @@ désormais **à leur chemin annoncé**, extraites de `Kaya_Design.md` :
 Ces deux tableaux ont été **déplacés, pas recopiés** : `Kaya_Design.md` §6 et partie V y
 renvoient et ne les dupliquent pas. Une copie aurait divergé — principe I de la constitution.
 
-**Quatre documents ont été ajoutés depuis la rédaction de ce fichier** et font foi :
-`.specify/memory/constitution.md` (v1.0.2), `docs/registre-classes-offline.md` (v1.0.0),
-`docs/versions-gelees.md` (v1.0.2) et `CLAUDE.md` (guide de session).
+**Cinq documents ont été ajoutés depuis la rédaction de ce fichier** et font foi :
+`.specify/memory/constitution.md` (**v1.2.0**), `docs/registre-classes-offline.md` (v1.0.0),
+`docs/versions-gelees.md` (**v1.0.4**), `docs/module-dore.md` (patron sqlx 0.9) et `CLAUDE.md`.
+
+**Le cycle 001 (TRX) est fusionné** : 18 crates, 6 migrations, 15 tests, 9 portes scriptées, image
+de production exercée. Le cycle 002 (ETB) est spécifié. L'arborescence du §0.1 **existe** — ce
+n'est plus une cible.
 
 Le paquet installé utilise le **tiret** comme séparateur (`/speckit-specify`), conformément à
 `.specify/integration.json` → `invoke_separator: "-"`. Tous les prompts de ce fichier l'emploient.
@@ -122,8 +126,8 @@ puis : /speckit-specify (§3) → /speckit-clarify (§2.1) → /speckit-plan (§
 ## 1. Constitution (à coller une seule fois)
 
 > ✅ **CONSOMMÉ le 2026-07-30 — ne pas recoller.** La constitution est ratifiée et vit
-> dans `.specify/memory/constitution.md` (**v1.0.2** : 12 principes, 20 portes de CI
-> P-01 à P-20, gouvernance et éléments différés). **C'est elle qui fait foi, pas le
+> dans `.specify/memory/constitution.md` (**v1.2.0** : 12 principes, **21 portes** de CI
+> P-01 à P-20 dont P-05b, section « Couverture des portes », gouvernance). **C'est elle qui fait foi, pas le
 > prompt ci-dessous**, conservé comme archive de ce qui a été soumis.
 >
 > Trois écarts constatés à la ratification et corrigés dans le fichier ratifié :
@@ -375,7 +379,8 @@ Stack imposée (cadrage v1 §13 + docs/versions-gelees.md — non négociable) :
   un exemple trouvé en ligne. Au cycle 1 seulement, ce fichier est un LIVRABLE et non
   une entrée : ce cycle le produit au lieu de le suivre.
 
-Respecte la constitution (.specify/memory/constitution.md, v1.0.2), en particulier :
+Respecte la constitution (.specify/memory/constitution.md — la version du dépôt fait foi,
+ne cite pas un numéro de mémoire), en particulier :
 l'établissement est l'entité centrale et aucun crate ne suppose qu'il a de
 l'hébergement ou un point de vente ; le socle ne connaît que article_vendable et
 ressource_reservable ; la disponibilité est un intervalle horodaté garanti par

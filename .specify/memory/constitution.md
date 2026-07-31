@@ -1,4 +1,17 @@
 <!--
+SYNC IMPACT REPORT — 1.2.1 — 2026-07-31
+========================================
+Changement de version : 1.2.0 → 1.2.1 (PATCH)
+Motif : le principe III exigeait « chaque table porte tenant_id » sans nommer
+        l'exception des référentiels globaux (catalogues des modules d'activité et
+        des capacités, communs à tous les tenants). La spécification du cycle 002 a
+        dû trancher seule ; sans mention, chaque cycle la redécouvrira et la
+        constitution restera en défaut. Clarification d'une règle existante → PATCH.
+Modifications :
+  - Principe III : exception des référentiels globaux nommée, avec l'obligation de
+    la déclarer dans la migration pour que P-07 ne la rencontre pas en silence.
+Aucun principe ajouté, renommé ni supprimé. Le jeu reste à 21 portes.
+
 SYNC IMPACT REPORT — 1.2.0 — 2026-07-31
 ========================================
 Changement de version : 1.1.0 → 1.2.0 (MINOR)
@@ -194,7 +207,11 @@ réécriture.
 
 ### III. Isolation multi-tenant
 
-- Chaque table porte `tenant_id`.
+- Chaque table porte `tenant_id`. **Seule exception : les référentiels globaux** — le catalogue
+  des modules d'activité et celui des capacités, communs à tous les tenants et en lecture seule
+  pour eux. Toute table sans `tenant_id` DOIT être **nommée explicitement dans sa migration**
+  comme exception, avec son motif ; la porte P-07 ne doit jamais en rencontrer une en silence.
+  Une exception non déclarée est un défaut, pas une tolérance.
 - **RLS `ENABLE` ET `FORCE`** sur toutes les tables, avec un **rôle applicatif distinct du
   propriétaire des tables**.
 - Le tenant courant est posé **DANS CHAQUE TRANSACTION**, jamais à l'ouverture de connexion.
@@ -594,4 +611,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
+**Version**: 1.2.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
