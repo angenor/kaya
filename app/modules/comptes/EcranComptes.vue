@@ -219,7 +219,7 @@ async function ecrire(
   catch {
     // Une coupure survenue **pendant** l'appel : la garde hors-ligne évite l'attente inutile, elle
     // ne remplace pas le traitement d'erreur (`core/platform/reseau.ts`).
-    resultat.value = { ton: 'danger', cle: 'comptes.refus.inattendue' }
+    resultat.value = { ton: 'danger', cle: 'erreurs.inattendue' }
   }
   finally {
     enCours.value = null

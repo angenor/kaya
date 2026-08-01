@@ -16,7 +16,7 @@
    ce qui la fait basculer en mode sombre sans une seule règle de plus.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Phosphor — 73 glyphe(s) ────────────────────────────────────── */
+/* ── Phosphor — 77 glyphe(s) ────────────────────────────────────── */
 @font-face {
   font-family: "Phosphor";
   src: url("../fonts/phosphor-kaya.woff2") format("woff2");
@@ -75,6 +75,7 @@
 .ph.ph-fish:before { content: "\e728"; }
 .ph.ph-fork-knife:before { content: "\e262"; }
 .ph.ph-funnel:before { content: "\e266"; }
+.ph.ph-hand-waving:before { content: "\e580"; }
 .ph.ph-hourglass-medium:before { content: "\e2b8"; }
 .ph.ph-identification-card:before { content: "\e2c8"; }
 .ph.ph-image:before { content: "\e2ca"; }
@@ -93,6 +94,7 @@
 .ph.ph-printer:before { content: "\e3dc"; }
 .ph.ph-receipt:before { content: "\e3ec"; }
 .ph.ph-scales:before { content: "\e750"; }
+.ph.ph-sign-in:before { content: "\e428"; }
 .ph.ph-sparkle:before { content: "\e6a2"; }
 .ph.ph-squares-four:before { content: "\e464"; }
 .ph.ph-storefront:before { content: "\e470"; }
@@ -100,6 +102,7 @@
 .ph.ph-t-shirt:before { content: "\e670"; }
 .ph.ph-trash:before { content: "\e4a6"; }
 .ph.ph-trend-up:before { content: "\e4ae"; }
+.ph.ph-user:before { content: "\e4c2"; }
 .ph.ph-user-check:before { content: "\eafa"; }
 .ph.ph-user-focus:before { content: "\e6fc"; }
 .ph.ph-users-three:before { content: "\e68e"; }
@@ -109,6 +112,7 @@
 .ph.ph-whatsapp-logo:before { content: "\e5d0"; }
 .ph.ph-wifi-high:before { content: "\e4ea"; }
 .ph.ph-wifi-slash:before { content: "\e4f2"; }
+.ph.ph-x:before { content: "\e4f6"; }
 
 /* ── Phosphor-Fill — 7 glyphe(s) ───────────────────────────────── */
 @font-face {

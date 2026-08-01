@@ -42,6 +42,18 @@
     "indisponible": "Cette action n'est pas disponible sur cet appareil.",
     "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
   },
+  "erreurs": {
+    "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant.",
+    "permission_absente": "Vous n'avez pas le droit de faire cela.",
+    "identifiant_absent": "Il faut un numéro de téléphone ou une adresse e-mail.",
+    "identifiant_refuse": "Ce compte n'a pas pu être créé avec cet identifiant. Essayez-en un autre.",
+    "mot_de_passe_refuse": "Ce mot de passe n'a pas été accepté.",
+    "mot_de_passe": {
+      "trop_court": "Ce mot de passe est trop court. Il en faut au moins huit caractères.",
+      "trop_long": "Ce mot de passe est trop long.",
+      "compromis": "Ce mot de passe figure parmi les plus répandus. Choisissez-en un autre — une phrase que vous seul diriez fait très bien l'affaire."
+    }
+  },
   "connexion": {
     "sur_titre": "Kaya",
     "titre": "Connexion",
@@ -93,8 +105,7 @@
       "compte_inconnu": "Cette personne est introuvable.",
       "etablissement_inconnu": "Cet établissement est introuvable.",
       "portee_incompatible": "Ce choix ne s'applique pas à un établissement.",
-      "derniere_habilitation": "Vous êtes la seule personne à pouvoir gérer les accès ici. Donnez ce droit à quelqu'un d'autre avant de vous le retirer.",
-      "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
+      "derniere_habilitation": "Vous êtes la seule personne à pouvoir gérer les accès ici. Donnez ce droit à quelqu'un d'autre avant de vous le retirer."
     },
     "roles": {
       "proprietaire": "Propriétaire",

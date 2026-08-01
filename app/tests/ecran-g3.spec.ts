@@ -262,7 +262,9 @@ describe('les refus sont traduits du CODE, jamais du message du serveur', () => 
 
     const resultat = await attribuerRole(CONTEXTE, ADJOUA.id, 'caissier', ETABLISSEMENT, 'connecte')
 
-    expect(resultat).toMatchObject({ issue: 'refus', cle: 'comptes.refus.inattendue' })
+    // La phrase générique est celle de la table PARTAGÉE : un code que personne ne connaît ne
+    // mérite pas une formulation par module, il mérite une phrase honnête et la même partout.
+    expect(resultat).toMatchObject({ issue: 'refus', cle: 'erreurs.inattendue' })
   })
 
   it('le message de diagnostic du serveur n’atteint jamais le résultat', async () => {

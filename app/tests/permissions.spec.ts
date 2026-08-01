@@ -34,7 +34,15 @@ import { join } from 'node:path'
 import { PERMISSION_ATTRIBUER } from '../modules/comptes/roles'
 import { PERMISSION_BASCULER } from '../modules/etablissements/bascule-service'
 import { CATALOGUE_TUILES } from '../core/accueil/tuiles'
+import {
+  CLES_ERREUR_METIER,
+  CLES_MOTIF_MOT_DE_PASSE,
+  REFUS_INATTENDU,
+  cleDeRefus,
+} from '../core/erreurs/codes'
 import { cumuler, detient, detientUne } from '../core/rbac'
+import en from '../core/i18n/en.json'
+import fr from '../core/i18n/fr.json'
 
 const RACINE = process.cwd()
 const MIGRATION = join(RACINE, '../backend/migrations/0016_roles_permissions.sql')
@@ -169,5 +177,84 @@ describe('l’union, et la faute qu’elle évite', () => {
   it('un compte sans rôle cumule à vide, sans erreur', () => {
     expect(cumuler()).toEqual([])
     expect(cumuler([], [])).toEqual([])
+  })
+})
+
+// =================================================================================================
+//  Les dix codes d'erreur métier du contrat ont TOUS leur phrase
+// =================================================================================================
+
+describe('les dix codes d’erreur métier du contrat', () => {
+  /**
+   * Les dix de `contracts/http-api.md`, § « Codes d'erreur métier introduits ».
+   *
+   * Un code que la table ne connaît pas tombe sur une phrase générique honnête — ce qui est
+   * mieux qu'une clé affichée en brut, et pire que la phrase qui explique. Sur
+   * `derniere_habilitation`, la différence est celle entre « ça n'a pas marché » et « donnez ce
+   * droit à quelqu'un d'autre avant de vous le retirer ».
+   */
+  const CODES_DU_CONTRAT = [
+    'identifiants_invalides',
+    'session_invalide',
+    'permission_absente',
+    'methode_non_implementee',
+    'identifiant_absent',
+    'mot_de_passe_refuse',
+    'identifiant_refuse',
+    'portee_incompatible',
+    'etablissement_inconnu',
+    'derniere_habilitation',
+  ]
+
+  it('les dix figurent à la table partagée', () => {
+    for (const code of CODES_DU_CONTRAT) {
+      expect(CLES_ERREUR_METIER, `« ${code} »`).toHaveProperty(code)
+    }
+    // **Dix, et pas onze.** Une entrée de plus signifierait qu'un code a été inventé côté front,
+    // ou que le contrat en a gagné un sans que ce test suive.
+    expect(Object.keys(CLES_ERREUR_METIER)).toHaveLength(10)
+  })
+
+  it('chacune de leurs clés existe dans les DEUX catalogues', () => {
+    for (const code of CODES_DU_CONTRAT) {
+      const cle = CLES_ERREUR_METIER[code]!
+      for (const [langue, catalogue] of [['fr', fr], ['en', en]] as const) {
+        const phrase = cle
+          .split('.')
+          .reduce<unknown>((noeud, part) => (noeud as Record<string, unknown>)?.[part], catalogue)
+        expect(typeof phrase, `« ${code} » → « ${cle} » manque en ${langue}`).toBe('string')
+      }
+    }
+  })
+
+  it('les trois motifs de mot de passe distinguent ce qu’il faut corriger', () => {
+    // Le code seul dirait « refusé » ; l'utilisateur doit savoir s'il faut allonger son mot de
+    // passe ou en changer complètement.
+    for (const [motif, cle] of Object.entries(CLES_MOTIF_MOT_DE_PASSE)) {
+      const phrase = cle
+        .split('.')
+        .reduce<unknown>((noeud, part) => (noeud as Record<string, unknown>)?.[part], fr)
+      expect(typeof phrase, `« ${motif} » n'a pas de phrase`).toBe('string')
+    }
+    expect(fr.erreurs.mot_de_passe.trop_court).not.toBe(fr.erreurs.mot_de_passe.compromis)
+  })
+
+  it('`motif_cle` PRIME sur le code — elle enseigne là où le code constate', () => {
+    expect(cleDeRefus('portee_incompatible', 'un.motif.du.referentiel'))
+      .toBe('un.motif.du.referentiel')
+  })
+
+  it('un code inconnu tombe sur une phrase honnête, jamais sur une clé en brut', () => {
+    expect(cleDeRefus('quelque_chose_de_neuf')).toBe(REFUS_INATTENDU)
+    expect(cleDeRefus(undefined)).toBe(REFUS_INATTENDU)
+    expect(typeof fr.erreurs.inattendue).toBe('string')
+  })
+
+  it('une table de module PRIME sur la table partagée', () => {
+    // C'est ce qui permet à un module de dire mieux, sans que les autres perdent la phrase
+    // commune.
+    expect(cleDeRefus('etablissement_inconnu', null, { etablissement_inconnu: 'x.propre' }))
+      .toBe('x.propre')
+    expect(cleDeRefus('etablissement_inconnu')).toBe('comptes.refus.etablissement_inconnu')
   })
 })

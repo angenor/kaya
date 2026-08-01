@@ -30,6 +30,7 @@
 import { creerClientKaya } from '@kaya/client'
 
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
+import { cleDeRefus } from '~/core/erreurs/codes'
 import type { EtatReseau } from '~/core/platform'
 import { uuidV7 } from '~/core/sync/uuid-v7'
 
@@ -63,21 +64,17 @@ export type ResultatRole =
   }
 
 /**
- * Codes du contrat → clés i18n. **Table explicite et fermée.**
+ * Les codes **propres à ce module**, consultés avant la table partagée.
  *
- * Chaque entrée correspond à un code réellement produit par `api/src/routes/comptes.rs`. Un code
- * absent d'ici tombe sur `inattendue` : mieux vaut une phrase honnête et générique qu'une clé
- * i18n affichée telle quelle.
+ * `portee_incompatible`, `etablissement_inconnu` et `derniere_habilitation` n'y sont **pas** :
+ * ils vivent dans `core/erreurs/codes.ts`, parce que d'autres modules les rendent aussi. Les
+ * recopier ici en ferait deux copies, et celle qui dérive est toujours celle qu'on ne relit pas.
  */
-const CLES_DE_REFUS: Record<string, string> = {
+const CLES_DU_MODULE: Record<string, string> = {
   role_inconnu: 'comptes.refus.role_inconnu',
   compte_inconnu: 'comptes.refus.compte_inconnu',
-  etablissement_inconnu: 'comptes.refus.etablissement_inconnu',
-  portee_incompatible: 'comptes.refus.portee_incompatible',
-  derniere_habilitation: 'comptes.refus.derniere_habilitation',
 }
 
-const REFUS_INATTENDU = 'comptes.refus.inattendue'
 const REFUS_PERMISSION = 'comptes.refus.permission'
 const REFUS_RESEAU = 'comptes.refus.reseau'
 
@@ -97,9 +94,7 @@ function refuser(statut: number, corps: CorpsErreur | undefined, valeur: string)
     return { issue: 'refus', cle: REFUS_PERMISSION }
   }
 
-  const cle = corps?.motif_cle
-    || (corps?.code && CLES_DE_REFUS[corps.code])
-    || REFUS_INATTENDU
+  const cle = cleDeRefus(corps?.code, corps?.motif_cle, CLES_DU_MODULE)
 
   return { issue: 'refus', cle, valeurs: { valeur: corps?.valeur ?? valeur } }
 }

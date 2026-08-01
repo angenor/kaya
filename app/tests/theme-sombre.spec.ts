@@ -42,26 +42,59 @@ function blocSombre(): string {
 }
 
 /**
- * Les composants soumis au contrôle : les cinq sections de `G1`, **plus le système de design**.
+ * Les composants soumis au contrôle : **tous les modules métier, le système de design, et les
+ * pages qui portent du rendu**.
  *
- * Le second répertoire a été ajouté avec le composant 16 : c'est la pièce **réutilisée par tous
- * les cycles suivants**, donc celle dont un défaut de mode sombre se propagerait le plus loin. La
- * laisser hors du contrôle aurait été le pire endroit où l'omettre.
+ * `core/design-system` a été ajouté avec le composant 16 : c'est la pièce réutilisée par tous les
+ * cycles suivants, donc celle dont un défaut de mode sombre se propagerait le plus loin.
+ *
+ * Le cycle 003 ajoute **trois modules et deux pages**. Les pages `comptes.vue` et
+ * `journal-audit.vue` ne sont pas des coquilles vides : leur état d'erreur et de chargement porte
+ * du fond et du texte, donc des jetons — et c'est l'écran qu'on voit quand quelque chose ne va
+ * pas, celui où un texte illisible en mode sombre coûte le plus.
+ *
+ * **Le décompte est vérifié** : un répertoire renommé rendrait zéro fichier, et la porte passerait
+ * au vert en n'inspectant rien.
  */
-function composantsG1(): { nom: string, contenu: string }[] {
-  const repertoires = ['modules/etablissements', 'core/design-system']
+const REPERTOIRES_INSPECTES = [
+  'modules/etablissements',
+  'modules/comptes',
+  'modules/audit',
+  'modules/accueil',
+  'core/design-system',
+  'pages',
+] as const
 
-  return repertoires.flatMap(relatif =>
-    readdirSync(join(RACINE, relatif))
-      .filter(f => f.endsWith('.vue'))
-      .map(nom => ({ nom, contenu: readFileSync(join(RACINE, relatif, nom), 'utf8') })),
-  )
+/** Fichiers exemptés, **nommés un par un**, jamais par motif. */
+const EXEMPTES = [
+  // Surface de développement, retirée du routeur en production — même exemption nommée que
+  // P-16, et bornée par la même contrepartie. Elle affiche délibérément les deux thèmes
+  // côte à côte, donc porte des jetons dans les deux sens.
+  'styleguide.vue',
+]
+
+function composantsG1(): { nom: string, contenu: string }[] {
+  const composants = REPERTOIRES_INSPECTES.flatMap((relatif) => {
+    const fichiers = readdirSync(join(RACINE, relatif)).filter(f => f.endsWith('.vue'))
+
+    expect(
+      fichiers.length,
+      `« ${relatif} » ne rend aucun composant : la porte y passerait au vert sans rien inspecter`,
+    ).toBeGreaterThan(0)
+
+    return fichiers
+      .filter(nom => !EXEMPTES.includes(nom))
+      .map(nom => ({ nom, contenu: readFileSync(join(RACINE, relatif, nom), 'utf8') }))
+  })
+
+  expect(composants.length).toBeGreaterThanOrEqual(12)
+  return composants
 }
 
 /**
  * Les jetons de **couleur** employés par un composant.
  *
- * # Trois pièges d'extraction, neutralisés ici
+ * # Cinq pièges d'extraction, neutralisés ici
  *
  * 1. **Les préfixes directionnels.** `border-l-line-2` porte le jeton `line-2`, pas `l-line-2`.
  *    Sans traitement, chaque bordure gauche produirait un faux jeton introuvable dans le thème.
@@ -74,6 +107,12 @@ function composantsG1(): { nom: string, contenu: string }[] {
  *    le jeton du dégradé est porté par `via-brillance`, pas par `bg-…`. Relevé au cycle de la
  *    couche d'écriture, sur le squelette de chargement, qui est le premier composant du produit à
  *    employer un dégradé.
+ * 5. **Les propriétés CSS nommées dans une transition arbitraire.**
+ *    `transition-[transform,border-color]` contient littéralement « border-color », que le motif
+ *    capture comme le jeton « color ». Relevé sur l'accueil `R1`, dont les tuiles animent leur
+ *    bordure au survol — la maquette le fait, et le premier écran qui la reprend l'a fait tomber.
+ *    Un `[…]` entre crochets est une valeur arbitraire de Tailwind : elle nomme des propriétés
+ *    CSS, jamais des jetons de couleur.
  *
  * Une extraction qui produit des faux positifs est une porte qu'on désactive dans la semaine.
  *
@@ -86,6 +125,12 @@ function composantsG1(): { nom: string, contenu: string }[] {
  */
 function jetonsDeCouleur(contenu: string): Set<string> {
   const trouves = new Set<string>()
+  // Les valeurs arbitraires de Tailwind — `transition-[transform,border-color]`, `border-[1.5px]`
+  // — nomment des propriétés et des longueurs CSS, jamais des jetons. Les retirer AVANT
+  // l'extraction est plus sûr que de les filtrer après : la liste des propriétés CSS contenant
+  // « -color » est ouverte, celle des crochets ne l'est pas.
+  contenu = contenu.replace(/\[[^\]]*\]/g, '')
+
   const motif
     = /\b(?:bg|text|border|fill|stroke|from|via|to)(?:-(?:l|r|t|b|x|y|s|e))?-([a-z][a-z0-9-]*)\b/g
 
@@ -152,14 +197,18 @@ describe('G1 — mode clair et mode sombre', () => {
     ).toEqual([])
   })
 
-  it('les huit composants inspectés sont bien ceux attendus', () => {
+  it('les composants inspectés sont bien ceux attendus', () => {
     // Sans cette assertion, renommer un fichier ferait passer le test en n'inspectant plus rien —
     // le défaut exact que la constitution décrit sous « une porte qui ne trouve jamais rien ».
-    const noms = composantsG1().map((c) => c.nom).sort()
+    const noms = composantsG1().map(c => c.nom).sort()
 
     expect(noms).toEqual([
       'ChampSaisie.vue',
+      // ── Cycle 003 — les quatre écrans ──────────────────────────────────────────────────
+      'EcranAccueil.vue', // `R1`
+      'EcranComptes.vue', // `G3`
       'EcranEtablissement.vue',
+      'EcranJournalAudit.vue', // `G4`
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
       // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
@@ -171,6 +220,16 @@ describe('G1 — mode clair et mode sombre', () => {
       // jetons de couleur et il porte la classe `.dark` — donc il relève exactement du contrôle
       // ci-dessus. L'exclure aurait été le placer hors de vue sans raison.
       'VitrineTheme.vue',
+      // ── Les pages : leur état d'erreur et de chargement porte des jetons ────────────────
+      //
+      // Ce sont des coquilles, et elles rendent quand même quelque chose : le fond et le texte de
+      // « chargement… » et du message d'erreur. C'est l'écran qu'on voit quand quelque chose ne va
+      // pas — celui où un texte illisible en mode sombre coûte le plus cher.
+      'comptes.vue', // `G3`
+      'connexion.vue', // `R0`
+      'etablissement.vue', // `G1`
+      'index.vue', // `R1`
+      'journal-audit.vue', // `G4`
     ])
   })
 })

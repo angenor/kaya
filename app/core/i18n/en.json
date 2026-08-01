@@ -42,6 +42,18 @@
     "indisponible": "This action is not available on this device.",
     "indisponible_hors_ligne": "This action needs a connection. It will be possible as soon as the network returns."
   },
+  "erreurs": {
+    "inattendue": "The operation did not go through. Try again in a moment.",
+    "permission_absente": "You are not allowed to do this.",
+    "identifiant_absent": "A phone number or an email address is required.",
+    "identifiant_refuse": "This account could not be created with that ID. Try another one.",
+    "mot_de_passe_refuse": "This password was not accepted.",
+    "mot_de_passe": {
+      "trop_court": "This password is too short. It needs at least eight characters.",
+      "trop_long": "This password is too long.",
+      "compromis": "This password is among the most common ones. Pick another — a sentence only you would say works very well."
+    }
+  },
   "connexion": {
     "sur_titre": "Kaya",
     "titre": "Sign in",
@@ -93,8 +105,7 @@
       "compte_inconnu": "This person cannot be found.",
       "etablissement_inconnu": "This establishment cannot be found.",
       "portee_incompatible": "That choice does not apply to an establishment.",
-      "derniere_habilitation": "You are the only person who can manage access here. Give this right to someone else before removing your own.",
-      "inattendue": "The operation did not go through. Try again in a moment."
+      "derniere_habilitation": "You are the only person who can manage access here. Give this right to someone else before removing your own."
     },
     "roles": {
       "proprietaire": "Owner",

@@ -211,10 +211,10 @@ filtres, et prouver qu'aucune ne se modifie.
 
 ## Phase 9 : Ressources, i18n et thème
 
-- [ ] T055 Choisir les icônes des quatre écrans, puis **régénérer la police** : `pnpm --filter @kaya/app icones:generer`, commiter les `woff2`, puis `--verifier`. **Sans cette tâche, la porte P-21b échoue sur un glyphe employé mais absent** — c'est exactement ce qui a produit un écran sans icônes au cycle 002, puis une application sur polices système de repli au volet suivant. L'ordre compte : choisir, générer, vérifier.
-- [ ] T056 [P] Compléter `app/core/i18n/{fr,en}.json` — toutes les clés des quatre écrans et des **dix codes d'erreur métier**, à parité stricte. `pnpm --filter @kaya/app test:i18n`. Chaque phrase est passée par `docs/design/lexique.md` (T002) **avant** d'être codée, jamais après.
-- [ ] T057 [P] Vérifier les quatre écrans en mode **clair et sombre** — aucune classe `dark:` dans les composants : les noms de jetons sont identiques dans les deux thèmes, seules les valeurs changent sous `.dark`. `pnpm --filter @kaya/app lint:tokens` (porte P-17) et `app/tests/theme-sombre.spec.ts` étendu aux nouveaux modules.
-- [ ] T058 [P] `pnpm lint` **depuis la racine** — porte **P-15**, avec le décompte des fichiers réellement analysés par arbre. Le stockage sécurisé du jeton est le premier usage d'une capacité native par un écran : vérifier qu'il ne franchit `PlatformAdapter` nulle part ailleurs.
+- [X] T055 Choisir les icônes des quatre écrans, puis **régénérer la police** : `pnpm --filter @kaya/app icones:generer`, commiter les `woff2`, puis `--verifier`. **Sans cette tâche, la porte P-21b échoue sur un glyphe employé mais absent** — c'est exactement ce qui a produit un écran sans icônes au cycle 002, puis une application sur polices système de repli au volet suivant. L'ordre compte : choisir, générer, vérifier.
+- [X] T056 [P] Compléter `app/core/i18n/{fr,en}.json` — toutes les clés des quatre écrans et des **dix codes d'erreur métier**, à parité stricte. `pnpm --filter @kaya/app test:i18n`. Chaque phrase est passée par `docs/design/lexique.md` (T002) **avant** d'être codée, jamais après.
+- [X] T057 [P] Vérifier les quatre écrans en mode **clair et sombre** — aucune classe `dark:` dans les composants : les noms de jetons sont identiques dans les deux thèmes, seules les valeurs changent sous `.dark`. `pnpm --filter @kaya/app lint:tokens` (porte P-17) et `app/tests/theme-sombre.spec.ts` étendu aux nouveaux modules.
+- [X] T058 [P] `pnpm lint` **depuis la racine** — porte **P-15**, avec le décompte des fichiers réellement analysés par arbre. Le stockage sécurisé du jeton est le premier usage d'une capacité native par un écran : vérifier qu'il ne franchit `PlatformAdapter` nulle part ailleurs.
 
 ---
 
