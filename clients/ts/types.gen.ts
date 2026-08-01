@@ -76,6 +76,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/comptes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les comptes du tenant — écran `G3`.
+         * @description Rend, par compte : identité, état, **et les rôles portés avec leur établissement**. Un même
+         *     compte peut être caissier ici et réceptionniste là ; une liste de codes sans établissement
+         *     serait fausse.
+         */
+        get: operations["compte_lister"];
+        put?: never;
+        /**
+         * Crée un compte.
+         * @description **`200` sur rejeu, pas `409`** : un terminal qui vide sa file après une coupure ne doit pas
+         *     voir d'erreur pour une écriture déjà acceptée.
+         */
+        post: operations["compte_creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comptes/{compte_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit un compte. */
+        get: operations["compte_lire"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comptes/{compte_id}/etat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Active ou désactive un compte.
+         * @description **La désactivation EST la suppression** au sens de la taxonomie d'audit : rien ne se supprime
+         *     jamais dans Kaya (FR-014). Elle émet `compte.desactive` et une entrée `suppression` ; la
+         *     réactivation émet `compte.reactive` et **aucune entrée** — aucune des dix familles ne couvre le
+         *     rétablissement d'un droit.
+         */
+        put: operations["compte_changer_etat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comptes/{compte_id}/mot-de-passe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change le mot de passe — **et coupe les autres sessions, immédiatement**.
+         * @description # C'est le handler qui décide lequel des deux régimes s'applique
+         *
+         *     Un compte agissant **sur lui-même** doit fournir son mot de passe actuel ; un habilité ne le
+         *     fournit pas. Le service reçoit la décision déjà prise, parce que lui seul ici sait qui appelle.
+         *
+         *     **Un compte qui agit sur lui-même sans fournir son mot de passe actuel est refusé**, même
+         *     habilité : sans cette règle, un jeton volé permettrait de changer le mot de passe de sa
+         *     victime, donc de la verrouiller dehors de son propre produit.
+         */
+        put: operations["compte_changer_mot_de_passe"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comptes/{compte_id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attribue un rôle à un compte. */
+        post: operations["compte_attribuer_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/comptes/{compte_id}/roles/{role_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Retire un rôle — **et refuse de retirer la dernière habilitation** (FR-023). */
+        delete: operations["compte_retirer_role"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/configuration": {
         parameters: {
             query?: never;
@@ -398,6 +526,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/referentiels/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Référentiel des dix-sept permissions.
+         * @description **Le mot « permission » n'atteint jamais l'interface** (`docs/design/lexique.md`) : ce
+         *     référentiel sert à composer des libellés d'action, pas à afficher une mécanique d'autorisation.
+         */
+        get: operations["referentiel_permissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/referentiels/profils-stock": {
         parameters: {
             query?: never;
@@ -407,6 +556,23 @@ export interface paths {
         };
         /** Référentiel des profils de la capacité `STOCK`. */
         get: operations["referentiels_profils_stock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/referentiels/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Référentiel des huit rôles — **« Ce que chacun peut faire »**. */
+        get: operations["referentiel_roles"];
         put?: never;
         post?: never;
         delete?: never;
@@ -580,6 +746,22 @@ export interface components {
             nom_etablissement: string;
             pied_document?: string | null;
         };
+        /** @description Corps d'attribution de rôle. */
+        AttribuerRoleRequete: {
+            /**
+             * Format: uuid
+             * @description **Obligatoire** pour un rôle de portée `ETABLISSEMENT`, **interdit** pour `admin_editeur`.
+             */
+            etablissement_id?: string | null;
+            /** Format: date-time */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client**.
+             */
+            id: string;
+            role_code: string;
+        };
         /** @description Corps d'activation ou de désactivation — **le même point d'entrée porte les deux sens**. */
         BasculerServiceRequete: {
             actif: boolean;
@@ -634,6 +816,21 @@ export interface components {
             origine: string;
             valeur: string;
         };
+        /** @description Corps de changement d'état. */
+        ChangerEtatRequete: {
+            actif: boolean;
+        };
+        /** @description Corps de changement de mot de passe. */
+        ChangerMotDePasseRequete: {
+            /**
+             * @description **Fourni par un compte qui agit sur lui-même**, absent quand un habilité agit sur un autre.
+             *
+             *     Le demander à l'habilité rendrait l'opération impossible dans le seul cas où elle sert :
+             *     quelqu'un a perdu son mot de passe.
+             */
+            mot_de_passe_actuel?: string | null;
+            nouveau_mot_de_passe: string;
+        };
         /** @description Le compte connecté, tel que la réponse le rend. */
         CompteConnecteVue: {
             /** Format: uuid */
@@ -645,6 +842,31 @@ export interface components {
             etablissement_actif?: string | null;
             /** Format: uuid */
             tenant_id: string;
+        };
+        /** @description Un compte tel que l'API le rend — **sans condensat, par construction**. */
+        CompteVue: {
+            actif: boolean;
+            /** Format: date-time */
+            cree_le: string;
+            /** Format: uuid */
+            id: string;
+            identifiant_email?: string | null;
+            identifiant_telephone?: string | null;
+            methode_code: string;
+            /** Format: date-time */
+            modifie_le: string;
+            /**
+             * @description Nom affichable, lu de `personne`. **Jamais l'identifiant de connexion** : afficher un
+             *     numéro de téléphone dans une liste consultable diffuserait un contact personnel.
+             */
+            nom_affichage: string;
+            /** Format: uuid */
+            personne_id: string;
+            /**
+             * @description Les rôles portés, **avec leur établissement**. Un même compte peut être caissier ici et
+             *     réceptionniste là ; une liste de codes sans établissement serait fausse.
+             */
+            roles?: components["schemas"]["RolePorte"][];
         };
         /** @description Corps rendu par tout refus métier de ce cycle. */
         CorpsErreur: {
@@ -667,6 +889,30 @@ export interface components {
             obstacles?: components["schemas"]["ObstacleVue"][];
             /** @description Ce qui a été refusé, quand il y a quelque chose à nommer. */
             valeur?: string | null;
+        };
+        /**
+         * @description Corps de création d'un compte.
+         *
+         *     **Le mot de passe entre ici et nulle part ailleurs.** Il n'est ni journalisé, ni rendu, ni
+         *     porté par la charge utile de l'événement.
+         */
+        CreerCompteRequete: {
+            /**
+             * Format: date-time
+             * @description Indicatif — **jamais employé par une règle métier**.
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** (principe VI) : c'est lui qui rend le rejeu inoffensif.
+             */
+            id: string;
+            identifiant_email?: string | null;
+            /** @description E.164. **Au moins un des deux identifiants** est obligatoire. */
+            identifiant_telephone?: string | null;
+            mot_de_passe: string;
+            /** Format: uuid */
+            personne_id: string;
         };
         /** @description Corps de création d'un établissement. */
         CreerEtablissementRequete: {
@@ -804,6 +1050,18 @@ export interface components {
              * @description Ordre d'affichage stable, indépendant de l'alphabet et de la locale.
              */
             ordre: number;
+        };
+        /** @description Une entrée du référentiel des rôles ou des permissions, telle que l'API la rend. */
+        EntreeReferentielRole: {
+            code: string;
+            /** @description **Clé i18n, jamais un libellé** : une chaîne stockée en base échapperait à la porte P-16. */
+            libelle_cle: string;
+            /** @description Module d'activité d'une permission. `None` = transversale. */
+            module_code?: string | null;
+            /** Format: int32 */
+            ordre: number;
+            /** @description `ETABLISSEMENT` ou `EDITEUR` pour un rôle ; absent pour une permission. */
+            portee?: string | null;
         };
         /**
          * @description Un établissement tel que l'API le rend.
@@ -1058,6 +1316,15 @@ export interface components {
         /** @description Corps de remplacement des tables — **une liste vide fait un comptoir**. */
         RemplacerTablesRequete: {
             tables: components["schemas"]["TableRequete"][];
+        };
+        /** @description Un rôle porté par un compte sur un établissement. */
+        RolePorte: {
+            /**
+             * Format: uuid
+             * @description `None` pour `admin_editeur`, dont la portée est l'éditeur.
+             */
+            etablissement_id?: string | null;
+            role_code: string;
         };
         /**
          * @description Un service **actif** d'un établissement, tel que l'API le rend.
@@ -1366,6 +1633,388 @@ export interface operations {
             };
             /** @description Logo trop volumineux — le message donne la limite */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_lister: {
+        parameters: {
+            query?: {
+                etablissement_id?: string | null;
+                actif?: boolean | null;
+                role_code?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Les comptes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_creer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerCompteRequete"];
+            };
+        };
+        responses: {
+            /** @description Compte déjà créé (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteVue"];
+                };
+            };
+            /** @description Compte créé */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Identifiant absent ou refusé, mot de passe refusé */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du compte */
+                compte_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le compte */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Compte inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_changer_etat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du compte */
+                compte_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangerEtatRequete"];
+            };
+        };
+        responses: {
+            /** @description État changé */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Compte inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_changer_mot_de_passe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du compte */
+                compte_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangerMotDePasseRequete"];
+            };
+        };
+        responses: {
+            /** @description Mot de passe changé — les autres sessions sont coupées */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Compte inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Mot de passe refusé, ou mot de passe actuel invalide */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_attribuer_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant du compte */
+                compte_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttribuerRoleRequete"];
+            };
+        };
+        responses: {
+            /** @description Rôle déjà porté (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rôle attribué */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Compte ou établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Portée incompatible ou rôle inconnu */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    compte_retirer_role: {
+        parameters: {
+            query?: {
+                etablissement_id?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant du compte */
+                compte_id: string;
+                /** @description Code du rôle à retirer */
+                role_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôle retiré */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Dernière habilitation de l'établissement */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Portée incompatible ou rôle inconnu */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2532,6 +3181,33 @@ export interface operations {
             };
         };
     };
+    referentiel_permissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permissions connues */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntreeReferentielRole"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     referentiels_profils_stock: {
         parameters: {
             query?: never;
@@ -2548,6 +3224,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntreeReferentiel"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    referentiel_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rôles connus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntreeReferentielRole"][];
                 };
             };
             /** @description Non authentifié */
