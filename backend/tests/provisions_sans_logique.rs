@@ -8,32 +8,195 @@
 //! c'est ainsi qu'une provision devient une fonctionnalité que personne n'a décidé de construire.
 //!
 //! Ce fichier rend ce glissement bruyant.
+//!
+//! # Périmètre inspecté — **quatre provisions, deux cycles**
+//!
+//! *§ « Couverture des portes » : une porte dont la cible est vide passe toujours au vert. Le
+//! décompte est donc comparé à [`PROVISIONS`], et la liste est ici.*
+//!
+//! | Provision | Cycle | Ce qu'elle attend |
+//! |---|---|---|
+//! | `fiscalite.exercice_comptable` | 001 | La comptabilité SYSCOHADA |
+//! | `fiscalite.mapping_comptable` | 001 | idem |
+//! | `comptes.employe` | 003 | CPT-05 — le contrat de travail, la paie |
+//! | `comptes.appareil_enrole` | 003 | CPT-05 / CPT-06 — l'enrôlement par paire de clés |
+//!
+//! **N'est PAS inspecté** : ce que ferait un binaire de maintenance sous `kaya_owner`. Le
+//! propriétaire des tables peut tout écrire, par construction — c'est le rôle applicatif qui est
+//! bridé, et c'est le seul par lequel l'API passe.
 
 mod commun;
 
 use sqlx::Row;
 
-/// Les deux tables existent, avec leurs contraintes.
-#[tokio::test]
-async fn les_deux_tables_de_provision_existent() {
-    let pool = commun::pool_owner().await;
+/// Les provisions du produit — **schéma, table, cycle qui les a posées**.
+///
+/// Ajouter une provision sans l'inscrire ici la laisserait hors de tout contrôle. Le décompte
+/// ci-dessous rend l'omission bruyante dans l'autre sens : une liste qui rétrécirait ferait
+/// échouer le test au lieu de le rendre plus facile.
+const PROVISIONS: &[(&str, &str, &str)] = &[
+    ("fiscalite", "exercice_comptable", "cycle 001 — SYSCOHADA"),
+    ("fiscalite", "mapping_comptable", "cycle 001 — SYSCOHADA"),
+    ("comptes", "employe", "cycle 003 — CPT-05, contrat de travail"),
+    (
+        "comptes",
+        "appareil_enrole",
+        "cycle 003 — CPT-05/06, enrôlement d'appareil",
+    ),
+];
 
-    for table in ["exercice_comptable", "mapping_comptable"] {
+/// Les quatre tables existent, avec leurs contraintes.
+#[tokio::test]
+async fn les_quatre_tables_de_provision_existent() {
+    let pool = commun::pool_owner().await;
+    let mut inspectees = 0_usize;
+
+    for (schema, table, cycle) in PROVISIONS {
         let existe: bool = sqlx::query_scalar(
             r#"
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'fiscalite' AND table_name = $1
+                WHERE table_schema = $1 AND table_name = $2
             )
             "#,
         )
+        .bind(schema)
         .bind(table)
         .fetch_one(&pool)
         .await
         .expect("lecture du catalogue");
 
-        assert!(existe, "fiscalite.{table} est absente");
+        assert!(existe, "{schema}.{table} est absente ({cycle})");
+        inspectees += 1;
     }
+
+    assert_eq!(
+        inspectees,
+        PROVISIONS.len(),
+        "{inspectees} provision(s) inspectée(s) sur {} déclarée(s)",
+        PROVISIONS.len()
+    );
+}
+
+/// **`comptes.employe` ne porte aucune colonne de pièce d'identité, et n'en portera pas.**
+///
+/// Le contrôle jumeau de `personne_compte_employe.rs`, dans l'autre sens : celui-là refuse qu'une
+/// colonne de contrat migre vers les tables d'identité, celui-ci refuse qu'une colonne d'identité
+/// migre vers la table de contrat. Les deux mouvements sont tentants pour la même raison —
+/// « c'est la même personne » — et les deux effacent la distinction de CPT-00.
+///
+/// Le sujet n'est pas cosmétique : `type_piece` et `numero_piece` sont soumises à une rétention de
+/// 90 jours (TRX-06). Recopiées sur une table de provision que personne ne surveille, elles y
+/// resteraient indéfiniment.
+#[tokio::test]
+async fn aucune_colonne_de_piece_d_identite_sur_les_provisions_rh() {
+    let pool = commun::pool_owner().await;
+    let mut fautives = Vec::new();
+    let mut inspectees = 0_usize;
+
+    for (schema, table, _) in PROVISIONS.iter().filter(|(s, _, _)| *s == "comptes") {
+        let colonnes = sqlx::query(
+            r#"
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = $1 AND table_name = $2
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(&pool)
+        .await
+        .expect("lecture du catalogue de colonnes");
+
+        assert!(!colonnes.is_empty(), "{schema}.{table} n'a aucune colonne");
+        inspectees += 1;
+
+        for ligne in colonnes {
+            let nom: String = ligne.get::<String, _>("column_name").to_lowercase();
+            for motif in ["piece", "passeport", "cni", "identite"] {
+                if nom.contains(motif) {
+                    fautives.push(format!("{schema}.{table}.{nom} (motif « {motif} »)"));
+                }
+            }
+        }
+    }
+
+    assert_eq!(inspectees, 2, "les deux provisions RH doivent être inspectées");
+    assert!(
+        fautives.is_empty(),
+        "des colonnes de pièce d'identité sont apparues sur une provision : {fautives:?}\n\
+         Elles relèvent de `comptes.personne`, sous la rétention de 90 jours de TRX-06. Recopiées \
+         ici, elles y resteraient indéfiniment."
+    );
+}
+
+/// **Aucun endpoint ne touche les deux provisions du cycle 003.**
+///
+/// Même mécanique que pour les provisions comptables : le contrat OpenAPI est la source de vérité
+/// de ce que l'API expose (principe I(a)).
+#[test]
+fn aucun_endpoint_n_expose_les_provisions_rh() {
+    let contrat = kaya_api::application::contrat_complet();
+
+    let suspects: Vec<&String> = contrat
+        .paths
+        .paths
+        .keys()
+        .filter(|chemin| {
+            let c = chemin.to_lowercase();
+            c.contains("employe") || c.contains("appareil") || c.contains("enrole")
+        })
+        .collect();
+
+    assert!(
+        suspects.is_empty(),
+        "des endpoints exposent les provisions RH : {suspects:?}\n\
+         `employe` est CPT-05 et `appareil_enrole` CPT-05/06, tranche T4. Un endpoint, même en \
+         lecture, en fait une fonctionnalité que personne n'a décidé de construire — et il \
+         échouerait de toute façon au premier appel : `kaya_app` n'a aucun privilège dessus."
+    );
+}
+
+/// **Aucun droit d'écriture — ni même de lecture — sur les provisions RH.**
+///
+/// Plus strict que la règle du cycle 001 : `fiscalite` accorde `SELECT`, `comptes` n'accorde
+/// **rien du tout**. C'est la garantie de second rang du contrôle de graphe d'appels de
+/// `personne_compte_employe.rs` : un chemin de code écrit par distraction échoue au premier
+/// appel, pas trois mois plus tard.
+#[tokio::test]
+async fn le_role_applicatif_n_a_aucun_privilege_sur_les_provisions_rh() {
+    let pool = commun::pool_owner().await;
+    let mut inspectees = 0_usize;
+
+    for (schema, table, cycle) in PROVISIONS.iter().filter(|(s, _, _)| *s == "comptes") {
+        let privileges: Vec<String> = sqlx::query(
+            r#"
+            SELECT privilege_type
+            FROM information_schema.role_table_grants
+            WHERE grantee = 'kaya_app' AND table_schema = $1 AND table_name = $2
+            ORDER BY 1
+            "#,
+        )
+        .bind(schema)
+        .bind(table)
+        .fetch_all(&pool)
+        .await
+        .expect("lecture des privilèges")
+        .iter()
+        .map(|l| l.get::<String, _>("privilege_type"))
+        .collect();
+
+        assert!(
+            privileges.is_empty(),
+            "le rôle applicatif détient {privileges:?} sur {schema}.{table} ({cycle}).\n\
+             Une provision n'accorde RIEN, pas même `SELECT` — c'est ce qui la distingue d'un \
+             début d'implémentation. Ne pas ajouter de `GRANT` « pour pouvoir tester » : ce test \
+             teste précisément cette absence."
+        );
+        inspectees += 1;
+    }
+
+    assert_eq!(inspectees, 2, "les deux provisions RH doivent être inspectées");
 }
 
 /// **Aucun endpoint** ne les expose.
