@@ -3,6 +3,12 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.2.0** — le vocabulaire du cycle CPT : compte, personne, appareil connecté, registre des
+actions, et **la phrase unique des deux échecs d'authentification**. Quatre mots y sont écartés
+nommément — « rôle », « permission », « jeton » et « JWT » —, et l'entrée la plus contraignante du
+lexique y apparaît : une phrase qui doit rester **la même** dans deux situations différentes, sans
+quoi l'interface publie la liste des comptes existants.
+
 **Version 1.1.0** — cinq entrées ajoutées avec la couche d'écriture d'ETB-02 : l'ajout et le retrait
 d'un service, les deux refus qu'ils produisent, et la règle « le `message` de diagnostic n'apparaît
 jamais ». Deux d'entre elles écartent un mot faux plutôt qu'un mot technique — « désactiver » décrit
@@ -43,6 +49,24 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | `point_de_vente` sans `table_pdv` | « **Comptoir** » / *Counter* — l'absence de tables **est** le comptoir. Jamais « point de vente sans tables », qui décrit un manque là où il s'agit d'une forme normale |
 | Valeur héritée d'un niveau supérieur | « **Vaut pour tous vos établissements** » / *Applies to all your establishments* — jamais « hérité », « valeur par défaut » ni « niveau tenant » |
 | Valeur surchargée au niveau courant | « **Modifié ici** » / *Changed here* — jamais « surcharge », « override » ni « exception » |
+| `compte` | « **Compte** » / *Account* — ce avec quoi on se connecte. Distinct de la personne : une femme de ménage a une fiche et pas de compte, un comptable externe a un compte et pas de contrat |
+| `personne` | « **Personne** » / *Person* — l'identité civile. Jamais « utilisateur », qui suppose un compte, ni « employé », qui suppose un contrat |
+| `employe` | « **Employé** » / *Employee* — **n'apparaît nulle part au MVP**. La table est une provision (CPT-05) sans écran ; l'entrée est ici pour que le mot ne soit pas employé à la place de « personne » |
+| `role`, `compte_role`, `permission` | « **Ce que chacun peut faire** » — règle déjà posée pour le RBAC. **Les mots « rôle » et « permission » n'atteignent jamais l'interface** : on montre ce qui est possible, pas la mécanique qui l'autorise |
+| `journal_audit` | « **Registre des actions** » / *Activity log* — jamais « journal d'audit », qui est le nom technique et sonne comme une inspection. C'est ce que le propriétaire consulte pour savoir qui a fait quoi |
+| Session, jeton d'accès, jeton de rafraîchissement, JWT | **N'apparaît jamais.** L'utilisateur voit un « **appareil connecté** » ; les quatre mots sont de la mécanique interne |
+| Une session de la liste | « **Appareil connecté** » / *Connected device* — avec l'appareil, la première connexion et la dernière activité. Jamais « session » |
+| Révocation d'une session | « **Déconnecter cet appareil** » / *Disconnect this device* — jamais « révoquer », qui est le mot du jeton. La phrase de confirmation dit l'effet : « Cet appareil devra se reconnecter » |
+| `identifiants_invalides` (401) | « **Identifiant ou mot de passe incorrect** » / *Incorrect ID or password* — **une seule phrase, employée dans les deux cas** : compte inconnu et mot de passe faux. Deux phrases distinctes publieraient la liste des comptes existants (FR-012). C'est aussi pourquoi le compte désactivé et le dépassement de tentatives rendent **cette même phrase** |
+| `session_invalide` (401) | « **Votre session a expiré. Reconnectez-vous.** » / *Your session has expired. Please sign in again.* |
+| `mot_de_passe_refuse` (422) | Deux phrases distinctes, parce que l'utilisateur doit savoir quoi corriger : « **Choisissez un mot de passe d'au moins 8 caractères.** » ou « **Ce mot de passe est trop courant. Choisissez-en un autre.** » Jamais « compromis » ni « figurant dans une fuite », qui alarment sans instruire |
+| `identifiant_refuse` (422) | « **Cet identifiant ne peut pas être utilisé.** » / *This ID cannot be used.* — **ne dit pas qu'il existe déjà**, ce qui reviendrait à confirmer un compte |
+| `identifiant_absent` (422) | « **Indiquez un numéro de téléphone ou une adresse e-mail.** » |
+| `portee_incompatible` (422) | « **Choisissez l'établissement concerné.** » — ou, pour l'administrateur éditeur, « **Ce compte agit sur tous les établissements.** » Jamais « portée », qui est le mot de la colonne |
+| `derniere_habilitation` (409) | « **Il doit rester au moins une personne pouvant gérer les accès de cet établissement.** » — jamais « dernière habilitation » |
+| `permission_absente` (403) | **Ne devrait jamais s'afficher** : sans le droit, l'action est **absente** de l'écran (FR-026). La phrase existe pour l'appel direct : « **Cette action ne vous est pas accessible.** » |
+| Refus hors ligne d'une opération de classe C | Réemploi exact de la formulation d'ETB-02 : « **Cette action nécessite internet.** » / *This action requires an internet connection.* — annoncée **avant** la saisie, jamais après un échec |
+| `methode_non_implementee` (422) | « **Ce compte se connecte autrement.** » — `OTP_SMS` est au référentiel et n'est pas servi ; jamais « méthode non implémentée » |
 
 **Deux termes fiscaux conservés tels quels — règle 2 ci-dessous.** `classement` (« non classé »,
 « résidence meublée », le nombre d'étoiles) et **« numéro de compte contribuable (NCC) »** gardent
@@ -68,6 +92,11 @@ et de la porte **P-16** de la constitution.
    technique la nomme.
 4. Les deux clés i18n (`fr` puis `en`) sont créées dans le même changement — jamais de chaîne
    en dur (porte **P-16**).
+5. **Une phrase qui doit rester identique dans deux situations se déclare comme telle.** Le cycle
+   CPT en apporte la première : `identifiants_invalides`. La tentation permanente sera de la
+   préciser — « ce compte n'existe pas », « mot de passe incorrect », « compte désactivé » — et
+   chacune de ces précisions rend la liste des comptes lisible par qui essaie des numéros. Une
+   entrée qui porte la mention « **une seule phrase** » ne se scinde pas sans rouvrir FR-012.
 
 ## Voir aussi
 
