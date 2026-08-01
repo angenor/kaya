@@ -28,7 +28,22 @@ use sqlx::{PgPool, Row};
 /// Schémas soumis à la porte. Un schéma applicatif ajouté sans être inscrit ici échapperait à la
 /// vérification — c'est pourquoi la liste vit à côté du test qui l'utilise, et non dans un
 /// fichier de configuration qu'on oublierait d'ouvrir.
-const SCHEMAS_APPLICATIFS: &[&str] = &["etablissements", "synchronisation", "fiscalite"];
+const SCHEMAS_APPLICATIFS: &[&str] = &[
+    "etablissements",
+    "synchronisation",
+    "fiscalite",
+    // Cycle 003 (CPT) — dix tables, dont quatre référentiels globaux.
+    "comptes",
+];
+
+/// Nombre de tables attendues sous la porte, **tous schémas confondus**.
+///
+/// Une porte dont la cible est vide passe toujours (constitution, § « Couverture des portes »).
+/// La liste ci-dessus est le point unique où un module entier peut sortir du champ sans qu'aucune
+/// erreur ne se produise : le décompte est ce qui rend cette sortie visible.
+///
+/// 16 au cycle 002, **26 au cycle 003**.
+const TOTAL_TABLES_ATTENDU: usize = 26;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///
@@ -56,11 +71,20 @@ const TABLES_EXCLUES: &[&str] = &["kaya_migrations._migrations_appliquees"];
 /// Les nommer ici plutôt que les exclure change ce que la porte garantit : une table de
 /// référentiel ajoutée demain sans sa politique d'administration serait attrapée, alors qu'une
 /// exclusion par motif l'aurait laissée passer.
+/// Quatre au cycle 002, **huit au cycle 003** : le régime nommé de `0008` a été repris à la
+/// lettre par `0015` et `0016`. Ils sont comptés **conformes et nommés**, jamais exemptés — une
+/// table de référentiel ajoutée demain sans sa politique d'administration serait attrapée, alors
+/// qu'une exclusion par motif l'aurait laissée passer.
 const REFERENTIELS_GLOBAUX: &[&str] = &[
     "etablissements.module_activite",
     "etablissements.capacite",
     "etablissements.profil_stock",
     "etablissements.parametre_catalogue",
+    // Cycle 003 (CPT)
+    "comptes.methode_authentification",
+    "comptes.role",
+    "comptes.permission",
+    "comptes.role_permission",
 ];
 
 struct EtatTable {
@@ -152,6 +176,19 @@ async fn p07_toute_table_applicative_est_isolee() {
         !tables.is_empty(),
         "aucune table trouvée dans les schémas applicatifs — la porte P-07 n'a rien vérifié. \
          Base non migrée, ou liste SCHEMAS_APPLICATIFS périmée."
+    );
+    assert_eq!(
+        tables.len(),
+        TOTAL_TABLES_ATTENDU,
+        "P-07 a inspecté {} table(s) pour {TOTAL_TABLES_ATTENDU} attendue(s).\n\
+         \n\
+         Une porte qui n'inspecte pas tout est indistinguable d'une porte qui n'a rien à \
+         inspecter : les deux passent au vert. Si des tables ont été ajoutées, porter le total \
+         ici ; s'il en manque, vérifier SCHEMAS_APPLICATIFS avant toute autre hypothèse.\n\
+         \n\
+         Tables vues : {:?}",
+        tables.len(),
+        tables.iter().map(|t| &t.nom_complet).collect::<Vec<_>>()
     );
 
     let manquements = manquements(&tables);
