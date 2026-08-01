@@ -14,9 +14,12 @@
 //! `BTreeSet<String>` et **n'accepte ni ne rend jamais un rôle**. Un consommateur qui voudrait
 //! brancher sur un rôle n'a rien à quoi se brancher.
 //!
-//! `service.rs` (attribution, retrait) arrive avec **T039**.
+//! `service.rs` porte l'attribution et le retrait — **deux actes distincts**, jamais un `UPDATE` :
+//! `compte_role` n'a pas ce privilège, et deux actes font deux entrées au registre.
 
 pub mod modele;
 pub mod repository;
+pub mod service;
 
 pub use modele::{AttribuerRole, EntreeReferentielRole, ErreurRoles, PorteeRole};
+pub use service::{ServiceRoles, TYPE_ROLE_ATTRIBUE, TYPE_ROLE_RETIRE};

@@ -48,7 +48,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 4 | `ouverture_tiroir` | Une ouverture de tiroir-caisse hors encaissement | **dû** | IMP-01 — tranche T2 |
 | 5 | `modification_tarif` | Le changement du prix d'un article vendable | **dû** | PDV-01 — tranche T2 |
 | 6 | `suppression` | La mise hors service de ce qui ne se supprime jamais | **branché** | **CPT-01 — ce cycle** |
-| 7 | `changement_role` | Une attribution ou un retrait de rôle | **dû** | **CPT-02 — ce cycle** |
+| 7 | `changement_role` | Une attribution ou un retrait de rôle | **branché** | **CPT-02 — ce cycle** |
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
 | 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **dû** | HEB-04 — tranche T1 |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
@@ -63,6 +63,17 @@ la **révocation de session** qui a branché le type la première. Les deux sont
 service, les deux sont dues au même cycle, et le harnais a signalé l'écart au moment exact où le
 premier chemin d'écriture est apparu. C'est son travail, et c'est ce que valait de l'écrire vert à
 vide.
+
+**`changement_role` est passée à branché en T039**, là où le document l'annonçait : le service
+d'attribution et de retrait de `socle/comptes/src/roles/service.rs` écrit une entrée dans la
+**même transaction** que la ligne et que l'événement outbox (FR-024). Deux gestes, deux entrées —
+`contexte.sens` vaut `attribution` ou `retrait`, et jamais autre chose. C'est aussi ce qui
+explique que `compte_role` n'ait pas de privilège `UPDATE` : changer un rôle est un retrait suivi
+d'une attribution, donc deux lignes au registre, pas une modification silencieuse.
+
+**Deux sur dix sont donc branchées à la fin du cycle 003**, et les huit autres restent dues aux
+tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
+chaque étape.
 
 ### Ce que `suppression` recouvre — et pourquoi le mot est faux mais gardé
 
