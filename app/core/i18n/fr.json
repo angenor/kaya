@@ -180,6 +180,39 @@
     "chargement": "Chargement…",
     "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez."
   },
+  "journal": {
+    "sur_titre": "Réglages de l'établissement",
+    "titre": "Registre des actions",
+    "intro": "Qui a fait quoi, sur quoi, et quand. Rien ne s'y efface.",
+    "chargement": "Chargement…",
+    "chargement_impossible": "Le registre n'a pas pu être chargé. Réessayez dans un instant.",
+    "acces_refuse": "Vous n'avez pas accès au registre des actions.",
+    "aucune_entree": "Rien n'a encore été enregistré ici.",
+    "auteur_inconnu": "Compte introuvable",
+    "par": "Par {auteur}",
+    "charger_suite": "Voir les précédentes",
+    "filtres": {
+      "type": "Type d'action",
+      "type_tous": "Toutes les actions",
+      "depuis": "À partir du",
+      "jusqu_a": "Jusqu'au",
+      "format_date": "Format 2026-08-01",
+      "appliquer": "Filtrer"
+    },
+    "types": {
+      "remise": "Remise accordée",
+      "annulation_ligne_envoyee": "Annulation d'une commande déjà partie",
+      "avoir": "Avoir émis",
+      "ouverture_tiroir": "Ouverture du tiroir-caisse",
+      "modification_tarif": "Changement de prix",
+      "suppression": "Mise hors service",
+      "changement_role": "Ce que quelqu'un peut faire a changé",
+      "ecart_caisse": "Écart au comptage",
+      "rebascule_palier_passage": "Passage au tarif supérieur",
+      "forcage_disponibilite": "Attribution forcée",
+      "inconnu": "Action non reconnue"
+    }
+  },
   "services": {
     "modules": {
       "HEBERGEMENT": "Hébergement",

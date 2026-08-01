@@ -406,6 +406,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/journal-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liste le registre des actions — **filtres combinables, pagination par curseur**. */
+        get: operations["journal_audit_lister"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/personnes": {
         parameters: {
             query?: never;
@@ -762,6 +779,18 @@ export interface components {
             id: string;
             role_code: string;
         };
+        /**
+         * @description L'auteur d'une entrée, tel que l'écran l'affiche.
+         *
+         *     **Ni identifiant de connexion, ni condensat.** `nom` vient de `personne` ; afficher un numéro de
+         *     téléphone dans un registre à rétention illimitée diffuserait un contact personnel.
+         */
+        AuteurVue: {
+            /** Format: uuid */
+            compte_id: string;
+            /** @description Absent si le compte n'est plus lisible — jamais un identifiant en repli. */
+            nom?: string | null;
+        };
         /** @description Corps d'activation ou de désactivation — **le même point d'entrée porte les deux sens**. */
         BasculerServiceRequete: {
             actif: boolean;
@@ -1033,6 +1062,29 @@ export interface components {
             portee_id?: string | null;
             valeur: unknown;
         };
+        /** @description Une entrée du registre, telle que l'API la rend. */
+        EntreeJournalVue: {
+            auteur: components["schemas"]["AuteurVue"];
+            /** Format: uuid */
+            cible_id?: string | null;
+            cible_type: string;
+            contexte: unknown;
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur**. C'est celui que l'écran `G4` affiche.
+             */
+            cree_le: string;
+            /** Format: uuid */
+            etablissement_id?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — rendu **à part**, et jamais présenté comme la date de l'action.
+             */
+            horodatage_client?: string | null;
+            /** Format: uuid */
+            id: string;
+            type_action: components["schemas"]["TypeActionAudit"];
+        };
         /** @description Une entrée de référentiel, telle que l'API la rend. */
         EntreeReferentiel: {
             code: string;
@@ -1243,6 +1295,20 @@ export interface components {
             libelle_appareil?: string | null;
             mot_de_passe: string;
         };
+        /** @description Une page du registre. */
+        PageJournalVue: {
+            elements: components["schemas"]["EntreeJournalVue"][];
+            /**
+             * Format: date-time
+             * @description Curseur de la page suivante — **absent quand il n'y a pas de suite**.
+             *
+             *     Deux champs plutôt qu'une chaîne opaque : un curseur encodé demanderait un décodeur, donc
+             *     une surface de plus, pour cacher deux valeurs qui figurent déjà dans la page rendue.
+             */
+            suivant_cree_le?: string | null;
+            /** Format: uuid */
+            suivant_id?: string | null;
+        };
         /** @description Une page de notes. */
         PageNotes: {
             /** Format: int64 */
@@ -1425,6 +1491,15 @@ export interface components {
             /** @description « 12 », « Terrasse 3 » — tel que le personnel le dit. */
             libelle: string;
         };
+        /**
+         * @description Les dix familles d'actions tracées au registre (CPT-04).
+         *
+         *     L'ordre des variantes suit celui de `docs/taxonomie-audit.md`, qui suit lui-même celui de
+         *     CPT-04. Il n'a aucune portée fonctionnelle — il rend seulement la comparaison des deux listes
+         *     lisible à l'œil.
+         * @enum {string}
+         */
+        TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite";
         /** @description Une valeur résolue, telle que l'API la rend. */
         ValeurVue: {
             cle: string;
@@ -2833,6 +2908,66 @@ export interface operations {
             };
             /** @description Capacité ou profil non implémenté, ou service non actif */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    journal_audit_lister: {
+        parameters: {
+            query?: {
+                /** @description Qui a agi. */
+                auteur_compte_id?: string | null;
+                etablissement_id?: string | null;
+                /** @description L'une des dix familles de la taxonomie. */
+                type_action?: string | null;
+                /** @description Borne **inclusive** de début, sur l'horodatage d'autorité. */
+                depuis?: string | null;
+                /** @description Borne **exclusive** de fin — une journée se demande `[J, J+1)`. */
+                jusqu_a?: string | null;
+                /** @description Curseur de page suivante — l'horodatage de la dernière entrée reçue. */
+                apres_cree_le?: string | null;
+                /** @description Curseur de page suivante — l'identifiant de la dernière entrée reçue. */
+                apres_id?: string | null;
+                limite?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Une page du registre */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageJournalVue"];
+                };
+            };
+            /** @description Type d'action inconnu */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

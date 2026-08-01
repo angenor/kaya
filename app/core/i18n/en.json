@@ -180,6 +180,39 @@
     "chargement": "Loading…",
     "chargement_impossible": "Cannot display your establishment. Check your connection, then try again."
   },
+  "journal": {
+    "sur_titre": "Establishment settings",
+    "titre": "Activity log",
+    "intro": "Who did what, on what, and when. Nothing is ever erased here.",
+    "chargement": "Loading…",
+    "chargement_impossible": "The log could not be loaded. Try again in a moment.",
+    "acces_refuse": "You do not have access to the activity log.",
+    "aucune_entree": "Nothing has been recorded here yet.",
+    "auteur_inconnu": "Account not found",
+    "par": "By {auteur}",
+    "charger_suite": "See earlier ones",
+    "filtres": {
+      "type": "Kind of action",
+      "type_tous": "All actions",
+      "depuis": "From",
+      "jusqu_a": "Until",
+      "format_date": "Format 2026-08-01",
+      "appliquer": "Filter"
+    },
+    "types": {
+      "remise": "Discount granted",
+      "annulation_ligne_envoyee": "Cancellation of an order already sent",
+      "avoir": "Credit note issued",
+      "ouverture_tiroir": "Cash drawer opened",
+      "modification_tarif": "Price change",
+      "suppression": "Taken out of service",
+      "changement_role": "What someone can do has changed",
+      "ecart_caisse": "Cash count discrepancy",
+      "rebascule_palier_passage": "Moved to the higher rate",
+      "forcage_disponibilite": "Forced assignment",
+      "inconnu": "Unrecognised action"
+    }
+  },
   "services": {
     "modules": {
       "HEBERGEMENT": "Accommodation",
