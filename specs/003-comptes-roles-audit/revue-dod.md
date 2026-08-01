@@ -36,6 +36,40 @@ en corrigeant un chiffre** : `couverture_portes.rs` relit le catalogue système 
 
 ---
 
+## La matrice — dix points × six stories
+
+`✓` conforme · `✗` non conforme · `—` sans objet pour cette story · `⊘` **sans objet pour le
+cycle entier**
+
+| | US1 | US2 | US3 | US4 | US5 | US6 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1** Tests unitaires **et** d'intégration | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **2** utoipa à jour, client TS sans diff | — | ✓ | ✓ | — | ✓ | — |
+| **3** Migration versionnée, sqlx vert, seeds | ✓ | ✓ | ✓ | — | ✓ | — |
+| **4** RLS `ENABLE`+`FORCE`, isolation multi-tenant | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| **5** Classe hors-ligne déclarée + test | ✓ | ✓ | ✓ | — | ✓ | ✓ |
+| **6** Événement outbox par transition | ✓ | ✓ | ✓ | — | — | — |
+| **7** Clés i18n fr **et** en, rien en dur | — | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **8** Écran vérifié en clair **et** en sombre | — | ✗ | ✗ | ✗ | ✗ | — |
+| **9** Paramètres au récapitulatif si « paramétrable » | — | ✓ | — | — | — | — |
+| **10** Document imprimé sur thermique réelle | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ |
+
+Les `—` sont des sans-objet **de story**, chacun justifié au point correspondant :
+
+- **US1** ne sert aucune opération HTTP (les trois tables sont un modèle, les points d'entrée de
+  personnes relèvent de US2) et n'affiche aucun écran.
+- **US4** ne crée ni table ni événement : c'est une **règle d'affichage** filtrant des tuiles, dont
+  le versant serveur est la garde de permission de US3.
+- **US6** ne crée ni table ni événement : elle vérifie que les opérations des autres stories ne
+  sont pas atteignables hors ligne.
+- **Le point 9** ne concerne que US2 : c'est la seule story qui dise « paramétrable » — cinq clés,
+  toutes au récapitulatif.
+
+**Le point 8 est en échec pour les quatre stories qui portent un écran**, `R0` compris : son thème
+sombre est juste, mais aucun chemin du produit ne l'active. Voir le dernier §.
+
+---
+
 ## 1 · Critères d'acceptation couverts par des tests unitaires **et** d'intégration
 
 | Story | Tests backend | Tests front |
