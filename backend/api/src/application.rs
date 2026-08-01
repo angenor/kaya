@@ -35,6 +35,16 @@ impl EtatApplication {
         )
     }
 
+    /// Service de l'identité civile — CPT-00.
+    pub fn service_personne(
+        &self,
+    ) -> kaya_comptes::personne::ServicePersonne<kaya_synchronisation::outbox::PgOutboxWriter> {
+        kaya_comptes::personne::ServicePersonne::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
     /// Service des établissements — ETB-01.
     pub fn service_etablissement(
         &self,

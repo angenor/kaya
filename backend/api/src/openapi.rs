@@ -22,6 +22,9 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         (name = "branding", description = "Identité visuelle — surcharge partielle par établissement, aperçu sans enregistrement."),
         (name = "configuration", description = "Chaîne d'héritage de configuration — tenant, établissement, service, point de vente."),
         (name = "points-de-vente", description = "Points de vente et tables — un comptoir est un point de vente sans table."),
+        (name = "comptes", description = "Personnes, comptes et rôles cumulables — les permissions sont l'UNION des rôles portés."),
+        (name = "session", description = "Connexion, rafraîchissement et déconnexion à distance. Les deux seules opérations publiques du produit sont ici."),
+        (name = "journal-audit", description = "Registre des actions — lecture filtrée seulement. Aucun point d'entrée d'écriture, par décision."),
     ),
     modifiers(&SecuriteBearer),
 )]

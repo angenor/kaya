@@ -97,6 +97,13 @@ const COUVERTURE: &[(&str, Regime)] = &[
     ("/api/v1/referentiels/modules-activite", Regime::SansTenant),
     ("/api/v1/referentiels/capacites", Regime::SansTenant),
     ("/api/v1/referentiels/profils-stock", Regime::SansTenant),
+    // ── Cycle 003 — identité civile (CPT-00) ───────────────────────────────────────────────
+    //
+    // `personne` porte un `tenant_id` et sa politique d'isolation ; les deux chemins sont donc
+    // isolés. **Aucune route de liste** n'y figure, et ce n'est pas un oubli : le contrat n'en
+    // expose pas (§7-9) — un annuaire d'identités civiles suppose la rétention de TRX-06.
+    ("/api/v1/personnes", Regime::Isole),
+    ("/api/v1/personnes/{personne_id}", Regime::Isole),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.

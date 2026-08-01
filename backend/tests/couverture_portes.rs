@@ -326,16 +326,32 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         chemins_non_declares.join("\n  ")
     );
 
-    // **24 opérations au total** : les 21 du cycle 002, plus les 2 du module doré (notes) et la
-    // sonde de santé. Le décompte est écrit ici pour qu'une opération perdue en cours de route se
-    // voie — un endpoint retiré par mégarde laisserait P-08 parfaitement verte.
-    const OPERATIONS_ATTENDUES: usize = 24;
+    // Le décompte est **détaillé par lot**, pas posé en un seul nombre. Un total unique se
+    // corrige en changeant un chiffre ; une ventilation oblige à dire de quel lot vient l'écart,
+    // et c'est cette phrase-là qu'on ne peut pas écrire sans s'en apercevoir.
+    //
+    // Une opération de moins n'échouerait dans AUCUNE autre porte : P-08 compare les chemins
+    // servis à sa propre table, et les deux baisseraient ensemble.
+    const LOTS: &[(&str, usize)] = &[
+        ("sonde de santé", 1),
+        ("notes internes — module doré, cycle 001", 2),
+        ("cycle 002 — établissements, services, PDV, configuration, branding, référentiels", 21),
+        // ── Cycle 003 (CPT) — dix-neuf opérations, ventilées par lot de livraison ────────────
+        ("cycle 003 — personnes (CPT-00, contrat §7-9)", 3),
+    ];
+    let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
+
     assert_eq!(
-        operations, OPERATIONS_ATTENDUES,
-        "P-08 — {operations} opération(s) servie(s) au lieu des {OPERATIONS_ATTENDUES} attendues \
-         (21 pour le cycle 002 + 2 pour les notes du module doré + 1 sonde de santé).\n\
-         Une opération de moins n'échouerait dans AUCUNE autre porte : P-08 compare les chemins \
-         servis à sa propre table, et les deux baisseraient ensemble."
+        operations,
+        operations_attendues,
+        "P-08 — {operations} opération(s) servie(s) au lieu des {operations_attendues} attendues.\n\
+         Ventilation déclarée :\n{}\n\
+         Le contrat du cycle 003 en annonce 40 au total ; tant que les lots restants ne sont pas \
+         livrés, ce décompte croît lot par lot.",
+        LOTS.iter()
+            .map(|(nom, n)| format!("  {n:>3} — {nom}"))
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 
     println!("P-08 — {operations} opérations servies, toutes déclarées.");

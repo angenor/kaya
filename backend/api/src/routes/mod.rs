@@ -15,6 +15,7 @@ pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
 pub mod notes;
+pub mod personnes;
 pub mod points_de_vente;
 pub mod referentiels;
 pub mod sante;
@@ -65,6 +66,16 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(referentiels::capacites)
             .service(referentiels::profils_stock),
     );
+
+    // Personnes — CPT-00. Le plus spécifique d'abord : `/personnes/{personne_id}` avant
+    // `/personnes`. **Aucune liste** n'est montée, et c'est une décision (contrat §7-9) : un
+    // annuaire d'identités civiles suppose la politique de rétention de TRX-06, qui n'existe pas.
+    config.service(
+        scope("/api/v1/personnes/{personne_id}")
+            .service(personnes::lire)
+            .service(personnes::modifier),
+    );
+    config.service(scope("/api/v1/personnes").service(personnes::creer));
 
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/notes")
