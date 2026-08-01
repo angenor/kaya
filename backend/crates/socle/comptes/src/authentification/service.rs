@@ -43,6 +43,7 @@ use crate::audit::{EntreeAudit, JournalAudit, TypeActionAudit};
 use crate::compte::repository as comptes;
 use crate::roles::repository as roles;
 use crate::session::entrepot::Entrepot;
+use crate::session::limite::LimiteTentatives;
 use crate::session::jeton::{self, ClaimsAcces, ClaimsRafraichissement};
 use crate::session::modele::{ErreurSession, JetonsDelivres, Session, SessionVue};
 use crate::session::parametres::{self, DureesSession};
@@ -73,16 +74,25 @@ pub struct SessionOuverte {
 pub struct ServiceAuthentification<E: OutboxWriter, J: JournalAudit> {
     pool: PgPool,
     entrepot: Entrepot,
+    limite: LimiteTentatives,
     cle_jwt: Vec<u8>,
     outbox: E,
     audit: J,
 }
 
 impl<E: OutboxWriter, J: JournalAudit> ServiceAuthentification<E, J> {
-    pub fn nouveau(pool: PgPool, entrepot: Entrepot, cle_jwt: Vec<u8>, outbox: E, audit: J) -> Self {
+    pub fn nouveau(
+        pool: PgPool,
+        entrepot: Entrepot,
+        limite: LimiteTentatives,
+        cle_jwt: Vec<u8>,
+        outbox: E,
+        audit: J,
+    ) -> Self {
         Self {
             pool,
             entrepot,
+            limite,
             cle_jwt,
             outbox,
             audit,
@@ -114,7 +124,19 @@ impl<E: OutboxWriter, J: JournalAudit> ServiceAuthentification<E, J> {
         mot_de_passe: &str,
         etablissement_demande: Option<Uuid>,
         libelle_appareil: Option<String>,
+        origine: &str,
     ) -> Result<SessionOuverte, ErreurSession> {
+        // **La limitation vient en premier, et le refus est le refus commun.** Un message
+        // « trop de tentatives » sur un identifiant existant, et rien sur un identifiant inconnu,
+        // rétablirait en clair la fuite que le condensat factice referme.
+        if let Some(depassement) = self.limite.enregistrer(identifiant, origine).await? {
+            tracing::warn!(
+                depassement = ?depassement,
+                "tentatives de connexion au-delà du seuil — refus indiscernable"
+            );
+            return Err(ErreurSession::IdentifiantsInvalides);
+        }
+
         let mut tx = self.pool.begin().await?;
 
         let trouve = comptes::resoudre_identifiant(&mut tx, identifiant)

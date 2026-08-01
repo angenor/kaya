@@ -33,19 +33,32 @@
 //! le même défaut et échouerait aussi les jours de charge — donc serait désactivé, donc
 //! n'attraperait plus rien.
 //!
+//! # Cent tentatives, et la limitation de débit qui les refuserait
+//!
+//! `LimiteTentatives` plafonne à dix essais par identifiant et soixante par origine dans une
+//! fenêtre de cinq minutes. Une série de cent tentatives sur **le même** identifiant serait donc
+//! refusée avant tout hachage à partir de la onzième — et les deux séries deviendraient également
+//! rapides, ce qui ferait passer le test **au vert sans qu'il mesure quoi que ce soit**.
+//!
+//! Le test crée donc cent comptes distincts et emploie une origine distincte par tentative. C'est
+//! la seule issue honnête : **désactiver le limiteur reviendrait à retirer du chemin mesuré une
+//! pièce qui s'y trouve en production**, et le temps mesuré ne serait plus celui du produit.
+//!
 //! # Périmètre inspecté
 //!
 //! | Contrôle | Périmètre |
 //! |---|---|
 //! | Temps | 100 tentatives de chaque type, **sur le service réel**, base et Redis réels |
+//! | Débit | Les deux compteurs, identifiant **et** origine, et le refus indiscernable |
 //! | Message et code | Les **trois** causes de refus : inconnu, mot de passe faux, compte désactivé |
-//! | Jamais à la connexion | Les trois fichiers du chemin de connexion, contrôle statique |
+//! | Jamais à la connexion | Les fichiers du chemin de connexion, contrôle statique |
 
 mod commun;
 
 use std::time::{Duration, Instant};
 
 use kaya_comptes::session::ErreurSession;
+use kaya_comptes::session::limite::MAX_PAR_IDENTIFIANT;
 use uuid::Uuid;
 
 /// Nombre de tentatives par série.
@@ -70,6 +83,14 @@ const MOT_DE_PASSE: &str = "chaise-tomate-abidjan";
 /// Le symptôme est déroutant : le test passe une fois puis échoue toujours, sur une comparaison
 /// de `tenant_id` qui n'a rien à voir avec ce qu'il vérifie. La base n'est pas réinitialisée
 /// entre les exécutions, et c'est le cas normal ici.
+/// Une origine distincte par tentative — voir le commentaire de tête.
+///
+/// Les adresses sont prises dans `198.51.100.0/24`, réservée à la documentation par la RFC 5737 :
+/// aucune ne désigne une machine réelle, ici ou ailleurs.
+fn origine(index: usize) -> String {
+    format!("198.51.100.{}", index % 256)
+}
+
 fn identifiant_unique(prefixe: &str) -> String {
     // Les douze derniers caractères hexadécimaux d'un UUID v7 — le nœud, tiré au hasard.
     let uuid = Uuid::now_v7().simple().to_string();
@@ -88,28 +109,35 @@ fn identifiant_unique(prefixe: &str) -> String {
 async fn les_deux_echecs_prennent_le_meme_temps() {
     let pool_owner = commun::pool_owner().await;
     let jeu = commun::creer_tenant(&pool_owner, "FR-012 — indiscernabilité").await;
-    let identifiant = identifiant_unique("70");
-
-    commun::creer_compte(
-        &pool_owner,
-        jeu.tenant_id,
-        "Indiscernable",
-        &identifiant,
-        MOT_DE_PASSE,
-        &[("caissier", Some(jeu.etablissement_id))],
-    )
-    .await;
+    // Cent comptes, un par tentative de la série « connu » — voir le commentaire de tête : une
+    // série sur un identifiant unique serait coupée par le limiteur dès la onzième.
+    let mut connus = Vec::with_capacity(TENTATIVES);
+    for _ in 0..TENTATIVES {
+        let identifiant = identifiant_unique("70");
+        commun::creer_compte(
+            &pool_owner,
+            jeu.tenant_id,
+            "Indiscernable",
+            &identifiant,
+            MOT_DE_PASSE,
+            &[("caissier", Some(jeu.etablissement_id))],
+        )
+        .await;
+        connus.push(identifiant);
+    }
 
     let service = commun::service_authentification(commun::pool_app().await);
 
     // **Un tour de chauffe avant les mesures.** Le condensat factice est calculé au premier appel
     // s'il ne l'a pas déjà été, et la première connexion à Redis coûte un aller-retour de plus :
     // les compter fausserait la première série, quelle qu'elle soit.
-    for _ in 0..3 {
+    for i in 0..3 {
         let _ = service
-            .ouvrir("+22500000000000", MOT_DE_PASSE, None, None)
+            .ouvrir(&identifiant_unique("70"), MOT_DE_PASSE, None, None, &origine(900 + i))
             .await;
-        let _ = service.ouvrir(&identifiant, "mauvais-mot-de-passe", None, None).await;
+        let _ = service
+            .ouvrir(&connus[i], "mauvais-mot-de-passe", None, None, &origine(950 + i))
+            .await;
     }
 
     // Les deux séries sont **entrelacées**, pas exécutées l'une puis l'autre : une machine qui
@@ -119,16 +147,18 @@ async fn les_deux_echecs_prennent_le_meme_temps() {
     let mut mauvais = Vec::with_capacity(TENTATIVES);
 
     for i in 0..TENTATIVES {
-        let inexistant = format!("+225079999{i:04}");
+        let inexistant = identifiant_unique("79");
 
         let debut = Instant::now();
-        let refus = service.ouvrir(&inexistant, MOT_DE_PASSE, None, None).await;
+        let refus = service
+            .ouvrir(&inexistant, MOT_DE_PASSE, None, None, &origine(i))
+            .await;
         inconnus.push(debut.elapsed());
         assert!(matches!(refus, Err(ErreurSession::IdentifiantsInvalides)));
 
         let debut = Instant::now();
         let refus = service
-            .ouvrir(&identifiant, "mauvais-mot-de-passe", None, None)
+            .ouvrir(&connus[i], "mauvais-mot-de-passe", None, None, &origine(1000 + i))
             .await;
         mauvais.push(debut.elapsed());
         assert!(matches!(refus, Err(ErreurSession::IdentifiantsInvalides)));
@@ -216,7 +246,9 @@ async fn les_trois_causes_de_refus_rendent_le_meme_refus() {
     ];
 
     for (nom, identifiant, mot_de_passe) in cas {
-        let refus = service.ouvrir(identifiant, mot_de_passe, None, None).await;
+        let refus = service
+            .ouvrir(identifiant, mot_de_passe, None, None, &origine(11))
+            .await;
 
         match refus {
             Err(ErreurSession::IdentifiantsInvalides) => {}
@@ -231,7 +263,7 @@ async fn les_trois_causes_de_refus_rendent_le_meme_refus() {
     // Le versant positif : le **bon** mot de passe ouvre bien une session. Sans lui, un service
     // qui refuserait tout passerait ce test au vert.
     let ouverte = service
-        .ouvrir(&actif, MOT_DE_PASSE, None, None)
+        .ouvrir(&actif, MOT_DE_PASSE, None, None, &origine(12))
         .await
         .expect("le bon mot de passe doit ouvrir une session");
     assert!(!ouverte.jetons.acces.is_empty());
@@ -262,14 +294,16 @@ async fn une_connexion_reussie_n_emet_aucun_evenement() {
     let service = commun::service_authentification(commun::pool_app().await);
 
     let ouverte = service
-        .ouvrir(&identifiant, MOT_DE_PASSE, None, None)
+        .ouvrir(&identifiant, MOT_DE_PASSE, None, None, &origine(13))
         .await
         .expect("connexion");
     let _ = service
         .rafraichir(&ouverte.jetons.rafraichissement, None)
         .await
         .expect("rafraîchissement");
-    let _ = service.ouvrir(&identifiant, "faux", None, None).await;
+    let _ = service
+        .ouvrir(&identifiant, "faux", None, None, &origine(14))
+        .await;
 
     // **Le tenant est posé avant de compter.** La politique d'isolation du grand livre convertit
     // `current_setting('app.current_tenant', true)` en `uuid` ; hors transaction ayant posé le
@@ -303,7 +337,114 @@ async fn une_connexion_reussie_n_emet_aucun_evenement() {
 }
 
 // =================================================================================================
-//  3 · La politique n'est jamais appelée à la connexion
+//  3 · La limitation de débit — deux compteurs, et un refus qui ne dit rien
+// =================================================================================================
+
+/// **Un acharnement sur un identifiant est coupé, et le refus reste le refus commun.**
+///
+/// Le point du test n'est pas que la limite existe — c'est qu'elle ne **parle** pas. Un message
+/// « trop de tentatives » sur un identifiant existant, et rien sur un identifiant inconnu,
+/// rétablirait en clair la fuite que le condensat factice referme.
+#[tokio::test]
+async fn l_acharnement_sur_un_identifiant_est_coupe_sans_le_dire() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "CPT-01 — limitation par identifiant").await;
+    let identifiant = identifiant_unique("74");
+
+    commun::creer_compte(
+        &pool_owner,
+        jeu.tenant_id,
+        "Acharné",
+        &identifiant,
+        MOT_DE_PASSE,
+        &[("caissier", Some(jeu.etablissement_id))],
+    )
+    .await;
+
+    let service = commun::service_authentification(commun::pool_app().await);
+
+    // Le seuil par identifiant est de dix. Chaque tentative part d'une **origine différente** :
+    // sans cela on ne saurait pas lequel des deux compteurs a coupé, et le test prouverait l'un
+    // en croyant prouver l'autre.
+    for i in 0..MAX_PAR_IDENTIFIANT {
+        let refus = service
+            .ouvrir(&identifiant, "faux", None, None, &origine(200 + i))
+            .await;
+        assert!(
+            matches!(refus, Err(ErreurSession::IdentifiantsInvalides)),
+            "tentative {i} : refus inattendu"
+        );
+    }
+
+    // Au-delà du seuil, **même avec le BON mot de passe**, la connexion est refusée — et du même
+    // refus. C'est ce qui prouve que la coupure vient du débit et non du mot de passe.
+    let refus = service
+        .ouvrir(&identifiant, MOT_DE_PASSE, None, None, &origine(299))
+        .await;
+
+    match refus {
+        Err(ErreurSession::IdentifiantsInvalides) => {}
+        Err(autre) => panic!(
+            "le dépassement rend « {autre} » au lieu du refus commun. Un refus distinct dit à qui \
+             essaie que le compte existe — et qu'il est sur la bonne piste."
+        ),
+        Ok(_) => panic!(
+            "la {}e tentative a ouvert une session : la limitation par identifiant ne coupe rien, \
+             et un balayage de mots de passe n'a aucun frein",
+            MAX_PAR_IDENTIFIANT + 1
+        ),
+    }
+}
+
+/// **Le compteur par identifiant n'enferme pas les autres comptes.**
+///
+/// Le versant positif, et il n'est pas décoratif : un limiteur qui refuserait tout passerait le
+/// test précédent au vert. Il vérifie surtout **l'absence de verrouillage définitif** — un compte
+/// bloqué après N échecs serait un déni de service offert à qui connaît le téléphone d'Adjoua.
+#[tokio::test]
+async fn la_limitation_d_un_compte_n_atteint_pas_les_autres() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "CPT-01 — limitation cloisonnée").await;
+
+    let harcele = identifiant_unique("75");
+    let voisin = identifiant_unique("76");
+
+    for (nom, identifiant) in [("Harcelé", &harcele), ("Voisin", &voisin)] {
+        commun::creer_compte(
+            &pool_owner,
+            jeu.tenant_id,
+            nom,
+            identifiant,
+            MOT_DE_PASSE,
+            &[("caissier", Some(jeu.etablissement_id))],
+        )
+        .await;
+    }
+
+    let service = commun::service_authentification(commun::pool_app().await);
+
+    for i in 0..MAX_PAR_IDENTIFIANT + 2 {
+        let _ = service
+            .ouvrir(&harcele, "faux", None, None, &origine(300 + i))
+            .await;
+    }
+
+    // Le voisin, lui, se connecte normalement. Sans ce contrôle, un compteur posé sur la mauvaise
+    // clé — l'origine au lieu de l'identifiant, par exemple — passerait inaperçu.
+    let ouverte = service
+        .ouvrir(&voisin, MOT_DE_PASSE, None, None, &origine(399))
+        .await;
+
+    assert!(
+        ouverte.is_ok(),
+        "l'acharnement sur un compte a bloqué un autre compte : le compteur n'est pas posé sur \
+         l'identifiant, ou un verrouillage global s'est glissé quelque part. {:?}",
+        ouverte.err()
+    );
+}
+
+// =================================================================================================
+//  4 · La politique n'est jamais appelée à la connexion
 // =================================================================================================
 
 /// Les fichiers qui portent le chemin de connexion.

@@ -368,6 +368,7 @@ pub fn service_authentification(
     kaya_comptes::authentification::ServiceAuthentification::nouveau(
         pool,
         kaya_comptes::session::Entrepot::nouveau(&url_redis()).expect("entrepôt Redis"),
+        kaya_comptes::session::LimiteTentatives::nouveau(&url_redis()).expect("limiteur Redis"),
         cle_jwt(),
         kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
         kaya_comptes::audit::JournalAuditPostgres,

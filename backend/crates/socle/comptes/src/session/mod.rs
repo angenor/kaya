@@ -25,15 +25,16 @@
 //! | [`jeton`] | Signature et vérification des deux jetons |
 //! | [`entrepot`] | Les **trois familles de clés** Redis |
 //! | [`parametres`] | Les durées, lues du catalogue |
-//!
-//! La limitation de débit arrive avec **T029**, dans `limite.rs`.
+//! | [`limite`] | La limitation de débit — **deux clés**, l'identifiant *et* l'origine |
 
 pub mod entrepot;
 pub mod jeton;
+pub mod limite;
 pub mod modele;
 pub mod parametres;
 
 pub use entrepot::Entrepot;
 pub use jeton::{ClaimsAcces, ClaimsRafraichissement};
+pub use limite::LimiteTentatives;
 pub use modele::{ErreurSession, JetonsDelivres, Session, SessionVue};
 pub use parametres::DureesSession;
