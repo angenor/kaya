@@ -332,6 +332,7 @@ déclarerait ses propres routes ne prouverait rien du service servi.
 ## La septième couche — le patron d'écriture front
 
 *Ajoutée après le cycle 002 (ETB), sur l'activation et la désactivation d'un service (ETB-02).*
+*Étendue de trois points par le cycle 003 (CPT) — voir « Ce que le cycle 003 ajoute au patron ».*
 
 **Une seule opération sur les vingt et une que l'API expose.** C'est la leçon de la section
 suivante : le cycle 001 a manqué sa couche écran, et le cycle 002 a livré un écran qui **affiche
@@ -368,6 +369,18 @@ const reponse = await client.PUT(
 Le chemin, la forme du corps et celle de la réponse viennent de `clients/ts/types.gen.ts`, dérivé du
 contrat (porte P-01). Renommer un champ côté serveur fait échouer la **compilation du front**, au
 lieu de produire un `undefined` que personne ne verrait avant la démonstration.
+
+> **Cette phrase a été fausse pendant deux cycles, et P-01 était verte.** Elle ne l'est que si les
+> types consommés **sont** ceux du contrat. Les quatre fichiers d'accès à l'API les redéclaraient
+> à la main, puis convertissaient les réponses par `as unknown as` — la seule construction de
+> TypeScript qui relie deux types sans rapport. P-01 restait verte : elle compare le client généré
+> au client commité, et les deux étaient à jour ; la rupture était un cran plus loin. Vérifié en
+> T062 en renommant réellement `CompteVue.nom_affichage` côté serveur — le front compilait.
+>
+> **Un type consommé s'écrit `components['schemas'][…]`, jamais une interface qui lui ressemble.**
+> Une copie fidèle le reste jusqu'au premier champ ajouté d'un côté : le contrat portait déjà
+> `ServiceActif.active_le` que la copie n'avait pas, et deux fixtures de test l'omettaient sans
+> que rien ne puisse le dire.
 
 **L'identifiant est un UUID v7 généré côté client** (principe VI). `crypto.randomUUID()` produit un
 v4 : il rendrait le rejeu idempotent mais casserait l'ordre temporel dont dépend le
@@ -475,19 +488,76 @@ tout seul. `app/tests/theme-sombre.spec.ts` le vérifie mécaniquement — chaqu
 une valeur sous `.dark` — et **couvre désormais `core/design-system/`** en plus des sections, parce
 que le composant 16 est la pièce dont un défaut se propagerait le plus loin.
 
+### Ce que le cycle 003 (CPT) ajoute au patron
+
+Trois points, qui ne se déduisaient d'aucun des huit précédents. Ils s'appliquent à toute opération
+qui touche à l'identité, c'est-à-dire à la plupart de celles qui restent.
+
+**9 · La garde de permission vit côté serveur, et l'action est ABSENTE côté client.**
+
+Les deux, jamais l'un sans l'autre — et ce ne sont pas deux implémentations de la même règle :
+
+```rust
+// backend/api/src/securite.rs — la garde qui fait autorité.
+exiger(&contexte, "comptes.attribuer_role")?;
+exiger_ou_soi(&contexte, "comptes.changer_mot_de_passe", compte_id)?;
+```
+
+Le serveur refuse ; le client, lui, **ne rend pas le bouton**. « Un module inactif est absent,
+jamais grisé » (principe VII) vaut aussi pour une action : un bouton grisé apprend à qui ne peut
+pas agir ce qu'il pourrait faire ailleurs, et invite à chercher comment. `core/rbac` lit
+`sessionCourante()?.permissions` — l'union rendue par `session_ouvrir`, **jamais le jeton décodé**
+(research R-06) : deux sources pour la même information, et une seule fait autorité.
+
+La vérification côté écran porte donc sur le **HTML rendu**, pas sur un attribut `disabled` :
+`app/tests/permissions.spec.ts` cherche l'absence de la chaîne, ce qu'un test de `:disabled`
+laisserait passer.
+
+`exiger_ou_soi` est le cas qu'on écrirait mal : changer *son propre* mot de passe ne demande aucune
+permission, changer celui d'un autre en demande une. Une seule garde porte les deux, sans quoi le
+chemin « soi » finirait par se passer de garde.
+
+**10 · Un secret durable passe par `PlatformAdapter`, et le type DÉCLARE la garantie.**
+
+Le jeton de rafraîchissement va au Keystore/Keychain, jamais dans un stockage web ordinaire. Mais
+toute plateforme n'en a pas, et le silence sur ce point est ce qui produit une session qu'on croit
+persistante :
+
+```ts
+// Le stockage web l'annonce dans son type : il n'y a pas de contresens possible à l'appel.
+const persistante = await rangerRafraichissement(vue.rafraichissement)
+return { issue: 'succes', session, persistante }
+```
+
+`persistante: false` n'est pas une erreur — c'est un fait que l'écran **dit**, plutôt que de laisser
+découvrir une déconnexion inexpliquée une heure plus tard. La garantie est portée par le type de
+retour, donc impossible à ignorer par distraction.
+
+**11 · Rafraîchir AVANT de vider la file, jamais l'inverse.**
+
+`core/sync/vidage.ts`. L'ordre paraît indifférent et ne l'est pas : une file de classe A vidée avec
+un jeton expiré part en `401` opération par opération, et chaque échec est indistinguable d'un refus
+métier. L'inversion est **exercée** par un test, pas seulement commentée — c'est la seule façon de
+la garder, un ordre correct par accident se rétablit à la première refonte.
+
 ### Ce que ce patron ne démontre PAS
 
 Écrit ici pour que le cycle suivant ne le suppose pas acquis :
 
 | Manque | À figer par |
 |---|---|
-| **Le RBAC réel** — permissions en configuration, provisoire nommé | CPT-02 |
-| **L'authentification** — contexte encore par deux en-têtes | CPT-01 |
 | **La fraîcheur affichée et le cache local** | SYN-01/02 |
 | **Le témoin de synchronisation permanent** (composant 10) | ETB-06 |
 | **L'état `degrade`** — personne ne le produit | SYN |
 | **Le bandeau d'annulation** (composant 14) — aucune action de ce patron n'est destructrice | Premier cycle qui en a une |
 | **La sélection réelle de plateforme** — `adaptateurCourant()` renvoie le web | Construction de la coquille Tauri |
+
+Et les deux que le cycle 003 a soldés, gardés ici pour qu'on ne les recherche pas :
+
+| Manque relevé au cycle 002 | Soldé par |
+|---|---|
+| **Le RBAC réel** — permissions en configuration, provisoire nommé | CPT-02 · `core/rbac` lit `sessionCourante()?.permissions` ; `runtimeConfig` n'a plus ni `permissions`, ni `tenantId`, ni `compteId` |
+| **L'authentification** — contexte encore par deux en-têtes | CPT-01 · `ContexteAppel` porte un jeton, `enTetesAuth` rend **un seul** en-tête, et `x-kaya-tenant` / `x-kaya-compte` ne sont plus acceptés |
 
 ---
 
