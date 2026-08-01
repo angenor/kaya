@@ -3,7 +3,7 @@
 *Source de vérité des types d'action tracés au journal d'audit (`comptes.journal_audit`).
 Créé par le cycle 003 (CPT), story **CPT-04**.*
 
-**Version 1.0.0** — 2026-08-01. Dix familles, **0 branchée, 10 dues**.
+**Version 1.1.0** — 2026-08-01. Dix familles, **1 branchée, 9 dues**.
 
 ---
 
@@ -47,15 +47,22 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 3 | `avoir` | L'émission d'un avoir sur une facture certifiée | **dû** | FIS-06 — tranche T3 |
 | 4 | `ouverture_tiroir` | Une ouverture de tiroir-caisse hors encaissement | **dû** | IMP-01 — tranche T2 |
 | 5 | `modification_tarif` | Le changement du prix d'un article vendable | **dû** | PDV-01 — tranche T2 |
-| 6 | `suppression` | La mise hors service de ce qui ne se supprime jamais | **dû** | **CPT-01 — ce cycle** |
+| 6 | `suppression` | La mise hors service de ce qui ne se supprime jamais | **branché** | **CPT-01 — ce cycle** |
 | 7 | `changement_role` | Une attribution ou un retrait de rôle | **dû** | **CPT-02 — ce cycle** |
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
 | 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **dû** | HEB-04 — tranche T1 |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
 
-**Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document est écrit
+**Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document a été écrit
 **avant** la première migration, donc avant que `changement_role` et `suppression` aient un chemin.
 Leur passage à `branché` se fait dans le changement qui les branche, pas avant.
+
+**`suppression` est passée à branché en T028**, avec le service d'authentification — et **pas là
+où on l'attendait**. Le document annonçait la désactivation de compte (opération 13, T041) ; c'est
+la **révocation de session** qui a branché le type la première. Les deux sont des mises hors
+service, les deux sont dues au même cycle, et le harnais a signalé l'écart au moment exact où le
+premier chemin d'écriture est apparu. C'est son travail, et c'est ce que valait de l'écrire vert à
+vide.
 
 ### Ce que `suppression` recouvre — et pourquoi le mot est faux mais gardé
 
@@ -64,9 +71,21 @@ se retire, une ligne s'annule par une contre-ligne. Le type garde pourtant le no
 parce que c'est **le geste que l'utilisateur croit faire**, et que le registre est lu par un
 propriétaire qui cherche « qui a supprimé ça ». Le lexique traduit ; la taxonomie nomme l'intention.
 
-Au cycle 003, `suppression` trace la **désactivation d'un compte** (`compte_changer_etat`, opération
-13 du contrat). Les cycles suivants y logeront le retrait d'un article du catalogue et la mise hors
-service d'une unité.
+Au cycle 003, `suppression` trace **trois gestes**, tous des mises hors service :
+
+| Geste | Où | Cible |
+|---|---|---|
+| Révoquer une session — « Déconnecter cet appareil » | `authentification/service.rs`, T028 | `session` |
+| Révoquer une famille de jetons sur **réutilisation détectée** | idem | `session` |
+| Désactiver un compte (`compte_changer_etat`, opération 13) | T041 | `compte` |
+
+`cible_type` les distingue — `session` ou `compte` —, ce qui permet au filtre de `G4` de les
+séparer sans multiplier les familles. **Une famille par geste ferait une taxonomie de trente
+entrées dont personne ne connaîtrait la moitié**, et le filtre d'un registre ne vaut que si son
+vocabulaire tient dans une liste déroulante.
+
+Les cycles suivants y logeront le retrait d'un article du catalogue et la mise hors service d'une
+unité.
 
 ---
 

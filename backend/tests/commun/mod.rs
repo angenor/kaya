@@ -195,6 +195,16 @@ macro_rules! monter_application {
     }};
 }
 
+/// URL de l'entrepôt des sessions.
+pub fn url_redis() -> String {
+    variable("REDIS_URL")
+}
+
+/// Clé de signature des jetons, telle que le serveur la lit.
+pub fn cle_jwt() -> Vec<u8> {
+    variable("KAYA_JWT_CLE").into_bytes()
+}
+
 /// Un tenant et son établissement, créés pour un test.
 #[derive(Debug, Clone, Copy)]
 pub struct JeuTenant {
@@ -252,4 +262,114 @@ pub async fn creer_tenant(pool: &PgPool, nom: &str) -> JeuTenant {
         tenant_id,
         etablissement_id,
     }
+}
+
+/// Une personne, un compte, et les rôles qu'on lui donne — **par le chemin réel**.
+///
+/// Le condensat est produit par `kaya_comptes::authentification::hacher`, jamais écrit à la main :
+/// un condensat figé dans le code cesserait de correspondre le jour où les paramètres montent, et
+/// les tests échoueraient sans dire pourquoi.
+#[derive(Debug, Clone, Copy)]
+pub struct JeuCompte {
+    pub personne_id: Uuid,
+    pub compte_id: Uuid,
+}
+
+/// Crée un compte utilisable pour se connecter, avec ses rôles.
+///
+/// `roles` porte des couples `(role_code, etablissement_id)` — `None` pour un rôle d'éditeur.
+pub async fn creer_compte(
+    pool: &PgPool,
+    tenant_id: Uuid,
+    nom: &str,
+    identifiant: &str,
+    mot_de_passe: &str,
+    roles: &[(&str, Option<Uuid>)],
+) -> JeuCompte {
+    let personne_id = Uuid::now_v7();
+    let compte_id = Uuid::now_v7();
+    let condensat = kaya_comptes::authentification::hacher(mot_de_passe).expect("hachage");
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    sqlx::query!(
+        "INSERT INTO comptes.personne (id, tenant_id, nom) VALUES ($1, $2, $3)",
+        personne_id,
+        tenant_id,
+        nom
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("insertion de la personne");
+
+    // L'identifiant part dans la colonne qui correspond à sa forme : un « @ » en fait un courriel,
+    // sans quoi la résolution par téléphone ne le trouverait pas — et le test échouerait sur un
+    // détail de jeu d'essai plutôt que sur ce qu'il vérifie.
+    let (telephone, email) = if identifiant.contains('@') {
+        (None, Some(identifiant))
+    } else {
+        (Some(identifiant), None)
+    };
+
+    sqlx::query!(
+        r#"
+        INSERT INTO comptes.compte
+            (id, tenant_id, personne_id, identifiant_telephone, identifiant_email,
+             condensat_mot_de_passe)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        "#,
+        compte_id,
+        tenant_id,
+        personne_id,
+        telephone,
+        email,
+        condensat,
+    )
+    .execute(&mut *tx)
+    .await
+    .expect("insertion du compte");
+
+    for (role_code, etablissement_id) in roles {
+        sqlx::query!(
+            r#"
+            INSERT INTO comptes.compte_role
+                (id, tenant_id, compte_id, role_code, etablissement_id, attribue_par_compte_id)
+            VALUES ($1, $2, $3, $4, $5, $3)
+            "#,
+            Uuid::now_v7(),
+            tenant_id,
+            compte_id,
+            role_code,
+            *etablissement_id,
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("attribution du rôle");
+    }
+
+    tx.commit().await.expect("commit");
+
+    JeuCompte {
+        personne_id,
+        compte_id,
+    }
+}
+
+/// Le service d'authentification, assemblé **comme le fait l'application réelle**.
+pub fn service_authentification(
+    pool: PgPool,
+) -> kaya_comptes::authentification::ServiceAuthentification<
+    kaya_synchronisation::outbox::PgOutboxWriter,
+    kaya_comptes::audit::JournalAuditPostgres,
+> {
+    kaya_comptes::authentification::ServiceAuthentification::nouveau(
+        pool,
+        kaya_comptes::session::Entrepot::nouveau(&url_redis()).expect("entrepôt Redis"),
+        cle_jwt(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        kaya_comptes::audit::JournalAuditPostgres,
+    )
 }
