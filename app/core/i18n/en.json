@@ -19,6 +19,12 @@
     "indisponible": "This action is not available on this device.",
     "indisponible_hors_ligne": "This action needs a connection. It will be possible as soon as the network returns."
   },
+  "champ": {
+    "erreur": {
+      "obligatoire": "This information is missing.",
+      "trop_long": "Too long: {max} characters at most."
+    }
+  },
   "etablissement": {
     "sur_titre": "Establishment settings",
     "resume": "{n} service · {commune} | {n} services · {commune}",
@@ -46,7 +52,29 @@
     "services": {
       "titre": "Your services",
       "intro": "What you offer your guests. You will only see what you actually provide.",
-      "action_activer": "Add a service"
+      "action_activer": "Add a service",
+      "action_retirer": "Remove",
+      "action_retirer_detail": "Remove {service}",
+      "formulaire": {
+        "champ": "Service to add",
+        "invite": "Choose a service",
+        "aide": "You can remove it later: nothing will be deleted.",
+        "confirmer": "Add",
+        "annuler": "Cancel"
+      },
+      "succes": {
+        "ajout": "{service} has been added to your services.",
+        "retrait": "{service} has been removed. Nothing was deleted: you can add it back."
+      },
+      "refus": {
+        "reseau": "Adding or removing a service needs a connection. Try again as soon as the network returns.",
+        "permission": "You are not allowed to change this establishment's services.",
+        "module_inconnu": "This service does not exist.",
+        "module_non_implemente": "This service is not available yet.",
+        "desactivation_bloquee": "This service is still in use. Finish what is under way, then try again.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "inattendue": "The operation did not go through. Try again in a moment."
+      }
     },
     "points_de_vente": {
       "titre": "Your points of sale",
@@ -102,6 +130,20 @@
     "politique_impression": {
       "libelle": "What gets printed",
       "description": "What goes to the printer when you take payment."
+    }
+  },
+  "mentions": {
+    "titre": "What Kaya borrows",
+    "intro": "The application's typefaces are other people's work, published under an open licence. Here is what their authors ask to be shown.",
+    "voir_licence": "Read the full licence",
+    "usage": {
+      "texte": "All the text in the application.",
+      "chiffres": "Amounts, quantities, times and room numbers.",
+      "icones": "The icons."
+    },
+    "modification": {
+      "fine": "Modified: the narrow no-break space used in amounts was added, because the typeface did not draw it.",
+      "sous_reglage": "Reduced to the icons actually used, so the others are never downloaded."
     }
   }
 }

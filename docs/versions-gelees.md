@@ -4,7 +4,7 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.8 — vérifié le 2026-07-31**
+**Version du gel : 1.0.10 — vérifié le 2026-07-31**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
@@ -158,6 +158,89 @@ entrent dans le lockfile et la porte P-20 les couvre.
 | `happy-dom` | **20.11.1** | Environnement DOM de Vitest, requis par le montage ci-dessus |
 | `@vitejs/plugin-vue` | **6.0.8** | Compile les composants monofichiers pour Vitest **hors Nuxt** — sans lui, `@vue/test-utils` ne peut monter aucun `.vue` |
 | `@types/node` | **24.13.3** ⚠️ | Types du runtime — **dernière `24.x`, alignée sur Node `24.18.1`**, pas la dernière stable |
+| `@phosphor-icons/web` | **2.1.2** | **Source des glyphes d'icônes** — sous-réglée à la construction, jamais expédiée telle quelle (porte **P-21**) |
+| `subset-font` | **2.5.0** | Sous-règle la police d'icônes ; **contrôle tiers** des polices de texte par harfbuzz — outil de génération, absent du paquet livré |
+| `@fontsource-variable/archivo` | **5.3.0** | **Source d'Archivo** — texte et titres, embarquée en local (portes **P-21** et **P-21b**) |
+| `@fontsource-variable/chivo-mono` | **5.3.0** | **Source de Chivo Mono** — montants, quantités, heures ; le tabulaire qui aligne les colonnes |
+
+> **Deux paquets ajoutés au gel 1.0.10 — les polices de texte embarquées, dernière dette du
+> cycle 002.** `docs/design/theme.css`, section « POLICES », prescrit de les servir en local
+> (`woff2`, `font-display: swap`) « parce que le produit tourne sur des liaisons lentes et doit
+> s'afficher hors ligne ». Ce n'est pas cosmétique : `tokens.md` §2 fait de **Chivo Mono
+> tabulaire** la condition de l'alignement des colonnes de montants — sur les polices système de
+> repli, un écran de caisse ou de clôture affiche des montants désalignés.
+>
+> `@fontsource-variable/archivo` **5.3.0** et `@fontsource-variable/chivo-mono` **5.3.0**
+> (OFL-1.1, publiées le 2026-07-19, **aucune dépendance et aucune `peerDependency`** pour l'une
+> comme pour l'autre), vérifiées sur `https://registry.npmjs.org/@fontsource-variable%2Farchivo`
+> et `https://registry.npmjs.org/@fontsource-variable%2Fchivo-mono` le **2026-07-31**.
+>
+> **Variable et non statique — mesuré, pas supposé.** Les quatre fichiers variables (deux
+> familles × `latin` et `latin-ext`, axe `wght` 100→900) pèsent **114,0 ko**. L'équivalent
+> statique demanderait **douze** fichiers pour **152,7 ko** : le produit emploie quatre graisses
+> d'Archivo — 400 par défaut, 500 `font-medium`, 600 `font-semibold`, 700 `font-bold`, relevées
+> dans `docs/design/` — et deux de Chivo Mono. Le variable pèse **75 %** du statique et absorbe
+> une graisse de plus sans ajouter un fichier. Aucune italique n'est embarquée : les trois
+> occurrences d'`italic` de `docs/design/` sont des `not-italic`.
+>
+> **Aucun sous-réglage de caractères, contrairement aux icônes.** Les glyphes d'icônes forment un
+> ensemble fini et connu ; le texte est dynamique — noms de clients, communes, libellés saisis par
+> l'exploitant. Un sous-réglage produirait un caractère manquant sur un nom propre ivoirien,
+> constaté en production. On se limite aux **sous-ensembles de script** : `latin` **et**
+> `latin-ext`, jamais `latin` seul, qui ne porte ni Ÿ ni les latines étendues. Le sous-ensemble
+> `vietnamese` n'est pas embarqué — limite assumée, 23 ko pour un besoin qui n'existe pas.
+>
+> ⚠️ **U+202F n'existe ni dans Archivo ni dans Chivo Mono, et il a fallu l'ajouter.** `tokens.md`
+> §2 impose l'espace fine insécable **U+202F** entre les groupes de milliers et avant le F
+> (`12 500 F`). Vérification par lecture de la table `cmap` — pas par lecture de la
+> `unicode-range` déclarée, qui annonce pourtant `U+2000-206F` : **le caractère est absent des
+> `woff2` de Fontsource ET des `ttf` amont de Google Fonts** (sondés sur `Archivo_400Regular.ttf`
+> et `ChivoMono_400Regular.ttf`). Sans correction, chaque montant du produit fait tomber son
+> séparateur sur une police de repli, de chasse inconnue — donc les colonnes ne s'alignent plus,
+> la propriété même que Chivo Mono doit garantir.
+>
+> `app/scripts/generer-polices.ts` ajoute donc à la `cmap` l'association **U+202F → dessin de
+> U+2009** (THIN SPACE), présent dans les deux familles. Aucun glyphe n'est créé. Le choix est
+> **mesuré** sur les `ttf` amont (unités de 1000) : en Archivo, U+2009 vaut 193 contre 209 pour
+> l'espace mot — la fine attendue ; en Chivo Mono, U+2009 vaut 600 comme tout autre caractère —
+> **la cellule pleine, donc l'alignement tabulaire tenu**. L'insécabilité vient du caractère
+> U+202F lui-même, de catégorie Unicode `Zs` non sécable : on lui donne un dessin, on ne le
+> substitue pas.
+>
+> **Déterminisme vérifié à l'octet**, condition du mode `--verifier` : Brotli est déterministe à
+> paramètres fixés, et ils sont posés explicitement dans le script. **Validité vérifiée par un
+> tiers** : `subset-font` — donc harfbuzz, le moteur de mise en forme des navigateurs — ouvre les
+> quatre fichiers et retient U+202F en sous-réglant sur « 12 500 F ». Ce contrôle n'est pas
+> décoratif : il a refusé une première version des fichiers, à laquelle il manquait le
+> **complément d'alignement sur quatre octets** que le décodeur de référence exige. Le décodeur
+> écrit pour ce script les relisait sans rien voir.
+>
+> **À reporter à la revue du 2026-08-31** comme les paquets des gels 1.0.5, 1.0.6 et 1.0.9.
+
+> **Deux paquets ajoutés au gel 1.0.9 — la police d'icônes, dette ouverte du cycle 002.** La
+> maquette charge Phosphor depuis `unpkg.com` ; reprise telle quelle, elle rend l'écran dépendant
+> du réseau, ce que le principe VI interdit et ce que la porte **P-21** refuse désormais. Sans
+> police embarquée, les icônes de `G1` ne s'affichaient pas du tout.
+>
+> `@phosphor-icons/web` **2.1.2** (MIT, publiée le 2025-03-31, aucune `peerDependency` ni
+> dépendance) vérifiée sur `https://registry.npmjs.org/@phosphor-icons%2Fweb` le 2026-07-31.
+> C'est la **même famille et la même version** que celles des maquettes — les glyphes du produit
+> et ceux de la référence visuelle sont donc identiques au dessin près, ce qu'une montée de
+> version briserait en silence.
+>
+> `subset-font` **2.5.0** (BSD-3-Clause, publiée le 2026-04-02, dépend de `harfbuzzjs`,
+> `fontverter`, `lodash`, `p-limit`) vérifiée sur `https://registry.npmjs.org/subset-font` le
+> 2026-07-31, à la dernière stable. **Outil de génération, jamais expédié** : il produit
+> `app/assets/fonts/*.woff2` à la main, et les artefacts sont commités.
+>
+> **Pourquoi sous-régler plutôt qu'embarquer la police entière** : 279 ko de `woff2` pour les deux
+> variantes, contre **9,4 ko** pour les 77 glyphes réellement employés. La persona Aminata
+> travaille sur un Android d'entrée de gamme en réseau intermittent ; 270 ko d'icônes jamais
+> affichées retardent le premier écran à chaque installation.
+>
+> **Déterminisme vérifié**, comme pour le générateur de client (§3.2, exigence 1) : deux
+> exécutions successives produisent deux fichiers identiques à l'octet. Sans cette propriété, le
+> mode `--verifier` de la porte échouerait au hasard et serait désactivé sous trois semaines.
 
 > **`@types/node` — dette du cycle 001, réparée au gel 1.0.7.** `app/tsconfig.test.json` typait
 > déjà `scripts/**/*.ts`, mais aucun paquet ne fournissait les types de `node:fs` et `node:path` :
@@ -370,7 +453,9 @@ done
 
 # Paquets npm
 for p in nuxt tailwindcss @tauri-apps/cli @tauri-apps/api @nuxtjs/i18n pnpm \
-         openapi-typescript openapi-fetch typescript; do
+         openapi-typescript openapi-fetch typescript \
+         @phosphor-icons/web subset-font \
+         @fontsource-variable/archivo @fontsource-variable/chivo-mono; do
   printf "%-22s " "$p"
   curl -sS "https://registry.npmjs.org/$(echo $p | sed 's|/|%2F|')/latest" \
     | python3 -c "import sys,json;print(json.load(sys.stdin)['version'])"
@@ -421,6 +506,8 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.10 | 2026-07-31 | **Archivo et Chivo Mono embarquées — dernière dette du cycle 002 soldée, portes P-21 et P-21b.** `@fontsource-variable/archivo` **5.3.0** et `@fontsource-variable/chivo-mono` **5.3.0**, OFL-1.1, publiées le 2026-07-19, aucune dépendance ni `peerDependency`, vérifiées sur `https://registry.npmjs.org/@fontsource-variable%2Farchivo` et `https://registry.npmjs.org/@fontsource-variable%2Fchivo-mono` le 2026-07-31. L'application tournait sur les polices système de repli, alors que `theme.css` prescrit le local et que `tokens.md` §2 confie l'alignement des colonnes de montants à Chivo Mono tabulaire. **Variable retenue sur mesure** : 4 fichiers / 114,0 ko contre 12 fichiers / 152,7 ko en statique, pour les quatre graisses d'Archivo et les deux de Chivo Mono réellement employées. **Aucun sous-réglage de caractères** — le texte est dynamique, contrairement aux icônes : `latin` **et** `latin-ext`, sous-ensembles de script entiers. ⚠️ **U+202F absent de la source, ajouté à la `cmap`** (associé au dessin de U+2009, chasse mesurée : 193 en Archivo, 600 en Chivo Mono donc cellule pleine) : le caractère n'existe ni dans les `woff2` de Fontsource ni dans les `ttf` amont de Google Fonts, ce que seule la lecture de la table révèle — la `unicode-range` déclarée annonce `U+2000-206F`. Déterminisme à l'octet vérifié ; validité confirmée par harfbuzz, qui a d'abord **refusé** les fichiers auxquels manquait le complément d'alignement sur quatre octets. |
+| 1.0.9 | 2026-07-31 | **La police d'icônes embarquée — dette du cycle 002 soldée, porte P-21.** `@phosphor-icons/web` **2.1.2** (source des glyphes) et `subset-font` **2.5.0** (outil de sous-réglage), vérifiés sur `https://registry.npmjs.org/` le 2026-07-31, licences MIT et BSD-3-Clause, `peerDependencies` contrôlées — aucune pour le premier, aucune pour le second. La maquette charge Phosphor depuis `unpkg.com` ; l'application ne le fait **jamais**. Sous-ensemble de **77 glyphes sur ~1530**, soit **9,4 ko** au lieu de 279 ko. La version est **alignée sur celle des maquettes** : deux versions différentes donneraient deux dessins d'icône, écart qu'aucune porte ne verrait. Déterminisme à l'octet vérifié, condition du mode `--verifier`. **À reporter à la revue du 2026-08-31** comme les paquets des gels 1.0.5 et 1.0.6. |
 | 1.0.8 | 2026-07-31 | **`actix-cors` `0.7.1` inscrit — manque révélé par le PREMIER ÉCRAN du produit.** L'application est une SPA servie depuis une autre origine que l'API : `localhost:3000` en développement, `tauri://localhost` sous Tauri. Sans en-têtes CORS, le navigateur bloque chaque appel et **aucun écran ne fonctionne** — le préflight `OPTIONS` rendait `404`. Le cycle 001 ne pouvait pas le rencontrer, n'ayant livré aucun écran ; `G1` l'a révélé au premier chargement réel. **`0.x` assumé, contrairement au motif qui a écarté `@hey-api/openapi-ts 0.99.0`** : c'est le crate officiel de l'écosystème Actix, maintenu par la même équipe, sa branche 0.7 est stable depuis 2025-03-11, et il déclare `actix-web ^4` — compatible avec le `4.14.0` gelé (vérifié sur `https://crates.io/api/v1/crates/actix-cors/0.7.1/dependencies` le 2026-07-31). L'alternative — écrire un CORS à la main sur un chemin de sécurité — était le mauvais échange. La politique est par **liste d'origines explicite**, jamais `*`, et son défaut ne contient que des origines locales. |
 | 1.0.7 | 2026-07-31 | **`@types/node` `24.13.3` inscrit — dette du cycle 001.** `app/tsconfig.test.json` typait `scripts/**/*.ts` sans qu'aucun paquet ne fournisse les types de `node:fs` / `node:path` : `pnpm test` échouait en permanence sur six `TypeCheckError`, alors que ses dix-huit tests passaient. Les deux fichiers non typés portent les portes **P-16** et **P-17**. Version alignée sur la ligne majeure du runtime gelé (Node `24.18.1` LTS), donc dernière `24.x` et non `latest` (`26.1.2`) — même dérogation raisonnée que Node. Vérifiée sur `https://registry.npmjs.org/@types/node` le 2026-07-31. Suivi : toute montée de Node au §3.3 impose la même montée ici. |
 | 1.0.6 | 2026-07-31 | **Trois paquets de test front inscrits — décision T004 du cycle 002, tranchée dans le sens de l'ajout.** `@vue/test-utils` **2.4.11**, `happy-dom` **20.11.1**, `@vitejs/plugin-vue` **6.0.8**, vérifiés sur `https://registry.npmjs.org/` le 2026-07-31, `peerDependencies` contrôlées une par une contre Vue 3 / Vite de Nuxt 4.5.1. `plan.md` laissait le choix ouvert entre ajouter et refuser, sans version : refuser aurait réduit SC-005 à un test de la fonction de sélection, c'est-à-dire à vérifier l'intention plutôt que le HTML produit — or « un service inactif est absent, jamais grisé » est une propriété de rendu. **Le plan n'en annonçait que deux** : le troisième est la dépendance technique qui compile un `.vue` hors du pipeline Nuxt, signalée ici plutôt que glissée dans le lot. À reporter à la revue du 2026-08-31 comme les six du gel 1.0.5. |

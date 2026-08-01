@@ -1,8 +1,10 @@
 # Kaya — Le module doré
 
-*Patron de référence de tous les cycles. Produit par le cycle 001 (TRX), sur `note_etablissement`.*
+*Patron de référence de tous les cycles. Six couches produites par le cycle 001 (TRX) sur
+`note_etablissement` ; la **septième — le patron d'écriture front** — ajoutée après le cycle 002
+(ETB) sur la bascule d'un service.*
 
-**Version 1.0.0 — 2026-07-31**
+**Version 1.1.0 — 2026-07-31**
 
 ---
 
@@ -47,8 +49,13 @@ l'écran.
 | 5 | Handler | `backend/api/src/routes/notes.rs` |
 | 6 | Tests | `backend/tests/note_etablissement_classe_a.rs` |
 
-La septième — l'écran — est **absente**. Voir la dernière section : c'est une décision, pas un
-oubli, et elle a des conséquences que le cycle ETB doit reprendre.
+La septième — **l'écriture depuis un écran** — n'existait pas au cycle 001, et c'était une décision
+vérifiée : l'écran de notes internes n'héritait d'aucun motif maquetté. Elle a été livrée après le
+cycle 002, sur une entité qui en avait un. Voir « La septième couche — le patron d'écriture front ».
+
+**Elle ne se lit pas comme les six autres.** Les couches 1 à 6 décrivent des décisions de structure
+qui se recopient telles quelles ; la septième décrit des décisions d'**interface**, où la faute type
+n'est pas une erreur de compilation mais un grisé posé par réflexe.
 
 ---
 
@@ -322,9 +329,171 @@ déclarerait ses propres routes ne prouverait rien du service servi.
 
 ---
 
-## La septième couche, et pourquoi elle manque
+## La septième couche — le patron d'écriture front
 
-**Ce cycle ne produit aucun écran. C'est une décision vérifiée, pas une omission.**
+*Ajoutée après le cycle 002 (ETB), sur l'activation et la désactivation d'un service (ETB-02).*
+
+**Une seule opération sur les vingt et une que l'API expose.** C'est la leçon de la section
+suivante : le cycle 001 a manqué sa couche écran, et le cycle 002 a livré un écran qui **affiche
+sans rien écrire** — vingt et une opérations d'écriture testées côté API, aucun bouton qui les
+appelle. *Une opération, complète et documentée, vaut mieux que vingt et une approximatives.*
+
+### Pourquoi celle-là
+
+Elle exerce **tout** ce qu'il fallait établir, et rien de plus : formulaire minimal, permission
+requise, cas d'erreur métier réel (`desactivation_bloquee`, spécifié et testé côté serveur), refus
+hors-ligne d'une opération de **classe C**, et un effet **visible immédiatement** — un service
+inactif étant *absent* de l'interface, la réussite se constate sans lire un message.
+
+| Couche | Fichier |
+|---|---|
+| Appel et refus | `app/modules/etablissements/bascule-service.ts` |
+| Écran | `app/modules/etablissements/SectionServices.vue` |
+| Champ de saisie | `app/core/design-system/ChampSaisie.vue` — **composant 16**, `docs/design/composants.md` |
+| Identifiant client | `app/core/sync/uuid-v7.ts` |
+| État réseau | `app/core/platform/reseau.ts`, `courant.ts` |
+| Tests | `app/tests/patron-ecriture.spec.ts`, `app/tests/ecran-g1.spec.ts` |
+
+### Les huit points, et celui qu'on écrirait mal
+
+**1 · L'appel passe par le client généré, jamais par un `fetch` écrit à la main.**
+
+```ts
+const reponse = await client.PUT(
+  '/api/v1/etablissements/{etablissement_id}/services/{module_code}',
+  { params: { path: { etablissement_id, module_code } }, body: { id: uuidV7(), actif } },
+)
+```
+
+Le chemin, la forme du corps et celle de la réponse viennent de `clients/ts/types.gen.ts`, dérivé du
+contrat (porte P-01). Renommer un champ côté serveur fait échouer la **compilation du front**, au
+lieu de produire un `undefined` que personne ne verrait avant la démonstration.
+
+**L'identifiant est un UUID v7 généré côté client** (principe VI). `crypto.randomUUID()` produit un
+v4 : il rendrait le rejeu idempotent mais casserait l'ordre temporel dont dépend le
+`ORDER BY cree_le DESC, id DESC` du repository. Le générateur tient en quinze lignes et n'ajoute
+aucune dépendance au gel.
+
+**2 · Le chargement est un squelette, pas un indicateur générique.**
+
+Composant 13 : « occuper la forme exacte de ce qui arrive, pour que rien ne saute ». L'état retenu
+porte donc **le sens et la cible** de l'opération, pas un simple booléen :
+
+```ts
+const enCours = ref<{ sens: 'ajout' | 'retrait', moduleCode: string } | null>(null)
+```
+
+À l'ajout, un squelette de ligne apparaît **en fin de liste**, là où la ligne se posera ; au retrait,
+c'est **la ligne concernée** qui devient un squelette. Une roue au milieu de l'écran ne dirait ni
+l'un ni l'autre — et sur le réseau d'Abengourou, l'attente dure assez longtemps pour qu'on la
+regarde.
+
+**3 · L'erreur serveur est traduite du `code`, jamais du `message`.**
+
+`CorpsErreur` porte trois choses distinctes, et les confondre est la faute :
+
+| Champ | Ce que c'est | Ce qu'on en fait |
+|---|---|---|
+| `code` | Identifiant stable, jamais traduit | **La clé sur laquelle on branche l'i18n** |
+| `message` | Diagnostic pour les journaux | **Jamais affiché** — anglais technique, il nomme des tables |
+| `motif_cle` | Clé i18n fournie par le référentiel | **Prime sur le code** : elle enseigne là où le code constate |
+
+La table de correspondance est **explicite et fermée** ; un code inconnu tombe sur une phrase
+honnête et générique plutôt que sur une clé i18n affichée en brut. Le rendu est le **composant 07**,
+bandeau d'alerte : contrefort de 4 px, fond `-soft`, texte `-fort`, une phrase au passé. **Jamais
+deux bandeaux empilés** — d'où une seule variable d'état, pas une liste.
+
+Chaque phrase visible est passée par `docs/design/lexique.md` **avant** d'être codée. Ce cycle y a
+ajouté cinq entrées, dont deux qui étaient des pièges : « **Retirer** », jamais « désactiver » (mot
+d'interrupteur) ni « supprimer » (ce serait **faux** — la désactivation ne supprime rien), et
+« ce service est encore en cours d'utilisation », jamais « obstacle », qui est le nom du trait.
+
+**4 · L'erreur de validation est au champ, pas au bandeau.**
+
+```ts
+if (!moduleChoisi.value) { erreurChamp.value = 'champ.erreur.obligatoire'; return }
+```
+
+Elle porte sur ce qui est saisi : le message doit être **à côté de l'endroit où l'on corrige**. Le
+composant 16 la rend avec **trois signaux, jamais la couleur seule** — bordure `danger`, message,
+et icône d'avertissement dans ce message.
+
+**5 · Permission absente : l'action est ABSENTE, pas désactivée.**
+
+```ts
+const peutModifier = computed(() => detient(props.permissions, PERMISSION_BASCULER))
+```
+
+Aucun `disabled`, aucun `title` explicatif, **rien dans le HTML rendu** — et c'est ce que le test
+vérifie, pas la valeur du booléen. Le grisé est le réflexe naturel, et c'est celui que le principe
+VII interdit : il apprend à l'utilisateur, à chaque écran et tous les jours, qu'une partie du
+produit lui est refusée.
+
+**6 · CLASSE C : le refus précède l'appel, et il s'explique.** *C'est le point qu'on écrirait mal.*
+
+`etablissement_module` est de classe C au registre. Deux fautes symétriques guettent, et la seconde
+est la plus tentante :
+
+- **griser le bouton** — l'utilisateur ne sait pas pourquoi, et l'apprend en cliquant dans le vide ;
+- **mettre en file « au cas où »** — promettre un envoi qu'on ne sait pas rejouer. Une opération de
+  classe C n'a **aucune** garantie de rejeu ; la file la rejouerait sans que rien ne le déduplique.
+
+Le patron fait la troisième chose : hors ligne, **l'action disparaît et un bandeau dit pourquoi**,
+en une phrase, immédiatement. La garde vit dans `basculerService`, **pas dans le composant** : un
+second appelant oublierait de la reposer, et la faute ne se verrait qu'en clientèle.
+
+Deux subtilités écrites une fois pour toutes :
+
+- `navigator.onLine` dit qu'une **interface réseau est active**, pas que le serveur répond. À
+  Abengourou, une 3G qui affiche « en ligne » sans porter la moindre requête est le cas courant.
+  **La garde hors-ligne ne dispense donc pas du traitement d'erreur** — elle évite l'attente
+  inutile, elle ne la remplace pas.
+- L'état `degrade` est traité **comme** hors ligne pour une opération de classe C. Personne ne le
+  produit encore ; le cycle SYN l'alimentera depuis les échecs réels de requête.
+
+**7 · Le rafraîchissement relit le serveur, sans rechargement de page.**
+
+```ts
+emit('services-changes', await chargerServices(props.contexte, props.etablissementId))
+```
+
+Trois décisions dans cette ligne. **Une seule requête**, pas les cinq de `chargerEcran` : l'identité
+et les points de vente n'ont pas bougé. **La liste vient du serveur**, jamais reconstruite à la main
+côté client — le serveur fait foi en conflit (principe VI). Et **elle suit le succès**, elle ne
+l'accompagne pas : relire avant que le serveur ait tranché afficherait l'état d'avant en donnant
+l'impression qu'il s'agit de celui d'après.
+
+Le corps rendu par le `PUT` n'est **pas** relu, et c'est délibéré : une désactivation le rend absent
+de la liste des actifs. C'est exact, c'est même l'effet à montrer, mais seule la liste entière donne
+ce que l'écran doit afficher **dans les deux sens**.
+
+**8 · Clair et sombre, par la variante `dark:` uniquement — c'est-à-dire par personne ici.**
+
+Aucun composant de ce patron ne porte de classe `dark:`. Les noms de jetons sont identiques dans les
+deux thèmes et seules les valeurs changent sous `.dark` : `bg-danger-soft text-danger-fort` bascule
+tout seul. `app/tests/theme-sombre.spec.ts` le vérifie mécaniquement — chaque jeton employé a bien
+une valeur sous `.dark` — et **couvre désormais `core/design-system/`** en plus des sections, parce
+que le composant 16 est la pièce dont un défaut se propagerait le plus loin.
+
+### Ce que ce patron ne démontre PAS
+
+Écrit ici pour que le cycle suivant ne le suppose pas acquis :
+
+| Manque | À figer par |
+|---|---|
+| **Le RBAC réel** — permissions en configuration, provisoire nommé | CPT-02 |
+| **L'authentification** — contexte encore par deux en-têtes | CPT-01 |
+| **La fraîcheur affichée et le cache local** | SYN-01/02 |
+| **Le témoin de synchronisation permanent** (composant 10) | ETB-06 |
+| **L'état `degrade`** — personne ne le produit | SYN |
+| **Le bandeau d'annulation** (composant 14) — aucune action de ce patron n'est destructrice | Premier cycle qui en a une |
+| **La sélection réelle de plateforme** — `adaptateurCourant()` renvoie le web | Construction de la coquille Tauri |
+
+---
+
+## La septième couche au cycle 001, et pourquoi elle manquait alors
+
+**Le cycle 001 ne produit aucun écran. C'est une décision vérifiée, pas une omission.**
 
 L'écran de notes internes n'hérite d'aucun motif :
 
@@ -335,22 +504,24 @@ L'écran de notes internes n'hérite d'aucun motif :
 « Un écran qui n'hérite d'aucun motif ne se code pas » (principe XII). La couche est reportée au
 **cycle ETB**, qui dispose d'écrans réellement maquettés (`G2`, `M4`).
 
-### Ce que le patron ne démontre donc pas — à figer au cycle ETB
+### Ce que le patron ne démontrait pas alors — et par quoi c'est soldé
 
-| Manque | À figer par |
+| Manque relevé au cycle 001 | Soldé par |
 |---|---|
-| **i18n** — clés `fr` et `en`, `fr` par défaut | ETB, premier écran |
-| **Mode sombre** — variante `dark:`, jamais une seconde palette | ETB, premier écran |
-| **RBAC** — tuiles filtrées par permission, module inactif **absent** et non grisé | ETB |
-| **Chargement paresseux par module** | ETB |
+| **i18n** — clés `fr` et `en`, `fr` par défaut | ETB, écran `G1` |
+| **Mode sombre** — variante `dark:`, jamais une seconde palette | ETB, écran `G1` + `app/tests/theme-sombre.spec.ts` |
+| **Chargement paresseux par module** | ETB, `pages/etablissement.vue` par `defineAsyncComponent` |
+| **RBAC** — module inactif **absent** et non grisé | ETB pour l'affichage ; **la couche d'écriture** pour les *actions* — voir la section précédente, point 5 |
+| **L'écriture depuis un écran** — non relevé alors, et c'est ce qui manquait le plus | La septième couche, ci-dessus |
 
-Les fondations existent déjà et sont livrées par ce cycle : `app/assets/css/theme.css` (copie
-exacte), les catalogues `app/core/i18n/{fr,en}.json` à parité, `app/core/theme/`, et
-`PlatformAdapter` avec ses quatre implémentations.
+Les fondations existaient déjà au cycle 001 : `app/assets/css/theme.css` (copie exacte), les
+catalogues `app/core/i18n/{fr,en}.json` à parité, `app/core/theme/`, et `PlatformAdapter` avec ses
+quatre implémentations.
 
 **Conséquence sur la Definition of Done** : le point 8 (« écran vérifié en mode clair et en mode
-sombre ») est **sans objet à ce cycle**, au même titre que le point 10 (document imprimé vérifié
-sur imprimante thermique). Consigné explicitement, jamais coché en silence.
+sombre ») était **sans objet au cycle 001**, au même titre que le point 10 (document imprimé vérifié
+sur imprimante thermique). Consigné explicitement, jamais coché en silence. Le point 8 est exigible
+depuis `G1` ; le point 10 le reste jusqu'à IMP.
 
 ---
 

@@ -1,5 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 
+import { ROUTE_STYLEGUIDE, styleguideMonte, VARIABLE_STYLEGUIDE } from './core/design-system/montage'
+
 // Application unique Kaya — Nuxt 4, mode SPA sous Tauri v2.
 //
 // Trois réglages portent chacun un principe, et aucun n'est un choix de confort.
@@ -31,7 +33,16 @@ export default defineNuxtConfig({
 
   // Le thème vient d'un unique fichier CSS — la copie exacte de `docs/design/theme.css`, seule
   // exception du principe XII. Aucun token n'est redéclaré ici : une seconde source dériverait.
-  css: ['~/assets/css/theme.css'],
+  //
+  // `polices.css` et `icones.css` sont **générés** par `scripts/generer-polices.ts` et
+  // `scripts/generer-icones.ts`, et servent en local ce que les maquettes chargent depuis Google
+  // Fonts et un CDN (portes P-21 et P-21b). Une police qui dépend du réseau est un écran qui
+  // dépend du réseau, ce que le principe VI interdit — et sans Chivo Mono embarquée, les colonnes
+  // de montants se désalignent (`tokens.md` §2).
+  //
+  // `polices.css` vient AVANT `theme.css` : les `@font-face` doivent être déclarés quand le bloc
+  // `@theme` nomme les familles dans `--font-titre`, `--font-texte` et `--font-mono`.
+  css: ['~/assets/css/polices.css', '~/assets/css/theme.css', '~/assets/css/icones.css'],
 
   vite: {
     plugins: [tailwindcss()],
@@ -77,6 +88,11 @@ export default defineNuxtConfig({
       tenantId: '',
       compteId: '',
       etablissementId: '',
+      // **Provisoire nommé, levé par CPT-02.** Permissions cumulées de l'utilisateur, séparées par
+      // des virgules. Vide par défaut : sans permission, l'écran se rend en lecture seule et
+      // aucune action n'apparaît — le comportement sûr, et celui qui rend la règle observable.
+      // Un défaut « tout permis » masquerait le principe VII jusqu'au cycle CPT.
+      permissions: '',
     },
   },
 
@@ -86,4 +102,31 @@ export default defineNuxtConfig({
   },
 
   devtools: { enabled: false },
+
+  // **Le styleguide est RETIRÉ du routeur hors développement** — même mécanisme que la Swagger UI
+  // du cycle 001 (`backend/api/src/application.rs`, `swagger_ui_activee()`), et pour la même raison :
+  // « une route non montée ne peut pas fuir par oubli de garde ; une route montée derrière un `if`
+  // finit toujours par être atteinte par un chemin qu'on n'avait pas prévu ».
+  //
+  // Ce n'est pas qu'une question d'accès : la page porte des libellés d'échantillon **en clair**,
+  // au titre d'une exemption nommée de la porte P-16. C'est sa non-présence en production qui rend
+  // cette exemption acceptable — et `scripts/test-i18n.ts` vérifie la réciproque, à savoir que le
+  // fichier exempté est bien celui qui est retiré ici.
+  //
+  //     KAYA_STYLEGUIDE=1 pnpm --filter @kaya/app dev
+  hooks: {
+    'pages:extend': (pages) => {
+      if (styleguideMonte(process.env)) {
+        // Bruyant à dessein, comme le `tracing::warn!` du backend : attendu en développement,
+        // jamais en production.
+        console.warn(
+          `Le styleguide est monté sur ${ROUTE_STYLEGUIDE} — attendu en développement uniquement `
+          + `(${VARIABLE_STYLEGUIDE}).`,
+        )
+        return
+      }
+      const rang = pages.findIndex(page => page.path === ROUTE_STYLEGUIDE)
+      if (rang !== -1) pages.splice(rang, 1)
+    },
+  },
 })

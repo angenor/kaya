@@ -41,12 +41,21 @@ function blocSombre(): string {
   return THEME.slice(debut, fin)
 }
 
-/** Les fichiers de `G1`. */
+/**
+ * Les composants soumis au contrôle : les cinq sections de `G1`, **plus le système de design**.
+ *
+ * Le second répertoire a été ajouté avec le composant 16 : c'est la pièce **réutilisée par tous
+ * les cycles suivants**, donc celle dont un défaut de mode sombre se propagerait le plus loin. La
+ * laisser hors du contrôle aurait été le pire endroit où l'omettre.
+ */
 function composantsG1(): { nom: string, contenu: string }[] {
-  const repertoire = join(RACINE, 'modules/etablissements')
-  return readdirSync(repertoire)
-    .filter((f) => f.endsWith('.vue'))
-    .map((nom) => ({ nom, contenu: readFileSync(join(repertoire, nom), 'utf8') }))
+  const repertoires = ['modules/etablissements', 'core/design-system']
+
+  return repertoires.flatMap(relatif =>
+    readdirSync(join(RACINE, relatif))
+      .filter(f => f.endsWith('.vue'))
+      .map(nom => ({ nom, contenu: readFileSync(join(RACINE, relatif, nom), 'utf8') })),
+  )
 }
 
 /**
@@ -61,16 +70,28 @@ function composantsG1(): { nom: string, contenu: string }[] {
  *    sur des utilitaires parfaitement corrects.
  * 3. **Les échelles de taille.** `text-corps`, `text-titre-s` sont des corps de texte, pas des
  *    couleurs, et n'ont rien à faire dans le bloc sombre.
+ * 4. **Les types de dégradé.** `bg-linear-to-r` nomme une *direction de dégradé*, pas une couleur —
+ *    le jeton du dégradé est porté par `via-brillance`, pas par `bg-…`. Relevé au cycle de la
+ *    couche d'écriture, sur le squelette de chargement, qui est le premier composant du produit à
+ *    employer un dégradé.
  *
  * Une extraction qui produit des faux positifs est une porte qu'on désactive dans la semaine.
+ *
+ * # Les trois arrêts de dégradé SONT couverts
+ *
+ * `from-…`, `via-…` et `to-…` nomment de vraies couleurs — `via-brillance` est le jeton du
+ * scintillement du squelette, et il a bien une valeur propre sous `.dark`. Les omettre aurait
+ * laissé un composant entier hors du contrôle : la porte aurait été verte sans regarder le seul
+ * endroit où le mode sombre change de mécanisme.
  */
 function jetonsDeCouleur(contenu: string): Set<string> {
   const trouves = new Set<string>()
-  const motif = /\b(?:bg|text|border|fill|stroke)(?:-(?:l|r|t|b|x|y|s|e))?-([a-z][a-z0-9-]*)\b/g
+  const motif
+    = /\b(?:bg|text|border|fill|stroke|from|via|to)(?:-(?:l|r|t|b|x|y|s|e))?-([a-z][a-z0-9-]*)\b/g
 
-  /** Corps de texte, graisses, arrondis — tout ce qui n'est pas une couleur. */
+  /** Corps de texte, graisses, arrondis, directions de dégradé — tout ce qui n'est pas une couleur. */
   const NON_COULEURS
-    = /^(etiquette|mini|corps|action|lead|titre|chiffre|montant|recette|total|annonce|affiche|left|right|center|semibold|bold|medium|normal|xs|sm|base|lg|xl|pleine|transparent|current|inherit)/
+    = /^(etiquette|mini|corps|action|lead|titre|chiffre|montant|recette|total|annonce|affiche|left|right|center|semibold|bold|medium|normal|xs|sm|base|lg|xl|pleine|transparent|current|inherit|linear|radial|conic|none)/
 
   for (const capture of contenu.matchAll(motif)) {
     const jeton = capture[1]
@@ -131,17 +152,25 @@ describe('G1 — mode clair et mode sombre', () => {
     ).toEqual([])
   })
 
-  it('les cinq composants de G1 sont bien couverts par ce contrôle', () => {
+  it('les huit composants inspectés sont bien ceux attendus', () => {
     // Sans cette assertion, renommer un fichier ferait passer le test en n'inspectant plus rien —
     // le défaut exact que la constitution décrit sous « une porte qui ne trouve jamais rien ».
     const noms = composantsG1().map((c) => c.nom).sort()
 
     expect(noms).toEqual([
+      'ChampSaisie.vue',
       'EcranEtablissement.vue',
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
+      // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
+      // `G1` faute d'écran « à propos » : aucun des 41 écrans de `derivation.md` n'en prévoit un.
+      'SectionMentions.vue',
       'SectionPointsDeVente.vue',
       'SectionServices.vue',
+      // Le cadre à deux volets du styleguide. Il n'est pas un composant canonique, mais il pose des
+      // jetons de couleur et il porte la classe `.dark` — donc il relève exactement du contrôle
+      // ci-dessus. L'exclure aurait été le placer hors de vue sans raison.
+      'VitrineTheme.vue',
     ])
   })
 })

@@ -5,17 +5,28 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
+    // Node exige l'extension EXACTE en modules ES : `./woff2.ts`, pas `./woff2`. Sans cette
+    // option, TypeScript refuse l'import que Node réclame — et les deux ont raison. `noEmit`
+    // étant posé juste au-dessus, rien n'est transpilé : l'option est sans effet de bord.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": [
       "vitest/globals",
       "node"
-    ]
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": [
+        "./*"
+      ]
+    }
   },
   "include": [
     "core/**/*.ts",
     "modules/**/*.ts",
     "tests/**/*.ts",
     "tests/**/*.d.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "scripts/**/*.d.ts"
   ]
 }

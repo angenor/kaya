@@ -1,0 +1,139 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   KAYA — ICÔNES EMBARQUÉES  ·  FICHIER GÉNÉRÉ, NE PAS ÉDITER À LA MAIN
+
+   Produit par `app/scripts/generer-icones.ts` depuis @phosphor-icons/web
+   (gel §3.2). Sous-ensemble : seuls les glyphes réellement employés par
+   `docs/design/` et `app/` sont embarqués.
+
+       pnpm --filter @kaya/app icones:generer
+
+   PORTE P-21 — aucune ressource d'hôte externe. Les maquettes chargent
+   Phosphor depuis unpkg.com ; le produit ne le fait JAMAIS. Un CDN rend
+   l'écran dépendant du réseau, ce que le principe VI interdit.
+
+   Ce fichier ne porte aucune couleur : une icône hérite de `currentColor`,
+   donc du jeton de texte posé sur elle (`text-ocre`, `text-prim`…). C'est
+   ce qui la fait basculer en mode sombre sans une seule règle de plus.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Phosphor — 73 glyphe(s) ────────────────────────────────────── */
+@font-face {
+  font-family: "Phosphor";
+  src: url("../fonts/phosphor-kaya.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.ph {
+  font-family: "Phosphor";
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ph.ph-armchair:before { content: "\e012"; }
+.ph.ph-arrow-left:before { content: "\e058"; }
+.ph.ph-arrow-square-out:before { content: "\e5de"; }
+.ph.ph-arrow-u-up-left:before { content: "\e08a"; }
+.ph.ph-arrows-down-up:before { content: "\e098"; }
+.ph.ph-bank:before { content: "\e0b4"; }
+.ph.ph-basket:before { content: "\e964"; }
+.ph.ph-battery-high:before { content: "\e0c2"; }
+.ph.ph-battery-medium:before { content: "\e0c6"; }
+.ph.ph-bed:before { content: "\e0cc"; }
+.ph.ph-beer-bottle:before { content: "\e7b0"; }
+.ph.ph-beer-stein:before { content: "\eb62"; }
+.ph.ph-bird:before { content: "\e72c"; }
+.ph.ph-bowl-food:before { content: "\eaa4"; }
+.ph.ph-bowl-steam:before { content: "\e8e4"; }
+.ph.ph-broom:before { content: "\ec54"; }
+.ph.ph-buildings:before { content: "\e102"; }
+.ph.ph-calendar-dots:before { content: "\e7b4"; }
+.ph.ph-camera:before { content: "\e10e"; }
+.ph.ph-caret-down:before { content: "\e136"; }
+.ph.ph-caret-right:before { content: "\e13a"; }
+.ph.ph-caret-up:before { content: "\e13c"; }
+.ph.ph-caret-up-down:before { content: "\e140"; }
+.ph.ph-cash-register:before { content: "\ed80"; }
+.ph.ph-check:before { content: "\e182"; }
+.ph.ph-clock:before { content: "\e19a"; }
+.ph.ph-clock-counter-clockwise:before { content: "\e1a0"; }
+.ph.ph-cloud-arrow-up:before { content: "\e1ae"; }
+.ph.ph-coffee:before { content: "\e1c2"; }
+.ph.ph-credit-card:before { content: "\e1d2"; }
+.ph.ph-device-mobile:before { content: "\e1e0"; }
+.ph.ph-door-open:before { content: "\e7e6"; }
+.ph.ph-drop:before { content: "\e210"; }
+.ph.ph-eye:before { content: "\e220"; }
+.ph.ph-file-x:before { content: "\e23c"; }
+.ph.ph-fire:before { content: "\e242"; }
+.ph.ph-fish:before { content: "\e728"; }
+.ph.ph-fork-knife:before { content: "\e262"; }
+.ph.ph-funnel:before { content: "\e266"; }
+.ph.ph-hourglass-medium:before { content: "\e2b8"; }
+.ph.ph-identification-card:before { content: "\e2c8"; }
+.ph.ph-image:before { content: "\e2ca"; }
+.ph.ph-info:before { content: "\e2ce"; }
+.ph.ph-key:before { content: "\e2d6"; }
+.ph.ph-magnifying-glass:before { content: "\e30c"; }
+.ph.ph-minus:before { content: "\e32a"; }
+.ph.ph-money:before { content: "\e588"; }
+.ph.ph-monitor:before { content: "\e32e"; }
+.ph.ph-moon-stars:before { content: "\e58e"; }
+.ph.ph-notebook:before { content: "\e34e"; }
+.ph.ph-package:before { content: "\e390"; }
+.ph.ph-paper-plane-tilt:before { content: "\e398"; }
+.ph.ph-phone:before { content: "\e3b8"; }
+.ph.ph-plus:before { content: "\e3d4"; }
+.ph.ph-printer:before { content: "\e3dc"; }
+.ph.ph-receipt:before { content: "\e3ec"; }
+.ph.ph-scales:before { content: "\e750"; }
+.ph.ph-sparkle:before { content: "\e6a2"; }
+.ph.ph-squares-four:before { content: "\e464"; }
+.ph.ph-storefront:before { content: "\e470"; }
+.ph.ph-sun-horizon:before { content: "\e5b6"; }
+.ph.ph-t-shirt:before { content: "\e670"; }
+.ph.ph-trash:before { content: "\e4a6"; }
+.ph.ph-trend-up:before { content: "\e4ae"; }
+.ph.ph-user-check:before { content: "\eafa"; }
+.ph.ph-user-focus:before { content: "\e6fc"; }
+.ph.ph-users-three:before { content: "\e68e"; }
+.ph.ph-warning:before { content: "\e4e0"; }
+.ph.ph-warning-circle:before { content: "\e4e2"; }
+.ph.ph-waveform:before { content: "\e802"; }
+.ph.ph-whatsapp-logo:before { content: "\e5d0"; }
+.ph.ph-wifi-high:before { content: "\e4ea"; }
+.ph.ph-wifi-slash:before { content: "\e4f2"; }
+
+/* ── Phosphor-Fill — 7 glyphe(s) ───────────────────────────────── */
+@font-face {
+  font-family: "Phosphor-Fill";
+  src: url("../fonts/phosphor-fill-kaya.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+}
+
+.ph-fill {
+  font-family: "Phosphor-Fill";
+  font-style: normal;
+  font-weight: normal;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ph-fill.ph-check-circle:before { content: "\e184"; }
+.ph-fill.ph-funnel:before { content: "\e266"; }
+.ph-fill.ph-info:before { content: "\e2ce"; }
+.ph-fill.ph-warning:before { content: "\e4e0"; }
+.ph-fill.ph-warning-circle:before { content: "\e4e2"; }
+.ph-fill.ph-wifi-slash:before { content: "\e4f2"; }
+.ph-fill.ph-x-circle:before { content: "\e4f8"; }

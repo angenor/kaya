@@ -3,7 +3,10 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
-**Version 1.0.0**
+**Version 1.1.0** — cinq entrées ajoutées avec la couche d'écriture d'ETB-02 : l'ajout et le retrait
+d'un service, les deux refus qu'ils produisent, et la règle « le `message` de diagnostic n'apparaît
+jamais ». Deux d'entre elles écartent un mot faux plutôt qu'un mot technique — « désactiver » décrit
+un interrupteur, « supprimer » serait **faux**.
 
 ---
 
@@ -24,6 +27,11 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | Temps de remise en état | « Chambre indisponible 30 min (ménage) » |
 | Tenant, établissement | « Votre établissement » — le mot « tenant » n'existe pas pour l'utilisateur |
 | Module d'activité | « Vos services » |
+| Activation d'un module (`PUT … actif: true`) | « **Ajouter un service** » / *Add a service* — jamais « activer », qui décrit un interrupteur technique là où l'exploitant ajoute quelque chose à ce qu'il propose |
+| Désactivation d'un module (`PUT … actif: false`) | « **Retirer** » / *Remove* — jamais « désactiver » (même motif), et **jamais « supprimer »**, qui serait faux : la désactivation ne supprime rien, et la réactivation restitue tout. La phrase de confirmation le dit : « Rien n'a été supprimé : vous pourrez le remettre » |
+| `desactivation_bloquee` | « **Ce service est encore en cours d'utilisation.** » + ce qui l'occupe, compté. Jamais « obstacle », qui est le mot du trait `ObstacleDesactivation` |
+| `module_non_implemente` | « **Ce service n'est pas encore disponible.** » — le référentiel le connaît, le produit ne le sert pas encore. À distinguer de « ce service n'existe pas » (`module_inconnu`) |
+| Code d'erreur HTTP, `message` de diagnostic | **N'apparaît jamais.** L'interface branche sa clé i18n sur le `code`, jamais sur le `message` — qui nomme des tables et parle anglais technique |
 | Unité louable | « Chambre » en hôtel, « logement » en résidence, « salle » pour la réunion — selon le contexte |
 | RBAC, permissions | « Ce que chacun peut faire » |
 | Synchronisation | « Enregistré » / « En attente d'envoi (4) » / « Hors connexion » |

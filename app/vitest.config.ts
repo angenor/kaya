@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vitest/config'
 
@@ -14,6 +16,13 @@ import { defineConfig } from 'vitest/config'
 // coûterait à chaque test celui qui n'en a pas besoin.
 export default defineConfig({
   plugins: [vue()],
+  // L'alias `~` est fourni par Nuxt, que ces tests ne montent pas. Sans lui, tout composant qui
+  // importe une coquille transverse — `~/core/rbac`, `~/core/platform/reseau` — échoue à se
+  // résoudre, et le fichier de test entier tombe **avant d'exécuter la moindre assertion**. Un
+  // fichier qui ne s'exécute pas est indistinguable d'un fichier qui passe.
+  resolve: {
+    alias: { '~': fileURLToPath(new URL('.', import.meta.url)) },
+  },
   test: {
     include: ['tests/**/*.spec.ts'],
     environment: 'node',

@@ -12,8 +12,9 @@
     "postinstall": "nuxt prepare",
     "test": "vitest run --typecheck",
     "test:i18n": "node --experimental-strip-types scripts/test-i18n.ts",
-    "lint:tokens": "node --experimental-strip-types scripts/lint-tokens.ts",
-    "lint": "eslint ."
+    "icones:generer": "node --experimental-strip-types scripts/generer-icones.ts",
+    "polices:generer": "node --experimental-strip-types scripts/generer-polices.ts",
+    "lint:tokens": "node --experimental-strip-types scripts/lint-tokens.ts"
   },
   "dependencies": {
     "@nuxtjs/i18n": "10.6.0",
@@ -22,19 +23,19 @@
     "openapi-fetch": "0.17.0"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/chivo-mono": "5.3.0",
     "@kaya/client": "workspace:*",
+    "@phosphor-icons/web": "2.1.2",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/cli": "2.11.4",
     "@types/node": "24.13.3",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.4.11",
-    "eslint": "10.8.0",
-    "eslint-plugin-vue": "10.10.0",
     "happy-dom": "20.11.1",
+    "subset-font": "2.5.0",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.65.0",
     "vitest": "4.1.10",
     "vue": "3.5.40"
   }

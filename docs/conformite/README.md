@@ -1,6 +1,12 @@
 # Conformité — registre des traitements ARTCI
 
-**EMPLACEMENT SEUL. Rien n'est construit ici au cycle 001.**
+**EMPLACEMENT SEUL pour le registre ARTCI. Rien n'en est construit au cycle 001.**
+
+> **Ce répertoire porte désormais un document livré** : `licences-tierces.md`, l'inventaire de ce
+> que Kaya **redistribue** dans son binaire — trois polices, deux licences, une modification
+> déclarée. Il est ici parce que c'est une obligation de conformité comme les autres, et parce
+> qu'un inventaire de licences rangé ailleurs ne se retrouve pas le jour où on le cherche. La porte
+> **P-21b**, contrôle 5, en vérifie la moitié mécanisable.
 
 `TRX-06` est une story **P1**, livrable après le cœur P0 (`docs/user-stories-v1.md` §0.5). Ce
 répertoire existe pour que sa place soit prise et que son périmètre soit écrit — pas pour anticiper

@@ -121,3 +121,38 @@ export async function chargerEcran(
     configuration: (configuration.data ?? []) as unknown as ValeurConfiguration[],
   }
 }
+
+/**
+ * Recharge **les seuls services** d'un établissement.
+ *
+ * # Pourquoi une seconde fonction plutôt qu'un `chargerEcran` de plus
+ *
+ * Après une activation ou une désactivation, l'écran doit se remettre à jour **sans rechargement
+ * de page** (point 7 du patron d'écriture). Rappeler `chargerEcran` ferait cinq requêtes pour en
+ * rafraîchir une : l'identité, les points de vente et la configuration n'ont pas bougé. Sur le
+ * réseau intermittent de la persona Aminata, quatre requêtes inutiles ne sont pas un détail.
+ *
+ * # L'écran ne relit PAS le corps de la réponse de bascule
+ *
+ * Le `PUT` rend bien l'état atteint, mais **une désactivation le rend absent de la liste des
+ * actifs** — c'est exact, et c'est précisément l'effet à montrer. Relire la liste entière est donc
+ * la seule façon d'obtenir ce que l'écran doit afficher, dans les deux sens. Et c'est le serveur
+ * qui fait foi (principe VI), pas une liste modifiée à la main côté client.
+ */
+export async function chargerServices(
+  contexte: ContexteAppel,
+  etablissementId: string,
+): Promise<ServiceActif[]> {
+  const client = creerClientKaya(contexte.baseUrl)
+
+  const services = await client.GET('/api/v1/etablissements/{etablissement_id}/services', {
+    params: { path: { etablissement_id: etablissementId } },
+    headers: enTetes(contexte),
+  })
+
+  if (services.error) {
+    throw new Error(`services de l'établissement ${etablissementId} illisibles`)
+  }
+
+  return (services.data ?? []) as unknown as ServiceActif[]
+}

@@ -84,6 +84,26 @@ const MOTIFS: { nom: string, motif: RegExp, explication: string }[] = [
   },
 ]
 
+/**
+ * **Les épaisseurs de bordure ne sont PAS des espacements** — exclusion nommée et bornée.
+ *
+ * `docs/design/README.md`, décision n° 1 : Tailwind 4 **n'a pas d'espace de nom pour les
+ * épaisseurs de bordure**. Deux valeurs sont concernées, et elles sont assumées à ce titre :
+ * **1,5 px** (contour de bouton secondaire, bordure de champ) sur 21 fichiers de maquette, et
+ * **3 px** (contrefort de carte de vérification) sur 9. Il n'existe aucune façon de les écrire en
+ * jeton ; l'échelle d'espacement, elle, n'a rien à voir avec elles — un `padding: 14px` reste une
+ * faute, et le reste de la porte continue de l'attraper.
+ *
+ * **L'exception est bornée sur trois axes**, sans quoi elle rouvrirait la porte en grand :
+ *
+ * 1. seules ces **deux valeurs** passent — `2.5px` ou `1.4px` restent refusés ;
+ * 2. seulement dans une **utilitaire de bordure** — `border-[…]`, `border-l-[…]`, `border-t-[…]` ;
+ *    la même valeur en `p-[1.5px]` ou `gap-[3px]` reste refusée ;
+ * 3. les emplois sont **comptés et affichés** à chaque exécution. Une exception silencieuse
+ *    devient invisible en trois cycles ; celle-ci se voit à chaque passage de la porte.
+ */
+const EPAISSEURS_ASSUMEES = /\bborder(?:-[trblxyse])?-\[(1\.5px|3px)\]/g
+
 /** Retire les commentaires : un `#rrggbb` cité dans une explication n'est pas un style. */
 function sansCommentaires(contenu: string): string {
   return contenu
@@ -133,6 +153,9 @@ function appliqueLaCouleurClient(contenu: string): string[] {
 const fichiers = fichiersStyles(RACINE)
 console.log(`── P-17 — ${fichiers.length} fichier(s) analysé(s) ─────────────────────────────`)
 
+/** Les emplois d'épaisseur assumée, comptés pour rester visibles. */
+const epaisseurs: string[] = []
+
 for (const fichier of fichiers) {
   const relatif = relative(RACINE, fichier)
   if (EXEMPTES.has(relatif)) {
@@ -140,7 +163,14 @@ for (const fichier of fichiers) {
     continue
   }
 
-  const contenu = sansCommentaires(readFileSync(fichier, 'utf8'))
+  let contenu = sansCommentaires(readFileSync(fichier, 'utf8'))
+
+  // Les deux épaisseurs de bordure de la décision n° 1 sont retirées AVANT l'analyse, et
+  // seulement dans une utilitaire de bordure. Le reste du fichier est analysé normalement.
+  contenu = contenu.replace(EPAISSEURS_ASSUMEES, (emploi, valeur) => {
+    epaisseurs.push(`${relatif} — ${emploi}`)
+    return `border-EPAISSEUR-ASSUMEE-${valeur.replace('.', '-').replace('px', '')}`
+  })
 
   // **FR-059** — la couleur d'identité visuelle ne touche jamais l'interface.
   for (const forme of appliqueLaCouleurClient(contenu)) {
@@ -175,3 +205,11 @@ console.log(
   `  · « ${CHAMP_COULEUR_CLIENT} » exclue nommément — donnée client, jamais un style\n`
   + '    d\'application. Vérifié en contrepartie : elle n\'est appliquée dans aucun composant.',
 )
+console.log(
+  `  · ${epaisseurs.length} épaisseur(s) de bordure assumée(s) — 1,5 px et 3 px, décision n° 1 du\n`
+  + '    README de design. Tailwind 4 n\'a pas d\'espace de nom pour elles. Comptées ici pour\n'
+  + '    qu\'une exception ne devienne pas invisible :',
+)
+for (const emploi of epaisseurs) {
+  console.log(`      ${emploi}`)
+}

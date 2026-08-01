@@ -368,8 +368,8 @@
       <span class="h-px flex-1 bg-line"></span>
       <span class="text-etiquette uppercase text-ink-3 font-mono">theme.css · v1</span>
     </div>
-    <h1 class="font-titre text-affiche font-medium text-ink m-0">Les 14 composants canoniques</h1>
-    <p class="text-lead text-ink-2 max-w-[74ch] m-0">Tous les états, en clair et en sombre, écrits en utilitaires Tailwind 4 sur les tokens de <span class="font-mono text-corps">theme.css</span>. C'est le fichier de référence : <strong class="font-semibold text-ink">toute valeur qui n'est pas ici n'existe pas</strong>. Le n° 15 (barre de proportion) est apparu après la série — il attend sa validation.</p>
+    <h1 class="font-titre text-affiche font-medium text-ink m-0">Les 16 composants canoniques</h1>
+    <p class="text-lead text-ink-2 max-w-[74ch] m-0">Tous les états, en clair et en sombre, écrits en utilitaires Tailwind 4 sur les tokens de <span class="font-mono text-corps">theme.css</span>. C'est le fichier de référence : <strong class="font-semibold text-ink">toute valeur qui n'est pas ici n'existe pas</strong>. Le n° 15 (barre de proportion) est apparu après la série — il attend sa validation. Le n° 16 (champ de saisie) est arrivé avec la première écriture depuis un écran : les onze écrans maquettés ne saisissent rien, il est composé depuis les tokens.</p>
     <nav class="flex flex-wrap gap-1.5 mt-1">
       <a href="#c1" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">01 Bouton principal</a>
       <a href="#c2" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">02 Bouton secondaire</a>
@@ -386,6 +386,7 @@
       <a href="#c13" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">13 Squelette</a>
       <a href="#c14" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">14 Bandeau d'annulation</a>
       <a href="#c15" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-dashed border-line text-mini text-ink-3 no-underline hover:border-prim hover:text-prim">15 Barre de proportion</a>
+      <a href="#c16" class="h-7 px-2.5 inline-flex items-center rounded-pleine border border-line text-mini text-ink-2 no-underline hover:border-prim hover:text-prim">16 Champ de saisie</a>
     </nav>
   </div>
 </header>
@@ -1665,9 +1666,135 @@
   </div>
 </section>
 
+<!-- ══ 16 CHAMP DE SAISIE ═══════════════════════════════════════════════ -->
+<section id="c16" class="flex flex-col gap-3.5 scroll-mt-6">
+  <div class="flex items-baseline gap-3">
+    <span class="font-mono text-mini text-ink-3">16</span>
+    <h2 class="font-titre text-titre-m font-semibold m-0">Champ de saisie</h2>
+    <span class="h-px flex-1 bg-line"></span>
+    <span class="font-mono text-mini text-ink-3">h-11 · rounded-md · border-line-2</span>
+  </div>
+  <p class="text-corps text-ink-2 max-w-[80ch] m-0">La pièce de toute écriture du produit — la seule par laquelle l'exploitant entre quelque chose. Elle n'a <strong class="font-semibold text-ink">aucune maquette d'écran</strong> : les onze écrans de <span class="font-mono text-mini">html/</span> sont des écrans de lecture et de geste, où l'on ne saisit rien. Elle est donc <strong class="font-semibold text-ink">composée depuis les tokens</strong>, qui la décrivaient déjà — <span class="font-mono text-mini">--color-line-2</span> dit littéralement « bordure de champ au repos », <span class="font-mono text-mini">--radius-md</span> dit « champ ». Le focus et le désactivé ne sont pas déclarés ici : <span class="font-mono text-mini">theme.css</span> les porte globalement.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 rounded-xl overflow-hidden border border-line">
+
+    <div class="bg-bg p-6 flex flex-col gap-4 border-b xl:border-b-0 xl:border-r border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Clair</span>
+      <div class="flex flex-col gap-4 max-w-[420px]">
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Repos · 44 px, plancher tactile</label>
+          <input type="text" placeholder="Nom de la chambre" class="h-11 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink transition-colors duration-90 ease-entree placeholder:text-ink-3 focus:border-prim">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Focus clavier · anneau de theme.css, jamais le bleu du navigateur</label>
+          <input type="text" value="Chambre 101" class="h-11 w-full rounded-md border-[1.5px] border-prim bg-surf px-3 font-texte text-corps text-ink outline-2 outline-offset-2 outline-prim">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Saisie · avec texte d'aide</label>
+          <input type="text" value="Résidence Deloria" class="h-11 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink">
+          <p class="text-mini text-ink-3 m-0">C'est ce nom qui apparaît en haut de vos documents.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Erreur · couleur PLUS forme, jamais la couleur seule</label>
+          <input type="text" value="" aria-invalid="true" class="h-11 w-full rounded-md border-[1.5px] border-danger bg-surf px-3 font-texte text-corps text-ink">
+          <p class="flex items-start gap-1.5 text-mini text-danger-fort m-0"><i class="ph-fill ph-warning-circle text-corps text-danger shrink-0 mt-0.5"></i>Il manque cette information.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Lecture seule · se copie, ne se modifie pas</label>
+          <input type="text" value="XOF — franc CFA" readonly class="h-11 w-full rounded-md border-[1.5px] border-line bg-tile px-3 font-texte text-corps text-ink-2">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Désactivé · opacité 0,45 de theme.css</label>
+          <input type="text" value="Non modifiable ici" disabled class="h-11 w-full rounded-md border-[1.5px] border-line bg-tile px-3 font-texte text-corps text-ink-2">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Choix fermé · même enveloppe, autre contrôle</label>
+          <div class="relative flex items-center">
+            <select class="h-11 w-full appearance-none rounded-md border-[1.5px] border-line-2 bg-surf pl-3 pr-9 font-texte text-corps text-ink cursor-pointer transition-colors duration-90 ease-entree focus:border-prim">
+              <option>Restauration</option>
+              <option>Bar</option>
+              <option>Pressing</option>
+            </select>
+            <i class="ph ph-caret-down absolute right-3 text-corps text-ink-3 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Variante comptoir · 48 px, une main, vite, debout</label>
+          <input type="text" placeholder="Montant remis" class="h-12 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink placeholder:text-ink-3 focus:border-prim">
+        </div>
+
+      </div>
+    </div>
+
+    <div class="dark bg-bg p-6 flex flex-col gap-4 border-line">
+      <span class="text-etiquette uppercase font-semibold text-ink-3">Sombre</span>
+      <div class="flex flex-col gap-4 max-w-[420px]">
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Repos · 44 px, plancher tactile</label>
+          <input type="text" placeholder="Nom de la chambre" class="h-11 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink transition-colors duration-90 ease-entree placeholder:text-ink-3 focus:border-prim">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Focus clavier · anneau de theme.css, jamais le bleu du navigateur</label>
+          <input type="text" value="Chambre 101" class="h-11 w-full rounded-md border-[1.5px] border-prim bg-surf px-3 font-texte text-corps text-ink outline-2 outline-offset-2 outline-prim">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Saisie · avec texte d'aide</label>
+          <input type="text" value="Résidence Deloria" class="h-11 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink">
+          <p class="text-mini text-ink-3 m-0">C'est ce nom qui apparaît en haut de vos documents.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Erreur · couleur PLUS forme, jamais la couleur seule</label>
+          <input type="text" value="" aria-invalid="true" class="h-11 w-full rounded-md border-[1.5px] border-danger bg-surf px-3 font-texte text-corps text-ink">
+          <p class="flex items-start gap-1.5 text-mini text-danger-fort m-0"><i class="ph-fill ph-warning-circle text-corps text-danger shrink-0 mt-0.5"></i>Il manque cette information.</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Lecture seule · se copie, ne se modifie pas</label>
+          <input type="text" value="XOF — franc CFA" readonly class="h-11 w-full rounded-md border-[1.5px] border-line bg-tile px-3 font-texte text-corps text-ink-2">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Désactivé · opacité 0,45 de theme.css</label>
+          <input type="text" value="Non modifiable ici" disabled class="h-11 w-full rounded-md border-[1.5px] border-line bg-tile px-3 font-texte text-corps text-ink-2">
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Choix fermé · même enveloppe, autre contrôle</label>
+          <div class="relative flex items-center">
+            <select class="h-11 w-full appearance-none rounded-md border-[1.5px] border-line-2 bg-surf pl-3 pr-9 font-texte text-corps text-ink cursor-pointer transition-colors duration-90 ease-entree focus:border-prim">
+              <option>Restauration</option>
+              <option>Bar</option>
+              <option>Pressing</option>
+            </select>
+            <i class="ph ph-caret-down absolute right-3 text-corps text-ink-3 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-etiquette uppercase text-ink-3">Variante comptoir · 48 px, une main, vite, debout</label>
+          <input type="text" placeholder="Montant remis" class="h-12 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps text-ink placeholder:text-ink-3 focus:border-prim">
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <footer class="border-t border-line pt-6 pb-2 flex flex-col gap-2">
   <p class="text-corps text-ink-2 m-0 max-w-[80ch]">Ce fichier est la source de <span class="font-mono text-mini">theme.css</span> et de <span class="font-mono text-mini">tokens.md</span>. Une valeur qui apparaît ici sans token porte un commentaire dans <span class="font-mono text-mini">README.md</span>, section « valeurs arbitraires ».</p>
-  <p class="text-mini text-ink-3 m-0 font-mono">Kaya · direction Banco · Archivo + Chivo Mono · 14 composants + 1 en attente</p>
+  <p class="text-mini text-ink-3 m-0 font-mono">Kaya · direction Banco · Archivo + Chivo Mono · 16 composants, dont 1 en attente de validation</p>
 </footer>
 
 </main>

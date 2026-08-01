@@ -1,4 +1,58 @@
 <!--
+SYNC IMPACT REPORT — 1.5.0 — 2026-07-31
+========================================
+Changement de version : 1.4.0 → 1.5.0 (MINOR)
+Motif : deux portes existantes matériellement étendues — extension de guidance → MINOR.
+        Le jeu reste à 24 portes ; aucun principe ajouté, renommé ni supprimé.
+Origine : lot de consolidation du 2026-07-31 (polices, styleguide, licences, lint).
+
+  1. P-15 — périmètre élargi de `app/` à `app/` ET `web/`. La porte était aveugle sur
+     les surfaces publiques faute de configuration ESLint sur cet arbre. Or `web/qr` et
+     `web/console` sont HORS Tauri : elles ne doivent jamais importer `@tauri-apps/api`,
+     ce qui y rend la porte plus critique qu'ailleurs. Corrigé avant que les cycles QRC
+     et ADM n'y créent leurs premiers composants — au coût de quelques lignes plutôt
+     que d'une revue de composants.
+
+  2. P-21b — cinquième contrôle : toute police embarquée porte sa licence et son avis
+     de copyright, atteignables depuis le produit. Les quatre woff2 d'Archivo et Chivo
+     Mono sont redistribués dans un binaire vendu par abonnement, et leur cmap est
+     modifiée (ajout de U+202F, absent des polices amont). La clause 2 de l'OFL 1.1
+     impose l'avis de copyright et la licence à toute redistribution. Vérifié : aucune
+     des deux polices ne déclare de Reserved Font Name, donc conserver les noms de
+     familles après modification est licite — c'est l'attribution qui manquait, pas le
+     droit de modifier.
+     Limite assumée et écrite dans la porte : elle vérifie la PRÉSENCE d'une licence,
+     pas la conformité de son texte à l'amont. Le faire exigerait `node_modules` et lui
+     ferait perdre son autonomie, donc sa capacité à tourner sur un changement de
+     documentation seul.
+
+Note de méthode : les amendements 1.1.0 à 1.4.0 ont été écrits directement dans le
+fichier, alors que la clause « Amendement » impose de passer par /speckit-constitution.
+Le rapport d'impact et le versionnement ont chaque fois été produits, donc l'esprit de la
+règle a été tenu, mais pas sa lettre. Le présent amendement rétablit la procédure.
+
+SYNC IMPACT REPORT — 1.4.0 — 2026-07-31
+========================================
+Changement de version : 1.3.0 → 1.4.0 (MINOR)
+Motif : P-21b ajoutée et le corollaire « toute interdiction a un versant positif »
+        inscrit en couverture des portes — extension matérielle → MINOR. 24 portes.
+Origine : solde des dettes du cycle 002. P-21 interdisait les ressources externes
+        mais ne vérifiait pas que le contenu local existe. Conséquence constatée
+        deux fois : au cycle 002, retirer le CDN d'icônes laissait un écran sans
+        icônes avec P-21 verte ; au volet suivant, Archivo et Chivo Mono ne sont
+        toujours pas embarquées et P-21 passe — l'application tourne sur les polices
+        système de repli. Or `docs/design/theme.css` prescrit explicitement de les
+        servir en local (woff2, font-display: swap) « le produit tourne sur des
+        liaisons lentes et doit s'afficher hors ligne », et `tokens.md` §2 fait de
+        Chivo Mono tabulaire la condition de l'alignement des colonnes de montants :
+        sans elle, un écran de caisse affiche des montants désalignés.
+        Le 4e contrôle inventé pour les glyphes est la bonne idée ; P-21b la
+        généralise à tout ce qui est déclaré.
+Modifications :
+  - Portes : P-21b ajoutée.
+  - § Couverture des portes : corollaire du versant positif ajouté à l'exigence 4.
+Aucun principe ajouté, renommé ni supprimé.
+
 SYNC IMPACT REPORT — 1.3.0 — 2026-07-31
 ========================================
 Changement de version : 1.2.1 → 1.3.0 (MINOR)
@@ -544,13 +598,14 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-12 | Aucune règle fiscale hors du trait `JurisdictionAdapter` | V |
 | P-13 | Aucune opération B, C ou D atteignable depuis un chemin exécutable hors ligne | VI |
 | P-14 | Rejeu triple d'une écriture A produit un seul enregistrement ; désordre commutatif | VI |
-| P-15 | Aucune invocation de `window.__TAURI__` hors de `PlatformAdapter` | VII |
+| P-15 | Aucune invocation de `window.__TAURI__` hors de `PlatformAdapter`, **dans `app/` ET dans `web/`** — les surfaces publiques sont hors Tauri, elles ne doivent jamais importer `@tauri-apps/api` | VII |
 | P-16 | Aucune chaîne utilisateur en dur ; parité des clés fr / en | VIII |
 | P-17 | Aucune couleur ni espacement littéral hors tokens | VIII, XII |
 | P-18 | `cargo sqlx prepare` vert | VIII |
 | P-19 | Aucun fichier de `docs/design/html/` copié sous `app/` | XII |
 | P-20 | Aucune dépendance déclarée en intervalle ; lockfiles commités et à jour | XI |
-| P-21 | **Aucune ressource chargée depuis un hôte externe** — police, icône, script, feuille de style, image. Tout est embarqué dans l'application. Un CDN rend l'écran dépendant du réseau, ce que le mode hors-ligne interdit | VI, XII |
+| P-21 | **Aucune ressource chargée depuis un hôte externe** — police, icône, script, feuille de style, image. Un CDN rend l'écran dépendant du réseau, ce que le mode hors-ligne interdit | VI, XII |
+| P-21b | **Toute ressource déclarée est effectivement embarquée** — chaque famille de `--font-*` du bloc `@theme` est servie par un `@font-face` local, chaque glyphe employé figure dans la police sous-réglée, et **toute police embarquée est accompagnée de sa licence et de son avis de copyright, atteignables depuis le produit**. Retirer un CDN sans embarquer son contenu fait passer P-21 au vert **en n'affichant rien** ; embarquer une police sans son attribution redistribue une œuvre sous licence sans en respecter les termes | VI, IX, XII |
 
 ### Couverture des portes — leçon du cycle 1
 
@@ -578,6 +633,11 @@ Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée 
 4. **Prouver que la porte a une cible non vide.** Une porte qui n'inspecte rien passe toujours.
    Le test l'exerce sur au moins un cas réel, ou déclare explicitement qu'elle est installée à
    vide et le vérifie par une assertion de non-régression.
+   *Corollaire — toute interdiction a un versant positif.* Une porte qui refuse une source
+   externe doit vérifier que le contenu local existe ; une porte qui refuse une valeur en dur
+   doit vérifier que le token est employé. Sans ce versant, supprimer la cible suffit à passer
+   au vert : c'est ce qui a produit un écran sans icônes au cycle 002, puis une application sur
+   polices système de repli au volet suivant.
 5. **Exercer tout nouveau type d'événement sur les deux tenants de démonstration.** Le défaut de
    séquence de l'outbox — un espace de numérotation partagé entre tenants, corrigé par la
    migration 0012 — n'a été trouvé ni par relecture ni par une porte, mais par le premier
@@ -616,7 +676,7 @@ Un principe n'est jamais contourné en silence : il est amendé ou il est respec
 - **PATCH** — clarification, reformulation, correction sans effet sémantique.
 
 **Conformité.** Chaque plan de fonctionnalité passe un `Constitution Check` avant
-implémentation. Les portes P-01 à P-21 (P-01b et P-05b incluses) sont exécutées en intégration continue et leur échec
+implémentation. Les portes P-01 à P-21 (P-01b, P-05b et P-21b incluses) sont exécutées en intégration continue et leur échec
 bloque la fusion. Toute complexité ajoutée doit être justifiée par écrit dans le plan ; à
 justification absente, l'option la plus simple s'impose.
 
@@ -650,4 +710,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
+**Version**: 1.5.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31

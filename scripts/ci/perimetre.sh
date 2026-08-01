@@ -43,7 +43,10 @@ app=false
 gouvernance=false
 
 contient '^(backend/|infra/|scripts/ci/|\.github/workflows/)' && backend=true
-contient '^(app/|web/|clients/|package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|\.nvmrc|\.npmrc|scripts/ci/|\.github/workflows/)' && app=true
+# `eslint.config.js` est à la racine depuis que la porte P-15 couvre `web/qr` et `web/console` en
+# plus de `app/`. Sans lui dans ce motif, élargir un `ignores` — donc aveugler la porte — ne
+# déclencherait aucun job : le pire cas possible pour un filtrage par chemins.
+contient '^(app/|web/|clients/|package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml|eslint\.config\.js|\.nvmrc|\.npmrc|scripts/ci/|\.github/workflows/)' && app=true
 contient '^(docs/|\.specify/|specs/)' && gouvernance=true
 
 sortie="${GITHUB_OUTPUT:-/dev/stdout}"

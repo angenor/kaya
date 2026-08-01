@@ -51,6 +51,14 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
+      # P-21b lit des `woff2` : elle a besoin de Node pour Brotli (`node:zlib`). Aucun
+      # `pnpm install` en revanche — `app/scripts/woff2.ts` ne dépend d'aucun paquet, ce qui est
+      # exactement ce qui permet à la porte de rester dans ce job plutôt que dans le job `app`,
+      # filtré par chemins. Une ressource déclarée sans être embarquée pendant un changement de
+      # documentation passerait autrement.
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
       - name: "P-02 — aucune migration appliquée modifiée"
         run: bash scripts/ci/migrations-figees.sh
       - name: "P-04 — aucune jointure entre schémas de modules"
@@ -63,6 +71,15 @@ jobs:
         run: bash scripts/ci/maquettes-non-copiees.sh
       - name: "P-20 — versions épinglées exactement"
         run: bash scripts/ci/versions-epinglees.sh
+      # P-21 est statique et non filtrée par chemins, comme P-19 : une ressource externe glissée
+      # dans une feuille de style pendant un changement de documentation passerait autrement.
+      - name: "P-21 — aucune ressource d'hôte externe"
+        run: bash scripts/ci/aucune-ressource-externe.sh
+      # Le versant positif de P-21. Sans elle, **supprimer la cible suffit à passer au vert** :
+      # c'est ce qui a produit un écran sans icônes au cycle 002, puis une application entière sur
+      # les polices système de repli au volet suivant.
+      - name: "P-21b — toute ressource déclarée est embarquée"
+        run: bash scripts/ci/ressources-embarquees.sh
 
   # ---------------------------------------------------------------------------------------------
   #  Backend — compilation, requêtes vérifiées, tests d'intégration sur base réelle
@@ -196,17 +213,33 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Le versant production de P-21 : la police d'icônes embarquée doit correspondre EXACTEMENT
+      # aux glyphes employés. Un glyphe ajouté sans régénération ne s'affiche pas, et rien d'autre
+      # ne le signale — ni la compilation, ni un test de rendu.
+      - name: "P-21 — sous-ensemble d'icônes à jour"
+        run: pnpm --filter @kaya/app icones:generer --verifier
+      # Même raison pour les polices de texte : U+202F n'existe dans aucune des deux familles à la
+      # source, et c'est ce script qui l'ajoute. Un fichier régénéré à la main ou une montée de
+      # version de Fontsource sans régénération le referait disparaître, sans qu'aucun test ne le
+      # dise — seulement des colonnes de montants désalignées à la clôture.
+      - name: "P-21b — polices embarquées à jour"
+        run: pnpm --filter @kaya/app polices:generer --verifier
       - name: "P-16 — parité fr/en, aucune chaîne en dur"
         run: pnpm --filter @kaya/app test:i18n
       - name: "P-17 — aucune couleur ni espacement hors jetons"
         run: pnpm --filter @kaya/app lint:tokens
-      - name: "P-15 — aucun @tauri-apps/api hors PlatformAdapter"
-        run: pnpm --filter @kaya/app lint
+      # La configuration ESLint vit désormais à la RACINE, et couvre `web/qr` et `web/console` en
+      # plus de `app/`. Les deux surfaces publiques sont HORS Tauri : un import de `@tauri-apps/api`
+      # y casse pour tous les visiteurs, tout de suite. La porte y était plus critique qu'ailleurs,
+      # et c'est là qu'elle ne gardait rien. Le script compte en outre les fichiers réellement
+      # analysés par arbre — une cible vide passerait autrement (exigence 4).
+      - name: "P-15 — aucun @tauri-apps/api hors PlatformAdapter, app/ ET web/"
+        run: pnpm porte:p15
       - name: "P-13 — aucune opération B/C/D dans la file hors ligne"
         run: pnpm --filter @kaya/app test
 
   # ---------------------------------------------------------------------------------------------
-  #  Récapitulatif — les 21 portes de la constitution
+  #  Récapitulatif — les 24 portes de la constitution (P-01b, P-05b et P-21b incluses)
   # ---------------------------------------------------------------------------------------------
   #  Un job qui ne fait rien d'autre que refuser de passer au vert si l'un des précédents a
   #  échoué. Il existe pour une raison précise : `needs` seul laisse un job SAUTÉ compter comme
@@ -234,12 +267,14 @@ jobs:
           echo "P-12 fiscalité confinée           → job backend (tests/architecture.rs)"
           echo "P-13 file de classe A             → job app"
           echo "P-14 rejeu et désordre            → job backend"
-          echo "P-15 pas de __TAURI__ hors adapt. → job app"
+          echo "P-15 pas de __TAURI__ hors adapt. → job app (app/ ET web/, couverture comptée)"
           echo "P-16 i18n fr/en                   → job app"
           echo "P-17 jetons de design             → job app"
           echo "P-18 sqlx prepare                 → job backend"
           echo "P-19 maquettes non copiées        → job portes-statiques"
           echo "P-20 versions épinglées           → job portes-statiques"
+          echo "P-21 aucune ressource externe     → job portes-statiques"
+          echo "P-21b ce qui est déclaré est là    → job portes-statiques + job app (régénération)"
 
       - name: Aucun job requis n'a échoué ni été sauté par erreur
         run: |

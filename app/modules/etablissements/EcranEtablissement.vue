@@ -15,10 +15,13 @@ import { computed } from 'vue'
 
 import SectionIdentite from './SectionIdentite.vue'
 import SectionIdentiteVisuelle from './SectionIdentiteVisuelle.vue'
+import SectionMentions from './SectionMentions.vue'
 import SectionPointsDeVente from './SectionPointsDeVente.vue'
 import SectionServices from './SectionServices.vue'
+import type { ContexteAppel } from './donnees'
 import type { EntreeReferentiel, ServiceActif } from './services-visibles'
 import type { PointDeVenteVue } from './points-de-vente'
+import type { Permissions } from '~/core/rbac'
 
 const { t } = useI18n()
 
@@ -37,7 +40,19 @@ const props = defineProps<{
   referentielModules: EntreeReferentiel[]
   pointsDeVente: PointDeVenteVue[]
   configuration: { cle: string; valeur: unknown; origine: string }[]
+  /** Contexte d'appel — **provisoire nommé**, levé par CPT-01. */
+  contexte: ContexteAppel
+  /** Permissions cumulées — union des rôles, jamais celles d'un rôle « principal » (principe VII). */
+  permissions: Permissions
 }>()
+
+/**
+ * La liste des services est **remontée par la section qui l'écrit**, pas rechargée par la page.
+ *
+ * C'est ce qui rend le rafraîchissement effectif sans rechargement (point 7 du patron d'écriture).
+ * L'écran ne sait pas qu'une écriture a eu lieu ; il reçoit un nouvel état et le rend.
+ */
+const emit = defineEmits<{ 'services-changes': [ServiceActif[]] }>()
 
 /**
  * Résumé sous le nom, à la manière du sélecteur de `G2` (« 8 chambres · Yopougon »).
@@ -83,12 +98,20 @@ const resume = computed(() =>
       <SectionServices
         :services="services"
         :referentiel="referentielModules"
+        :contexte="contexte"
+        :etablissement-id="etablissement.id"
+        :permissions="permissions"
+        @services-changes="emit('services-changes', $event)"
       />
       <SectionPointsDeVente
         :points-de-vente="pointsDeVente"
         :configuration="configuration"
       />
       <SectionIdentiteVisuelle :nom-etablissement="etablissement.nom" />
+      <!-- En dernier, et sans action : les mentions se lisent, elles ne se règlent pas. Elles sont
+           ici faute d'écran « à propos » — il n'en existe aucun dans les 41 écrans de
+           `docs/design/derivation.md`, et « un écran absent des deux NE SE CODE PAS ». -->
+      <SectionMentions />
     </div>
   </main>
 </template>

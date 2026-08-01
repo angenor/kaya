@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Kaya — plateforme de gestion pour établissements d'hébergement et de service",
+  "// type": "`eslint.config.js` est en modules ES. Sans cette ligne, Node le reparse à chaque exécution et l'annonce bruyamment — un avertissement permanent finit par masquer ceux qui comptent.",
+  "type": "module",
   "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": "24.18.1",
@@ -10,12 +12,23 @@
   },
   "scripts": {
     "generer:client": "bash scripts/ci/generer-client.sh",
+    "lint": "eslint .",
     "porte:p01": "bash scripts/ci/generer-client.sh --verifier",
     "porte:p02": "bash scripts/ci/migrations-figees.sh",
     "porte:p04": "bash scripts/ci/jointures-inter-schemas.sh",
     "porte:p05b": "bash scripts/ci/outbox-sans-purge.sh",
     "porte:p10": "bash scripts/ci/types-monetaires.sh",
+    "porte:p15": "bash scripts/ci/pont-natif-confine.sh",
     "porte:p19": "bash scripts/ci/maquettes-non-copiees.sh",
-    "porte:p20": "bash scripts/ci/versions-epinglees.sh"
+    "porte:p20": "bash scripts/ci/versions-epinglees.sh",
+    "porte:p21": "bash scripts/ci/aucune-ressource-externe.sh",
+    "porte:p21b": "bash scripts/ci/ressources-embarquees.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.8.0",
+    "eslint-plugin-vue": "10.10.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0"
   }
 }

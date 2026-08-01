@@ -19,6 +19,12 @@
     "indisponible": "Cette action n'est pas disponible sur cet appareil.",
     "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
   },
+  "champ": {
+    "erreur": {
+      "obligatoire": "Il manque cette information.",
+      "trop_long": "C'est trop long : {max} caractères au maximum."
+    }
+  },
   "etablissement": {
     "sur_titre": "Réglages de l'établissement",
     "resume": "{n} service · {commune} | {n} services · {commune}",
@@ -46,7 +52,29 @@
     "services": {
       "titre": "Vos services",
       "intro": "Ce que vous proposez à vos clients. Vous n'y verrez que ce que vous rendez.",
-      "action_activer": "Ajouter un service"
+      "action_activer": "Ajouter un service",
+      "action_retirer": "Retirer",
+      "action_retirer_detail": "Retirer {service}",
+      "formulaire": {
+        "champ": "Service à ajouter",
+        "invite": "Choisissez un service",
+        "aide": "Vous pourrez le retirer plus tard : rien ne sera supprimé.",
+        "confirmer": "Ajouter",
+        "annuler": "Annuler"
+      },
+      "succes": {
+        "ajout": "{service} a été ajouté à vos services.",
+        "retrait": "{service} a été retiré. Rien n'a été supprimé : vous pourrez le remettre."
+      },
+      "refus": {
+        "reseau": "Ajouter ou retirer un service demande une connexion. Réessayez dès que le réseau revient.",
+        "permission": "Vous n'avez pas le droit de modifier les services de cet établissement.",
+        "module_inconnu": "Ce service n'existe pas.",
+        "module_non_implemente": "Ce service n'est pas encore disponible.",
+        "desactivation_bloquee": "Ce service est encore en cours d'utilisation. Terminez ce qui est en cours, puis réessayez.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
+      }
     },
     "points_de_vente": {
       "titre": "Vos points de vente",
@@ -102,6 +130,20 @@
     "politique_impression": {
       "libelle": "Ce qui s'imprime",
       "description": "Ce qui part à l'imprimante quand vous encaissez."
+    }
+  },
+  "mentions": {
+    "titre": "Ce que Kaya emprunte",
+    "intro": "Les polices de caractères de l'application sont l'œuvre d'autres personnes, publiées sous licence libre. Voici ce que leurs auteurs demandent qu'on affiche.",
+    "voir_licence": "Lire la licence en entier",
+    "usage": {
+      "texte": "Tout le texte de l'application.",
+      "chiffres": "Les montants, les quantités, les heures et les numéros de chambre.",
+      "icones": "Les icônes."
+    },
+    "modification": {
+      "fine": "Modifiée : l'espace fine insécable des montants y a été ajoutée, car elle n'y était pas dessinée.",
+      "sous_reglage": "Réduite aux icônes réellement employées, pour ne pas faire télécharger les autres."
     }
   }
 }

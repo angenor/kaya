@@ -3,6 +3,12 @@
 Tout écran de Kaya est composé de ces quatorze pièces. Le n° 15 (barre de proportion) est
 apparu après la série et attend sa validation — voir `README.md`, décisions.
 
+Le **n° 16 (champ de saisie)** est arrivé après elles aussi, et pour une raison différente : les
+quatorze premiers ont été dessinés sur onze écrans de **lecture et de geste**, où l'on ne saisit
+rien. Le jour où le produit a eu sa première écriture depuis un écran, la pièce manquait. Elle est
+**composée depuis les jetons**, qui la décrivaient déjà — `--color-line-2` dit littéralement
+« bordure de champ au repos » — et non inventée.
+
 Rendu de tous les états, clair et sombre : `styleguide.html`.
 Valeurs : `tokens.md`. Durées et courbes : `mouvement.md`.
 
@@ -283,3 +289,58 @@ d'elle : une barre seule ne se lit pas. `h-2 rounded-pleine bg-tile` + remplissa
 
 **Décision à prendre** : elle entre dans le canon avec ses états, ou elle reste une
 composition locale de la carte chiffre.
+
+## 16 · Champ de saisie
+
+**Rôle.** La pièce de **toute écriture** du produit. Les quinze premiers composants disent, montrent
+et déclenchent ; celui-ci est le seul par lequel l'exploitant entre quelque chose.
+
+**États.** repos · focus · saisie · erreur · désactivé · lecture seule · variante comptoir (`h-12`) ·
+choix fermé (`<select>`).
+
+```html
+<label for="…" class="text-etiquette uppercase text-ink-3">Service à ajouter</label>
+<input id="…" type="text"
+  class="h-11 w-full rounded-md border-[1.5px] border-line-2 bg-surf px-3 font-texte text-corps
+    text-ink transition-colors duration-90 ease-entree placeholder:text-ink-3 focus:border-prim">
+```
+
+**Où sont ses valeurs.** Il n'a **aucune maquette** : aucun des 29 fichiers de `html/` ne contient
+d'`<input>`, de `<select>` ni de `<textarea>` — les onze écrans maquettés sont des écrans de lecture
+et de geste. Il n'est pas inventé pour autant : `tokens.md` décrit déjà le champ sans le dessiner.
+
+| Ce qu'il pose | Le jeton, et ce qu'il en dit littéralement |
+| --- | --- |
+| Bordure au repos | `--color-line-2` — « filet appuyé, **bordure de champ au repos**, ligne de total » |
+| Rayon | `--radius-md` (8 px) — « **champ**, bouton discret, segment » |
+| Hauteur | `h-11` (44 px) — « plancher tactile. **Jamais moins** » · `h-12` (48 px) au comptoir |
+| Corps | `--text-corps` (13,5 px) · étiquette `--text-etiquette` (11 px) |
+| Erreur | `--color-danger` (bordure) · `--color-danger-fort` (message) |
+| Fond | `--color-surf` en saisie · `--color-tile` en lecture seule et désactivé |
+| Épaisseur 1,5 px | Valeur arbitraire **assumée** — `README.md`, décision n° 1, celle du bouton secondaire |
+
+**Règles.**
+
+- **44 px de haut, jamais moins**, y compris pour un champ qui paraît secondaire. `h-12` au
+  comptoir, comme le bouton pleine largeur.
+- **Le focus et le désactivé ne se déclarent pas ici.** `theme.css` les porte globalement :
+  `:focus-visible` donne l'anneau indigo de 2 px — jamais le bleu du navigateur — et `[disabled]`
+  l'opacité 0,45 avec le curseur interdit. Les redéclarer créerait une seconde source de vérité.
+  Le champ n'ajoute que `focus:border-prim` : l'indigo est l'action, et un champ actif se touche.
+- **L'erreur porte trois signaux, jamais la couleur seule** (règle 2 des couleurs, composant 04) :
+  bordure `danger`, message sous le champ, et icône `ph-fill ph-warning-circle` dans ce message. Sur
+  un 1366 × 768 en plein soleil, une bordure rouge seule ne se voit pas — et pas du tout pour un
+  daltonien.
+- **L'étiquette est toujours visible**, au-dessus, jamais remplacée par un texte d'invite. Un champ
+  dont l'étiquette disparaît à la saisie est un champ dont on ne sait plus ce qu'il attend.
+- **L'aide s'efface pendant l'erreur.** Deux phrases sous un champ en font lire zéro.
+- **Lecture seule ≠ désactivé.** La lecture seule se sélectionne et se copie ; elle passe sur
+  `bg-tile border-line`, où le filet appuyé mentirait en suggérant qu'on peut écrire. Le désactivé,
+  lui, hérite en plus de l'opacité globale.
+- **Le choix fermé partage l'enveloppe** — même étiquette, même aide, même erreur — et ajoute
+  `appearance-none pr-9` avec un `ph-caret-down` en `pointer-events-none`. C'est l'enveloppe qui
+  fait le champ, pas le contrôle.
+
+**Dans le code.** `app/core/design-system/ChampSaisie.vue`. Il reçoit des **clés i18n**
+(`etiquette-cle`, `aide-cle`, `erreur-cle`), jamais du texte : une chaîne en dur passée en prop
+afficherait la clé brute au premier rendu, au lieu d'attendre qu'un anglophone ouvre l'application.

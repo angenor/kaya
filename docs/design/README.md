@@ -43,7 +43,7 @@ on y lit les classes, on les remonte dans ses propres composants.
 Ordre de lecture conseillé :
 
 1. `tokens.md` — les valeurs et leur usage.
-2. `composants.md` + `styleguide.html` côte à côte — les 14 pièces et tous leurs états.
+2. `composants.md` + `styleguide.html` côte à côte — les 16 pièces et tous leurs états.
 3. `mouvement.md` — durées, courbes, les sept patrons.
 4. `html/{code}-*.html` — l'écran que vous développez, un fichier par état.
 
@@ -81,6 +81,11 @@ Deux points connexes, plus légers :
 - **Composant nº 15, barre de proportion.** Apparu après la série des 14. Il entre dans le
   canon avec ses états, ou il reste une composition locale de la carte chiffre. Voir
   `composants.md`.
+- **Composant nº 16, champ de saisie — ajouté, pas en attente.** Aucun des 29 fichiers de `html/`
+  ne contient d'`<input>`, de `<select>` ni de `<textarea>` : les onze écrans maquettés sont des
+  écrans de lecture et de geste. La pièce a donc été **composée depuis les tokens**, qui la
+  décrivaient déjà — `--color-line-2` dit littéralement « bordure de champ au repos », et
+  `--radius-md` dit « champ ». Sa vignette est au styleguide, section `#c16`.
 
 ---
 
@@ -92,8 +97,8 @@ kaya-design/
 ├── theme.css            LE bloc @theme complet — le seul fichier à copier
 ├── tokens.md            les mêmes valeurs en tableau lisible
 ├── mouvement.md         durées, courbes, les sept patrons
-├── composants.md        les 14 composants : rôle, états, classes, règles
-├── styleguide.html      les 14 composants dans tous leurs états, clair + sombre
+├── composants.md        les 16 composants : rôle, états, classes, règles
+├── styleguide.html      les 16 composants dans tous leurs états, clair + sombre
 ├── fondation/           les cinq planches de fondation
 ├── html/                un fichier par écran ET par état — {code}-{nom}[-{etat}].html
 ├── documents/           tickets thermiques, note provisoire, facture fiscale
@@ -126,7 +131,7 @@ thermique.
 | Fichier | Contenu |
 | --- | --- |
 | `README.md` `theme.css` `tokens.md` `mouvement.md` `composants.md` | le socle |
-| `styleguide.html` | les 14 composants + le nº 15, tous états, clair + sombre |
+| `styleguide.html` | les 14 composants + le nº 15 et le nº 16, tous états, clair + sombre |
 | `fondation/` — 5 planches | directions visuelles (Banco vs Trame), système de mouvement, moments de plaisir, moments difficiles, illustrations |
 | `html/R1-accueil*` — 4 fichiers | nominal, serveuse, propriétaire, maquis |
 | `html/R4-passage*` — 5 fichiers | nominal, client connu, enregistré, hors ligne, tout est pris |
