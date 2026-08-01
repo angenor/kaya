@@ -4,7 +4,7 @@
 Référencé par le principe VI de `.specify/memory/constitution.md` et par le point 5 de la
 Definition of Done (`docs/user-stories-v1.md` §0.4).*
 
-**Version 1.0.0 — 2026-07-30**
+**Version 1.1.0 — 2026-08-01**
 
 ---
 
@@ -109,9 +109,10 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 | Entité ou opération | Classe | Branche | Réf. |
 |---|---|---|---|
 | `personne` — création, modification | **C** | C2 — identité partagée entre établissements | CPT-00 |
-| `compte` — création, modification | **C** | C2 — identité d'authentification | CPT-01 |
+| `compte` — création, modification, changement d'état, changement de mot de passe | **C** | C2 — identité d'authentification | CPT-01 |
+| `methode_authentification` — référentiel | **C** | C2 — référentiel | CPT-01 |
 | `compte_role` — **attribution ou retrait de rôle** | **C** | C2 — explicitement C au cadrage §11.3 | CPT-02 |
-| `role`, `permission` — référentiels | **C** | C2 — référentiel | CPT-02 |
+| `role`, `permission`, `role_permission` — référentiels | **C** | C2 — référentiel | CPT-02 |
 | Élévation de privilège | **C** | C2 — **aucune élévation hors ligne, jamais** | CPT-02 |
 | `appareil_enrole` — enrôlement, révocation | **C** | C2 — explicitement C au cadrage §11.3 | CPT-05 |
 | Attestation d'intégrité — vérification | **C** | C2 — vérifiée côté serveur | CPT-06 |
@@ -120,6 +121,12 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 
 > **`journal_audit` est A, l'opération qu'il trace garde sa propre classe.** Tracer une remise
 > hors ligne est A ; appliquer la remise est B. Les deux ne voyagent pas ensemble.
+
+> **Les sessions ne figurent PAS à ce registre, et c'est une décision.** Elles vivent en Redis
+> (research R-01), sont *éphémères reconstructibles* au sens du principe II, et ne sont donc ni
+> une entité durable, ni une opération dont on puisse demander « est-ce possible hors ligne ? ».
+> La réponse y serait d'ailleurs sans objet : une session ne s'ouvre que contre un serveur.
+> Redis vidé, tout le monde se reconnecte et aucune donnée métier ne manque.
 
 > **Point de vigilance — client inconnu en mode C.** `personne` est C, donc un check-in
 > (classe B, autorisé hors ligne en mode C) portant un **client jamais vu** exige le cloud pour
@@ -482,6 +489,7 @@ l'entité, pas d'un lot de rattrapage.
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.1.0 | 2026-08-01 | **Le §5.2 devient effectif** — les neuf entités qu'il déclarait d'avance depuis le 2026-07-30 sont implémentées par le cycle 003 (CPT). Ses lignes existantes sont **honorées, pas réécrites** : `personne`, `compte`, `compte_role`, `role`, `permission`, `appareil_enrole` et `journal_audit` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe — c'était tout l'objet de les écrire d'avance. **Trois lignes ajoutées**, correspondant à trois tables que le registre ne nommait pas : `methode_authentification` (référentiel global, **C**, branche C2, sur le régime de `module_activite`), `role_permission` (jointure de référentiel, rattachée à la ligne de `role` et `permission` plutôt que déclarée seule — elle n'a pas de cycle de vie propre) — `employe`, lui, était **déjà** déclaré au §10 des provisions et n'a pas été redéclaré : une entité qui figure à deux endroits finit par y porter deux classes. Consigné aussi : **les sessions ne figurent pas à ce registre**, étant éphémères reconstructibles — écrit pour qu'une relecture n'y voie pas un oubli. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `comptes` et compte les tables inspectées face au total attendu : une porte dont la cible est vide passe toujours. |
 | 1.0.0 | 2026-07-30 | Création. Classement initial de toutes les entités des modules TRX, ETB, CPT, HEB, SEJ, RSV, PDV, QRC, CAI, FIS, SYN, IMP, STK, DIR, ADM, MET, plus les provisions du cadrage §14. Dérivé de `docs/cadrage-v1.md` §11 et `docs/user-stories-v1.md` §0.7. Trois décisions ouvertes consignées (O-01, O-02, O-03). |
 | 1.0.2 | 2026-07-31 | **`profil_stock` et `parametre_catalogue` ajoutées au §5.1, classe C** — les deux référentiels globaux que le cycle 002 crée et que le registre ne nommait pas. `profil_stock` n'existait qu'en tant que colonne dans la ligne de `module_capacite` ; devenue table (research.md R-03 : ouvrir un profil est une écriture de configuration, pas une migration), elle doit s'y déclarer pour elle-même. **Ajout d'une ligne de portée générale : la LECTURE EN CACHE de tout référentiel est de classe A, avec fraîcheur affichée**, quand son écriture reste C. Le registre classe des opérations, pas des tables — sans cette distinction écrite, un cycle ultérieur aurait conclu qu'un référentiel de classe C ne se lit pas hors ligne, ce qui rendrait le produit inutilisable dès la première coupure. Le mécanisme de cache relève de SYN-01/02 et d'ETB-06 ; seule la classe est arrêtée ici. |
 | 1.0.1 | 2026-07-31 | **`note_etablissement` ajoutée au §5.1, classe A, branche A4** — entité du module doré du cycle 001 (TRX-01). Append-only : ni `UPDATE` ni `DELETE` n'est accordé à `kaya_app`, une correction est une nouvelle note. Ses deux tests de classe A vivent dans `backend/tests/note_etablissement_classe_a.rs` et sont exécutés en intégration continue. À partir de ce cycle, le registre n'est plus seulement documentaire : `backend/tests/classes_offline.rs` compare les tables réelles aux entités déclarées ici et **fait échouer le build** sur toute table absente. Le sens de comparaison est table → registre : une entité déclarée mais pas encore implémentée est normale, une table non déclarée est l'erreur à attraper. |
