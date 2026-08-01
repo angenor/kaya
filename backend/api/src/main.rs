@@ -43,6 +43,15 @@ async fn main() -> std::io::Result<()> {
     // immédiatement, ce qui coupe la remontée sans le moindre message.
     let _sentry = observabilite::initialiser_sentry();
 
+    // Constat de construction du cycle 003 — **échafaudage, retiré par T027**. Il n'est pas ici
+    // pour son résultat mais pour que `cargo build --release -p kaya-api` ait dû compiler et lier
+    // `argon2` et `jsonwebtoken` pour l'architecture cible. Un test unitaire ne l'aurait pas fait :
+    // l'étape de construction du `Dockerfile.api` ne compile que les binaires.
+    tracing::info!(
+        chaines = %kaya_comptes::preuve_cryptographique::empreinte_chaines(),
+        "chaînes cryptographiques du cycle CPT — constat de construction"
+    );
+
     // Refus de démarrer si la dérogation d'authentification n'est pas ouverte
     // explicitement. Une dérogation qu'on peut oublier d'ouvrir se retrouve ouverte en
     // production sans que personne ne l'ait décidé.

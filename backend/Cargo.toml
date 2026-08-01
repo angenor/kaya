@@ -117,9 +117,27 @@ sentry = { version = "=0.49.0", default-features = false, features = [
 ] }
 tracing = { version = "=0.1.44" }
 tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json"] }
-# CPT-01, hors périmètre de ce cycle. Épinglées ici pour que le gel soit matérialisé en un seul
-# endroit ; aucun crate ne les référence encore.
-jsonwebtoken = { version = "=11.0.0" }
+# Épinglées au cycle 001 pour que le gel soit matérialisé en un seul endroit ; **activées** par le
+# cycle 003 (CPT-01) dans `socle/comptes`.
+#
+# `rust_crypto` n'est pas un détail de confort : depuis la version 11, jsonwebtoken **refuse de
+# signer** tant qu'aucun fournisseur cryptographique n'est choisi, et le refus survient à
+# l'exécution, pas à la compilation. Constaté par T004 sur le tout premier appel — c'est
+# précisément ce que la tâche cherchait.
+#
+# Des deux fournisseurs, `rust_crypto` (RustCrypto, Rust pur) plutôt que `aws_lc_rs` (C et
+# assembleur, chaîne de construction `cmake`/`nasm`), pour trois raisons dans cet ordre :
+#
+#   1. la cible de production est `linux/amd64` et le poste `darwin/arm64` — du Rust pur se
+#      construit à l'identique sur les deux, ce qui est exactement le risque que T004 mesurait ;
+#   2. `argon2` est déjà du RustCrypto : un seul écosystème cryptographique dans le socle ;
+#   3. le paquet auto-hébergé (mode B) doit tenir en un binaire et trois conteneurs — une chaîne
+#      de construction C de plus est une panne de plus chez un client sans administrateur.
+#
+# `use_pem` est écarté (`default-features = false`) : les clés du produit sont des **secrets
+# symétriques** lus de `KAYA_JWT_CLE`, jamais des PEM. La feature tirerait `pem` et `simple_asn1`
+# pour un format que rien ne lit.
+jsonwebtoken = { version = "=11.0.0", default-features = false, features = ["rust_crypto"] }
 argon2 = { version = "=0.5.3" }
 
 # --- Extensions du gel introduites par ce cycle (voir docs/module-dore.md § « Écarts au gel ») ---

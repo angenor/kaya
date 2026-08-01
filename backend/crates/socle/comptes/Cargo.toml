@@ -7,3 +7,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# Les deux crates du gel §3.1 portant la mention « (CPT-01) ». Ce cycle les **active** ; il ne
+# choisit aucune version — elles sont épinglées au workspace depuis le cycle 001.
+argon2 = { workspace = true }
+jsonwebtoken = { workspace = true }
+serde = { workspace = true }
