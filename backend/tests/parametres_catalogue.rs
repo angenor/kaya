@@ -150,43 +150,140 @@ fn test_negatif_une_cle_absente_du_recapitulatif_est_signalee() {
     );
 }
 
-/// Le catalogue de ce cycle contient **exactement** la clé annoncée, avec ses attributs.
+/// Le catalogue contient **exactement** les clés annoncées par les cycles livrés, avec leurs
+/// attributs.
 ///
-/// Un catalogue à une entrée se justifie parce que le résolveur doit exister **avant** son premier
-/// consommateur : le concevoir au cycle HEB le teinterait d'hébergement. Ce test fige ce contenu,
-/// pour qu'une clé ajoutée sans décision se voie.
+/// # Pourquoi figer le décompte plutôt que se contenter de vérifier les présences
+///
+/// Une clé de configuration engage le récapitulatif du principe I·c et **tous les cycles qui la
+/// liront**. Une clé ajoutée sans décision doit donc se voir. Le cycle 002 figeait le total à 1 ;
+/// le cycle 003 le porte à 6, et le prochain cycle qui en ajoutera une devra passer ici — c'est
+/// exactement le moment où la question « cette clé est-elle vraiment un paramètre ? » se pose.
 #[tokio::test]
-async fn le_catalogue_du_cycle_002_contient_exactement_politique_impression() {
+async fn le_catalogue_contient_exactement_les_cles_des_cycles_livres() {
     let pool = commun::pool_owner().await;
 
-    let ligne = sqlx::query(
-        r#"
-        SELECT cle, type_valeur, portee_la_plus_basse, story
-        FROM etablissements.parametre_catalogue
-        WHERE cle = 'politique_impression'
-        "#,
-    )
-    .fetch_optional(&pool)
-    .await
-    .expect("lecture du catalogue")
-    .expect("la clé politique_impression doit exister au catalogue");
+    let attendues: BTreeSet<String> = [
+        // ETB-03
+        "politique_impression",
+        // CPT-01 — les cinq du cycle 003
+        "indicatif_telephonique_defaut",
+        "methode_authentification",
+        "mot_de_passe_longueur_min",
+        "jeton_acces_duree_min",
+        "jeton_rafraichissement_duree_jours",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+
+    let reelles = cles_du_catalogue(&pool).await;
 
     assert_eq!(
-        ligne.get::<String, _>("portee_la_plus_basse"),
-        "POINT_DE_VENTE",
-        "la politique d'impression se règle jusqu'au point de vente : c'est la raison pour \
-         laquelle elle n'est PAS une colonne de `point_de_vente` (research.md R-04)"
+        reelles, attendues,
+        "le catalogue diverge des clés annoncées par les cycles livrés. Une clé ajoutée sans \
+         décision engage le récapitulatif du principe I·c et tous les cycles qui la liront ; une \
+         clé disparue casse la configuration des bases déjà déployées."
     );
-    assert_eq!(ligne.get::<String, _>("story"), "ETB-03");
+}
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM etablissements.parametre_catalogue")
-        .fetch_one(&pool)
+/// **La portée la plus basse dit où le paramètre se règle**, et ce n'est pas une donnée
+/// décorative : c'est elle qui décide si la clé est une colonne de table ou une valeur de
+/// configuration.
+#[tokio::test]
+async fn les_portees_des_parametres_livres_sont_celles_qui_ont_ete_decidees() {
+    let pool = commun::pool_owner().await;
+
+    // (clé, portée la plus basse, type, story)
+    let attendus = [
+        // ETB-03 — research.md R-04 : elle se règle jusqu'au point de vente, c'est la raison pour
+        // laquelle elle n'est PAS une colonne de `point_de_vente`.
+        ("politique_impression", "POINT_DE_VENTE", "TEXTE", "ETB-03"),
+        // CPT-01 — les cinq se règlent au niveau de l'établissement, jamais plus bas : un point
+        // de vente n'a pas sa propre politique de mot de passe.
+        (
+            "indicatif_telephonique_defaut",
+            "ETABLISSEMENT",
+            "TEXTE",
+            "CPT-01",
+        ),
+        (
+            "methode_authentification",
+            "ETABLISSEMENT",
+            "TEXTE",
+            "CPT-01",
+        ),
+        (
+            "mot_de_passe_longueur_min",
+            "ETABLISSEMENT",
+            "ENTIER",
+            "CPT-01",
+        ),
+        (
+            "jeton_acces_duree_min",
+            "ETABLISSEMENT",
+            "DUREE_MINUTES",
+            "CPT-01",
+        ),
+        (
+            "jeton_rafraichissement_duree_jours",
+            "ETABLISSEMENT",
+            "ENTIER",
+            "CPT-01",
+        ),
+    ];
+
+    for (cle, portee, type_valeur, story) in attendus {
+        let ligne = sqlx::query(
+            r#"
+            SELECT cle, type_valeur, portee_la_plus_basse, story
+            FROM etablissements.parametre_catalogue
+            WHERE cle = $1
+            "#,
+        )
+        .bind(cle)
+        .fetch_optional(&pool)
         .await
-        .expect("comptage");
+        .expect("lecture du catalogue")
+        .unwrap_or_else(|| panic!("la clé « {cle} » doit exister au catalogue"));
+
+        assert_eq!(
+            ligne.get::<String, _>("portee_la_plus_basse"),
+            portee,
+            "portée inattendue pour « {cle} »"
+        );
+        assert_eq!(
+            ligne.get::<String, _>("type_valeur"),
+            type_valeur,
+            "type inattendu pour « {cle} »"
+        );
+        assert_eq!(
+            ligne.get::<String, _>("story"),
+            story,
+            "story inattendue pour « {cle} »"
+        );
+    }
+}
+
+/// **La durée d'un jeton n'est PAS un `MONTANT_MINEUR`, et sa minute n'est pas une constante.**
+///
+/// `jeton_acces_duree_min` porte le type `DUREE_MINUTES`, qui existe au catalogue depuis `0008`.
+/// Le poser en `ENTIER` marcherait tout aussi bien et perdrait ce que le type dit : l'unité. Un
+/// cycle ultérieur lisant `60` sans elle pourrait le prendre pour des secondes.
+#[tokio::test]
+async fn la_duree_du_jeton_d_acces_porte_son_unite_dans_son_type() {
+    let pool = commun::pool_owner().await;
+
+    let type_valeur: String = sqlx::query_scalar(
+        "SELECT type_valeur FROM etablissements.parametre_catalogue WHERE cle = 'jeton_acces_duree_min'",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("lecture du catalogue");
+
     assert_eq!(
-        total, 1,
-        "le catalogue porte {total} clé(s) au lieu de la seule annoncée par ce cycle. Une clé \
-         ajoutée sans décision doit se voir : elle engage le récapitulatif du principe I·c et tous \
-         les cycles qui la liront."
+        type_valeur, "DUREE_MINUTES",
+        "la durée du jeton d'accès doit porter son unité dans son type : `60` sans unité peut se \
+         lire en secondes, et un jeton d'une minute déconnecterait tout le monde en boucle"
     );
 }

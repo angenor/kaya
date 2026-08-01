@@ -736,11 +736,11 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Seuil d'écart de caisse notifiant le propriétaire | 1 000 FCFA | CAI-04 |
 | Terminal déconnecté bloquant la clôture | 15 min | CAI-06 |
 | Paniers QR en attente max par table | 3 | QRC-04 |
-| Indicatif téléphonique par défaut | +225 (Côte d'Ivoire) | CPT-01 |
-| Méthode d'authentification | Mot de passe (alternative : OTP SMS) | CPT-01 |
-| Longueur minimale du mot de passe | 8 caractères, **aucune règle de composition**, refus des mots de passe compromis | CPT-01 |
-| Durée du jeton d'accès | 60 min | CPT-01 |
-| Durée du jeton de rafraîchissement | 90 jours, **avec rotation à chaque usage** | CPT-01 |
+| Indicatif téléphonique par défaut (`indicatif_telephonique_defaut`) | +225 (Côte d'Ivoire) | CPT-01 |
+| Méthode d'authentification (`methode_authentification`) | Mot de passe (alternative : OTP SMS, **non implémentée**) | CPT-01 |
+| Longueur minimale du mot de passe (`mot_de_passe_longueur_min`) | 8 caractères, **aucune règle de composition**, refus des mots de passe compromis | CPT-01 |
+| Durée du jeton d'accès (`jeton_acces_duree_min`) | 60 min | CPT-01 |
+| Durée du jeton de rafraîchissement (`jeton_rafraichissement_duree_jours`) | 90 jours, **avec rotation à chaque usage** | CPT-01 |
 | Rayon de géorepérage | 300 m (alerte seulement) | CPT-06 |
 | Dérive d'horloge signalée | 5 min | SYN-04 |
 | Seuil d'alerte de stock | Par article | STK-04 |
