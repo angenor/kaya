@@ -20,6 +20,16 @@
     "indisponible_hors_ligne": "This action needs a connection. It will be possible as soon as the network returns."
   },
   "connexion": {
+    "sur_titre": "Kaya",
+    "titre": "Sign in",
+    "action": "Sign in",
+    "en_cours": "Signing in…",
+    "sans_persistance": "This device cannot keep you signed in. It will ask again next time it starts.",
+    "champ": {
+      "identifiant": "ID",
+      "identifiant_aide": "Your phone number or your email address.",
+      "mot_de_passe": "Password"
+    },
     "requise": "Sign in to continue.",
     "refus": {
       "identifiants": "Incorrect ID or password.",

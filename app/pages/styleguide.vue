@@ -1441,6 +1441,19 @@ const OPTIONS_SERVICE = [
                 taille="comptoir"
               />
             </div>
+            <div class="flex flex-col gap-2">
+              <span class="text-etiquette text-ink-3 uppercase">Mot de passe — masqué</span>
+              <!-- État ajouté par `R0` (CPT-01). Le type est fermé à deux valeurs : `email`,
+                   `tel` et `number` sont délibérément absents, leurs claviers et leurs
+                   validations de navigateur contrediraient les règles du produit. -->
+              <ChampSaisie
+                v-model="saisieRemplie"
+                :etiquette-cle="CLE_ETIQUETTE"
+                type="mot_de_passe"
+                autocompletion="current-password"
+                taille="comptoir"
+              />
+            </div>
             <div class="flex flex-col gap-2 sm:col-span-2">
               <span class="text-etiquette text-ink-3 uppercase">Choix fermé — même enveloppe</span>
               <ChampSaisie

@@ -68,12 +68,33 @@ const props = withDefaults(
      * Jamais moins de 44, y compris pour un champ qui paraît secondaire.
      */
     taille?: 'touche' | 'comptoir'
+    /**
+     * Nature du contrôle — **fermée à deux valeurs**, ajoutée par `R0` (CPT-01).
+     *
+     * `mot_de_passe` masque la saisie. Les autres types HTML (`email`, `tel`, `number`) sont
+     * **délibérément absents** : ils déclenchent des claviers et des validations de navigateur qui
+     * contrediraient les règles du produit — `identifiant` accepte un numéro **ou** un courriel
+     * dans le même champ, et une quantité est un `NUMERIC` dont le séparateur décimal dépend de la
+     * locale du navigateur, pas de la nôtre.
+     */
+    type?: 'texte' | 'mot_de_passe'
+    /**
+     * Valeur d'`autocomplete` — `username`, `current-password`, `new-password`.
+     *
+     * Ce n'est pas un confort. Un formulaire de connexion sans ces indications empêche les
+     * gestionnaires de mots de passe de fonctionner, et pousse à choisir un mot de passe qu'on
+     * retient — donc à l'écrire sur un papier au comptoir. C'est exactement ce que la politique de
+     * mot de passe du cycle cherche à éviter en refusant les règles de composition.
+     */
+    autocompletion?: string
     desactive?: boolean
     lectureSeule?: boolean
     requis?: boolean
   }>(),
   {
     taille: 'touche',
+    type: 'texte',
+    autocompletion: undefined,
     // Les cinq suivants sont **absents** par défaut, pas vides : `aide-cle: ''` ferait rendre un
     // paragraphe blanc sous chaque champ, et `erreur-cle: ''` un champ en erreur permanente. La
     // règle `vue/require-default-prop` demande une valeur ; `undefined` est celle qui dit « rien ».
@@ -165,7 +186,8 @@ const fond = computed(() =>
         v-else
         :id="id"
         v-model="modele"
-        type="text"
+        :type="type === 'mot_de_passe' ? 'password' : 'text'"
+        :autocomplete="autocompletion"
         class="w-full rounded-md border-[1.5px] px-3 font-texte text-corps transition-colors duration-90 ease-entree placeholder:text-ink-3 focus:border-prim"
         :class="[hauteur, bordure, fond]"
         :placeholder="placeholderCle ? t(placeholderCle) : undefined"

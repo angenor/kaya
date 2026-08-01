@@ -20,6 +20,16 @@
     "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
   },
   "connexion": {
+    "sur_titre": "Kaya",
+    "titre": "Connexion",
+    "action": "Se connecter",
+    "en_cours": "Connexion en cours…",
+    "sans_persistance": "Cet appareil ne peut pas garder votre connexion. Il vous la redemandera au prochain démarrage.",
+    "champ": {
+      "identifiant": "Identifiant",
+      "identifiant_aide": "Votre numéro de téléphone ou votre adresse e-mail.",
+      "mot_de_passe": "Mot de passe"
+    },
     "requise": "Connectez-vous pour continuer.",
     "refus": {
       "identifiants": "Identifiant ou mot de passe incorrect.",
