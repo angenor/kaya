@@ -554,7 +554,7 @@ compilation dès maintenant : linker mold, sccache, debug = "line-tables-only" e
 profil dev.
 ```
 
-### Cycle 2 — ETB(en cours)
+### Cycle 2 — ETB
 
 ```
 /speckit-specify
@@ -601,7 +601,7 @@ exhaustivement y compris les surcharges partielles et les valeurs absentes à to
 les niveaux.
 ```
 
-### Cycle 3 — CPT
+### Cycle 3 — CPT(en cours)
 
 ```
 /speckit-specify

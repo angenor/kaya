@@ -225,7 +225,9 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 **CPT-01 — Comptes et authentification (P0)**
 - Identifiant = téléphone E.164 (+225 par défaut selon l'établissement) ou email. Mot de passe fort, ou OTP SMS selon la configuration du tenant.
 - JWT court + refresh révocable, multi-appareils. Déconnexion à distance d'une session.
-- Les messages d'erreur ne révèlent jamais si un compte existe.
+- Les messages d'erreur ne révèlent jamais si un compte existe. ⚠️ **Le message identique ne suffit pas** : un refus en 2 ms sur compte inexistant contre 90 ms sur mot de passe faux publie la liste des comptes. Un hachage factice est exécuté sur le chemin « compte inconnu », et le test compare les médianes.
+- ⚠️ **La brièveté du jeton ne doit jamais bloquer une écriture de classe A.** Aminata prend des commandes hors ligne pendant une coupure plus longue que la durée du jeton d'accès : les écritures A partent en file locale sans jeton, et **le retour du réseau rafraîchit le jeton AVANT de vider la file**, jamais l'inverse. Une file bloquée par un jeton expiré perdrait un service entier.
+- **La révocation est immédiate**, portée par une liste en Redis consultée à chaque requête — pas par la brièveté du jeton. Le cadrage §12.2 exige la « coupure immédiate au départ d'un employé » ; attendre l'expiration ne la donne pas.
 
 **CPT-02 — Rôles cumulables et permissions (P0)**
 - Rôles : `proprietaire`, `gerant`, `receptionniste`, `serveur`, `caissier`, `magasinier`, `comptable`, `admin_editeur`.
@@ -734,6 +736,11 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Seuil d'écart de caisse notifiant le propriétaire | 1 000 FCFA | CAI-04 |
 | Terminal déconnecté bloquant la clôture | 15 min | CAI-06 |
 | Paniers QR en attente max par table | 3 | QRC-04 |
+| Indicatif téléphonique par défaut | +225 (Côte d'Ivoire) | CPT-01 |
+| Méthode d'authentification | Mot de passe (alternative : OTP SMS) | CPT-01 |
+| Longueur minimale du mot de passe | 10 caractères, **aucune règle de composition** | CPT-01 |
+| Durée du jeton d'accès | 30 min | CPT-01 |
+| Durée du jeton de rafraîchissement | 30 jours | CPT-01 |
 | Rayon de géorepérage | 300 m (alerte seulement) | CPT-06 |
 | Dérive d'horloge signalée | 5 min | SYN-04 |
 | Seuil d'alerte de stock | Par article | STK-04 |

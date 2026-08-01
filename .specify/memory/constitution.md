@@ -1,4 +1,29 @@
 <!--
+SYNC IMPACT REPORT — 1.6.0 — 2026-08-01
+========================================
+Changement de version : 1.5.0 → 1.6.0 (MINOR)
+Motif : deux portes existantes matériellement étendues — extension de guidance → MINOR.
+        Le jeu reste à 24 portes ; aucun principe ajouté, renommé ni supprimé.
+Origine : plan du cycle 003 (CPT — comptes, rôles, journal d'audit).
+
+  1. P-05b — portée élargie de l'outbox à TOUT REGISTRE IMMUABLE. CPT-04 exige un
+     « traçage immuable » du journal d'audit, et le registre des classes hors-ligne
+     §5.2 pose que l'audit est un registre DISTINCT de l'outbox : deux registres,
+     deux publics, une action tracée produit les deux. Le journal d'audit — « ce que
+     le propriétaire achète » selon le cadrage §8.3 — n'était donc protégé par
+     aucune porte contre la suppression ou la réécriture. La porte est reformulée
+     sur la CATÉGORIE et non sur une table nommée, pour que le prochain registre
+     soit couvert sans nouvel amendement.
+
+  2. P-10 — étendue aux montants portés par du JSONB. `journal_audit.contexte` est
+     en JSONB et accueillera des montants : écart de caisse, modification de tarif,
+     remise. La porte n'inspectait que les colonnes SQL ; une valeur monétaire dans
+     un document JSON échappait entièrement au principe V, qui impose des entiers en
+     unités mineures. La garantie s'arrêtait donc à la frontière du JSONB, sur le
+     registre même qui trace les écarts d'argent. Convention imposée et vérifiable :
+     nommage réservé pour les clés monétaires, valeur entière, jamais un décimal ni
+     une chaîne formatée.
+
 SYNC IMPACT REPORT — 1.5.0 — 2026-07-31
 ========================================
 Changement de version : 1.4.0 → 1.5.0 (MINOR)
@@ -588,12 +613,12 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-03 | Aucun crate de `socle/` ne dépend d'un crate de `verticales/` | II |
 | P-04 | Aucune requête ne joint deux schémas de modules différents | II |
 | P-05 | Toute transition d'état émet un événement outbox dans sa transaction | II |
-| P-05b | **Aucun chemin de code ne supprime ni ne modifie un événement outbox** — pas de `DELETE`, pas d'`UPDATE` hors marquage de publication, aucune purge, aucune rétention bornée | II |
+| P-05b | **Aucun chemin de code ne supprime ni ne modifie une ligne d'un REGISTRE IMMUABLE** — pas de `DELETE`, pas d'`UPDATE` hors marquage de publication, aucune purge, aucune rétention bornée. Sont des registres immuables l'outbox et le journal d'audit ; la porte porte sur la **catégorie**, pas sur une liste de tables, afin que le prochain registre soit couvert sans amendement | II, IX |
 | P-06 | Toute valeur de capacité autre que `STOCK`/`SIMPLE` est refusée explicitement | II |
 | P-07 | Toute table du schéma porte au moins une politique RLS, `ENABLE` et `FORCE` | III |
 | P-08 | Le tenant A ne lit ni n'écrit aucune ligne du tenant B, sur chaque endpoint | III |
 | P-09 | Toute occupation est un `tstzrange` protégé par une contrainte d'exclusion GiST | IV |
-| P-10 | Aucun montant non entier ; aucune quantité non `NUMERIC` | V |
+| P-10 | Aucun montant non entier ; aucune quantité non `NUMERIC`. **La garantie ne s'arrête pas à la frontière du JSONB** : toute clé monétaire d'un document JSON suit le nommage réservé et porte un **entier**, jamais un décimal ni une chaîne formatée — sans quoi le principe V cesse de tenir sur le registre même qui trace les écarts d'argent | V |
 | P-11 | Tests dorés fiscaux verts sur jeux de cas figés | V |
 | P-12 | Aucune règle fiscale hors du trait `JurisdictionAdapter` | V |
 | P-13 | Aucune opération B, C ou D atteignable depuis un chemin exécutable hors ligne | VI |
@@ -710,4 +735,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.5.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-07-31
+**Version**: 1.6.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-01
