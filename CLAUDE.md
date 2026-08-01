@@ -234,6 +234,38 @@ Deux points à connaître pour ne pas perdre une journée :
   En cas de suppression, `git checkout backend/.sqlx` restaure les entrées commitées **sans
   toucher** aux fichiers non suivis, donc sans perdre les requêtes nouvelles.
 
+  **La cause a été trouvée au cycle 003, et il faut DEUX passes.** `cargo sqlx prepare` ne
+  collecte que les requêtes des cibles que son `cargo check` compile réellement, et le répertoire
+  d'où on le lance décide de ce qu'il voit :
+
+  | Lancé depuis | Ce qu'il collecte | Ce qu'il PERD |
+  |---|---|---|
+  | `backend/` | le paquet racine et ses tests d'intégration | les **binaires** de `kaya-api` — `seeds`, `contrat` |
+  | `backend/api/` | les binaires et la bibliothèque de `kaya-api` | les tests de `backend/tests/` |
+
+  Aucun `cargo clean`, aucun `touch`, aucun `--all-targets` n'y change quoi que ce soit : ce n'est
+  pas un problème de cache de compilation. La procédure qui marche conserve les deux moissons
+  **hors** de `.sqlx` entre les passes, puisque chaque `prepare` réécrit le répertoire entier :
+
+  ```sh
+  cd backend
+  rm -rf /tmp/sqlx-a /tmp/sqlx-b && mkdir -p /tmp/sqlx-a /tmp/sqlx-b
+
+  cargo sqlx prepare --workspace -- --all-targets            # passe 1 — tests
+  git status --short .sqlx | grep '^??' | awk '{print $2}' | xargs -I{} cp {} /tmp/sqlx-a/
+  git checkout .sqlx
+
+  (cd api && cargo sqlx prepare --workspace -- --all-targets)  # passe 2 — binaires
+  git status --short .sqlx | grep '^??' | awk '{print $2}' | xargs -I{} cp {} /tmp/sqlx-b/
+  git checkout .sqlx
+
+  cp /tmp/sqlx-a/*.json /tmp/sqlx-b/*.json .sqlx/
+  ```
+
+  Puis les deux contrôles habituels. Le symptôme, si l'on se contente d'une passe : le check
+  hors ligne échoue sur `no cached data for this query` **dans les cibles que l'autre passe
+  couvrait**, alors que `prepare` vient d'annoncer avoir écrit le cache.
+
 ## Flux de travail
 
 Le dépôt utilise **Spec Kit** (skills `speckit-*` dans `.claude/skills/`).

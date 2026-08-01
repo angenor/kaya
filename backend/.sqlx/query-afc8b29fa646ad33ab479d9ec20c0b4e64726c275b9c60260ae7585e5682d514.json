@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.compte\n            (id, tenant_id, personne_id, identifiant_email, condensat_mot_de_passe)\n        VALUES ($1, $2, $3, $4, $5)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "afc8b29fa646ad33ab479d9ec20c0b4e64726c275b9c60260ae7585e5682d514"
+}

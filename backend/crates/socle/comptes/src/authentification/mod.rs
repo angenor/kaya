@@ -5,4 +5,8 @@
 //! lisent et écrivent. Lui donner un repository par symétrie avec `personne/` ou `roles/`
 //! obligerait à inventer une table pour la remplir.
 
+pub mod argon2;
 pub mod mots_de_passe_compromis;
+
+pub use argon2::{ErreurHachage, hacher};
+pub use mots_de_passe_compromis::est_compromis;

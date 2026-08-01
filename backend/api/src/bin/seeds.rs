@@ -108,6 +108,62 @@ const TABLES_DELORIA: [(Uuid, &str); 3] = [
 /// Le service HEBERGEMENT de Résidence Test — **le seul**, et sans capacité.
 const SERVICE_RESIDENCE_TEST: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000061");
 
+// -------------------------------------------------------------------------------------------
+//  CPT — les trois personnes du pilote, et le cumul de rôles d'Adjoua
+// -------------------------------------------------------------------------------------------
+//
+// **Adjoua porte les trois rôles, et c'est tout le point du cycle.** Un jeu de données où chacun
+// n'aurait qu'un rôle ne démontrerait rien de l'union des permissions : c'est exactement la
+// situation que le cadrage décrit — dans un établissement de cette taille, la même personne tient
+// la réception le matin, la caisse le soir et gère l'équipe entre les deux.
+//
+// Yao n'a qu'un rôle, et M. Koffi est propriétaire : les trois ensemble donnent trois accueils
+// différents sur la même application, ce que l'écran `R1` doit montrer.
+
+/// M. Koffi — propriétaire de Deloria (cadrage §2.1).
+const PERSONNE_KOFFI: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000071");
+const COMPTE_KOFFI: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000072");
+
+/// Adjoua — **gérante, caissière ET réceptionniste**.
+const PERSONNE_ADJOUA: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000073");
+const COMPTE_ADJOUA: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000074");
+
+/// Yao — réceptionniste.
+const PERSONNE_YAO: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000075");
+const COMPTE_YAO: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000076");
+
+/// Les attributions de rôles, identifiants fixes — `(id, compte, rôle)`.
+///
+/// L'établissement est toujours celui de Deloria : les huit rôles sauf `admin_editeur` sont de
+/// portée `ETABLISSEMENT` et en exigent un.
+const ROLES_DELORIA: [(Uuid, Uuid, &str); 5] = [
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000081"),
+        COMPTE_KOFFI,
+        "proprietaire",
+    ),
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000082"),
+        COMPTE_ADJOUA,
+        "gerant",
+    ),
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000083"),
+        COMPTE_ADJOUA,
+        "caissier",
+    ),
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000084"),
+        COMPTE_ADJOUA,
+        "receptionniste",
+    ),
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000085"),
+        COMPTE_YAO,
+        "receptionniste",
+    ),
+];
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if dotenvy::from_path("backend/.env").is_err() {
@@ -115,16 +171,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     kaya_api::observabilite::initialiser_journaux();
 
+    // **Refus d'exécution en production**, avant toute connexion (T005). La garde vit dans le
+    // binaire et non dans le script d'appel : un script se contourne d'une ligne de commande, et
+    // c'est bien le binaire qu'on lance à la main un soir d'incident en cherchant à « juste
+    // remettre les données de démonstration ».
+    let mot_de_passe = kaya_api::secrets::mot_de_passe_seeds()?;
+
     let pool = db::pool_application().await?;
 
     seeder_deloria(&pool).await?;
     seeder_residence_test(&pool).await?;
+    seeder_comptes_deloria(&pool, &mot_de_passe).await?;
 
     println!("Seeds appliqués. Deux tenants :");
     println!("  Deloria         {TENANT_DELORIA}  (établissement {ETABLISSEMENT_DELORIA})");
     println!(
         "  Résidence Test  {TENANT_RESIDENCE_TEST}  (établissement {ETABLISSEMENT_RESIDENCE_TEST})"
     );
+    println!();
+    println!("Trois comptes sur Deloria — le mot de passe vient de KAYA_SEEDS_MOT_DE_PASSE :");
+    println!("  koffi@deloria.test    propriétaire");
+    println!("  adjoua@deloria.test   gérante + caissière + réceptionniste  ← le cumul");
+    println!("  yao@deloria.test      réceptionniste");
     println!();
     println!("Rejouable : une seconde exécution laisse exactement le même état.");
 
@@ -342,3 +410,138 @@ async fn seeder_residence_test(pool: &PgPool) -> Result<(), Box<dyn std::error::
     tracing::info!(tenant = %TENANT_RESIDENCE_TEST, "tenant Résidence Test seedé");
     Ok(())
 }
+
+/// **Les trois comptes du pilote** — CPT-00, CPT-01, CPT-02.
+///
+/// # Le mot de passe vient de l'environnement, jamais du code
+///
+/// `KAYA_SEEDS_MOT_DE_PASSE`. Un mot de passe littéral ici vivrait dans le dépôt, dans l'image et
+/// dans les archives de tous les postes ayant cloné le projet — et il finirait employé sur un
+/// serveur de démonstration joignable depuis internet.
+///
+/// # Le condensat est recalculé à chaque exécution, et ce n'est PAS une non-idempotence
+///
+/// Argon2 tire un sel aléatoire : deux exécutions produisent deux condensats différents pour le
+/// même mot de passe. C'est exactement ce qu'on veut, et c'est pourquoi l'`INSERT` porte
+/// `ON CONFLICT (id) DO NOTHING` **et non `DO UPDATE`** : la ligne existante n'est pas réécrite,
+/// donc l'état final est identique à la troisième exécution comme à la première.
+///
+/// La distinction avec l'identité des établissements — qui, elle, est réappliquée par `DO UPDATE`
+/// — tient en une phrase : une commune est une **valeur de référence** que le seed déclare, un
+/// condensat est une **donnée de travail** dont la valeur exacte n'a pas d'importance.
+///
+/// # `DO NOTHING` sur les rôles, et pourquoi c'est le couple qui compte
+///
+/// L'unicité de `compte_role` porte sur `(compte_id, role_code, etablissement_id)` avec
+/// `NULLS NOT DISTINCT`. Le conflit se résout donc sur ce couple, pas sur l'identifiant : un rôle
+/// réattribué à l'identique ne crée pas de seconde ligne, même si l'on changeait son UUID.
+async fn seeder_comptes_deloria(
+    pool: &PgPool,
+    mot_de_passe: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut tx = pool.begin().await?;
+    tenant_context::poser_tenant(&mut tx, TENANT_DELORIA).await?;
+
+    // `(personne, compte, nom, prénoms, identifiant)`
+    let gens = [
+        (
+            PERSONNE_KOFFI,
+            COMPTE_KOFFI,
+            "Koffi",
+            Some("Yao Bernard"),
+            "koffi@deloria.test",
+        ),
+        (
+            PERSONNE_ADJOUA,
+            COMPTE_ADJOUA,
+            "N'Guessan",
+            Some("Adjoua"),
+            "adjoua@deloria.test",
+        ),
+        (PERSONNE_YAO, COMPTE_YAO, "Kouassi", Some("Yao"), "yao@deloria.test"),
+    ];
+
+    for (personne_id, compte_id, nom, prenoms, identifiant) in gens {
+        sqlx::query!(
+            r#"
+            INSERT INTO comptes.personne (id, tenant_id, nom, prenoms)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (id) DO UPDATE
+            SET nom = EXCLUDED.nom,
+                prenoms = EXCLUDED.prenoms,
+                modifie_le = now()
+            "#,
+            personne_id,
+            TENANT_DELORIA,
+            nom,
+            prenoms,
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        // Le condensat n'est calculé que si le compte n'existe pas — un hachage Argon2 coûte
+        // 19 Mio et des dizaines de millisecondes, et le recalculer à chaque exécution pour le
+        // jeter aussitôt serait du travail pur.
+        let deja_present: bool = sqlx::query_scalar!(
+            r#"SELECT EXISTS (SELECT 1 FROM comptes.compte WHERE id = $1) AS "existe!""#,
+            compte_id
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
+        if !deja_present {
+            let condensat = kaya_comptes::authentification::hacher(mot_de_passe)?;
+
+            sqlx::query!(
+                r#"
+                INSERT INTO comptes.compte
+                    (id, tenant_id, personne_id, identifiant_email, condensat_mot_de_passe)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+                compte_id,
+                TENANT_DELORIA,
+                personne_id,
+                identifiant,
+                condensat,
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    // ── Le cumul ────────────────────────────────────────────────────────────────────────────
+    //
+    // `attribue_par_compte_id` désigne M. Koffi, y compris pour son propre rôle de propriétaire.
+    // C'est une convention de seed, pas une règle : dans le produit, le premier propriétaire est
+    // provisionné par l'éditeur (ETB-08). L'écrire ainsi évite une colonne nullable qui
+    // signifierait « attribué par personne » et qu'il faudrait traiter partout.
+    for (id, compte_id, role_code) in ROLES_DELORIA {
+        sqlx::query!(
+            r#"
+            INSERT INTO comptes.compte_role
+                (id, tenant_id, compte_id, role_code, etablissement_id, attribue_par_compte_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (compte_id, role_code, etablissement_id) DO NOTHING
+            "#,
+            id,
+            TENANT_DELORIA,
+            compte_id,
+            role_code,
+            ETABLISSEMENT_DELORIA,
+            COMPTE_KOFFI,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    tracing::info!(
+        tenant = %TENANT_DELORIA,
+        comptes = 3,
+        roles = ROLES_DELORIA.len(),
+        "comptes et rôles du pilote seedés — Adjoua en porte trois"
+    );
+    Ok(())
+}
+

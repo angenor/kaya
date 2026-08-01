@@ -359,3 +359,109 @@ async fn le_seed_applique_reellement_l_identite_qu_il_declare() {
          base en montre une autre."
     );
 }
+
+/// **Adjoua porte trois rôles, et c'est le point du cycle 003.**
+///
+/// Un jeu de données où chacun n'aurait qu'un rôle ne démontrerait rien de l'union des
+/// permissions. Ce test fige la figure que le cadrage décrit : dans un établissement de cette
+/// taille, la même personne tient la réception le matin, la caisse le soir, et gère l'équipe entre
+/// les deux — sur **une seule connexion**, dans **une seule application**.
+///
+/// Il vérifie aussi ce qui n'est pas là : aucun compte de démonstration ne porte `admin_editeur`.
+/// Ce rôle est de portée `EDITEUR` et n'appartient à aucun tenant ; le seeder par commodité
+/// donnerait au pilote un accès qu'il ne doit pas avoir, et le premier test d'isolation écrit
+/// dessus le figerait.
+#[tokio::test]
+async fn adjoua_porte_les_trois_roles_et_personne_n_est_admin_editeur() {
+    let pool = commun::pool_owner().await;
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let roles: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT cr.role_code
+        FROM comptes.compte_role cr
+        JOIN comptes.compte c   ON c.id = cr.compte_id
+        JOIN comptes.personne p ON p.id = c.personne_id
+        WHERE p.prenoms = 'Adjoua'
+        ORDER BY cr.role_code
+        "#,
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des rôles d'Adjoua");
+
+    assert_eq!(
+        roles,
+        vec![
+            "caissier".to_owned(),
+            "gerant".to_owned(),
+            "receptionniste".to_owned()
+        ],
+        "Adjoua doit porter les trois rôles — c'est la figure que US3 démontre. Obtenu : {roles:?}"
+    );
+
+    let admins: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM comptes.compte_role WHERE role_code = 'admin_editeur'",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des admin_editeur");
+
+    assert_eq!(
+        admins, 0,
+        "un compte de démonstration porte `admin_editeur`. Ce rôle est de portée EDITEUR et \
+         n'appartient à aucun tenant : le seeder par commodité donnerait au pilote un accès qu'il \
+         ne doit pas avoir."
+    );
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// **Le condensat n'est jamais celui du code.**
+///
+/// Trois choses vérifiées d'un coup : le mot de passe vient de l'environnement (le condensat est
+/// au format PHC d'Argon2id, donc réellement haché), les paramètres sont ceux d'OWASP, et **deux
+/// comptes au même mot de passe ont deux condensats** — sans quoi une simple comparaison de la
+/// colonne dirait qui partage son mot de passe avec qui.
+#[tokio::test]
+async fn les_condensats_sont_argon2id_et_tous_differents() {
+    let pool = commun::pool_owner().await;
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let condensats: Vec<String> =
+        sqlx::query_scalar("SELECT condensat_mot_de_passe FROM comptes.compte ORDER BY id")
+            .fetch_all(&mut *tx)
+            .await
+            .expect("lecture des condensats");
+
+    assert_eq!(condensats.len(), 3, "trois comptes attendus sur Deloria");
+
+    for condensat in &condensats {
+        assert!(
+            condensat.starts_with("$argon2id$"),
+            "condensat qui n'est pas de l'Argon2id : {condensat}"
+        );
+        assert!(
+            condensat.contains("m=19456,t=2,p=1"),
+            "les paramètres OWASP doivent voyager avec le condensat : {condensat}"
+        );
+    }
+
+    let distincts: std::collections::BTreeSet<&String> = condensats.iter().collect();
+    assert_eq!(
+        distincts.len(),
+        condensats.len(),
+        "deux comptes partagent le même condensat : le sel n'est pas aléatoire, et une \
+         comparaison de la colonne dirait qui partage son mot de passe avec qui"
+    );
+
+    tx.rollback().await.expect("rollback");
+}

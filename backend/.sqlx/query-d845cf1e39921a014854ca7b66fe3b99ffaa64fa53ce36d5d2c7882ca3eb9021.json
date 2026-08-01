@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO comptes.journal_audit\n                (id, tenant_id, etablissement_id, type_action, auteur_compte_id,\n                 cible_type, cible_id, contexte, horodatage_client)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)\n            ON CONFLICT (id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Jsonb",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d845cf1e39921a014854ca7b66fe3b99ffaa64fa53ce36d5d2c7882ca3eb9021"
+}
