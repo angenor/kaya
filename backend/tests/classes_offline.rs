@@ -252,6 +252,65 @@ fn les_entites_du_cycle_002_sont_declarees() {
     }
 }
 
+/// Les dix entités du cycle 003 (CPT) sont déclarées.
+///
+/// # Le §5.2 avait été écrit d'AVANCE, et ce test le constate
+///
+/// Neuf de ces entités figuraient au registre depuis le 2026-07-30, avant qu'aucune table
+/// n'existe. C'était tout l'objet de les écrire alors : le cycle qui les implémente **honore** un
+/// classement décidé à froid, au lieu de le décider à chaud, au milieu d'une migration, en
+/// cherchant surtout à ce que la porte passe.
+///
+/// `methode_authentification` et `role_permission` sont les deux ajouts réels du cycle.
+#[test]
+fn les_entites_du_cycle_003_sont_declarees() {
+    let declarees = entites_declarees();
+
+    for entite in [
+        "personne",
+        "compte",
+        "methode_authentification", // AJOUTÉE par ce cycle
+        "role",
+        "permission",
+        "role_permission", // AJOUTÉE par ce cycle
+        "compte_role",
+        "journal_audit",
+        "employe",         // déclarée au §10 des provisions, pas au §5.2
+        "appareil_enrole", // provision, déclarée au §5.2
+    ] {
+        assert!(
+            declarees.contains(entite),
+            "« {entite} » n'est pas déclarée à docs/registre-classes-offline.md alors que le \
+             cycle 003 la crée.\n\
+             La déclaration se fait dans le MÊME changement que la migration (principe VI), avec \
+             une entrée au journal §13."
+        );
+    }
+}
+
+/// **Les sessions ne sont PAS au registre, et c'est vérifié.**
+///
+/// Elles vivent en Redis, éphémères reconstructibles (research R-01). Une ligne « `session` —
+/// classe C » serait une erreur douce : elle laisserait croire qu'il existe une table, donc une
+/// sauvegarde, donc une donnée à restaurer. Il n'y a rien à restaurer — Redis vidé, tout le monde
+/// se reconnecte.
+///
+/// Le registre le dit désormais explicitement ; ce test refuse qu'on ajoute la ligne par
+/// symétrie.
+#[test]
+fn les_sessions_ne_sont_pas_declarees_comme_une_entite_durable() {
+    let declarees = entites_declarees();
+
+    for absente in ["session", "session_active", "jeton_rafraichissement"] {
+        assert!(
+            !declarees.contains(absente),
+            "« {absente} » a été déclarée au registre des classes hors-ligne. Les sessions vivent \
+             en Redis et sont éphémères reconstructibles : leur donner une classe laisserait \
+             croire qu'il existe une table, donc une sauvegarde, donc une donnée à restaurer."
+        );
+    }
+}
+
 /// **La lecture en cache d'un référentiel est déclarée de classe A** — la distinction qui manquait.
 ///
 /// Le registre classe des **opérations**, pas des tables. L'écriture d'un référentiel est de
