@@ -19,4 +19,9 @@ pub mod compte;
 pub mod personne;
 pub mod roles;
 pub mod session;
+pub mod traits;
 pub mod preuve_cryptographique;
+
+pub use traits::{
+    AccessController, AnnuaireComptes, CompteResume, ControleAccesPostgres, ErreurAcces,
+};
