@@ -16,11 +16,19 @@
  * 3. **La file se vide au retour au premier plan**, sur toutes les plateformes. iOS n'a pas de
  *    synchronisation en arrière-plan ; `BGTaskScheduler` et `WorkManager` sont des optimisations,
  *    jamais des hypothèses.
+ *
+ * # Le vidage a un ORDRE, et il vit dans `vidage.ts`
+ *
+ * **Rafraîchir d'abord, vider ensuite** — jamais l'inverse (research R-18). L'ordre est porté par
+ * {@link viderFile}, seule sortie de la file, et non par la discipline de l'appelant : le défaut
+ * qu'il évite ne se manifeste qu'après une coupure plus longue que la durée du jeton, donc jamais
+ * en développement.
  */
 
 import { estTypeClasseA, type EntreeFile, type OperationClasseA } from './classes'
 
 export * from './classes'
+export { viderFile, type Envoyeur, type ResultatVidage } from './vidage'
 
 /** État du réseau, affiché en permanence (principe VI). */
 export type EtatReseau = 'connecte' | 'degrade' | 'hors_ligne'
@@ -40,7 +48,7 @@ export class OperationRefusee extends Error {
  * File locale — **coquille**. La persistance et le vidage viennent du cycle SYN.
  */
 export class FileLocale {
-  private readonly entrees: EntreeFile[] = []
+  private entrees: EntreeFile[] = []
 
   /**
    * Enfile une opération de classe A.
@@ -63,6 +71,17 @@ export class FileLocale {
       )
     }
     this.entrees.push(entree as EntreeFile)
+  }
+
+  /**
+   * Retire une entrée **acquittée par le serveur**.
+   *
+   * Le seul appelant légitime est {@link viderFile} : c'est lui qui porte l'ordre
+   * « rafraîchir d'abord, vider ensuite ». Retirer ailleurs reviendrait à jeter une écriture que
+   * personne n'a confirmée.
+   */
+  retirer(id: string): void {
+    this.entrees = this.entrees.filter(entree => entree.id !== id)
   }
 
   /** Nombre d'éléments en attente — affiché en permanence par l'indicateur de synchronisation. */
