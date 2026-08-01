@@ -93,7 +93,38 @@ const TYPES_EVENEMENTS: &[&str] = &[
     "table_pdv.desactivee",
     "parametre_configuration.ecrit",
     "branding.modifie",
+    // ── Cycle 003 (CPT) — neuf types, et non dix. L'écart est TRANCHÉ ici ───────────────────
+    //
+    // `data-model.md` § Événements en déclare **dix**, dont `compte.modifie` — « modification
+    // d'identifiant ». **Aucune opération du contrat ne la produit** : les §10 à 16 exposent
+    // créer, lister, lire, changer l'état, changer le mot de passe, attribuer et retirer un rôle.
+    // Pas de modification d'identifiant.
+    //
+    // Ce n'est pas un oubli d'implémentation, c'est un écart entre deux documents de conception
+    // écrits en parallèle — le modèle de données a prévu un événement pour une opération que le
+    // contrat n'a pas retenue. **Le déclarer ici sans émetteur ferait échouer la porte à chaque
+    // exécution**, et l'inventer côté serveur produirait une opération que personne n'a
+    // spécifiée : le principe X l'interdit dans les deux sens.
+    //
+    // La ligne reste au modèle de données comme **provision nommée** — le jour où changer un
+    // numéro de téléphone de connexion deviendra une opération, son type est déjà décidé.
+    // Total du produit : **22 types**, 13 + 9.
+    "personne.creee",
+    "personne.modifiee",
+    "compte.cree",
+    "compte.desactive",
+    "compte.reactive",
+    "compte.mot_de_passe_change",
+    "role.attribue",
+    "role.retire",
+    "session.revoquee",
 ];
+
+/// Les types déclarés au modèle de données **sans émetteur**, nommés un par un.
+///
+/// Une liste vide serait le cas normal ; une liste non vide doit se justifier **ici**, pas dans un
+/// commentaire perdu. Voir la note de `TYPES_EVENEMENTS` ci-dessus.
+const TYPES_SANS_EMETTEUR: &[&str] = &["compte.modifie"];
 
 /// Le fichier de la porte P-05, lu à la compilation.
 const OUTBOX_TRANSACTIONNEL: &str = include_str!("outbox_transactionnel.rs");
@@ -145,6 +176,11 @@ fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
         "crates/socle/etablissements/src/points_de_vente/service.rs",
         "crates/socle/etablissements/src/configuration/service.rs",
         "crates/socle/etablissements/src/branding/service.rs",
+        // ── Cycle 003 ──────────────────────────────────────────────────────────────────────
+        "crates/socle/comptes/src/personne/service.rs",
+        "crates/socle/comptes/src/compte/service.rs",
+        "crates/socle/comptes/src/roles/service.rs",
+        "crates/socle/comptes/src/authentification/service.rs",
     ] {
         let contenu = std::fs::read_to_string(Path::new(chemin))
             .unwrap_or_else(|_| panic!("{chemin} introuvable — le décompte porterait sur moins"));

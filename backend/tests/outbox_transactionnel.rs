@@ -852,3 +852,353 @@ async fn p05_modification_d_identite_visuelle() {
         "réécrire une identité identique a émis {types:?}"
     );
 }
+
+// =================================================================================================
+//  Cycle 003 — les neuf types du module des comptes, et les deux tenants
+// =================================================================================================
+//
+// **Exigence 5 du § « Couverture des portes » : chaque type est exercé sur les DEUX tenants.**
+// C'est né du défaut de séquence que la migration `0012` a corrigé et qu'aucune relecture n'avait
+// vu — une numérotation d'événements correcte pour un tenant et fausse pour le second. Un test à
+// un seul tenant serait vert sur ce défaut-là.
+
+/// Le service des comptes, assemblé comme le fait l'application réelle.
+fn service_comptes(
+    pool: sqlx::PgPool,
+) -> kaya_comptes::compte::ServiceComptes<PgOutboxWriter, kaya_comptes::audit::JournalAuditPostgres>
+{
+    kaya_comptes::compte::ServiceComptes::nouveau(
+        pool,
+        PgOutboxWriter::nouveau(),
+        kaya_comptes::audit::JournalAuditPostgres,
+        kaya_comptes::session::Entrepot::nouveau(&commun::url_redis()).expect("entrepôt Redis"),
+    )
+}
+
+/// Le service des rôles, assemblé comme le fait l'application réelle.
+fn service_roles(
+    pool: sqlx::PgPool,
+    tenant_id: Uuid,
+) -> kaya_comptes::roles::ServiceRoles<
+    PgOutboxWriter,
+    kaya_comptes::audit::JournalAuditPostgres,
+    kaya_etablissements::etablissement::PgEstablishmentDirectory,
+> {
+    kaya_comptes::roles::ServiceRoles::nouveau(
+        pool.clone(),
+        PgOutboxWriter::nouveau(),
+        kaya_comptes::audit::JournalAuditPostgres,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(pool, tenant_id),
+    )
+}
+
+/// **`personne.creee` et `personne.modifiee`, sur les DEUX tenants.**
+///
+/// Le rejeu de la création n'émet rien de plus ; la modification, elle, émet **à chaque fois** —
+/// un second `PUT` identique est une seconde transition d'état, même si l'état final est le même,
+/// et le registre doit pouvoir dire qui a touché la fiche et quand.
+#[tokio::test]
+async fn p05_personne_creee_et_modifiee_sur_les_deux_tenants() {
+    use kaya_comptes::personne::{CreerPersonne, ModifierPersonne, ServicePersonne};
+
+    let pool_owner = commun::pool_owner().await;
+    let service = ServicePersonne::nouveau(commun::pool_app().await, PgOutboxWriter::nouveau());
+
+    for rang in ['A', 'B'] {
+        let jeu = commun::creer_tenant(&pool_owner, &format!("P-05 personne {rang}")).await;
+        let id = Uuid::now_v7();
+
+        // Deux envois du même identifiant : un seul événement.
+        for _ in 0..2 {
+            service
+                .creer(
+                    jeu.tenant_id,
+                    CreerPersonne {
+                        id,
+                        nom: format!("Personne {rang}"),
+                        prenoms: None,
+                        telephone: None,
+                        email: None,
+                        horodatage_client: None,
+                    },
+                )
+                .await
+                .expect("création");
+        }
+
+        service
+            .modifier(
+                jeu.tenant_id,
+                id,
+                ModifierPersonne {
+                    nom: format!("Personne {rang} modifiée"),
+                    prenoms: None,
+                    telephone: None,
+                    email: None,
+                    horodatage_client: None,
+                },
+            )
+            .await
+            .expect("modification");
+
+        let types = types_evenements(&pool_owner, jeu.tenant_id, id).await;
+        assert_eq!(
+            types,
+            vec!["personne.creee", "personne.modifiee"],
+            "tenant {rang} : {types:?}"
+        );
+    }
+}
+
+/// **`compte.cree`, `compte.desactive`, `compte.reactive` et `compte.mot_de_passe_change`.**
+///
+/// Les quatre sur le même agrégat, sur les deux tenants. Deux propriétés s'y vérifient au passage :
+///
+///  * **une désactivation sans transition n'émet rien** — désactiver un compte déjà inactif est un
+///    rejeu, et le traiter comme un acte ferait du grand livre le journal des reprises réseau ;
+///  * **aucune charge utile ne porte le secret ni son condensat**, ni même sa longueur — la
+///    longueur seule réduirait déjà l'espace de recherche d'une attaque hors ligne.
+#[tokio::test]
+async fn p05_les_quatre_types_de_compte_sur_les_deux_tenants() {
+    use kaya_comptes::compte::CreerCompte;
+    use kaya_comptes::personne::{CreerPersonne, ServicePersonne};
+
+    let pool_owner = commun::pool_owner().await;
+    let pool = commun::pool_app().await;
+    let personnes = ServicePersonne::nouveau(pool.clone(), PgOutboxWriter::nouveau());
+    let comptes = service_comptes(pool.clone());
+
+    for rang in ['A', 'B'] {
+        let jeu = commun::creer_tenant(&pool_owner, &format!("P-05 compte {rang}")).await;
+
+        let personne_id = Uuid::now_v7();
+        personnes
+            .creer(
+                jeu.tenant_id,
+                CreerPersonne {
+                    id: personne_id,
+                    nom: format!("Titulaire {rang}"),
+                    prenoms: None,
+                    telephone: None,
+                    email: None,
+                    horodatage_client: None,
+                },
+            )
+            .await
+            .expect("personne");
+
+        let compte_id = Uuid::now_v7();
+        let hexa = Uuid::now_v7().simple().to_string();
+        comptes
+            .creer(
+                jeu.tenant_id,
+                CreerCompte {
+                    id: compte_id,
+                    personne_id,
+                    identifiant_telephone: Some(format!("+225{}", &hexa[hexa.len() - 10..])),
+                    identifiant_email: None,
+                    mot_de_passe: commun::MOT_DE_PASSE_TEST.to_owned(),
+                    horodatage_client: None,
+                },
+            )
+            .await
+            .expect("compte");
+
+        comptes
+            .changer_etat(jeu.tenant_id, compte_id, compte_id, false)
+            .await
+            .expect("désactivation");
+        // **Sans transition, rien n'est émis** — la seconde désactivation est un rejeu.
+        comptes
+            .changer_etat(jeu.tenant_id, compte_id, compte_id, false)
+            .await
+            .expect("désactivation rejouée");
+        comptes
+            .changer_etat(jeu.tenant_id, compte_id, compte_id, true)
+            .await
+            .expect("réactivation");
+
+        comptes
+            .changer_mot_de_passe(
+                jeu.tenant_id,
+                compte_id,
+                None,
+                "abidjan-tomate-chaise",
+                None,
+                3600,
+            )
+            .await
+            .expect("changement de mot de passe");
+
+        let types = types_evenements(&pool_owner, jeu.tenant_id, compte_id).await;
+        assert_eq!(
+            types,
+            vec![
+                "compte.cree",
+                "compte.desactive",
+                "compte.reactive",
+                "compte.mot_de_passe_change",
+            ],
+            "tenant {rang} : {types:?}"
+        );
+
+        // **Aucun secret dans le grand livre**, qui est permanent.
+        let charges = charges_utiles(&pool_owner, jeu.tenant_id, compte_id).await;
+        let brut = serde_json::to_string(&charges).expect("sérialisation");
+        assert!(!brut.contains(commun::MOT_DE_PASSE_TEST), "le mot de passe est au grand livre");
+        assert!(!brut.contains("abidjan-tomate-chaise"), "le nouveau mot de passe est au grand livre");
+        assert!(!brut.contains("$argon2"), "un condensat est au grand livre");
+    }
+}
+
+/// **`role.attribue` et `role.retire`, sur les deux tenants.**
+///
+/// Deux actes, deux événements. Il n'existe **aucun** type « rôle modifié » : `compte_role` n'a pas
+/// de privilège `UPDATE`, et une opération unique cacherait l'un des deux au grand livre.
+#[tokio::test]
+async fn p05_role_attribue_et_retire_sur_les_deux_tenants() {
+    let pool_owner = commun::pool_owner().await;
+    let pool = commun::pool_app().await;
+
+    for rang in ['A', 'B'] {
+        let jeu = commun::creer_tenant(&pool_owner, &format!("P-05 rôle {rang}")).await;
+        let etb = jeu.etablissement_id;
+
+        let auteur = commun::compte_connecte(
+            &pool_owner,
+            jeu,
+            &format!("Auteur rôle {rang}"),
+            &[("proprietaire", Some(etb))],
+        )
+        .await;
+        let cible = commun::compte_connecte(&pool_owner, jeu, &format!("Cible rôle {rang}"), &[]).await;
+
+        let service = service_roles(pool.clone(), jeu.tenant_id);
+
+        service
+            .attribuer(
+                jeu.tenant_id,
+                auteur.compte_id,
+                kaya_comptes::roles::AttribuerRole {
+                    id: Uuid::now_v7(),
+                    compte_id: cible.compte_id,
+                    role_code: "caissier".to_owned(),
+                    etablissement_id: Some(etb),
+                    horodatage_client: None,
+                },
+            )
+            .await
+            .expect("attribution");
+
+        service
+            .retirer(jeu.tenant_id, auteur.compte_id, cible.compte_id, "caissier", Some(etb))
+            .await
+            .expect("retrait");
+
+        let types = types_evenements(&pool_owner, jeu.tenant_id, cible.compte_id).await;
+        assert_eq!(types, vec!["role.attribue", "role.retire"], "tenant {rang} : {types:?}");
+    }
+}
+
+/// **`session.revoquee`, sur les deux tenants.**
+#[tokio::test]
+async fn p05_session_revoquee_sur_les_deux_tenants() {
+    let pool_owner = commun::pool_owner().await;
+
+    for rang in ['A', 'B'] {
+        let jeu = commun::creer_tenant(&pool_owner, &format!("P-05 session {rang}")).await;
+        let compte = commun::compte_connecte(
+            &pool_owner,
+            jeu,
+            &format!("Session {rang}"),
+            &[("proprietaire", Some(jeu.etablissement_id))],
+        )
+        .await;
+
+        let service = commun::service_authentification(commun::pool_app().await);
+        // `session_courante` ne sert qu'à marquer laquelle est « cet appareil-ci » dans la vue ;
+        // un UUID neuf suffit ici, aucune des deux n'étant la nôtre.
+        let sessions = service
+            .lister_actives(compte.compte_id, Uuid::now_v7())
+            .await
+            .expect("liste des sessions");
+        let session_id = sessions.first().expect("une session ouverte").id;
+
+        service
+            .revoquer(compte.compte_id, jeu.tenant_id, compte.compte_id, session_id, 3600)
+            .await
+            .expect("révocation");
+
+        let types = types_evenements(&pool_owner, jeu.tenant_id, compte.compte_id).await;
+        assert_eq!(types, vec!["session.revoquee"], "tenant {rang} : {types:?}");
+    }
+}
+
+/// **La connexion, le rafraîchissement et l'échec d'authentification N'ÉMETTENT RIEN.**
+///
+/// Research R-15, et c'est une décision, pas une omission : ce ne sont **pas des transitions
+/// d'état métier**. Le grand livre est permanent et à rétention illimitée — y inscrire les
+/// connexions y écrirait **la liste horodatée des présences du personnel**, pour toujours, sans
+/// que personne l'ait décidé.
+///
+/// Les échecs d'authentification vont aux journaux applicatifs, où ils ont une rétention bornée et
+/// un public d'exploitation.
+#[tokio::test]
+async fn p05_la_connexion_et_ses_echecs_n_emettent_aucun_evenement() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 connexion muette").await;
+
+    // `compte_connecte` passe par le VRAI chemin de connexion — c'est là tout l'intérêt : le test
+    // observe ce que fait `ServiceAuthentification::ouvrir`, pas ce qu'on croit qu'il fait.
+    let compte = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "Connexion muette",
+        &[("proprietaire", Some(jeu.etablissement_id))],
+    )
+    .await;
+
+    let service = commun::service_authentification(commun::pool_app().await);
+
+    // Un échec d'authentification, sur un identifiant qui n'existe pas.
+    let echec = service
+        .ouvrir("+22500000000000", "peu-importe-le-mot-de-passe", None, None, "203.0.113.250")
+        .await;
+    assert!(echec.is_err(), "l'échec doit rester un échec");
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, compte.compte_id).await;
+    assert!(
+        types.is_empty(),
+        "la connexion a émis {types:?} au grand livre.\n\
+         Le grand livre est permanent : y inscrire les connexions y écrirait la liste horodatée \
+         des présences du personnel, pour toujours (research R-15)."
+    );
+}
+
+/// Les charges utiles des événements d'un agrégat — pour vérifier ce qu'elles ne portent PAS.
+async fn charges_utiles(
+    pool_owner: &sqlx::PgPool,
+    tenant_id: Uuid,
+    agregat_id: Uuid,
+) -> Vec<serde_json::Value> {
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    let charges = sqlx::query_scalar!(
+        r#"
+        SELECT payload AS "payload!"
+        FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1
+        ORDER BY sequence_etablissement
+        "#,
+        agregat_id
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des charges utiles");
+
+    tx.rollback().await.expect("rollback");
+    charges
+}
