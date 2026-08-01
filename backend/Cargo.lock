@@ -2193,8 +2193,16 @@ name = "kaya-comptes"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "async-trait",
  "jsonwebtoken",
  "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "utoipa",
+ "uuid",
 ]
 
 [[package]]
