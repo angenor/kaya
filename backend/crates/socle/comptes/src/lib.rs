@@ -13,4 +13,5 @@
 
 #![forbid(unsafe_code)]
 
+pub mod authentification;
 pub mod preuve_cryptographique;
