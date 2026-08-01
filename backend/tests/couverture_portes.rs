@@ -339,6 +339,10 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         // ── Cycle 003 (CPT) — dix-neuf opérations, ventilées par lot de livraison ────────────
         ("cycle 003 — personnes (CPT-00, contrat §7-9)", 3),
         ("cycle 003 — session (CPT-01, contrat §1-6)", 6),
+        // Sept opérations de comptes (§10-16) et **deux** référentiels (§17-18). Le contrat en
+        // numérote neuf, et neuf sont servies — `compte_lister` et `compte_creer` partagent le
+        // chemin `/api/v1/comptes`, ce qui fait six chemins pour sept opérations.
+        ("cycle 003 — comptes et rôles (CPT-02, contrat §10-18)", 9),
     ];
     let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
 

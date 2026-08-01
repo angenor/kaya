@@ -64,6 +64,12 @@ pub struct RolePorte {
     pub etablissement_id: Option<Uuid>,
 }
 
+/// Clé du catalogue portant la longueur minimale du mot de passe.
+///
+/// Nommée ici plutôt qu'en littéral dans le service : c'est un **paramètre d'établissement**
+/// (migration `0019`), et une chaîne recopiée à deux endroits finirait par en désigner deux.
+pub const CLE_LONGUEUR_MIN: &str = "mot_de_passe_longueur_min";
+
 /// Demande de création d'un compte.
 #[derive(Debug, Clone)]
 pub struct CreerCompte {

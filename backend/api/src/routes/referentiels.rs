@@ -19,6 +19,7 @@ use actix_web::{HttpResponse, get, web};
 use serde::Serialize;
 use utoipa::ToSchema;
 
+use kaya_comptes::roles::{EntreeReferentielRole, ErreurRoles};
 use kaya_etablissements::modules::ErreurModules;
 
 use crate::application::EtatApplication;
@@ -97,6 +98,72 @@ pub async fn profils_stock(
     Ok(HttpResponse::Ok().json(entrees))
 }
 
+// =================================================================================================
+//  17 et 18 · Les deux référentiels de CPT-02
+// =================================================================================================
+//
+// Ils rendent **la même chose aux deux tenants** — ce sont des référentiels globaux, sans
+// `tenant_id`, régime nommé de la migration `0008` et repris par `0016`. Le test d'isolation P-08
+// l'affirme **explicitement** : sans cette assertion, un référentiel global et une fuite
+// inter-tenants se ressemblent trait pour trait.
+//
+// Ils ne demandent **aucune permission** au-delà du jeton. Savoir quels rôles existent n'apprend
+// rien de ce qu'un compte peut faire, et l'écran `G3` en a besoin pour composer sa liste
+// d'attribution avant même de savoir qui est connecté.
+
+/// Référentiel des huit rôles — **« Ce que chacun peut faire »**.
+#[utoipa::path(
+    operation_id = "referentiel_roles",
+    tag = "referentiels",
+    responses(
+        (status = 200, description = "Rôles connus", body = Vec<EntreeReferentielRole>),
+        (status = 401, description = "Non authentifié"),
+    ),
+    security(("bearer" = []))
+)]
+#[get("/roles")]
+pub async fn roles(
+    etat: web::Data<EtatApplication>,
+    _contexte: ContexteAppel,
+) -> Result<HttpResponse, actix_web::Error> {
+    let entrees = etat
+        .service_roles_lecture()
+        .referentiel_roles()
+        .await
+        .map_err(en_reponse_roles)?;
+    Ok(HttpResponse::Ok().json(entrees))
+}
+
+/// Référentiel des dix-sept permissions.
+///
+/// **Le mot « permission » n'atteint jamais l'interface** (`docs/design/lexique.md`) : ce
+/// référentiel sert à composer des libellés d'action, pas à afficher une mécanique d'autorisation.
+#[utoipa::path(
+    operation_id = "referentiel_permissions",
+    tag = "referentiels",
+    responses(
+        (status = 200, description = "Permissions connues", body = Vec<EntreeReferentielRole>),
+        (status = 401, description = "Non authentifié"),
+    ),
+    security(("bearer" = []))
+)]
+#[get("/permissions")]
+pub async fn permissions(
+    etat: web::Data<EtatApplication>,
+    _contexte: ContexteAppel,
+) -> Result<HttpResponse, actix_web::Error> {
+    let entrees = etat
+        .service_roles_lecture()
+        .referentiel_permissions()
+        .await
+        .map_err(en_reponse_roles)?;
+    Ok(HttpResponse::Ok().json(entrees))
+}
+
 fn en_reponse(erreur: ErreurModules) -> actix_web::Error {
     crate::routes::erreurs::interne("lecture d'un référentiel", erreur)
+}
+
+fn en_reponse_roles(erreur: ErreurRoles) -> actix_web::Error {
+    crate::routes::erreurs::interne("lecture d'un référentiel de rôles", erreur)
 }

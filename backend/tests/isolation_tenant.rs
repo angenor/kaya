@@ -110,6 +110,11 @@ const COUVERTURE: &[(&str, Regime)] = &[
     ("/api/v1/referentiels/modules-activite", Regime::SansTenant),
     ("/api/v1/referentiels/capacites", Regime::SansTenant),
     ("/api/v1/referentiels/profils-stock", Regime::SansTenant),
+    // Les deux référentiels de CPT-02 relèvent du **même régime, pour la même raison** :
+    // `comptes.role` et `comptes.permission` sont sans `tenant_id`, régime nommé de `0008` repris
+    // par `0016`. Ils entrent dans la même assertion d'égalité ci-dessous.
+    ("/api/v1/referentiels/roles", Regime::SansTenant),
+    ("/api/v1/referentiels/permissions", Regime::SansTenant),
     // ── Cycle 003 — session (CPT-01) ───────────────────────────────────────────────────────
     //
     // **Les deux opérations publiques du produit sont ici**, et c'est la seule liste d'exceptions
@@ -131,6 +136,20 @@ const COUVERTURE: &[(&str, Regime)] = &[
     // expose pas (§7-9) — un annuaire d'identités civiles suppose la rétention de TRX-06.
     ("/api/v1/personnes", Regime::Isole),
     ("/api/v1/personnes/{personne_id}", Regime::Isole),
+    // ── Cycle 003 — comptes et rôles (CPT-01, CPT-02) ──────────────────────────────────────
+    //
+    // Les six chemins sont **isolés**, sans exception. `compte` et `compte_role` portent un
+    // `tenant_id` et leur politique ; un appel croisé ne doit ni lire ni écrire.
+    //
+    // `/comptes/{id}/roles/{role_code}` mérite une mention : le rôle est un code de référentiel
+    // GLOBAL, et il serait tentant d'en conclure que le chemin l'est aussi. Il ne l'est pas — ce
+    // qu'il touche est la ligne `compte_role` d'un compte, qui appartient à un tenant.
+    ("/api/v1/comptes", Regime::Isole),
+    ("/api/v1/comptes/{compte_id}", Regime::Isole),
+    ("/api/v1/comptes/{compte_id}/etat", Regime::Isole),
+    ("/api/v1/comptes/{compte_id}/mot-de-passe", Regime::Isole),
+    ("/api/v1/comptes/{compte_id}/roles", Regime::Isole),
+    ("/api/v1/comptes/{compte_id}/roles/{role_code}", Regime::Isole),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.
@@ -539,12 +558,16 @@ async fn p08_la_liste_des_etablissements_est_bornee_au_tenant() {
     );
 }
 
-/// **Les trois référentiels rendent la MÊME chose aux deux tenants** — et c'est correct.
+/// **Les cinq référentiels rendent la MÊME chose aux deux tenants** — et c'est correct.
 ///
-/// Sans cette assertion, trois routes déclarées `SansTenant` dans [`COUVERTURE`] ressembleraient à
+/// Sans cette assertion, cinq routes déclarées `SansTenant` dans [`COUVERTURE`] ressembleraient à
 /// une exception non vérifiée. Un futur relecteur conclurait à une fuite, ou « corrigerait » en y
-/// ajoutant un filtrage par tenant — ce qui multiplierait cinq lignes de référentiel par le nombre
+/// ajoutant un filtrage par tenant — ce qui multiplierait les lignes de référentiel par le nombre
 /// de clients et rendrait impossible l'ajout d'une valeur par configuration (cadrage §14.3).
+///
+/// **CPT-02 en ajoute deux** : les huit rôles et les dix-sept permissions. Ils sont exactement dans
+/// le même cas, et les inscrire ici plutôt que d'écrire un second test évite qu'un des deux
+/// vérifie une propriété que l'autre aurait perdue.
 ///
 /// **Ce test transforme une exception en assertion.**
 #[actix_web::test]
@@ -565,6 +588,8 @@ async fn p08_les_referentiels_rendent_la_meme_chose_aux_deux_tenants() {
         "/api/v1/referentiels/modules-activite",
         "/api/v1/referentiels/capacites",
         "/api/v1/referentiels/profils-stock",
+        "/api/v1/referentiels/roles",
+        "/api/v1/referentiels/permissions",
     ] {
         let mut reponses = Vec::new();
         for bearer in [&cx_a.bearer, &cx_b.bearer] {

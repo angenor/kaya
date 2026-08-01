@@ -11,6 +11,7 @@
 //! chaque handler porte son propre attribut de routage.
 
 pub mod branding;
+pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
@@ -60,12 +61,17 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(configuration::ecrire),
     );
 
-    // Référentiels — lecture seule, aucun verbe d'écriture exposé.
+    // Référentiels — lecture seule, aucun verbe d'écriture exposé. Les cinq rendent **la même
+    // chose aux deux tenants** : ce sont des référentiels globaux, et le test d'isolation
+    // l'affirme explicitement plutôt que de laisser un référentiel global et une fuite se
+    // ressembler.
     config.service(
         scope("/api/v1/referentiels")
             .service(referentiels::modules_activite)
             .service(referentiels::capacites)
-            .service(referentiels::profils_stock),
+            .service(referentiels::profils_stock)
+            .service(referentiels::roles)
+            .service(referentiels::permissions),
     );
 
     // Session — CPT-01. **Du plus spécifique au plus général**, sans quoi `/api/v1/session`
@@ -92,6 +98,25 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(personnes::modifier),
     );
     config.service(scope("/api/v1/personnes").service(personnes::creer));
+
+    // Comptes et rôles — CPT-01, CPT-02. **Du plus spécifique au plus général**, sans quoi
+    // `/api/v1/comptes` accepterait le préfixe et rendrait `404` pour les cinq autres — sans
+    // erreur de compilation, et avec un contrat OpenAPI parfaitement exact.
+    config.service(
+        scope("/api/v1/comptes/{compte_id}/roles/{role_code}").service(comptes::retirer_role),
+    );
+    config.service(scope("/api/v1/comptes/{compte_id}/roles").service(comptes::attribuer_role));
+    config.service(scope("/api/v1/comptes/{compte_id}/etat").service(comptes::changer_etat));
+    config.service(
+        scope("/api/v1/comptes/{compte_id}/mot-de-passe")
+            .service(comptes::changer_mot_de_passe),
+    );
+    config.service(scope("/api/v1/comptes/{compte_id}").service(comptes::lire));
+    config.service(
+        scope("/api/v1/comptes")
+            .service(comptes::creer)
+            .service(comptes::lister),
+    );
 
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/notes")

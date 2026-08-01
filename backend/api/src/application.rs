@@ -89,6 +89,76 @@ impl EtatApplication {
         )
     }
 
+    /// Service des comptes — CPT-01, opérations 10 à 14.
+    ///
+    /// L'entrepôt des sessions y entre pour **une seule raison** : le changement de mot de passe
+    /// coupe les autres sessions, immédiatement. Sans lui, le geste qu'on fait quand on soupçonne
+    /// que quelqu'un a son mot de passe laisserait les sessions ouvertes jusqu'à quatre-vingt-dix
+    /// jours.
+    pub fn service_comptes(
+        &self,
+    ) -> kaya_comptes::compte::ServiceComptes<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_comptes::audit::JournalAuditPostgres,
+    > {
+        kaya_comptes::compte::ServiceComptes::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_comptes::audit::JournalAuditPostgres,
+            self.entrepot.clone(),
+        )
+    }
+
+    /// Service des rôles — CPT-02, opérations 15 et 16.
+    ///
+    /// # Pourquoi celui-ci prend un `tenant_id` et les autres non
+    ///
+    /// Il détient un `EstablishmentDirectory`, par lequel l'attribution vérifie qu'un
+    /// établissement existe **sans jointure inter-schémas** (principe II, porte P-04). Ce trait
+    /// porte son tenant dans l'instance et non dans ses signatures — décision du cycle 002, prise
+    /// pour qu'un consommateur qui demande « l'établissement 42 » n'ait pas à connaître le
+    /// contexte d'authentification. Le prix est ici : le service se construit par requête.
+    pub fn service_roles(
+        &self,
+        tenant_id: uuid::Uuid,
+    ) -> kaya_comptes::roles::ServiceRoles<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_comptes::audit::JournalAuditPostgres,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+    > {
+        kaya_comptes::roles::ServiceRoles::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_comptes::audit::JournalAuditPostgres,
+            kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+                self.pool.clone(),
+                tenant_id,
+            ),
+        )
+    }
+
+    /// Le même service, pour les **deux référentiels globaux**.
+    ///
+    /// Les référentiels des rôles et des permissions sont sans `tenant_id` : ils rendent la même
+    /// chose à tout le monde. Un tenant nul y est donc exact, et non un contournement — mais il
+    /// mérite d'être nommé, sans quoi le prochain lecteur croirait à une faute.
+    pub fn service_roles_lecture(
+        &self,
+    ) -> kaya_comptes::roles::ServiceRoles<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_comptes::audit::JournalAuditPostgres,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+    > {
+        self.service_roles(uuid::Uuid::nil())
+    }
+
+    /// Contrôle d'accès et annuaire des comptes — les deux traits de `socle/comptes`.
+    ///
+    /// Employé par la lecture du registre des actions, qui résout ses auteurs **en lot**.
+    pub fn annuaire_comptes(&self) -> kaya_comptes::ControleAccesPostgres {
+        kaya_comptes::ControleAccesPostgres::nouveau(self.pool.clone())
+    }
+
     /// Service de l'identité civile — CPT-00.
     pub fn service_personne(
         &self,

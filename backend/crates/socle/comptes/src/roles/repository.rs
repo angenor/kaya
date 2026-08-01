@@ -340,42 +340,10 @@ pub async fn compte_reste_habilite(
     Ok(habilite)
 }
 
-/// Les rôles portés par un compte, avec leur établissement.
-///
-/// Employé par `compte_lister` et `compte_lire` (écran `G3`). L'ordre suit celui du référentiel,
-/// puis l'établissement : stable d'un appel à l'autre, indépendant de la locale.
-///
-/// # Aucun libellé n'est rendu ici, et c'est délibéré
-///
-/// La forme évidente joindrait `role.libelle_cle` pour épargner un appel au front. Elle
-/// **dupliquerait le référentiel dans chaque ligne de compte** : sur un écran de cinquante
-/// comptes, la même clé partirait deux cents fois. `G3` charge le référentiel des rôles de toute
-/// façon — il en a besoin pour la liste d'attribution — et y résout le code une fois.
-pub async fn roles_du_compte(
-    tx: &mut sqlx::PgTransaction<'_>,
-    compte_id: Uuid,
-) -> Result<Vec<crate::compte::RolePorte>, ErreurRoles> {
-    let lignes = sqlx::query!(
-        r#"
-        SELECT cr.role_code AS "role_code!", cr.etablissement_id
-        FROM comptes.compte_role cr
-        JOIN comptes.role r ON r.code = cr.role_code
-        WHERE cr.compte_id = $1
-        ORDER BY r.ordre, cr.etablissement_id NULLS FIRST
-        "#,
-        compte_id
-    )
-    .fetch_all(&mut **tx)
-    .await?;
-
-    Ok(lignes
-        .into_iter()
-        .map(|l| crate::compte::RolePorte {
-            role_code: l.role_code,
-            etablissement_id: l.etablissement_id,
-        })
-        .collect())
-}
+// **Aucune fonction `roles_du_compte` ici**, et c'est délibéré : `compte::repository::roles_portes`
+// la fait déjà, **en lot**, pour l'écran `G3`. En écrire une seconde version par compte
+// produirait deux définitions de « les rôles d'un compte » — celle qui dérive étant toujours
+// celle qu'on ne relit pas — et rouvrirait le problème des cent requêtes que le lot ferme.
 
 /// Le référentiel des huit rôles — **le même pour les deux tenants**.
 pub async fn referentiel_roles(

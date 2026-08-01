@@ -23,6 +23,16 @@ use kaya_etablissements::Issue;
 use crate::application::EtatApplication;
 use crate::contexte::ContexteAppel;
 use crate::routes::erreurs::{CorpsErreur, interne};
+use crate::securite;
+
+/// Permissions du contrat, nommées une fois.
+///
+/// **Elles n'étaient pas posées à l'écriture de ces trois handlers (T023)** : la garde de
+/// permission n'existait pas encore, elle est arrivée avec T040. Les poser ici est la seconde
+/// moitié de la même tâche — un endpoint annoncé sous permission au contrat et servi sans elle
+/// est un contrat qui ment.
+const PERM_LIRE: &str = "cpt.compte.lire";
+const PERM_GERER: &str = "cpt.compte.gerer";
 
 /// Corps de création d'une personne.
 #[derive(Debug, Deserialize, ToSchema)]
@@ -82,6 +92,7 @@ pub async fn creer(
     contexte: ContexteAppel,
     corps: web::Json<CreerPersonneRequete>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_GERER)?;
     let corps = corps.into_inner();
 
     let (personne, issue) = etat
@@ -125,6 +136,8 @@ pub async fn lire(
     contexte: ContexteAppel,
     chemin: web::Path<Uuid>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_LIRE)?;
+
     let personne = etat
         .service_personne()
         .lire(contexte.tenant_id, chemin.into_inner())
@@ -159,6 +172,7 @@ pub async fn modifier(
     chemin: web::Path<Uuid>,
     corps: web::Json<ModifierPersonneRequete>,
 ) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_GERER)?;
     let corps = corps.into_inner();
 
     let personne = etat

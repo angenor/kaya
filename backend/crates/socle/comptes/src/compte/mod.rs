@@ -6,14 +6,19 @@
 //! **rien** de la vie civile ni du contrat de travail — `backend/tests/personne_compte_employe.rs`
 //! le vérifie sur `information_schema`.
 //!
-//! Le sous-module n'a **pas** de `service.rs` à ce stade : les écritures de compte (création,
-//! changement d'état, changement de mot de passe) arrivent avec T041, et l'authentification vit
-//! dans `authentification/service.rs` parce qu'elle orchestre le hachage, les sessions et le
-//! registre des actions — trois choses qu'un service de compte n'a pas à connaître.
+//! `service.rs` porte les écritures — création, changement d'état, changement de mot de passe.
+//! **L'authentification n'y est pas** : elle vit dans `authentification/service.rs`, parce
+//! qu'elle orchestre le hachage, les sessions et le registre des actions — trois choses qu'un
+//! service de compte n'a pas à connaître.
 
 pub mod modele;
 pub mod repository;
+pub mod service;
 
 pub use modele::{
-    CompteAuthentification, CompteVue, CreerCompte, ErreurCompte, RolePorte,
+    CLE_LONGUEUR_MIN, CompteAuthentification, CompteVue, CreerCompte, ErreurCompte, RolePorte,
+};
+pub use service::{
+    ServiceComptes, TYPE_COMPTE_CREE, TYPE_COMPTE_DESACTIVE, TYPE_COMPTE_MOT_DE_PASSE_CHANGE,
+    TYPE_COMPTE_REACTIVE,
 };
