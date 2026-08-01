@@ -13,5 +13,6 @@
 
 #![forbid(unsafe_code)]
 
+pub mod audit;
 pub mod authentification;
 pub mod preuve_cryptographique;

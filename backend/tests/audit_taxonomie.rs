@@ -359,6 +359,67 @@ fn decompte_des_familles_branchees_et_dues() {
     }
 }
 
+/// **5 · Code → document : l'énumération Rust et le tableau portent les mêmes dix codes.**
+///
+/// C'est le sens de comparaison que le § « Couverture des portes » impose — celui qui attrape ce
+/// qu'on ajoute, pas ce qu'on projette. Une variante ajoutée à `TypeActionAudit` sans ligne au
+/// document fait échouer ce test ; une ligne au document sans variante aussi, parce qu'ici les
+/// deux listes sont **fermées** et de même taille par construction (contrairement au registre des
+/// classes hors-ligne, qui décrit tout le produit à venir).
+///
+/// Les codes sont extraits du corps de `fn code()`, où ils sont écrits à la main précisément pour
+/// ne pas dépendre de la représentation `serde`.
+#[test]
+fn l_enumeration_rust_et_le_document_portent_les_memes_codes() {
+    let source = std::fs::read_to_string(racine_backend().join(DEFINITION)).unwrap_or_else(|e| {
+        panic!(
+            "impossible de lire {DEFINITION} : {e}\n\
+             C'est la définition de `TypeActionAudit`. Si elle a été déplacée, mettre à jour la \
+             constante DEFINITION — qui sert aussi d'exclusion au balayage."
+        )
+    });
+
+    // Les codes littéraux du `match` de `code()` : `TypeActionAudit::Variante => "code",`
+    let codes_du_code: BTreeSet<String> = source
+        .lines()
+        .filter_map(|ligne| {
+            let ligne = ligne.trim();
+            let apres = ligne.strip_prefix("TypeActionAudit::")?;
+            let (_, valeur) = apres.split_once("=> \"")?;
+            let (code, _) = valeur.split_once('"')?;
+            Some(code.to_owned())
+        })
+        .collect();
+
+    let codes_du_document: BTreeSet<String> = familles_du_document()
+        .into_iter()
+        .map(|f| f.code)
+        .collect();
+
+    assert_eq!(
+        codes_du_code.len(),
+        FAMILLES_ATTENDUES,
+        "{} code(s) extrait(s) de l'énumération pour {FAMILLES_ATTENDUES} attendu(s). \
+         L'extraction lit les bras `TypeActionAudit::Variante => \"code\",` de `fn code()` : \
+         une reformulation du `match` la casserait, et la porte ne comparerait plus rien. \
+         Extraits : {codes_du_code:?}",
+        codes_du_code.len()
+    );
+
+    assert_eq!(
+        codes_du_code, codes_du_document,
+        "l'énumération `TypeActionAudit` et docs/taxonomie-audit.md ont divergé.\n\
+         Dans le code seulement : {:?}\n\
+         Dans le document seulement : {:?}",
+        codes_du_code
+            .difference(&codes_du_document)
+            .collect::<Vec<_>>(),
+        codes_du_document
+            .difference(&codes_du_code)
+            .collect::<Vec<_>>()
+    );
+}
+
 /// **Test négatif** — la porte sait échouer.
 ///
 /// Exercé sur un jeu simulé plutôt que sur le vrai document : y injecter une famille factice
