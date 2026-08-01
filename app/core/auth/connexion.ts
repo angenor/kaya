@@ -26,7 +26,7 @@
  * mieux à faire, et c'est aussi ce qui rend le vol visible à la victime.
  */
 
-import { creerClientKaya } from '@kaya/client'
+import { creerClientKaya, type components } from '@kaya/client'
 
 import type { EtatReseau } from '~/core/platform'
 import {
@@ -101,15 +101,15 @@ interface CorpsErreur {
   code?: string
 }
 
-/** Ce que rend `session_ouvrir` et `session_rafraichir`, réduit à ce qui est consommé ici. */
-interface SessionOuverteVue {
-  acces: string
-  rafraichissement: string
-  expire_dans_s: number
-  permissions: string[]
-  etablissements: string[]
-  compte: { compte_id: string, tenant_id: string, etablissement_actif?: string | null }
-}
+/**
+ * Ce que rendent `session_ouvrir` et `session_rafraichir`.
+ *
+ * **Alias du contrat, pas une copie.** Cette déclaration était écrite à la main, « réduite à ce
+ * qui est consommé ici », et les deux appels y convertissaient par `as unknown as` : renommer
+ * `permissions` côté serveur aurait laissé le front compiler pour ne poser que des permissions
+ * `undefined` — sur le chemin qui décide de ce que chacun voit. Constaté en T062.
+ */
+type SessionOuverteVue = components['schemas']['SessionOuverteVue']
 
 /** Pose l'état de session à partir de ce que le serveur vient de rendre. */
 async function adopter(vue: SessionOuverteVue): Promise<ResultatConnexion> {
@@ -158,7 +158,7 @@ export async function ouvrirSession(
   })
 
   if (!reponse.error && reponse.data) {
-    return adopter(reponse.data as unknown as SessionOuverteVue)
+    return adopter(reponse.data)
   }
 
   // **Tout `401` rend la phrase unique** — le code n'est pas consulté. Voir le commentaire de
@@ -201,7 +201,7 @@ export async function rafraichirSession(
   })
 
   if (!reponse.error && reponse.data) {
-    return adopter(reponse.data as unknown as SessionOuverteVue)
+    return adopter(reponse.data)
   }
 
   if (reponse.response.status === 401) {

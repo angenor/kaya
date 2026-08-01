@@ -19,36 +19,28 @@
  * que le HTML produit ne porte **aucun** libellé ni code des services absents.
  */
 
-/** Un service actif, tel que l'API le rend. */
-export interface ServiceActif {
-  id: string
-  module_code: string
-  /** **Clé i18n, jamais un libellé.** Le texte vit dans `core/i18n/{fr,en}.json`. */
-  libelle_cle: string
-  ordre: number
-  capacites: CapaciteDuService[]
-}
+import type { components } from '@kaya/client'
+
+/**
+ * Un service actif, tel que l'API le rend.
+ *
+ * **Alias du contrat, pas une copie.** Ces trois types étaient redéclarés à la main ; T062 a
+ * montré qu'un champ renommé côté serveur laissait alors le front compiler. Voir la note de tête
+ * de `donnees.ts`.
+ */
+export type ServiceActif = components['schemas']['ServiceActif']
 
 /** Une capacité déclarée par un service. */
-export interface CapaciteDuService {
-  id: string
-  capacite_code: string
-  profil_code: string
-  libelle_cle: string
-}
+export type CapaciteDuService = components['schemas']['CapaciteDuService']
 
-/** Une entrée de référentiel, telle que l'API la rend. */
-export interface EntreeReferentiel {
-  code: string
-  libelle_cle: string
-  /**
-   * Rendu délibérément par l'API — le drapeau existe pour la console éditeur et pour distinguer
-   * « inconnu » de « connu mais non implémenté » dans un message d'erreur. **Le filtrage est une
-   * règle d'affichage**, et c'est cette fonction qui la porte.
-   */
-  implementee: boolean
-  ordre: number
-}
+/**
+ * Une entrée de référentiel, telle que l'API la rend.
+ *
+ * Elle porte `implementee`, rendu délibérément par l'API — le drapeau existe pour la console
+ * éditeur et pour distinguer « inconnu » de « connu mais non implémenté » dans un message
+ * d'erreur. **Le filtrage est une règle d'affichage**, et c'est [`servicesVisibles`] qui la porte.
+ */
+export type EntreeReferentiel = components['schemas']['EntreeReferentiel']
 
 /**
  * Les services **à afficher**, dans l'ordre du référentiel.

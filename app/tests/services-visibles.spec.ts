@@ -43,12 +43,19 @@ const REFERENTIEL: EntreeReferentiel[] = [
   },
 ]
 
+/**
+ * Un service actif de test.
+ *
+ * `active_le` manquait — voir la note de `app/tests/ecran-g1.spec.ts` : le type était une copie
+ * manuelle du schéma du contrat, et l'omission ne se voyait nulle part.
+ */
 function service(code: string, capacites: ServiceActif['capacites'] = []): ServiceActif {
   return {
     id: `id-${code}`,
     module_code: code,
     libelle_cle: `services.modules.${code}`,
     ordre: 0,
+    active_le: '2026-08-01T09:00:00Z',
     capacites,
   }
 }

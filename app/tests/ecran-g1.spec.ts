@@ -115,12 +115,21 @@ function compterBandeaux(html: string): number {
   return (html.match(/rounded-r-lg border-l-4/g) ?? []).length
 }
 
+/**
+ * Un service actif de test.
+ *
+ * `active_le` n'y figurait pas, et le compilateur ne le disait pas : `ServiceActif` était une
+ * **copie manuelle** du schéma du contrat, qui l'omettait. T062 a rebranché le type sur
+ * `components['schemas']['ServiceActif']`, et l'écart est apparu au premier `tsc`. C'est ce que
+ * la porte P-01 est censée garantir de bout en bout.
+ */
 function service(code: string): ServiceActif {
   return {
     id: `id-${code}`,
     module_code: code,
     libelle_cle: `services.modules.${code}`,
     ordre: 0,
+    active_le: '2026-08-01T09:00:00Z',
     capacites: [],
   }
 }

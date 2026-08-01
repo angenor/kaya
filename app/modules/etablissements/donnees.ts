@@ -17,7 +17,7 @@
  * mettre dans une requête, et il n'y a plus rien à choisir.
  */
 
-import { creerClientKaya } from '@kaya/client'
+import { creerClientKaya, type components } from '@kaya/client'
 
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
@@ -26,25 +26,16 @@ import type { PointDeVenteVue } from './points-de-vente'
 
 export type { ContexteAppel }
 
-/** Une valeur de configuration résolue, avec son origine. */
-export interface ValeurConfiguration {
-  cle: string
-  valeur: unknown
-  /** `TENANT` | `ETABLISSEMENT` | `MODULE` | `POINT_DE_VENTE`. */
-  origine: string
-}
+/**
+ * Une valeur de configuration résolue, avec son origine.
+ *
+ * `origine` vaut `TENANT` | `ETABLISSEMENT` | `MODULE` | `POINT_DE_VENTE` : c'est ce qui permet à
+ * l'écran de distinguer « vaut pour tous vos établissements » de « modifié ici ».
+ */
+export type ValeurConfiguration = components['schemas']['ValeurVue']
 
 /** L'établissement, tel que l'écran l'affiche. */
-export interface EtablissementVue {
-  id: string
-  nom: string
-  classement: string
-  etoiles: number | null
-  commune: string
-  fuseau_horaire: string
-  devise: string
-  ncc: string | null
-}
+export type EtablissementVue = components['schemas']['EtablissementVue']
 
 /** Tout ce dont `G1` a besoin, en une fois. */
 export interface DonneesEcran {
@@ -102,14 +93,14 @@ export async function chargerEcran(
   ])
 
   return {
-    etablissement: etablissement.data as unknown as EtablissementVue,
+    etablissement: etablissement.data,
     // Une liste absente vaut liste vide : un établissement sans service, sans point de vente ou
     // sans configuration est **valide**. C'est exactement le cas de la résidence meublée, et
     // traiter l'absence comme une erreur ferait échouer l'écran sur un état parfaitement normal.
-    services: (services.data ?? []) as unknown as ServiceActif[],
-    referentielModules: (referentiel.data ?? []) as unknown as EntreeReferentiel[],
-    pointsDeVente: (pointsDeVente.data ?? []) as unknown as PointDeVenteVue[],
-    configuration: (configuration.data ?? []) as unknown as ValeurConfiguration[],
+    services: services.data ?? [],
+    referentielModules: referentiel.data ?? [],
+    pointsDeVente: pointsDeVente.data ?? [],
+    configuration: configuration.data ?? [],
   }
 }
 
@@ -145,5 +136,5 @@ export async function chargerServices(
     throw new Error(`services de l'établissement ${etablissementId} illisibles`)
   }
 
-  return (services.data ?? []) as unknown as ServiceActif[]
+  return services.data ?? []
 }

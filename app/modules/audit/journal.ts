@@ -14,11 +14,28 @@
  * le pire résultat possible pour un registre.
  */
 
-import { creerClientKaya } from '@kaya/client'
+import { creerClientKaya, type components } from '@kaya/client'
 
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
-/** Les dix familles de la taxonomie — `docs/taxonomie-audit.md`. */
+/**
+ * Une famille de la taxonomie d'audit — **le type du contrat**, `docs/taxonomie-audit.md`.
+ *
+ * `TypeActionAudit` est une énumération **fermée** côté serveur : le contrat la rend comme une
+ * union de dix littéraux. La reprendre ici plutôt que de la redéclarer fait qu'une famille
+ * renommée ou retirée casse la compilation du front.
+ */
+export type TypeAction = components['schemas']['TypeActionAudit']
+
+/**
+ * Les dix familles, **dans l'ordre d'affichage du filtre**.
+ *
+ * Le type ne suffit pas : une union n'est pas énumérable à l'exécution, et l'écran a besoin de la
+ * liste pour composer son sélecteur. `satisfies` relie les deux — une famille **renommée ou
+ * retirée** du contrat fait échouer la compilation ici. Le versant complémentaire — une famille
+ * **ajoutée** au contrat et absente de cette liste — est vérifié par `app/tests/ecran-g4.spec.ts`,
+ * qui ne peut pas s'écrire ici : il demande une assertion de type, pas une valeur.
+ */
 export const TYPES_ACTION = [
   'remise',
   'annulation_ligne_envoyee',
@@ -30,37 +47,20 @@ export const TYPES_ACTION = [
   'ecart_caisse',
   'rebascule_palier_passage',
   'forcage_disponibilite',
-] as const
-
-export type TypeAction = (typeof TYPES_ACTION)[number]
+] as const satisfies readonly TypeAction[]
 
 /** L'auteur d'une entrée. **`nom` absent = compte illisible**, jamais un identifiant en repli. */
-export interface AuteurVue {
-  compte_id: string
-  nom?: string | null
-}
+export type AuteurVue = components['schemas']['AuteurVue']
 
-/** Une entrée du registre, telle que l'écran l'affiche. */
-export interface EntreeJournal {
-  id: string
-  etablissement_id?: string | null
-  type_action: TypeAction
-  auteur: AuteurVue
-  cible_type: string
-  cible_id?: string | null
-  contexte: Record<string, unknown>
-  /** Indicatif — **jamais présenté comme la date de l'action**. */
-  horodatage_client?: string | null
-  /** Horodatage d'**autorité serveur**. C'est celui qui s'affiche. */
-  cree_le: string
-}
+/**
+ * Une entrée du registre, telle que l'écran l'affiche.
+ *
+ * **Alias du contrat, pas une copie** — voir la note de tête de `modules/comptes/donnees.ts`.
+ */
+export type EntreeJournal = components['schemas']['EntreeJournalVue']
 
 /** Une page du registre, avec son curseur de suite. */
-export interface PageJournal {
-  elements: EntreeJournal[]
-  suivant_cree_le?: string | null
-  suivant_id?: string | null
-}
+export type PageJournal = components['schemas']['PageJournalVue']
 
 /** Les filtres, tels que l'écran les compose. Tous optionnels, tous cumulés par le serveur. */
 export interface FiltresJournal {
@@ -112,7 +112,7 @@ export async function chargerJournal(
 
   // Une page absente vaut page vide : un établissement où rien ne s'est encore passé est
   // **valide**, et traiter l'absence comme une erreur ferait échouer l'écran sur un état normal.
-  return (reponse.data ?? { elements: [] }) as unknown as PageJournal
+  return reponse.data ?? { elements: [] }
 }
 
 /**

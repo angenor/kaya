@@ -5,6 +5,17 @@
  * change fait échouer la compilation ici, au lieu de produire un `undefined` à l'exécution que
  * personne ne verrait avant la démonstration.
  *
+ * # Les types viennent du contrat, ils ne le paraphrasent pas
+ *
+ * Ce fichier a d'abord **redéclaré à la main** `CompteVue` et `EntreeRole`, puis converti les
+ * réponses par `as unknown as`. La double conversion est le seul mécanisme de TypeScript qui
+ * accepte de relier deux types sans rapport : elle efface exactement la garantie que la phrase
+ * ci-dessus annonce. Renommer `nom_affichage` côté serveur laissait alors le front compiler —
+ * vérifié en T062, et c'est ce qui a fait trouver le défaut.
+ *
+ * Les types sont donc des **alias** de `components['schemas'][…]`. Ce ne sont pas des copies
+ * fidèles : ce sont les mêmes types.
+ *
  * # Deux appels, et le second n'est pas facultatif
  *
  * L'écran a besoin des comptes **et** du référentiel des rôles. Le second sert à deux choses que
@@ -13,41 +24,18 @@
  * comptes, la même clé partirait deux cents fois.
  */
 
-import { creerClientKaya } from '@kaya/client'
+import { creerClientKaya, type components } from '@kaya/client'
 
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
 /** Un rôle porté par un compte, tel que l'API le rend. */
-export interface RolePorte {
-  role_code: string
-  /** `null` pour `admin_editeur`, dont la portée est l'éditeur. */
-  etablissement_id?: string | null
-}
+export type RolePorte = components['schemas']['RolePorte']
 
 /** Un compte, tel que l'écran l'affiche. **Aucun condensat, sur aucun chemin.** */
-export interface CompteVue {
-  id: string
-  personne_id: string
-  /** Lu de `personne`, **jamais** l'identifiant de connexion. */
-  nom_affichage: string
-  identifiant_telephone?: string | null
-  identifiant_email?: string | null
-  methode_code: string
-  actif: boolean
-  roles: RolePorte[]
-  cree_le: string
-  modifie_le: string
-}
+export type CompteVue = components['schemas']['CompteVue']
 
 /** Une entrée du référentiel des rôles. */
-export interface EntreeRole {
-  code: string
-  /** **Clé i18n, jamais un libellé.** */
-  libelle_cle: string
-  ordre: number
-  /** `ETABLISSEMENT` ou `EDITEUR`. */
-  portee?: string | null
-}
+export type EntreeRole = components['schemas']['EntreeReferentielRole']
 
 /** Tout ce dont `G3` a besoin, en une fois. */
 export interface DonneesComptes {
@@ -83,7 +71,11 @@ export async function chargerComptes(
   return {
     // Une liste absente vaut liste vide : un établissement dont un seul compte a accès est
     // valide, et traiter l'absence comme une erreur ferait échouer l'écran sur un état normal.
-    comptes: (comptes.data ?? []) as unknown as CompteVue[],
-    referentielRoles: (roles.data ?? []) as unknown as EntreeRole[],
+    //
+    // **Aucune conversion.** `comptes.data` est déjà `CompteVue[]`, parce que `CompteVue` EST le
+    // type du contrat. Un `as unknown as` ici rendrait faux le commentaire de tête de ce
+    // fichier — voir la note de T062.
+    comptes: comptes.data ?? [],
+    referentielRoles: roles.data ?? [],
   }
 }

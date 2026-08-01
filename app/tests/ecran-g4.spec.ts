@@ -27,7 +27,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import EcranJournalAudit from '../modules/audit/EcranJournalAudit.vue'
 import { TYPES_ACTION, chargerJournal, cleTypeAction } from '../modules/audit/journal'
 import fr from '../core/i18n/fr.json'
-import type { PageJournal } from '../modules/audit/journal'
+import type { PageJournal, TypeAction } from '../modules/audit/journal'
 
 const CONTEXTE = { baseUrl: 'http://localhost:8080', acces: 'jeton-de-test' }
 const ETABLISSEMENT = '018f0000-0000-7000-8000-000000000001'
@@ -168,6 +168,25 @@ describe('les noms techniques n’atteignent jamais l’écran', () => {
     }
     // Et un code inconnu tombe sur une phrase, jamais sur la clé.
     expect(cleTypeAction('remise_appliquee')).toBe('journal.types.inconnu')
+  })
+
+  it('TYPES_ACTION couvre exactement la taxonomie du CONTRAT', () => {
+    // `TYPES_ACTION` porte déjà `satisfies readonly TypeAction[]`, qui attrape une famille
+    // **renommée ou retirée** du contrat. Il ne peut pas attraper une famille **ajoutée** : une
+    // liste incomplète satisfait toujours son type.
+    //
+    // Le manque n'est pas théorique. Le test au-dessus parcourt `TYPES_ACTION` pour vérifier que
+    // chaque famille a un libellé : une onzième famille absente de la liste passerait les deux
+    // tests, et s'afficherait en brut à l'écran le jour où quelqu'un la branche.
+    //
+    // `Exclude` rend `never` tant que la couverture est complète ; une famille du contrat
+    // manquant à la liste le rend non-`never`, et l'affectation cesse de compiler. C'est un
+    // contrôle de TYPE : il échoue au `tsc` de `vitest --typecheck`, pas à l'exécution.
+    type FamillesDuContratNonListees = Exclude<TypeAction, (typeof TYPES_ACTION)[number]>
+    const couvertureComplete: FamillesDuContratNonListees[] = []
+
+    expect(couvertureComplete).toHaveLength(0)
+    expect(TYPES_ACTION).toHaveLength(10)
   })
 })
 

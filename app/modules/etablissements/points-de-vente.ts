@@ -6,19 +6,16 @@
  * source pourrait la contredire.
  */
 
-export interface TableVue {
-  id: string
-  libelle: string
-}
+import type { components } from '@kaya/client'
 
-export interface PointDeVenteVue {
-  id: string
-  module_code: string
-  nom: string
-  caisse_id: string | null
-  /** **Vide ⇒ comptoir.** Forme normale d'un maquis, pas un cas dégradé. */
-  tables: TableVue[]
-}
+/** Une table de salle. **Alias du contrat, pas une copie** — voir la note de `donnees.ts`. */
+export type TableVue = components['schemas']['TableVue']
+
+/**
+ * Un point de vente. Son champ `tables` **vide vaut comptoir** : forme normale d'un maquis, pas
+ * un cas dégradé.
+ */
+export type PointDeVenteVue = components['schemas']['PointDeVenteVue']
 
 /**
  * La clé i18n qui qualifie un point de vente.
