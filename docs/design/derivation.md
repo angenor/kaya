@@ -3,29 +3,31 @@
 *Source de vérité de l'héritage visuel des écrans non maquettés. Extrait de `docs/Kaya_Design.md`
 PARTIE V §25 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
-**Version 1.1.0** — `A1` À propos ajouté le 2026-08-01.
+**Version 1.2.0** — `R0` Connexion ajouté le 2026-08-01 (cycle CPT). `A1` À propos ajouté le
+2026-08-01.
 
 ---
 
-## Les 42 écrans du produit
+## Les 43 écrans du produit
 
 | Catégorie | Nombre | Référence |
 |---|---|---|
 | **Écrans maquettés** | **11** codes, **29 fichiers d'états** | `docs/design/html/{code}-{nom}[-{etat}].html` |
-| **Écrans dérivés** | **31** | la matrice ci-dessous |
+| **Écrans dérivés** | **32** | la matrice ci-dessous |
 
 Codes maquettés : `C4` `F2` `G2` `M4` `P2` `Q1` `R1` `R4` `R7` `S2` `V1`.
 
 ---
 
-## Les 31 écrans codés sans maquette
+## Les 32 écrans codés sans maquette
 
-## 25. Les 31 écrans codés sans maquette
+## 25. Les 32 écrans codés sans maquette
 
 C'est le document qui rend sûr le fait de coder directement. Chaque écran déclare de quel motif il hérite. **Un écran qui n'hérite d'aucun motif ne se code pas — il se maquette d'abord.**
 
 | Écran | Hérite de | Ce qui change |
 |---|---|---|
+| `R0` Connexion | `G2` | Formulaire minimal ; états d'erreur et vides de `S3` |
 | `R2` Vue du jour | `R1` + composant 14 | Grille d'unités au lieu de tuiles |
 | `R3` Check-in nuitée | `R4` | Parcours long : plus de champs, même grammaire |
 | `R5` Fiche client et recherche | `R7` | Liste + fiche, pas de total |
@@ -67,6 +69,15 @@ façon — **ADM-02** y logera la version déployée et **TRX-07** le bundle de 
 attendant, les mentions de licence des polices et icônes embarquées vivent dans `G1`, faute
 d'écran d'accueil : cohérent en motif, bancal sur le fond, puisque les licences du produit ne sont
 pas un réglage d'établissement. **Elles migreront vers `A1`.**
+
+**Note sur `R0` — l'écran par lequel tout le monde entre, et que personne n'avait inscrit.** Il
+n'apparaissait ni parmi les onze codes maquettés ni dans cette matrice : le cycle CPT l'a constaté
+avant d'écrire une ligne de Vue, la règle opposable ci-dessous ne laissant pas d'autre issue. Il
+hérite de **`G2`** pour la structure — en-tête, carte centrée, formulaire, action unique — et de
+**`S3`** pour ses états d'erreur et ses états vides, qui sont la moitié de cet écran : hors ligne,
+identifiants refusés, serveur injoignable. Deux contraintes propres, qui viennent de CPT-01 et non
+du motif : **les deux échecs d'authentification rendent la même phrase** (FR-012), et le refus
+hors ligne est annoncé **avant** toute tentative.
 
 ---
 
