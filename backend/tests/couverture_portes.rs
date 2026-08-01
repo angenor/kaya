@@ -338,6 +338,7 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         ("cycle 002 — établissements, services, PDV, configuration, branding, référentiels", 21),
         // ── Cycle 003 (CPT) — dix-neuf opérations, ventilées par lot de livraison ────────────
         ("cycle 003 — personnes (CPT-00, contrat §7-9)", 3),
+        ("cycle 003 — session (CPT-01, contrat §1-6)", 6),
     ];
     let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
 

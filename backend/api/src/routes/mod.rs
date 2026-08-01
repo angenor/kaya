@@ -20,6 +20,7 @@ pub mod points_de_vente;
 pub mod referentiels;
 pub mod sante;
 pub mod services;
+pub mod session;
 
 use utoipa_actix_web::service_config::ServiceConfig;
 
@@ -65,6 +66,21 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(referentiels::modules_activite)
             .service(referentiels::capacites)
             .service(referentiels::profils_stock),
+    );
+
+    // Session — CPT-01. **Du plus spécifique au plus général**, sans quoi `/api/v1/session`
+    // accepterait le préfixe et rendrait `404` pour les quatre autres — sans erreur de
+    // compilation, et avec un contrat OpenAPI parfaitement exact.
+    config.service(
+        scope("/api/v1/session/actives/{session_id}").service(session::revoquer),
+    );
+    config.service(scope("/api/v1/session/actives").service(session::lister_actives));
+    config.service(scope("/api/v1/session/rafraichir").service(session::rafraichir));
+    config.service(scope("/api/v1/session/moi").service(session::moi));
+    config.service(
+        scope("/api/v1/session")
+            .service(session::ouvrir)
+            .service(session::fermer),
     );
 
     // Personnes — CPT-00. Le plus spécifique d'abord : `/personnes/{personne_id}` avant

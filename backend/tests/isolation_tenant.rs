@@ -110,6 +110,20 @@ const COUVERTURE: &[(&str, Regime)] = &[
     ("/api/v1/referentiels/modules-activite", Regime::SansTenant),
     ("/api/v1/referentiels/capacites", Regime::SansTenant),
     ("/api/v1/referentiels/profils-stock", Regime::SansTenant),
+    // ── Cycle 003 — session (CPT-01) ───────────────────────────────────────────────────────
+    //
+    // **Les deux opérations publiques du produit sont ici**, et c'est la seule liste d'exceptions
+    // du contrat : `session_ouvrir` et `session_rafraichir` ne portent pas `security(("bearer"))`.
+    // Elles sont déclarées `SansTenant` parce qu'elles n'ont **pas encore** de tenant : le
+    // découvrir est précisément leur travail. Toute autre opération qui viendrait s'y ajouter
+    // devrait être décidée ici, ce qui est le point de cette table.
+    ("/api/v1/session", Regime::SansTenant),
+    ("/api/v1/session/rafraichir", Regime::SansTenant),
+    // Les quatre autres sont authentifiées et bornées au compte appelant, dont le tenant vient du
+    // jeton. Elles ne prennent **aucun identifiant de tenant en entrée** : il n'y a rien à croiser.
+    ("/api/v1/session/moi", Regime::SansTenant),
+    ("/api/v1/session/actives", Regime::SansTenant),
+    ("/api/v1/session/actives/{session_id}", Regime::SansTenant),
     // ── Cycle 003 — identité civile (CPT-00) ───────────────────────────────────────────────
     //
     // `personne` porte un `tenant_id` et sa politique d'isolation ; les deux chemins sont donc

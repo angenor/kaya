@@ -94,6 +94,40 @@ impl CorpsErreur {
         .into()
     }
 
+    /// `401 Unauthorized` — l'appelant n'est pas identifié.
+    ///
+    /// **`401`, jamais `400`** : le client doit réessayer après authentification, pas corriger sa
+    /// requête. La distinction décide de ce que fait le front — rediriger vers l'écran de
+    /// connexion, ou afficher une erreur de saisie.
+    pub fn en_401(self) -> actix_web::Error {
+        actix_web::error::InternalError::from_response(
+            self.message.clone(),
+            HttpResponse::Unauthorized().json(self),
+        )
+        .into()
+    }
+
+    /// `403 Forbidden` — l'appelant est identifié et n'a pas la permission.
+    ///
+    /// **L'interface ne devrait jamais le provoquer** (FR-026) : une action sans permission est
+    /// *absente*, pas refusée. Ce code existe pour l'appel direct, pas pour le parcours normal.
+    pub fn en_403(self) -> actix_web::Error {
+        actix_web::error::InternalError::from_response(
+            self.message.clone(),
+            HttpResponse::Forbidden().json(self),
+        )
+        .into()
+    }
+
+    /// `409 Conflict` — la règle métier refuse, et l'état actuel est la raison.
+    pub fn en_409(self) -> actix_web::Error {
+        actix_web::error::InternalError::from_response(
+            self.message.clone(),
+            HttpResponse::Conflict().json(self),
+        )
+        .into()
+    }
+
     /// `404 Not Found`.
     pub fn en_404(self) -> actix_web::Error {
         actix_web::error::InternalError::from_response(

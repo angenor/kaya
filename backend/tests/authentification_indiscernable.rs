@@ -454,6 +454,7 @@ async fn la_limitation_d_un_compte_n_atteint_pas_les_autres() {
 const CHEMINS_DE_CONNEXION: &[&str] = &[
     "crates/socle/comptes/src/authentification/service.rs",
     "crates/socle/comptes/src/session/entrepot.rs",
+    "api/src/routes/session.rs",
 ];
 
 /// **Aucun fichier du chemin de connexion n'appelle la politique de mot de passe.**
