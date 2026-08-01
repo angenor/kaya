@@ -39,6 +39,51 @@
       "inattendue": "La connexion n'a pas abouti. Réessayez dans un instant."
     }
   },
+  "comptes": {
+    "sur_titre": "Réglages de l'établissement",
+    "titre": "Ce que chacun peut faire",
+    "intro": "Les personnes qui se connectent, et ce qu'elles peuvent faire chez vous.",
+    "chargement": "Chargement…",
+    "chargement_impossible": "La liste n'a pas pu être chargée. Réessayez dans un instant.",
+    "acces_refuse": "Vous n'avez pas accès à cette page.",
+    "aucun": "Personne d'autre que vous ne se connecte encore ici.",
+    "aucun_role": "Ne peut rien faire ici pour l'instant",
+    "desactive": "Ne peut plus se connecter",
+    "role_inconnu": "Rôle non reconnu",
+    "action_ajouter": "Ajouter ce qu'elle peut faire",
+    "action_retirer_detail": "Retirer {role}",
+    "formulaire": {
+      "champ": "Ce que cette personne pourra faire",
+      "invite": "Choisissez",
+      "aide": "Vous pourrez en ajouter d'autres ensuite.",
+      "confirmer": "Ajouter",
+      "annuler": "Annuler"
+    },
+    "succes": {
+      "attribution": "{role} a été ajouté.",
+      "retrait": "{role} a été retiré."
+    },
+    "refus": {
+      "reseau": "Modifier ce que quelqu'un peut faire demande une connexion. Réessayez dès que le réseau revient.",
+      "permission": "Vous n'avez pas le droit de modifier ce que les autres peuvent faire.",
+      "role_inconnu": "Ce choix n'existe pas.",
+      "compte_inconnu": "Cette personne est introuvable.",
+      "etablissement_inconnu": "Cet établissement est introuvable.",
+      "portee_incompatible": "Ce choix ne s'applique pas à un établissement.",
+      "derniere_habilitation": "Vous êtes la seule personne à pouvoir gérer les accès ici. Donnez ce droit à quelqu'un d'autre avant de vous le retirer.",
+      "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
+    },
+    "roles": {
+      "proprietaire": "Propriétaire",
+      "gerant": "Gérant",
+      "receptionniste": "Réception",
+      "serveur": "Service en salle",
+      "caissier": "Caisse",
+      "magasinier": "Stock",
+      "comptable": "Comptabilité",
+      "admin_editeur": "Administration Kaya"
+    }
+  },
   "champ": {
     "erreur": {
       "obligatoire": "Il manque cette information.",

@@ -57,12 +57,17 @@ import type { EtatReseau } from '~/core/platform'
 export const TYPE_OPERATION = 'etablissement_module.bascule'
 
 /**
- * Permission requise — **provisoire nommé, levé par CPT-02**.
+ * Permission requise — **le provisoire nommé est levé** (CPT-02).
  *
- * La convention `<module>.<objet>.<verbe>` vient des exemples de CPT-02 (`pdv.remise.appliquer`,
- * `heb.unite.attribuer`). Les rôles n'existent pas encore ; le catalogue de permissions non plus.
- * Ce qui est établi ici est la **règle d'affichage**, qui ne changera pas : permission absente →
- * action **absente**.
+ * Ce code n'est plus une convention anticipée : c'est une **ligne du référentiel**
+ * `comptes.permission`, posée par la migration `0016`, portée par `proprietaire` et `gerant`, et
+ * rendue par `GET /api/v1/referentiels/permissions`. Le serveur la vérifie sur le même code
+ * (`api/src/routes/services.rs`), et `app/tests/permissions.spec.ts` échoue si une permission
+ * nommée par le front n'existe dans aucune migration — une permission qui ne garde rien est une
+ * promesse sans contrepartie (FR-021).
+ *
+ * La **règle d'affichage** n'a pas changé d'un mot, et c'était le point de la nommer d'avance :
+ * permission absente → action **absente**.
  */
 export const PERMISSION_BASCULER = 'etb.service.basculer'
 

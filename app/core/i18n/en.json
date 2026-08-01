@@ -39,6 +39,51 @@
       "inattendue": "Sign-in did not go through. Try again in a moment."
     }
   },
+  "comptes": {
+    "sur_titre": "Establishment settings",
+    "titre": "What each person can do",
+    "intro": "The people who sign in, and what they can do at your place.",
+    "chargement": "Loading…",
+    "chargement_impossible": "The list could not be loaded. Try again in a moment.",
+    "acces_refuse": "You do not have access to this page.",
+    "aucun": "Nobody else signs in here yet.",
+    "aucun_role": "Cannot do anything here yet",
+    "desactive": "Can no longer sign in",
+    "role_inconnu": "Unrecognised role",
+    "action_ajouter": "Add what they can do",
+    "action_retirer_detail": "Remove {role}",
+    "formulaire": {
+      "champ": "What this person will be able to do",
+      "invite": "Choose",
+      "aide": "You can add more afterwards.",
+      "confirmer": "Add",
+      "annuler": "Cancel"
+    },
+    "succes": {
+      "attribution": "{role} was added.",
+      "retrait": "{role} was removed."
+    },
+    "refus": {
+      "reseau": "Changing what someone can do needs the network. Try again as soon as it is back.",
+      "permission": "You are not allowed to change what others can do.",
+      "role_inconnu": "That choice does not exist.",
+      "compte_inconnu": "This person cannot be found.",
+      "etablissement_inconnu": "This establishment cannot be found.",
+      "portee_incompatible": "That choice does not apply to an establishment.",
+      "derniere_habilitation": "You are the only person who can manage access here. Give this right to someone else before removing your own.",
+      "inattendue": "The operation did not go through. Try again in a moment."
+    },
+    "roles": {
+      "proprietaire": "Owner",
+      "gerant": "Manager",
+      "receptionniste": "Front desk",
+      "serveur": "Table service",
+      "caissier": "Till",
+      "magasinier": "Stock",
+      "comptable": "Accounting",
+      "admin_editeur": "Kaya administration"
+    }
+  },
   "champ": {
     "erreur": {
       "obligatoire": "This information is missing.",
