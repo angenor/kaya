@@ -152,6 +152,35 @@ impl EtatApplication {
         self.service_roles(uuid::Uuid::nil())
     }
 
+    /// Lit une page du registre des actions — CPT-04, opération 19.
+    ///
+    /// La lecture ne passe **par aucun service** : elle ne porte aucune règle métier, aucune
+    /// transition d'état, aucun événement. Y interposer une couche vide donnerait l'illusion qu'il
+    /// s'y passe quelque chose — même raisonnement que les trois référentiels du cycle 002.
+    ///
+    /// La transaction est **annulée** : c'est une lecture, et un `commit` sur une transaction sans
+    /// écriture ne dirait rien de plus tout en laissant croire le contraire.
+    pub async fn lire_journal_audit(
+        &self,
+        tenant_id: uuid::Uuid,
+        filtres: &kaya_comptes::audit::FiltresAudit,
+        curseur: Option<kaya_comptes::audit::Curseur>,
+        limite: i64,
+    ) -> Result<kaya_comptes::audit::PageAudit, kaya_comptes::audit::ErreurAudit> {
+        let mut tx = self.pool.begin().await?;
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+            .await
+            .map_err(|e| match e {
+                kaya_etablissements::tenant_context::ErreurContexteTenant::Base(e) => {
+                    kaya_comptes::audit::ErreurAudit::Base(e)
+                }
+            })?;
+        let page =
+            kaya_comptes::audit::repository::lister(&mut tx, filtres, curseur, limite).await?;
+        tx.rollback().await?;
+        Ok(page)
+    }
+
     /// Contrôle d'accès et annuaire des comptes — les deux traits de `socle/comptes`.
     ///
     /// Employé par la lecture du registre des actions, qui résout ses auteurs **en lot**.

@@ -343,6 +343,8 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         // numérote neuf, et neuf sont servies — `compte_lister` et `compte_creer` partagent le
         // chemin `/api/v1/comptes`, ce qui fait six chemins pour sept opérations.
         ("cycle 003 — comptes et rôles (CPT-02, contrat §10-18)", 9),
+        // Une seule, et en lecture. Aucun point d'entrée d'écriture d'audit — research R-17.
+        ("cycle 003 — registre des actions (CPT-04, contrat §19)", 1),
     ];
     let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
 

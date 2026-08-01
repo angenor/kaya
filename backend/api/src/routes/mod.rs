@@ -15,6 +15,7 @@ pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
+pub mod journal_audit;
 pub mod notes;
 pub mod personnes;
 pub mod points_de_vente;
@@ -117,6 +118,10 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(comptes::creer)
             .service(comptes::lister),
     );
+
+    // Registre des actions — CPT-04. **Une seule opération, en lecture** : aucun point d'entrée
+    // d'écriture (research R-17). Une entrée voyage toujours avec l'opération qu'elle trace.
+    config.service(scope("/api/v1/journal-audit").service(journal_audit::lister));
 
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/notes")

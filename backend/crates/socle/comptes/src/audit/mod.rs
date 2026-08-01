@@ -18,9 +18,11 @@
 //! surveiller.
 
 pub mod modele;
+pub mod repository;
 pub mod service;
 pub mod taxonomie;
 
 pub use modele::{EntreeAudit, EntreeAuditEnregistree, ErreurAudit};
+pub use repository::{Curseur, FiltresAudit, LIMITE_DEFAUT, LIMITE_MAX, PageAudit};
 pub use service::{JournalAudit, JournalAuditPostgres};
 pub use taxonomie::TypeActionAudit;

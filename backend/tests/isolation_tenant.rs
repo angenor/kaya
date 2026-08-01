@@ -150,6 +150,11 @@ const COUVERTURE: &[(&str, Regime)] = &[
     ("/api/v1/comptes/{compte_id}/mot-de-passe", Regime::Isole),
     ("/api/v1/comptes/{compte_id}/roles", Regime::Isole),
     ("/api/v1/comptes/{compte_id}/roles/{role_code}", Regime::Isole),
+    // ── Cycle 003 — registre des actions (CPT-04) ──────────────────────────────────────────
+    //
+    // `journal_audit` porte un `tenant_id` et sa politique. **Une seule opération, en lecture** :
+    // aucun point d'entrée d'écriture n'existe, et c'est une décision (research R-17).
+    ("/api/v1/journal-audit", Regime::Isole),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.
