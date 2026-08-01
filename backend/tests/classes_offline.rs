@@ -38,7 +38,24 @@ use sqlx::Row;
 const REGISTRE: &str = include_str!("../../docs/registre-classes-offline.md");
 
 /// Schémas soumis à la porte.
-const SCHEMAS_APPLICATIFS: &[&str] = &["etablissements", "synchronisation", "fiscalite"];
+///
+/// **`comptes` manquait, et son absence était un trou de couverture réel** : les dix tables du
+/// cycle 003 échappaient au balayage, et une onzième créée sans déclaration serait passée. Le
+/// test `les_entites_du_cycle_003_sont_declarees` les nommait une par une — ce qui vérifie que
+/// celles-là sont déclarées, jamais qu'aucune autre ne manque. C'est exactement la différence
+/// entre une liste et une porte.
+const SCHEMAS_APPLICATIFS: &[&str] = &[
+    "etablissements",
+    "synchronisation",
+    "fiscalite",
+    "comptes",
+];
+
+/// Nombre de tables attendu dans les quatre schémas — **le décompte, pas seulement la liste**.
+///
+/// 16 au cycle 002, plus les 10 de ce cycle. Une porte dont la cible se vide passe toujours au
+/// vert : ce nombre est ce qui distingue « tout est déclaré » de « il n'y avait rien à inspecter ».
+const TABLES_ATTENDUES: usize = 26;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///
@@ -119,6 +136,15 @@ async fn toute_table_est_declaree_au_registre_des_classes_hors_ligne() {
     assert!(
         !tables.is_empty(),
         "aucune table trouvée — la porte n'a rien vérifié. Base non migrée ?"
+    );
+    assert_eq!(
+        tables.len(),
+        TABLES_ATTENDUES,
+        "{} table(s) inspectée(s) au lieu des {TABLES_ATTENDUES} attendues :\n  {}\n\n\
+         Une porte dont la cible rétrécit passe au vert sans rien vérifier. Si une table a été \
+         ajoutée, incrémenter TABLES_ATTENDUES **dans le même changement** que la migration.",
+        tables.len(),
+        tables.iter().map(String::as_str).collect::<Vec<_>>().join("\n  ")
     );
     assert!(
         declarees.len() > 50,
@@ -331,5 +357,299 @@ fn la_lecture_en_cache_des_referentiels_est_declaree() {
          Sans elle, rien ne dit qu'un référentiel de classe C reste lisible hors ligne, et le \
          premier cycle qui écrira le cache tranchera dans le sens le plus simple — celui qui \
          rend le produit inutilisable dès la première coupure."
+    );
+}
+
+// =================================================================================================
+//  Les SEPT opérations de classe C du cycle 003 — et leur versant positif
+// =================================================================================================
+
+/// Une opération d'écriture de classe C, telle que le contrat l'expose.
+struct OperationC {
+    /// Le nom au registre, tel qu'on en parle.
+    nom: &'static str,
+    methode: actix_web::http::Method,
+    /// Chemin du **contrat** — celui que la porte P-08 connaît, avec ses accolades.
+    chemin_contrat: &'static str,
+}
+
+/// **Les sept, nommées une par une.** Le décompte est ce qui rend la liste opposable.
+///
+/// Une liste sans total attendu se vide par distraction : il suffit qu'une opération soit retirée
+/// pour que la boucle en inspecte six et passe au vert. Le `assert_eq!` sur `SEPT` en fin de test
+/// l'empêche.
+const OPERATIONS_C: &[OperationC] = &[
+    OperationC {
+        nom: "création de personne",
+        methode: actix_web::http::Method::POST,
+        chemin_contrat: "/api/v1/personnes",
+    },
+    OperationC {
+        nom: "création de compte",
+        methode: actix_web::http::Method::POST,
+        chemin_contrat: "/api/v1/comptes",
+    },
+    OperationC {
+        nom: "changement d'état de compte",
+        methode: actix_web::http::Method::PUT,
+        chemin_contrat: "/api/v1/comptes/{compte_id}/etat",
+    },
+    OperationC {
+        nom: "changement de mot de passe",
+        methode: actix_web::http::Method::PUT,
+        chemin_contrat: "/api/v1/comptes/{compte_id}/mot-de-passe",
+    },
+    OperationC {
+        nom: "attribution de rôle",
+        methode: actix_web::http::Method::POST,
+        chemin_contrat: "/api/v1/comptes/{compte_id}/roles",
+    },
+    OperationC {
+        nom: "retrait de rôle",
+        methode: actix_web::http::Method::DELETE,
+        chemin_contrat: "/api/v1/comptes/{compte_id}/roles/{role_code}",
+    },
+    OperationC {
+        nom: "révocation de session",
+        methode: actix_web::http::Method::DELETE,
+        chemin_contrat: "/api/v1/session/actives/{session_id}",
+    },
+];
+
+const SEPT: usize = 7;
+
+/// **Aucune des sept n'est atteignable sans authentification.**
+///
+/// C'est le versant *négatif* de la porte P-13 côté serveur. Il n'existe pas de file d'attente
+/// côté serveur : ce qu'on peut vérifier ici est que chacune exige un jeton — donc une session,
+/// donc une connexion, donc le réseau. Une opération de classe C accessible sans jeton serait
+/// atteignable depuis n'importe quel chemin, y compris un terminal qui vide une file.
+///
+/// **Le décompte est déclaré**, et la liste des deux opérations publiques est fermée : elles sont
+/// nommées dans `routes/session.rs` et vérifiées par `isolation_tenant.rs`.
+#[tokio::test]
+async fn les_sept_operations_de_classe_c_exigent_un_jeton() {
+    let contrat = kaya_api::application::contrat_complet();
+    let mut inspectees = 0usize;
+    let mut sans_securite = Vec::new();
+
+    for operation in OPERATIONS_C {
+        let item = contrat
+            .paths
+            .paths
+            .get(operation.chemin_contrat)
+            .unwrap_or_else(|| {
+                panic!(
+                    "« {} » ({}) n'est pas au contrat : la liste des opérations de classe C a \
+                     dérivé du produit, ou l'opération a été retirée sans que ce test suive.",
+                    operation.nom, operation.chemin_contrat
+                )
+            });
+
+        let op = match operation.methode {
+            actix_web::http::Method::POST => item.post.as_ref(),
+            actix_web::http::Method::PUT => item.put.as_ref(),
+            actix_web::http::Method::DELETE => item.delete.as_ref(),
+            _ => None,
+        }
+        .unwrap_or_else(|| {
+            panic!(
+                "« {} » : le contrat ne sert pas {} sur {}",
+                operation.nom, operation.methode, operation.chemin_contrat
+            )
+        });
+
+        inspectees += 1;
+
+        // `security` absent OU vide = opération publique. Les deux seules du produit sont
+        // `session_ouvrir` et `session_rafraichir`, et aucune n'est de classe C.
+        let gardee = op
+            .security
+            .as_ref()
+            .is_some_and(|exigences| !exigences.is_empty());
+
+        if !gardee {
+            sans_securite.push(operation.nom);
+        }
+    }
+
+    assert_eq!(
+        inspectees, SEPT,
+        "{inspectees} opération(s) de classe C inspectée(s) au lieu de {SEPT}. Une porte dont la \
+         cible rétrécit passe au vert sans rien vérifier."
+    );
+    assert!(
+        sans_securite.is_empty(),
+        "Ces opérations de classe C ne portent aucune exigence d'authentification :\n  {}\n\n\
+         Une opération de classe C atteignable sans jeton est atteignable depuis n'importe quel \
+         chemin — y compris un terminal qui vide une file locale. Le principe VI l'interdit.",
+        sans_securite.join("\n  ")
+    );
+}
+
+/// **LE VERSANT POSITIF — chacune des sept fonctionne EN LIGNE.**
+///
+/// *Une porte qui refuse sans vérifier ce qu'elle autorise passe au vert en n'ayant rien à
+/// inspecter.* Le test précédent constate que les sept exigent un jeton ; celui-ci constate qu'avec
+/// le jeton, les sept **aboutissent**. Sans lui, une opération retirée du produit satisferait
+/// encore la moitié négative de la porte.
+///
+/// Les sept sont exercées **dans l'ordre où elles se déroulent réellement** : on crée une
+/// personne, puis son compte, on lui donne un rôle, on le lui retire, on change son état, son mot
+/// de passe, et on coupe une session. C'est le parcours de M. Koffi créant le compte d'Adjoua.
+#[actix_web::test]
+async fn les_sept_operations_de_classe_c_fonctionnent_en_ligne() {
+    use actix_web::http::StatusCode;
+    use serde_json::json;
+    use uuid::Uuid;
+
+    const AUTORISATION: &str = "Authorization";
+
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-13 versant positif").await;
+    let etb = jeu.etablissement_id;
+
+    let koffi = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "Koffi classe C",
+        &[("proprietaire", Some(etb))],
+    )
+    .await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+
+    let personne_id = Uuid::now_v7();
+    let compte_id = Uuid::now_v7();
+    let hexa = Uuid::now_v7().simple().to_string();
+    let telephone = format!("+225{}", &hexa[hexa.len() - 10..]);
+
+    let mut reussies = 0usize;
+
+    /// Exécute une requête et exige un statut de succès.
+    macro_rules! exiger_succes {
+        ($nom:expr, $requete:expr) => {{
+            let reponse = actix_web::test::call_service(&app, $requete).await;
+            let statut = reponse.status();
+            assert!(
+                statut.is_success(),
+                "« {} » a rendu {statut} en ligne. Le versant NÉGATIF de cette porte resterait \
+                 vert sur une opération retirée du produit : c'est ce que cette moitié-ci empêche.",
+                $nom
+            );
+            reussies += 1;
+            statut
+        }};
+    }
+
+    // 1 · Création de personne.
+    exiger_succes!(
+        "création de personne",
+        actix_web::test::TestRequest::post()
+            .uri("/api/v1/personnes")
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .set_json(json!({ "id": personne_id, "nom": "Adjoua", "prenoms": "Kouassi" }))
+            .to_request()
+    );
+
+    // 2 · Création de compte.
+    exiger_succes!(
+        "création de compte",
+        actix_web::test::TestRequest::post()
+            .uri("/api/v1/comptes")
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .set_json(json!({
+                "id": compte_id,
+                "personne_id": personne_id,
+                "identifiant_telephone": telephone,
+                "mot_de_passe": commun::MOT_DE_PASSE_TEST,
+            }))
+            .to_request()
+    );
+
+    // 3 · Attribution de rôle.
+    exiger_succes!(
+        "attribution de rôle",
+        actix_web::test::TestRequest::post()
+            .uri(&format!("/api/v1/comptes/{compte_id}/roles"))
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .set_json(json!({
+                "id": Uuid::now_v7(),
+                "role_code": "caissier",
+                "etablissement_id": etb,
+            }))
+            .to_request()
+    );
+
+    // 4 · Retrait de rôle. `caissier` ne porte pas `cpt.role.attribuer` : FR-023 ne s'y oppose pas.
+    exiger_succes!(
+        "retrait de rôle",
+        actix_web::test::TestRequest::delete()
+            .uri(&format!(
+                "/api/v1/comptes/{compte_id}/roles/caissier?etablissement_id={etb}"
+            ))
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .to_request()
+    );
+
+    // 5 · Changement de mot de passe — par un habilité, donc **sans** mot de passe actuel.
+    exiger_succes!(
+        "changement de mot de passe",
+        actix_web::test::TestRequest::put()
+            .uri(&format!("/api/v1/comptes/{compte_id}/mot-de-passe"))
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .set_json(json!({ "nouveau_mot_de_passe": "abidjan-tomate-chaise" }))
+            .to_request()
+    );
+
+    // 6 · Changement d'état — la désactivation, qui trace une entrée `suppression`.
+    exiger_succes!(
+        "changement d'état de compte",
+        actix_web::test::TestRequest::put()
+            .uri(&format!("/api/v1/comptes/{compte_id}/etat"))
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .set_json(json!({ "actif": false }))
+            .to_request()
+    );
+
+    // 7 · Révocation de session — Koffi coupe la sienne, ce qui ne demande aucune permission.
+    let moi: serde_json::Value = actix_web::test::call_and_read_body_json(
+        &app,
+        actix_web::test::TestRequest::get()
+            .uri("/api/v1/session/moi")
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .to_request(),
+    )
+    .await;
+    let session_id = moi["session_id"].as_str().expect("session_id");
+
+    let statut = exiger_succes!(
+        "révocation de session",
+        actix_web::test::TestRequest::delete()
+            .uri(&format!("/api/v1/session/actives/{session_id}"))
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .to_request()
+    );
+    assert_eq!(statut, StatusCode::NO_CONTENT);
+
+    assert_eq!(
+        reussies, SEPT,
+        "{reussies} opération(s) exercée(s) en ligne au lieu de {SEPT}"
+    );
+
+    // **Et la coupure est immédiate** : le jeton qui vient de servir n'est plus accepté.
+    let apres = actix_web::test::call_service(
+        &app,
+        actix_web::test::TestRequest::get()
+            .uri("/api/v1/session/moi")
+            .insert_header((AUTORISATION, koffi.bearer.clone()))
+            .to_request(),
+    )
+    .await;
+    assert_eq!(
+        apres.status(),
+        StatusCode::UNAUTHORIZED,
+        "la session révoquée est encore acceptée : la liste de révocation n'est pas consultée"
     );
 }

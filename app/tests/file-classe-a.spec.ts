@@ -181,3 +181,93 @@ describe('P-13 — le cycle 002 n’ajoute aucun type de classe A', () => {
     }
   })
 })
+
+// =================================================================================================
+//  P-13 — le cycle 003 n'ajoute aucun type de classe A, et purge à la déconnexion
+// =================================================================================================
+
+describe('P-13 — le cycle 003 n’ajoute aucun type de classe A', () => {
+  /**
+   * Les dix entités du cycle 003.
+   *
+   * **`journal_audit` est de classe A au registre** — c'est la seule du cycle — et pourtant elle
+   * ne figure pas dans `TYPES_CLASSE_A`. Ce n'est pas une contradiction : le contrat n'expose
+   * **aucun point d'entrée d'écriture** d'audit (research R-17), donc le front n'a rien à mettre
+   * en file. Une entrée voyage avec l'opération qu'elle trace, et les sept opérations de ce cycle
+   * sont toutes de classe C.
+   *
+   * Le jour où une opération de classe A tracera une entrée hors ligne — l'ouverture de tiroir
+   * d'IMP-01 —, c'est **son** type qui entrera dans la liste, pas `journal_audit`.
+   */
+  const ENTITES_CYCLE_003 = [
+    'personne',
+    'compte',
+    'methode_authentification',
+    'role',
+    'permission',
+    'role_permission',
+    'compte_role',
+    'employe',
+    'appareil_enrole',
+  ]
+
+  it('aucune entité de classe C du cycle 003 ne figure dans TYPES_CLASSE_A', () => {
+    const intrus = TYPES_CLASSE_A.filter(type =>
+      ENTITES_CYCLE_003.some(entite => type.startsWith(`${entite}.`)),
+    )
+
+    expect(
+      intrus,
+      'Ces types appartiennent à des entités de classe C. Une élévation de privilège mise en '
+      + 'file serait la pire faute possible du produit : un terminal s’accorderait un rôle '
+      + 'pendant une coupure, puis le synchroniserait — et aurait obtenu un droit que personne '
+      + 'n’a accordé.\n  '
+      + intrus.join('\n  '),
+    ).toEqual([])
+  })
+
+  it('les sept opérations d’écriture du cycle sont refusées à l’enfilement', () => {
+    // Les sept de `docs/registre-classes-offline.md` §5.2, nommées comme le front les nomme.
+    const SEPT = [
+      'personne.creee',
+      'compte.cree',
+      'compte.etat_change',
+      'compte.mot_de_passe_change',
+      'compte_role.attribue',
+      'compte_role.retire',
+      'session.revoquee',
+    ]
+
+    let refusees = 0
+    for (const type of SEPT) {
+      const file = new FileLocale()
+      expect(() =>
+        file.enfiler({
+          id: '0198c4a0-0000-7000-8000-000000000201',
+          type,
+          horodatageClient: HORODATAGE,
+          charge: marquerClasseA({}, 'marque abusive — le test la provoque'),
+        }),
+      ).toThrow(OperationRefusee)
+      refusees += 1
+    }
+
+    // **Décompte** : une liste qui rétrécit passerait au vert sans rien vérifier.
+    expect(refusees).toBe(7)
+  })
+
+  it('la file locale ne porte TOUJOURS que le type du module doré', () => {
+    // Le cycle 003 crée dix tables et n'ajoute aucun type de classe A à la file. Si un cycle en
+    // ajoute un légitimement, ce test échoue et l'oblige à venir écrire ici pourquoi.
+    expect(TYPES_CLASSE_A).toEqual(['note_etablissement.creee'])
+  })
+
+  it('aucune entité du cycle 003 n’est réalisable hors ligne, même en réseau dégradé', () => {
+    for (const entite of ENTITES_CYCLE_003) {
+      expect(operationRealisable(`${entite}.creee`, 'hors_ligne')).toBe(false)
+      // L'état `degrade` compte COMME hors ligne : `navigator.onLine` dit qu'une interface est
+      // active, pas que le serveur répond.
+      expect(operationRealisable(`${entite}.creee`, 'degrade')).toBe(false)
+    }
+  })
+})

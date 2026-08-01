@@ -264,3 +264,49 @@ describe('rotation du rafraîchissement', () => {
     expect(appels).toHaveLength(0)
   })
 })
+
+// =================================================================================================
+//  Principe VI — aucune donnée de classe C en cache d'écriture, et purge à la déconnexion
+// =================================================================================================
+
+describe('les données d’identité ne restent pas sur le terminal', () => {
+  it('la déconnexion purge TOUT le stockage, pas seulement le jeton', async () => {
+    // Le terminal peut être partagé : au maquis, le téléphone du gérant sert aussi à la serveuse.
+    // Retirer le jeton en laissant un cache de comptes serait une demi-purge.
+    fauxServeur(200, corpsSession(['cpt.compte.lire']))
+    await ouvrirSession(BASE, IDENTIFIANTS, 'connecte')
+
+    // Une donnée de module rangée à côté — celle qu'une demi-purge laisserait derrière.
+    localStorage.setItem('kaya.cache.comptes', JSON.stringify([{ nom: 'Adjoua' }]))
+
+    globalThis.fetch = (async () => new Response(null, { status: 204 })) as typeof fetch
+    await fermerSession(BASE)
+
+    const restant = Object.keys(localStorage).filter(cle => cle.startsWith('kaya.'))
+    expect(restant, `le stockage porte encore : ${restant.join(', ')}`).toEqual([])
+  })
+
+  it('aucune donnée de classe C n’est écrite par la couche d’authentification', async () => {
+    fauxServeur(200, corpsSession(['cpt.compte.lire', 'etb.service.basculer']))
+    await ouvrirSession(BASE, IDENTIFIANTS, 'connecte')
+
+    // Seule la clé du rafraîchissement existe. Ni les permissions, ni le compte, ni le tenant :
+    // ce sont des données de classe C, et le principe VI interdit leur cache d'écriture sur un
+    // terminal. Elles vivent en mémoire, et meurent avec l'onglet.
+    const cles = Object.keys(localStorage).filter(cle => cle.startsWith('kaya.'))
+    expect(cles).toEqual(['kaya.auth.rafraichissement'])
+
+    const contenu = localStorage.getItem('kaya.auth.rafraichissement') ?? ''
+    expect(contenu).not.toContain('cpt.compte.lire')
+    expect(contenu).not.toContain('compte-1')
+    expect(contenu).not.toContain('tenant-1')
+  })
+
+  it('le stockage web DÉCLARE ce qu’il ne garantit pas', async () => {
+    // La garantie est portée par le TYPE, pas par un commentaire : un appelant qui exigerait un
+    // coffre matériel doit pouvoir la lire et refuser. Sur le web, elle vaut `'aucune'`.
+    const { adaptateurCourant } = await import('../core/platform/courant')
+
+    expect(adaptateurCourant().stockageSecurise.garantie).toBe('aucune')
+  })
+})
