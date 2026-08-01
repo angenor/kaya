@@ -22,7 +22,8 @@ import { basculerService, PERMISSION_BASCULER, TYPE_OPERATION } from '../modules
 import { estTypeClasseA } from '../core/sync/classes'
 import { uuidV7 } from '../core/sync/uuid-v7'
 
-const CONTEXTE = { baseUrl: 'http://localhost:8080', tenantId: 't-1', compteId: 'c-1' }
+/** Contexte d'appel — le jeton d'accès depuis CPT-01, plus aucun en-tête de tenant. */
+const CONTEXTE = { baseUrl: 'http://localhost:8080', acces: 'jeton-de-test' }
 
 const fetchOriginal = globalThis.fetch
 

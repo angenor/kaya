@@ -75,12 +75,41 @@ export interface Notification {
 }
 
 /**
+ * Ce que le stockage garantit **réellement** contre la lecture par un tiers.
+ *
+ * # Pourquoi c'est dans le type, et pas dans un commentaire
+ *
+ * `StockageSecurise` est un nom, et un nom ne garantit rien. Le web n'a pas de coffre système :
+ * son implémentation s'appuie sur `localStorage`, lisible par tout script de la même origine.
+ * L'appeler « sécurisé » sans plus de précision donnerait à l'appelant une garantie fausse — et la
+ * faute ne se verrait qu'au premier audit, sur un jeton de rafraîchissement de quatre-vingt-dix
+ * jours.
+ *
+ * Porter le niveau **dans le type** oblige l'appelant qui exige un coffre matériel à le vérifier,
+ * et laisse celui qui accepte le compromis le déclarer explicitement.
+ */
+export type NiveauGarantieStockage =
+  /** Coffre du système — Keystore Android, Keychain iOS. La valeur ne sort pas de l'appareil. */
+  | 'coffre_systeme'
+  /**
+   * Aucune garantie contre un script de la même origine : c'est le web.
+   *
+   * La contrepartie est portée ailleurs — rotation du jeton à chaque usage, révocation de toute
+   * la famille dès qu'une copie est détectée, et coupure immédiate depuis « Appareils connectés ».
+   */
+  | 'aucune'
+  /** La plateforme ne fournit aucun stockage : tout appel échoue. */
+  | 'indisponible'
+
+/**
  * Stockage sécurisé — Keystore Android, Keychain iOS.
  *
  * **Aucun secret dans le binaire Tauri** (principe IX) : il est décompilable. Les clés
  * d'enrôlement d'appareil vivent ici, générées sur l'appareil, et n'en sortent jamais.
  */
 export interface StockageSecurise {
+  /** Ce que cette implémentation garantit — **à lire avant d'y ranger un secret**. */
+  readonly garantie: NiveauGarantieStockage
   lire(cle: string): Promise<ResultatCapacite<string | null>>
   ecrire(cle: string, valeur: string): Promise<ResultatCapacite>
   supprimer(cle: string): Promise<ResultatCapacite>
@@ -114,10 +143,16 @@ export function disponible<T>(valeur: T): { disponible: true, valeur: T } {
 /**
  * Stockage sécurisé **absent** — implémentation partagée par les plateformes qui n'en ont pas.
  *
- * Le web est le cas réel : `localStorage` n'est pas un stockage sécurisé, et l'y faire passer
- * donnerait à l'appelant une garantie fausse. Mieux vaut annoncer l'absence.
+ * C'est le cas des trois coquilles Tauri (desktop, Android, iOS) tant que l'enrôlement d'appareil
+ * de CPT-05 n'a pas livré l'accès au Keystore et au Keychain. Annoncer l'absence est ce qui rend
+ * la lacune visible : un appelant reçoit `plateforme_non_supportee` et le dit à l'utilisateur,
+ * au lieu de croire qu'il vient de ranger un secret quelque part.
+ *
+ * **Le web, lui, a une implémentation** — `stockage-web.ts`, garantie `aucune`, et c'est écrit
+ * dans son type. Voir {@link NiveauGarantieStockage}.
  */
 export const stockageSecuriseAbsent: StockageSecurise = {
+  garantie: 'indisponible',
   async lire() {
     return indisponible('plateforme_non_supportee')
   },

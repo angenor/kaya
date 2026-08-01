@@ -7,10 +7,10 @@
  * évitera de rouvrir chaque composant métier le jour où elle arrivera.
  */
 
+import { stockageWeb } from './stockage-web'
 import {
   etatReseauNavigateur,
   indisponible,
-  stockageSecuriseAbsent,
   type ChampsPieceIdentite,
   type DocumentImprimable,
   type EtatReseau,
@@ -37,9 +37,15 @@ export const adaptateurWeb: PlatformAdapter = {
     return indisponible('reseau_requis')
   },
 
-  // `localStorage` n'est PAS un stockage sécurisé. L'y faire passer donnerait à l'appelant une
-  // garantie fausse — pire que l'absence, qui est au moins visible.
-  stockageSecurise: stockageSecuriseAbsent,
+  // `localStorage` n'est PAS un stockage sécurisé, et l'implémentation ne prétend pas le
+  // contraire : elle déclare `garantie: 'aucune'` **dans son type**, ce qui oblige l'appelant qui
+  // exige un coffre matériel à s'en apercevoir. Le détail — ce que le compromis coûte et ce qui le
+  // rachète — est en tête de `stockage-web.ts`.
+  //
+  // Refuser tout stockage était le comportement du cycle 001, et il ne tient plus : CPT-01 doit
+  // ranger un jeton de rafraîchissement de quatre-vingt-dix jours, et la seule alternative serait
+  // de redemander le mot de passe à chaque ouverture d'onglet.
+  stockageSecurise: stockageWeb,
 
   async notifier(_notification: Notification): Promise<ResultatCapacite> {
     return indisponible('permission_refusee')

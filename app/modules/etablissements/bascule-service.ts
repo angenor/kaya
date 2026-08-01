@@ -44,9 +44,9 @@
 
 import { creerClientKaya } from '@kaya/client'
 
+import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import { uuidV7 } from '~/core/sync/uuid-v7'
 import type { EtatReseau } from '~/core/platform'
-import type { ContexteAppel } from './donnees'
 
 /**
  * Type d'opération, au vocabulaire du registre hors-ligne.
@@ -153,10 +153,10 @@ export async function basculerService(
       // Il n'est employé qu'à la première activation — une réactivation met à jour la ligne
       // existante, ce qui est exactement ce qui restitue l'état antérieur.
       body: { id: uuidV7(), actif },
-      headers: {
-        'x-kaya-tenant': contexte.tenantId,
-        'x-kaya-compte': contexte.compteId,
-      },
+      // **Un seul en-tête depuis CPT-01.** `x-kaya-tenant` et `x-kaya-compte` laissaient
+      // l'appelant choisir son tenant ; l'API ne les accepte plus, et le serveur lit le tenant
+      // dans le jeton qu'il a signé.
+      headers: enTetesAuth(contexte),
     },
   )
 

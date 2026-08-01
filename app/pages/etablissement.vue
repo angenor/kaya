@@ -27,8 +27,9 @@
  */
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
+import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
 import type { Permissions } from '~/core/rbac'
-import type { ContexteAppel, DonneesEcran } from '~/modules/etablissements/donnees'
+import type { DonneesEcran } from '~/modules/etablissements/donnees'
 import type { ServiceActif } from '~/modules/etablissements/services-visibles'
 
 const EcranEtablissement = defineAsyncComponent(
@@ -42,31 +43,26 @@ const config = useRuntimeConfig()
 const donnees = ref<DonneesEcran | null>(null)
 const erreur = ref<string | null>(null)
 
-/** **Provisoire nommé** — le contexte vient de deux en-têtes tant que CPT-01 n'a pas livré l'authentification par jeton. */
-const contexte = computed<ContexteAppel>(() => ({
-  baseUrl: config.public.apiBaseUrl,
-  tenantId: config.public.tenantId,
-  compteId: config.public.compteId,
-}))
+/**
+ * Contexte d'appel — **le provisoire de deux en-têtes est levé** (CPT-01).
+ *
+ * Il vient de la session ouverte, donc du jeton vérifié par le serveur. `null` tant que personne
+ * n'est connecté : la page ne charge rien et renvoie à `R0`.
+ */
+const contexte = computed<ContexteAppel | null>(() => contexteAppel(config.public.apiBaseUrl))
 
 /**
- * Permissions de l'utilisateur — **provisoire nommé, levé par CPT-02**.
+ * Permissions de l'utilisateur — **le provisoire nommé est levé** (CPT-02).
  *
- * Les rôles n'existent pas encore : elles viennent de la configuration, en liste séparée par des
- * virgules. Ce qui est établi ici et ne changera pas, c'est la **règle d'affichage** — les rôles
- * sont cumulables et les permissions sont leur **union** (principe VII). Le jour où CPT-02 livre
- * les rôles, c'est cette ligne qui change, et une seule.
+ * Elles ne viennent plus de la configuration en liste séparée par des virgules, mais de la
+ * **réponse de connexion**, où le serveur a calculé l'union des rôles portés sur l'établissement
+ * actif (FR-017). La règle d'affichage, elle, n'a pas changé d'un mot : permission absente →
+ * action **absente**.
  *
- * **Poser une valeur par défaut vide est délibéré** : sans permission, l'écran se rend en lecture
- * seule, sans aucune action. C'est le comportement sûr, et c'est ce qui rend l'absence
- * observable — un défaut « tout permis » masquerait la règle jusqu'au cycle CPT.
+ * Une session absente donne une liste vide, donc un écran en lecture seule. C'est le comportement
+ * sûr, et il rend l'absence observable.
  */
-const permissions = computed<Permissions>(() =>
-  String(config.public.permissions ?? '')
-    .split(',')
-    .map(p => p.trim())
-    .filter(Boolean),
-)
+const permissions = computed<Permissions>(() => sessionCourante()?.permissions ?? [])
 
 /**
  * Remplace la liste des services après une écriture, **sans rechargement de page**.
@@ -84,10 +80,16 @@ function remplacerServices(services: ServiceActif[]): void {
 // le ferait entrer dans le fragment de la route, et le client d'API avec lui — ce qui annulerait
 // le bénéfice du chargement paresseux sur la page la plus légère du produit.
 onMounted(async () => {
+  // Sans session, il n'y a pas de contexte d'appel : l'écran le dit et renvoie à la connexion,
+  // plutôt que de partir en requête pour récolter un `401`.
+  if (!contexte.value) {
+    erreur.value = t('connexion.requise')
+    return
+  }
+
   const { chargerEcran } = await import('~/modules/etablissements/donnees')
   try {
-    // Le contexte est celui du `computed` ci-dessus — voir `backend/api/src/contexte.rs`,
-    // dérogation `CONTEXTE_PAR_EN_TETES`.
+    // Le contexte porte le jeton d'accès — `backend/api/src/contexte.rs`, refondu par CPT-01.
     donnees.value = await chargerEcran(
       contexte.value,
       String(route.query.etablissement ?? config.public.etablissementId),
@@ -103,7 +105,7 @@ onMounted(async () => {
 
 <template>
   <EcranEtablissement
-    v-if="donnees"
+    v-if="donnees && contexte"
     :etablissement="donnees.etablissement"
     :services="donnees.services"
     :referentiel-modules="donnees.referentielModules"

@@ -77,22 +77,20 @@ export default defineNuxtConfig({
     },
   },
 
-  // **Aucune valeur d'environnement codée en dur dans un composant.** Les trois dernières sont
-  // le provisoire de contexte ouvert au cycle 001 (`CONTEXTE_PAR_EN_TETES`) : elles disparaissent
-  // avec CPT-01, qui livrera l'authentification par jeton. Les laisser ici, nommées et groupées,
-  // rend visible ce qu'il y aura à retirer — un identifiant dispersé dans cinq composants ne se
-  // retrouverait pas.
+  // **Aucune valeur d'environnement codée en dur dans un composant.**
+  //
+  // Trois clés ont disparu ici avec CPT-01 et CPT-02 — `tenantId`, `compteId` et `permissions`.
+  // Elles portaient le provisoire de contexte du cycle 001 (`CONTEXTE_PAR_EN_TETES`) et les
+  // permissions en configuration du cycle 002. Le tenant, le compte et les permissions viennent
+  // désormais de la **réponse de connexion**, donc du jeton que le serveur a signé : les laisser
+  // aurait offert une seconde source, réglable par fichier, pour ce qui décide de l'accès.
+  //
+  // Les avoir groupées et nommées est ce qui a permis de les retirer en une fois — un identifiant
+  // dispersé dans cinq composants ne se serait pas retrouvé.
   runtimeConfig: {
     public: {
       apiBaseUrl: 'http://localhost:8080',
-      tenantId: '',
-      compteId: '',
       etablissementId: '',
-      // **Provisoire nommé, levé par CPT-02.** Permissions cumulées de l'utilisateur, séparées par
-      // des virgules. Vide par défaut : sans permission, l'écran se rend en lecture seule et
-      // aucune action n'apparaît — le comportement sûr, et celui qui rend la règle observable.
-      // Un défaut « tout permis » masquerait le principe VII jusqu'au cycle CPT.
-      permissions: '',
     },
   },
 

@@ -19,6 +19,16 @@
     "indisponible": "This action is not available on this device.",
     "indisponible_hors_ligne": "This action needs a connection. It will be possible as soon as the network returns."
   },
+  "connexion": {
+    "requise": "Sign in to continue.",
+    "refus": {
+      "identifiants": "Incorrect ID or password.",
+      "methode_non_implementee": "This account signs in another way, which is not available yet. Ask whoever manages the accounts.",
+      "reseau": "Signing in needs the network. Try again as soon as it is back.",
+      "session_expiree": "Your session has ended. Sign in again.",
+      "inattendue": "Sign-in did not go through. Try again in a moment."
+    }
+  },
   "champ": {
     "erreur": {
       "obligatoire": "This information is missing.",

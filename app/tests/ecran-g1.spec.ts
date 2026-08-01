@@ -44,8 +44,8 @@ const REFERENTIEL: EntreeReferentiel[] = [
   },
 ]
 
-/** Contexte d'appel — **provisoire nommé**, levé par CPT-01. Aucun appel n'est émis dans ces tests. */
-const CONTEXTE = { baseUrl: 'http://localhost:8080', tenantId: 't', compteId: 'c' }
+/** Contexte d'appel — jeton d'accès depuis CPT-01. Aucun appel n'est émis dans ces tests. */
+const CONTEXTE = { baseUrl: 'http://localhost:8080', acces: 'jeton-de-test' }
 
 /** La permission de modifier les services — voir `bascule-service.ts`, provisoire levé par CPT-02. */
 const PEUT_MODIFIER = ['etb.service.basculer']

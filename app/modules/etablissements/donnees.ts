@@ -5,21 +5,26 @@
  * change fait échouer la compilation ici, au lieu de produire un `undefined` à l'exécution que
  * personne ne verrait avant la démonstration.
  *
- * # Le contexte d'appel est un provisoire NOMMÉ
+ * # Le provisoire de contexte est LEVÉ — CPT-01
  *
- * L'authentification est **CPT-01**, hors du périmètre de ce cycle. En attendant, le tenant et le
- * compte voyagent dans deux en-têtes — c'est la dérogation `CONTEXTE_PAR_EN_TETES` ouverte au
- * cycle 001, dont l'API refuse de démarrer si elle n'est pas explicitement activée.
+ * Le tenant et le compte voyageaient dans deux en-têtes, `x-kaya-tenant` et `x-kaya-compte`,
+ * au titre de la dérogation `CONTEXTE_PAR_EN_TETES` ouverte au cycle 001. **L'API ne les accepte
+ * plus** : le tenant, le compte, l'établissement actif et les permissions viennent du jeton
+ * **vérifié** (`backend/api/src/contexte.rs`, refondu par T030).
  *
- * **Elle est reprise ici plutôt que contournée** : écrire un chargement sans contexte donnerait un
- * écran qui « marche » en développement et qui devra être rouvert au cycle CPT. Le point d'entrée
- * unique ci-dessous est ce qu'il y aura à changer — une fonction, pas cinq appels.
+ * Le point d'entrée unique annoncé alors a tenu sa promesse : une fonction a changé, pas cinq
+ * appels. `ContexteAppel` vit désormais dans `~/core/auth` — c'est lui qui sait ce qu'il faut
+ * mettre dans une requête, et il n'y a plus rien à choisir.
  */
 
 import { creerClientKaya } from '@kaya/client'
 
+import { enTetesAuth, type ContexteAppel } from '~/core/auth'
+
 import type { EntreeReferentiel, ServiceActif } from './services-visibles'
 import type { PointDeVenteVue } from './points-de-vente'
+
+export type { ContexteAppel }
 
 /** Une valeur de configuration résolue, avec son origine. */
 export interface ValeurConfiguration {
@@ -50,20 +55,6 @@ export interface DonneesEcran {
   configuration: ValeurConfiguration[]
 }
 
-/** Contexte d'appel — **provisoire, levé par CPT-01**. */
-export interface ContexteAppel {
-  baseUrl: string
-  tenantId: string
-  compteId: string
-}
-
-function enTetes(contexte: ContexteAppel): Record<string, string> {
-  return {
-    'x-kaya-tenant': contexte.tenantId,
-    'x-kaya-compte': contexte.compteId,
-  }
-}
-
 /**
  * Charge les données de l'écran.
  *
@@ -83,7 +74,7 @@ export async function chargerEcran(
   etablissementId: string,
 ): Promise<DonneesEcran> {
   const client = creerClientKaya(contexte.baseUrl)
-  const headers = enTetes(contexte)
+  const headers = enTetesAuth(contexte)
 
   const etablissement = await client.GET('/api/v1/etablissements/{etablissement_id}', {
     params: { path: { etablissement_id: etablissementId } },
@@ -147,7 +138,7 @@ export async function chargerServices(
 
   const services = await client.GET('/api/v1/etablissements/{etablissement_id}/services', {
     params: { path: { etablissement_id: etablissementId } },
-    headers: enTetes(contexte),
+    headers: enTetesAuth(contexte),
   })
 
   if (services.error) {

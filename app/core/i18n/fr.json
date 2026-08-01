@@ -19,6 +19,16 @@
     "indisponible": "Cette action n'est pas disponible sur cet appareil.",
     "indisponible_hors_ligne": "Cette action demande une connexion. Elle sera possible dès le retour du réseau."
   },
+  "connexion": {
+    "requise": "Connectez-vous pour continuer.",
+    "refus": {
+      "identifiants": "Identifiant ou mot de passe incorrect.",
+      "methode_non_implementee": "Ce compte se connecte par un autre moyen, qui n'est pas encore disponible. Demandez à la personne qui gère les comptes.",
+      "reseau": "La connexion demande le réseau. Réessayez dès qu'il revient.",
+      "session_expiree": "Votre session a pris fin. Connectez-vous à nouveau.",
+      "inattendue": "La connexion n'a pas abouti. Réessayez dans un instant."
+    }
+  },
   "champ": {
     "erreur": {
       "obligatoire": "Il manque cette information.",

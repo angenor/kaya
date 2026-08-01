@@ -1,30 +1,55 @@
 /**
- * Authentification — **coquille structurelle. La logique est CPT-01.**
+ * Authentification — **la coquille du cycle 001 est remplacée** (CPT-01).
  *
- * Ce fichier n'existe que pour que la place soit prise et que les types que le reste de
- * l'application consommera soient déjà nommés.
+ * # Ce qui est arrêté, et qu'il ne faut pas redécider
  *
- * # Ce qui est déjà arrêté, et qu'il ne faudra pas redécider
- *
- * - **JWT court + refresh révocable** (gel §3.1, `jsonwebtoken`).
- * - **Enrôlement d'appareil par paire de clés** générée dans le Keystore/Keychain, qui signe
- *   chaque requête (principe IX). **Le verrouillage par adresse MAC n'est jamais implémenté** :
- *   iOS 14 et Android 10 randomisent la MAC par réseau, et Android n'expose pas la MAC
- *   matérielle. Ce n'est pas une difficulté à contourner, c'est une impossibilité.
+ * - **JWT court + rafraîchissement révocable** (gel §3.1, `jsonwebtoken`). Soixante minutes et
+ *   quatre-vingt-dix jours, tous deux **paramètres d'établissement**, jamais des constantes.
+ * - **Le front ne décode jamais le jeton.** Permissions, tenant, compte et établissement actif
+ *   viennent du corps de la réponse, en clair (research R-06).
+ * - **Le stockage du rafraîchissement passe entièrement par `PlatformAdapter`** — porte P-15, et
+ *   c'est le premier usage d'une capacité native par un écran du produit.
+ * - **Enrôlement d'appareil par paire de clés** générée dans le Keystore/Keychain (CPT-05).
+ *   **Le verrouillage par adresse MAC n'est jamais implémenté** : iOS 14 et Android 10
+ *   randomisent la MAC par réseau. Ce n'est pas une difficulté à contourner, c'est une
+ *   impossibilité.
  * - **Aucun secret dans le binaire Tauri** — il est décompilable.
  * - **Aucune élévation de privilège hors ligne, jamais** (registre §5.2, classe C).
+ *
+ * # Les trois fichiers
+ *
+ * | Fichier | Ce qu'il porte |
+ * |---|---|
+ * | `session.ts` | L'état — deux jetons, deux emplacements — et le contexte d'appel |
+ * | `connexion.ts` | Les quatre opérations et leur table de refus |
+ * | `index.ts` | Ce fichier : la surface publique, et rien d'autre |
  */
 
-export interface SessionUtilisateur {
-  readonly compteId: string
-  readonly tenantId: string
-  /** Établissement actif du sélecteur de contexte permanent (principe VII). */
-  readonly etablissementId: string | null
-  /** Permissions **cumulées** de tous les rôles portés — voir `core/rbac`. */
-  readonly permissions: readonly string[]
-}
+export {
+  accesExpire,
+  CLE_RAFRAICHISSEMENT,
+  contexteAppel,
+  effacerSession,
+  enTetesAuth,
+  lireRafraichissement,
+  oublierRafraichissement,
+  poserSession,
+  rangerRafraichissement,
+  sessionCourante,
+  type ContexteAppel,
+  type SessionUtilisateur,
+} from './session'
 
-/** Aucune session tant que CPT-01 n'est pas livré. */
-export function sessionCourante(): SessionUtilisateur | null {
-  return null
-}
+export {
+  fermerSession,
+  ouvrirSession,
+  rafraichirSession,
+  REFUS_IDENTIFIANTS,
+  REFUS_INATTENDU,
+  REFUS_METHODE,
+  REFUS_RESEAU,
+  REFUS_SESSION_EXPIREE,
+  reprendreSession,
+  type Identifiants,
+  type ResultatConnexion,
+} from './connexion'
