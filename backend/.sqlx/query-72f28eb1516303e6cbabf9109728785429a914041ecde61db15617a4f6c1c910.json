@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT EXISTS (\n            SELECT 1\n            FROM comptes.compte_role cr\n            JOIN comptes.role r ON r.code = cr.role_code\n            WHERE cr.compte_id = $1 AND r.portee = 'EDITEUR'\n        ) AS \"porte!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "porte!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "72f28eb1516303e6cbabf9109728785429a914041ecde61db15617a4f6c1c910"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE comptes.compte SET actif = $2, modifie_le = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e135a8ad0c640132226376f3cda40684b33a34ccce963a22b9f652ed8fdd6ff6"
+}

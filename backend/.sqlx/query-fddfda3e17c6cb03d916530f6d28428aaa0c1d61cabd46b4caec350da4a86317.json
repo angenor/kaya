@@ -1,0 +1,131 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, etablissement_id, type_action, auteur_compte_id,\n               cible_type, cible_id, contexte, horodatage_client, cree_le\n        FROM comptes.journal_audit\n        WHERE ($1::uuid IS NULL OR auteur_compte_id = $1)\n          AND ($2::uuid IS NULL OR etablissement_id = $2)\n          AND ($3::text IS NULL OR type_action = $3)\n          AND ($4::timestamptz IS NULL OR cree_le >= $4)\n          AND ($5::timestamptz IS NULL OR cree_le < $5)\n          AND ($6::timestamptz IS NULL\n               OR cree_le < $6\n               OR (cree_le = $6 AND id < $7))\n        ORDER BY cree_le DESC, id DESC\n        LIMIT $8\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "etablissement_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "type_action",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "type_action"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "auteur_compte_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "auteur_compte_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cible_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "cible_type"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "cible_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "cible_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "contexte",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "contexte"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "horodatage_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "horodatage_client"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.journal_audit",
+            "name": "cree_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "fddfda3e17c6cb03d916530f6d28428aaa0c1d61cabd46b4caec350da4a86317"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT cr.compte_id, cr.role_code, cr.etablissement_id\n        FROM comptes.compte_role cr\n        JOIN comptes.role r ON r.code = cr.role_code\n        WHERE cr.compte_id = ANY($1)\n        ORDER BY r.ordre, cr.etablissement_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "compte_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.compte_role",
+            "name": "compte_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "role_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.compte_role",
+            "name": "role_code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "etablissement_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.compte_role",
+            "name": "etablissement_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "87beaaaa40d45f114712c04d45833daf1f469325684e31456bd412f08bba4ac3"
+}

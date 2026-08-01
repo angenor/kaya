@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"c!\"\n        FROM synchronisation.evenement_outbox\n        WHERE tenant_id = $1 AND type_evenement = 'session.revoquee'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3815180d5729182bfdd53b7e6a73646efb4d022ead98413c2035bfc9fc6a1a6a"
+}

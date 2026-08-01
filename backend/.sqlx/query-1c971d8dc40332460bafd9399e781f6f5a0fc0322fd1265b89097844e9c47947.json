@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(DISTINCT cr.compte_id) AS \"nombre!\"\n        FROM comptes.compte_role cr\n        JOIN comptes.role_permission rp ON rp.role_code = cr.role_code\n        JOIN comptes.compte c ON c.id = cr.compte_id\n        WHERE cr.etablissement_id = $1\n          AND rp.permission_code = $2\n          AND c.actif\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nombre!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1c971d8dc40332460bafd9399e781f6f5a0fc0322fd1265b89097844e9c47947"
+}

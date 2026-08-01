@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.employe\n            (id, tenant_id, personne_id, etablissement_id, date_embauche, salaire_mineur, devise_code)\n        VALUES ($1, $2, $3, $4, DATE '2024-11-15', 250000, 'XOF')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "74c07fb190c16e10a8aa7c0a2fa59f86baab97fdfdc39201cc55188deabee140"
+}

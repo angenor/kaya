@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT code AS \"code!\", libelle_cle AS \"libelle_cle!\",\n               ordre AS \"ordre!\", portee AS \"portee!\"\n        FROM comptes.role\n        ORDER BY ordre\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.role",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "libelle_cle!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.role",
+            "name": "libelle_cle"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ordre!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "comptes.role",
+            "name": "ordre"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "portee!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.role",
+            "name": "portee"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "61841c2c1f3e48a0bf25c9140fe77b194a3e27437ff1ca84feb00fb332891ad8"
+}

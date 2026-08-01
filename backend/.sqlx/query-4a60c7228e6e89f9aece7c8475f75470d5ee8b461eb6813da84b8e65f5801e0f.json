@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM comptes.compte_role\n        WHERE compte_id = $1\n          AND role_code = $2\n          AND etablissement_id IS NOT DISTINCT FROM $3\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4a60c7228e6e89f9aece7c8475f75470d5ee8b461eb6813da84b8e65f5801e0f"
+}

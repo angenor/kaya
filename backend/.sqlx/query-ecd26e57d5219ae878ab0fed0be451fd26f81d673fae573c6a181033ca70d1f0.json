@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT type_valeur, portee_la_plus_basse\n        FROM etablissements.parametre_catalogue\n        WHERE cle = 'mot_de_passe_longueur_min'\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "type_valeur",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "type_valeur"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "portee_la_plus_basse",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_catalogue",
+            "name": "portee_la_plus_basse"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ecd26e57d5219ae878ab0fed0be451fd26f81d673fae573c6a181033ca70d1f0"
+}

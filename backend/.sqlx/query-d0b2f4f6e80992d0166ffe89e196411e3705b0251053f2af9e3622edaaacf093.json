@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT portee AS \"portee!\" FROM comptes.role WHERE code = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "portee!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.role",
+            "name": "portee"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "d0b2f4f6e80992d0166ffe89e196411e3705b0251053f2af9e3622edaaacf093"
+}

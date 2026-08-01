@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.compte_role\n            (id, tenant_id, compte_id, role_code, etablissement_id,\n             attribue_par_compte_id, horodatage_client)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        ON CONFLICT ON CONSTRAINT compte_role_unique DO NOTHING\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.compte_role",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b1fecc7af302baf80bd76a02e359faef878ea8778ec3ab87714eb109b14e65c6"
+}

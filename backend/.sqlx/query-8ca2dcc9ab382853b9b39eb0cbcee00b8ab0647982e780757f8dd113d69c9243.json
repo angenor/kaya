@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT rp.permission_code AS \"code!\"\n        FROM comptes.compte_role cr\n        JOIN comptes.role_permission rp ON rp.role_code = cr.role_code\n        WHERE cr.compte_id = $1\n          AND (cr.etablissement_id IS NULL OR cr.etablissement_id = $2)\n        ORDER BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.role_permission",
+            "name": "permission_code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8ca2dcc9ab382853b9b39eb0cbcee00b8ab0647982e780757f8dd113d69c9243"
+}

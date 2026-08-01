@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT EXISTS (\n            SELECT 1\n            FROM comptes.compte_role cr\n            JOIN comptes.role_permission rp ON rp.role_code = cr.role_code\n            WHERE cr.compte_id = $1\n              AND cr.etablissement_id = $2\n              AND rp.permission_code = $3\n        ) AS \"habilite!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "habilite!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "1f6ce3c24b2dbf0c65622317eca8efc3fc2df5c3256bed03396fe98694cdd35c"
+}
