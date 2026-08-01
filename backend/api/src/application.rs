@@ -13,13 +13,67 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::observabilite::Correlation;
 
 /// État partagé injecté dans chaque handler.
+///
+/// # Trois champs, et deux sont nouveaux depuis CPT-01
+///
+/// L'entrepôt des sessions et la clé de signature ne sont pas là par commodité : ils sont sur le
+/// chemin de **chaque requête authentifiée**, puisque `ContexteAppel` vérifie la signature du
+/// jeton et consulte la liste de révocation avant de laisser passer un handler. Les construire à
+/// la demande, comme les services, coûterait un client Redis par requête.
 #[derive(Clone)]
 pub struct EtatApplication {
     /// Pool **applicatif**, sous `kaya_app`, soumis à la sécurité au niveau ligne.
     pub pool: PgPool,
+    /// Entrepôt des sessions — **la liste de révocation est consultée à chaque requête**.
+    pub entrepot: kaya_comptes::session::Entrepot,
+    /// Compteur de tentatives de connexion — deux clés, l'identifiant et l'origine.
+    pub limite: kaya_comptes::session::LimiteTentatives,
+    /// Clé de signature des jetons, lue de l'environnement au démarrage (principe IX).
+    pub cle_jwt: Vec<u8>,
 }
 
 impl EtatApplication {
+    /// Assemble l'état depuis l'environnement — **la seule fabrique du produit**.
+    ///
+    /// Les tests d'intégration l'appellent aussi : un état monté autrement en test prouverait
+    /// quelque chose sur lui-même et rien sur le service servi, exactement comme une route
+    /// déclarée hors de `routes::configurer`.
+    pub fn depuis_environnement(pool: PgPool) -> Result<Self, String> {
+        let url_redis = std::env::var("REDIS_URL").map_err(|_| {
+            "REDIS_URL est absente. Depuis CPT-01, Redis n'est plus optionnel : la liste de \
+             révocation est consultée à chaque requête authentifiée, et sans elle aucune session \
+             ne peut être coupée avant son expiration — jusqu'à 90 jours pour un jeton de \
+             rafraîchissement."
+                .to_owned()
+        })?;
+
+        Ok(Self {
+            pool,
+            entrepot: kaya_comptes::session::Entrepot::nouveau(&url_redis)
+                .map_err(|e| format!("entrepôt des sessions injoignable : {e}"))?,
+            limite: kaya_comptes::session::LimiteTentatives::nouveau(&url_redis)
+                .map_err(|e| format!("compteur de tentatives injoignable : {e}"))?,
+            cle_jwt: crate::secrets::cle_jwt().map_err(|e| e.to_string())?,
+        })
+    }
+
+    /// Service d'authentification et de session — CPT-01.
+    pub fn service_authentification(
+        &self,
+    ) -> kaya_comptes::authentification::ServiceAuthentification<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_comptes::audit::JournalAuditPostgres,
+    > {
+        kaya_comptes::authentification::ServiceAuthentification::nouveau(
+            self.pool.clone(),
+            self.entrepot.clone(),
+            self.limite.clone(),
+            self.cle_jwt.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_comptes::audit::JournalAuditPostgres,
+        )
+    }
+
     /// Construit le service des notes.
     ///
     /// Le service est **assemblé à la demande** plutôt que conservé dans l'état : il ne détient
@@ -283,10 +337,8 @@ pub fn politique_cors() -> actix_cors::Cors {
             actix_web::http::header::CONTENT_TYPE,
             actix_web::http::header::AUTHORIZATION,
         ])
-        // Les deux en-têtes du provisoire `CONTEXTE_PAR_EN_TETES`. Ils disparaîtront avec CPT-01,
-        // qui portera le contexte dans le jeton — et cette ligne avec eux.
-        .allowed_header(crate::contexte::EN_TETE_TENANT)
-        .allowed_header(crate::contexte::EN_TETE_COMPTE)
+        // Les deux en-têtes du provisoire `CONTEXTE_PAR_EN_TETES` ont disparu avec lui (T030) :
+        // le contexte vient désormais du jeton, porté par `Authorization`, déjà déclaré ci-dessus.
         // Une heure de cache de préflight : au-delà, on rejoue un aller-retour par requête sur un
         // réseau que la persona Aminata n'a pas.
         .max_age(3600);
@@ -298,8 +350,7 @@ pub fn politique_cors() -> actix_cors::Cors {
 }
 
 /// Démarre le serveur HTTP.
-pub async fn servir(pool: PgPool, port: u16) -> std::io::Result<()> {
-    let etat = EtatApplication { pool };
+pub async fn servir(etat: EtatApplication, port: u16) -> std::io::Result<()> {
     let monter_swagger = swagger_ui_activee();
 
     if monter_swagger {

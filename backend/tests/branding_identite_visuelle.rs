@@ -305,17 +305,17 @@ async fn l_apercu_n_enregistre_rien() {
     let pool = commun::pool_app().await;
     let jeu = commun::creer_tenant(&pool_owner, "branding aperçu").await;
     let app = monter_application!(pool.clone());
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "branding aperçu",
+        &[("proprietaire", Some(jeu.etablissement_id))],
+    )
+    .await;
 
     let requete = actix_web::test::TestRequest::post()
         .uri("/api/v1/branding/apercu")
-        .insert_header((
-            kaya_api::contexte::EN_TETE_TENANT,
-            jeu.tenant_id.to_string(),
-        ))
-        .insert_header((
-            kaya_api::contexte::EN_TETE_COMPTE,
-            Uuid::now_v7().to_string(),
-        ))
+        .insert_header(("Authorization", cx.bearer.clone()))
         .set_json(serde_json::json!({
             "nom_etablissement": "Aperçu jamais enregistré",
             "entete_document": "En-tête d'essai",

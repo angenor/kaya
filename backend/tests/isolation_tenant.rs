@@ -10,6 +10,19 @@
 //! l'endpoint ajouté un vendredi soir serait celui qui fuit. Ici, ajouter une route **sans
 //! décider** de son régime d'isolation casse le build.
 //!
+//! # Depuis T030, les requêtes portent un VRAI jeton
+//!
+//! Jusqu'au cycle 002, ces tests posaient deux en-têtes non authentifiés sous la dérogation
+//! `CONTEXTE_PAR_EN_TETES`. Elle est **levée** : le contexte vient d'un jeton signé, et
+//! `commun::connecter` l'obtient en appelant `ServiceAuthentification::ouvrir` — c'est-à-dire le
+//! même code que l'endpoint `session_ouvrir`.
+//!
+//! **Forger le jeton avec la clé de test aurait tenu en trois lignes et fait passer tous ces
+//! tests.** Ce serait aussi la faute que T030 nomme : les vingt et une opérations existantes
+//! n'exerceraient jamais l'authentification. Un défaut dans la résolution d'identifiant, dans la
+//! vérification du mot de passe ou dans le calcul des permissions ne ferait échouer aucun test —
+//! ils fourniraient eux-mêmes le contexte qu'ils sont censés obtenir.
+//!
 //! Deux régimes seulement, et le second doit se justifier :
 //!
 //! - [`Regime::Isole`] — l'endpoint touche des données de tenant. Un appel croisé doit ne rien
@@ -264,14 +277,15 @@ async fn p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien() {
     let pool = commun::pool_app().await;
     let app = monter_application!(pool.clone());
 
-    let compte_a = uuid::Uuid::now_v7();
+    // **Un vrai compte, un vrai jeton.** Voir le commentaire de tête : forger le jeton ferait
+    // passer ce test sans jamais exercer l'authentification.
+    let cx_a = commun::compte_connecte(&pool_owner, a, "P-08 endpoint A", &[("proprietaire", Some(a.etablissement_id))]).await;
     let chemin_de_b = format!("/api/v1/etablissements/{}/notes", b.etablissement_id);
 
     // --- Lecture croisée : A demande les notes de l'établissement de B --------------------
     let requete = actix_web::test::TestRequest::get()
         .uri(&chemin_de_b)
-        .insert_header((kaya_api::contexte::EN_TETE_TENANT, a.tenant_id.to_string()))
-        .insert_header((kaya_api::contexte::EN_TETE_COMPTE, compte_a.to_string()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .to_request();
     let reponse = actix_web::test::call_service(&app, requete).await;
 
@@ -288,8 +302,7 @@ async fn p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien() {
     // --- Écriture croisée : A crée une note chez B ----------------------------------------
     let requete = actix_web::test::TestRequest::post()
         .uri(&chemin_de_b)
-        .insert_header((kaya_api::contexte::EN_TETE_TENANT, a.tenant_id.to_string()))
-        .insert_header((kaya_api::contexte::EN_TETE_COMPTE, compte_a.to_string()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .set_json(serde_json::json!({
             "id": uuid::Uuid::now_v7(),
             "texte": "intrusion",
@@ -331,16 +344,12 @@ async fn p08_appel_croise_sur_endpoint_ne_voit_ni_n_ecrit_rien() {
 //  Cycle 002 — isolation des établissements, des services et des capacités
 // =================================================================================================
 
-/// Construit un en-tête de contexte pour un tenant donné.
-fn en_tetes(tenant_id: uuid::Uuid) -> [(&'static str, String); 2] {
-    [
-        (kaya_api::contexte::EN_TETE_TENANT, tenant_id.to_string()),
-        (
-            kaya_api::contexte::EN_TETE_COMPTE,
-            uuid::Uuid::now_v7().to_string(),
-        ),
-    ]
-}
+/// Le nom de l'en-tête d'authentification, écrit une fois.
+///
+/// C'est le **seul** en-tête de contexte du produit depuis T030. Les deux précédents,
+/// `x-kaya-tenant` et `x-kaya-compte`, n'existent plus : une dérogation se lève en retirant le
+/// code, pas en cessant de l'employer.
+const AUTORISATION: &str = "Authorization";
 
 /// **Isolation par endpoint sur les cinq chemins du cycle 002.**
 ///
@@ -358,7 +367,7 @@ async fn p08_cycle_002_appels_croises_ne_voient_ni_n_ecrivent_rien() {
 
     let pool = commun::pool_app().await;
     let app = monter_application!(pool.clone());
-    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+    let cx_a = commun::compte_connecte(&pool_owner, a, "P-08 tenant A", &[("proprietaire", Some(a.etablissement_id))]).await;
 
     // B active un service, pour que A ait quelque chose à essayer de voir.
     let service_b = kaya_etablissements::modules::ServiceModules::nouveau(
@@ -388,8 +397,7 @@ async fn p08_cycle_002_appels_croises_ne_voient_ni_n_ecrivent_rien() {
     for chemin in &lectures {
         let requete = actix_web::test::TestRequest::get()
             .uri(chemin)
-            .insert_header((tenant_a.0, tenant_a.1.clone()))
-            .insert_header((compte_a.0, compte_a.1.clone()))
+            .insert_header((AUTORISATION, cx_a.bearer.clone()))
             .to_request();
         let reponse = actix_web::test::call_service(&app, requete).await;
         assert_eq!(
@@ -404,8 +412,7 @@ async fn p08_cycle_002_appels_croises_ne_voient_ni_n_ecrivent_rien() {
     // --- Écriture croisée : A active un service chez B ------------------------------------
     let requete = actix_web::test::TestRequest::put()
         .uri(&format!("/api/v1/etablissements/{etb_b}/services/BAR"))
-        .insert_header((tenant_a.0, tenant_a.1.clone()))
-        .insert_header((compte_a.0, compte_a.1.clone()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .set_json(serde_json::json!({ "id": uuid::Uuid::now_v7(), "actif": true }))
         .to_request();
     let reponse = actix_web::test::call_service(&app, requete).await;
@@ -421,8 +428,7 @@ async fn p08_cycle_002_appels_croises_ne_voient_ni_n_ecrivent_rien() {
         .uri(&format!(
             "/api/v1/etablissements/{etb_b}/services/RESTAURATION/capacites"
         ))
-        .insert_header((tenant_a.0, tenant_a.1.clone()))
-        .insert_header((compte_a.0, compte_a.1.clone()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .set_json(serde_json::json!({
             "id": uuid::Uuid::now_v7(),
             "capacite_code": "STOCK",
@@ -493,12 +499,11 @@ async fn p08_la_liste_des_etablissements_est_bornee_au_tenant() {
 
     let pool = commun::pool_app().await;
     let app = monter_application!(pool.clone());
-    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+    let cx_a = commun::compte_connecte(&pool_owner, a, "P-08 tenant A", &[("proprietaire", Some(a.etablissement_id))]).await;
 
     let requete = actix_web::test::TestRequest::get()
         .uri("/api/v1/etablissements")
-        .insert_header((tenant_a.0, tenant_a.1.clone()))
-        .insert_header((compte_a.0, compte_a.1.clone()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .to_request();
     let corps: serde_json::Value = actix_web::test::call_and_read_body_json(&app, requete).await;
 
@@ -537,18 +542,21 @@ async fn p08_les_referentiels_rendent_la_meme_chose_aux_deux_tenants() {
     let pool = commun::pool_app().await;
     let app = monter_application!(pool.clone());
 
+    // Deux comptes réels, un par tenant : c'est la comparaison de ce que les DEUX obtiennent qui
+    // fait la démonstration, et un jeton par tenant est le seul moyen de la faire.
+    let cx_a = commun::compte_connecte(&pool_owner, a, "P-08 référentiel A", &[("proprietaire", Some(a.etablissement_id))]).await;
+    let cx_b = commun::compte_connecte(&pool_owner, b, "P-08 référentiel B", &[("proprietaire", Some(b.etablissement_id))]).await;
+
     for chemin in [
         "/api/v1/referentiels/modules-activite",
         "/api/v1/referentiels/capacites",
         "/api/v1/referentiels/profils-stock",
     ] {
         let mut reponses = Vec::new();
-        for tenant in [a.tenant_id, b.tenant_id] {
-            let [t, c] = en_tetes(tenant);
+        for bearer in [&cx_a.bearer, &cx_b.bearer] {
             let requete = actix_web::test::TestRequest::get()
                 .uri(chemin)
-                .insert_header((t.0, t.1))
-                .insert_header((c.0, c.1))
+                .insert_header((AUTORISATION, bearer.clone()))
                 .to_request();
             let corps: serde_json::Value =
                 actix_web::test::call_and_read_body_json(&app, requete).await;
@@ -622,13 +630,12 @@ async fn p08_les_points_de_vente_sont_isoles_meme_par_identifiant_direct() {
         .await
         .expect("création du point de vente de B");
 
-    let [tenant_a, compte_a] = en_tetes(a.tenant_id);
+    let cx_a = commun::compte_connecte(&pool_owner, a, "P-08 tenant A", &[("proprietaire", Some(a.etablissement_id))]).await;
 
     // A modifie le point de vente de B, par identifiant direct.
     let requete = actix_web::test::TestRequest::patch()
         .uri(&format!("/api/v1/points-de-vente/{}", point_b.id))
-        .insert_header((tenant_a.0, tenant_a.1.clone()))
-        .insert_header((compte_a.0, compte_a.1.clone()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .set_json(serde_json::json!({ "nom": "détourné" }))
         .to_request();
     let reponse = actix_web::test::call_service(&app, requete).await;
@@ -642,8 +649,7 @@ async fn p08_les_points_de_vente_sont_isoles_meme_par_identifiant_direct() {
     // A pose des tables sur le point de vente de B.
     let requete = actix_web::test::TestRequest::put()
         .uri(&format!("/api/v1/points-de-vente/{}/tables", point_b.id))
-        .insert_header((tenant_a.0, tenant_a.1.clone()))
-        .insert_header((compte_a.0, compte_a.1.clone()))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
         .set_json(serde_json::json!({
             "tables": [{ "id": uuid::Uuid::now_v7(), "libelle": "intrusion" }]
         }))

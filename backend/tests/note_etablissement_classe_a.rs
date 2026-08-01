@@ -26,7 +26,6 @@ use actix_web::test;
 use serde_json::json;
 use uuid::Uuid;
 
-use kaya_api::contexte::{EN_TETE_COMPTE, EN_TETE_TENANT};
 
 /// **Test de rejeu.** Trois envois du même identifiant → un enregistrement, `201` puis `200`.
 ///
@@ -41,15 +40,22 @@ async fn rejeu_triple_produit_un_seul_enregistrement() {
     let app = monter_application!(pool.clone());
 
     let note_id = Uuid::now_v7();
-    let compte_id = Uuid::now_v7();
+    // Depuis T030, le contexte vient d'un **jeton réel** obtenu par le vrai chemin de connexion.
+    // Les deux en-têtes du provisoire `CONTEXTE_PAR_EN_TETES` n'existent plus.
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "classe A — rejeu",
+        &[("proprietaire", Some(jeu.etablissement_id))],
+    )
+    .await;
     let chemin = format!("/api/v1/etablissements/{}/notes", jeu.etablissement_id);
 
     let mut statuts = Vec::new();
     for _ in 0..3 {
         let requete = test::TestRequest::post()
             .uri(&chemin)
-            .insert_header((EN_TETE_TENANT, jeu.tenant_id.to_string()))
-            .insert_header((EN_TETE_COMPTE, compte_id.to_string()))
+            .insert_header(("Authorization", cx.bearer.clone()))
             .set_json(json!({
                 "id": note_id,
                 "texte": "Le groupe électrogène a démarré à 19 h 40.",
@@ -107,7 +113,13 @@ async fn desordre_les_six_ordres_donnent_le_meme_etat_final() {
 
     for (rang, ordre) in PERMUTATIONS.iter().enumerate() {
         let jeu = commun::creer_tenant(&pool_owner, &format!("classe A — désordre {rang}")).await;
-        let compte_id = Uuid::now_v7();
+        let cx = commun::compte_connecte(
+            &pool_owner,
+            jeu,
+            "classe A — désordre",
+            &[("proprietaire", Some(jeu.etablissement_id))],
+        )
+        .await;
         let chemin = format!("/api/v1/etablissements/{}/notes", jeu.etablissement_id);
 
         // Identifiants figés par permutation : les trois notes sont *les mêmes* écritures, seul
@@ -123,8 +135,7 @@ async fn desordre_les_six_ordres_donnent_le_meme_etat_final() {
             let (id, texte) = notes[index];
             let requete = test::TestRequest::post()
                 .uri(&chemin)
-                .insert_header((EN_TETE_TENANT, jeu.tenant_id.to_string()))
-                .insert_header((EN_TETE_COMPTE, compte_id.to_string()))
+                .insert_header(("Authorization", cx.bearer.clone()))
                 .set_json(json!({ "id": id, "texte": texte }))
                 .to_request();
 

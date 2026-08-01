@@ -183,9 +183,15 @@ macro_rules! monter_application {
         use utoipa_actix_web::AppExt;
 
         let (app, _contrat) = App::new()
-            .app_data(web::Data::new(kaya_api::application::EtatApplication {
-                pool: $pool,
-            }))
+            // **L'état est assemblé par la fabrique du produit**, `depuis_environnement`, et non
+            // champ par champ. Un état monté à la main en test divergerait de celui que sert le
+            // binaire au premier champ ajouté — et c'est exactement ce qui vient d'arriver avec
+            // l'entrepôt des sessions : le compilateur l'a signalé ici, il ne l'aurait pas
+            // signalé sur un état construit par une fonction de test.
+            .app_data(web::Data::new(
+                kaya_api::application::EtatApplication::depuis_environnement($pool)
+                    .expect("assemblage de l'état applicatif"),
+            ))
             .into_utoipa_app()
             .openapi(kaya_api::openapi::contrat())
             .configure(kaya_api::routes::configurer)
@@ -355,6 +361,92 @@ pub async fn creer_compte(
     JeuCompte {
         personne_id,
         compte_id,
+    }
+}
+
+/// Mot de passe de tous les comptes de test.
+///
+/// Il satisfait la politique — huit caractères, absent de la liste des compromis — sans quoi les
+/// jeux d'essai seraient refusés à la création et les tests muets.
+pub const MOT_DE_PASSE_TEST: &str = "chaise-tomate-abidjan";
+
+/// Un compte de test et son jeton d'accès.
+#[derive(Debug, Clone)]
+pub struct Connexion {
+    pub compte_id: Uuid,
+    pub tenant_id: Uuid,
+    pub etablissement_id: Uuid,
+    /// La valeur complète de l'en-tête `Authorization`, prête à insérer.
+    pub bearer: String,
+}
+
+/// Crée un compte **et l'authentifie par le vrai chemin de connexion**.
+///
+/// # Pourquoi pas un jeton forgé
+///
+/// Signer un jeton directement avec la clé de test tiendrait en trois lignes et ferait passer tous
+/// les tests d'isolation. Ce serait aussi la faute exacte que T030 nomme : **les tests
+/// n'exerceraient jamais l'authentification**. Un défaut dans la résolution d'identifiant, dans la
+/// vérification du mot de passe, dans le calcul des permissions ou dans l'enregistrement de la
+/// session ne ferait échouer aucun des vingt et un tests d'isolation — ils fourniraient eux-mêmes
+/// le contexte qu'ils sont censés obtenir.
+///
+/// Cette fonction passe donc par `ServiceAuthentification::ouvrir`, c'est-à-dire par le même code
+/// que l'endpoint `session_ouvrir`.
+///
+/// # Le rôle par défaut est `proprietaire`, et c'est un choix
+///
+/// Les tests d'isolation vérifient qu'un tenant ne voit pas les données d'un autre, **pas** qu'une
+/// permission manque : leur donner tous les droits isole la variable qu'ils mesurent. Un test de
+/// permission qui voudrait le contraire passe ses propres rôles.
+pub async fn compte_connecte(
+    pool_owner: &PgPool,
+    jeu: JeuTenant,
+    nom: &str,
+    roles: &[(&str, Option<Uuid>)],
+) -> Connexion {
+    // Identifiant **unique à cette exécution**. L'unicité de `comptes.compte` est par tenant, et
+    // `resoudre_identifiant` rend le premier par ordre stable : un identifiant figé se résoudrait,
+    // à la deuxième exécution, vers le compte créé par la première — dans un autre tenant.
+    //
+    // ⚠️ **La partie aléatoire d'un UUID v7 est à la FIN, jamais au début.** Ses 48 premiers bits
+    // sont l'horodatage en millisecondes : deux UUID engendrés dans la même seconde partagent
+    // leurs douze premiers caractères hexadécimaux. Un identifiant taillé dans le préfixe
+    // collisionne donc entre tests parallèles — et le compte résolu est celui d'un AUTRE tenant,
+    // ce qui fait échouer un test d'isolation sur un message qui accuse le handler. Constaté en
+    // T030 ; le symptôme ne désigne pas sa cause, d'où cette note.
+    let hexa = Uuid::now_v7().simple().to_string();
+    let identifiant = format!("+225{}", &hexa[hexa.len() - 10..]);
+
+    let compte = creer_compte(
+        pool_owner,
+        jeu.tenant_id,
+        nom,
+        &identifiant,
+        MOT_DE_PASSE_TEST,
+        roles,
+    )
+    .await;
+
+    let ouverte = service_authentification(pool_app().await)
+        .ouvrir(
+            &identifiant,
+            MOT_DE_PASSE_TEST,
+            Some(jeu.etablissement_id),
+            Some(format!("test — {nom}")),
+            // Une origine par compte : le limiteur plafonne à soixante tentatives par origine, et
+            // une suite de tests qui en crée davantage depuis la même adresse verrait ses
+            // connexions refusées — un échec qui ne dirait rien de ce qu'il teste.
+            &format!("203.0.113.{}", compte.compte_id.as_u128() % 256),
+        )
+        .await
+        .expect("la connexion du compte de test doit réussir");
+
+    Connexion {
+        compte_id: compte.compte_id,
+        tenant_id: jeu.tenant_id,
+        etablissement_id: jeu.etablissement_id,
+        bearer: format!("Bearer {}", ouverte.jetons.acces),
     }
 }
 

@@ -11,7 +11,7 @@
 //! partiellement migré — un état où les erreurs sont incompréhensibles et où le client n'a aucun
 //! moyen de savoir qu'il doit réessayer.
 
-use kaya_api::{application, contexte, db, observabilite, secrets};
+use kaya_api::{application, db, observabilite, secrets};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -56,10 +56,15 @@ async fn main() -> std::io::Result<()> {
     // valeur par défaut : un défaut est un secret publié.
     secrets::verifier_secrets_de_demarrage();
 
-    // Refus de démarrer si la dérogation d'authentification n'est pas ouverte
-    // explicitement. Une dérogation qu'on peut oublier d'ouvrir se retrouve ouverte en
-    // production sans que personne ne l'ait décidé.
-    contexte::verifier_derogation();
+    // **Le condensat factice, calculé maintenant.** Sans ce préchauffage, il se calculerait à la
+    // première tentative de connexion sur identifiant inconnu — qui serait alors plus lente que
+    // toutes les suivantes, donc distinguable. Un défaut d'une seule requête, invisible en test et
+    // parfaitement réel (FR-012).
+    kaya_comptes::authentification::prechauffer();
+
+    // La dérogation `CONTEXTE_PAR_EN_TETES` du cycle 001 est **levée** (T030). Il n'y a plus rien
+    // à vérifier ici : le contexte vient du jeton, `verifier_derogation()` et les deux en-têtes
+    // n'existent plus. Une dérogation se lève en retirant le code, pas en cessant de l'employer.
 
     let pool_migrations = db::pool_migrations()
         .await
@@ -107,6 +112,11 @@ async fn main() -> std::io::Result<()> {
         .and_then(|v| v.parse().ok())
         .unwrap_or(8080);
 
+    // L'état est assemblé **avant** l'ouverture du port : Redis injoignable au démarrage doit
+    // faire échouer le lancement, pas la première requête authentifiée d'un caissier.
+    let etat = application::EtatApplication::depuis_environnement(pool)
+        .expect("assemblage de l'état applicatif impossible");
+
     tracing::info!(port, "ouverture du port d'écoute");
-    application::servir(pool, port).await
+    application::servir(etat, port).await
 }
