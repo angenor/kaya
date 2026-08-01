@@ -2,35 +2,65 @@
 
 **Cycle 003 (CPT)** · tranche T1 · 2026-08-01
 
-*Dix-sept décisions. Chacune porte ce qu'on a retenu, pourquoi, et ce qui a été écarté. Aucune ne
+*Dix-neuf décisions. Chacune porte ce qu'on a retenu, pourquoi, et ce qui a été écarté. Aucune ne
 propose de numéro de version : le gel de `docs/versions-gelees.md` est repris tel quel — `argon2`
 **0.5.3** et `jsonwebtoken` **11.0.0** y figurent déjà au §3.1, nommément « (CPT-01) ».*
 
 ---
 
-## R-01 — Où vivent les sessions : Redis, et rien d'autre
+## R-01 — Où vivent les sessions : Redis, et la révocation est IMMÉDIATE
 
-**Décision.** Le jeton de rafraîchissement vit en **Redis**, sous une clé par session
-(`session:{compte_id}:{session_id}`), avec expiration native. Le jeton d'accès est **court et non
-révocable individuellement** : il n'est vérifié qu'à la signature, sans aller-retour Redis.
+> **Révisée le 2026-08-01.** La première rédaction faisait du jeton d'accès un jeton non
+> révocable, vérifié à la seule signature, et acceptait que la révocation attende le
+> rafraîchissement suivant. **CPT-01 tranche l'inverse**, et le cadrage §12.2 l'imposait déjà :
+> « coupure immédiate au départ d'un employé ». Avec un jeton d'une heure, attendre l'expiration
+> ne la donne pas. La version ci-dessous remplace la précédente.
 
-**Pourquoi.** `docs/registre-classes-offline.md` §9 range « Sessions, JWT, refresh » dans « ce qui
-n'est pas classé — **éphémère Redis reconstructible** ». Ce n'est pas un rangement administratif :
-il dit que la perte de Redis reconnecte tout le monde sans perdre une donnée métier, donc que rien
-n'y est sauvegardé et que rien n'en dépend pour la comptabilité. Le prompt de cadrage le répète —
-Redis, « éphémère reconstructible SEULEMENT ».
+**Décision — trois clés Redis, et une lecture par requête :**
 
-**Conséquence assumée, écrite ici pour qu'elle ne soit pas redécouverte** : une révocation ne
-coupe pas l'accès en cours, elle refuse le **rafraîchissement suivant**. C'est exactement ce que
-FR-011 et l'hypothèse 5 de la spec énoncent. La durée du jeton d'accès est donc la borne
-supérieure du délai de coupure, et elle devient un **paramètre d'établissement** (DoD point 9),
-pas une constante.
+| Clé | Contenu | Expiration |
+|---|---|---|
+| `session:{session_id}` | La session : compte, établissement actif, appareil, famille de jetons | **90 jours** (durée du rafraîchissement) |
+| `revoquees:{session_id}` | Marque de révocation, consultée **à chaque requête authentifiée** | 60 min — la durée maximale de vie d'un jeton d'accès encore en circulation |
+| `famille:{famille_id}` | Le dernier jeton de rafraîchissement émis, pour la détection de réutilisation | 90 jours |
 
-**Écarté** — table `session` en Postgres. Elle donnerait une révocation instantanée et une liste
-d'appareils durable, au prix d'une écriture Postgres par rafraîchissement sur le chemin le plus
-chaud du produit, d'une sauvegarde de données sans valeur métier, et d'une contradiction directe
-avec le registre §9. **Écarté** — vérification Redis à chaque requête : elle rendrait Redis
-indispensable à toute lecture, ce qui n'est plus « reconstructible » mais « critique ».
+**Les cinq paramètres sont au « Récapitulatif des paramètres d'établissement »** de
+`docs/user-stories-v1.md`, et le principe I·c les y rendait obligatoires : indicatif par défaut,
+méthode d'authentification, longueur minimale du mot de passe, **durée du jeton d'accès (60 min)**,
+**durée du jeton de rafraîchissement (90 jours, avec rotation à chaque usage)**.
+`backend/tests/parametres_catalogue.rs` fait échouer le build si une clé du catalogue manque au
+récapitulatif.
+
+**Pourquoi 60 minutes, et non 30.** Ce n'est *pas* la brièveté du jeton qui porte la sécurité de
+révocation — c'est la liste Redis. Une fois cette liste posée, la durée n'a plus à être courte, et
+la rallonger est un gain réel : chaque rafraîchissement est un aller-retour réseau qui peut
+échouer, et le réseau d'Abengourou est intermittent. Espacer les rafraîchissements réduit le
+nombre d'occasions de tomber.
+
+**Pourquoi 90 jours de rafraîchissement, et ce que cela oblige.** La durée vient d'un persona
+réel : **M. Diarra, comptable externe, « vient une fois par mois »** — à 30 jours, il se
+reconnecterait à chaque visite. La contrepartie n'est pas négociable :
+
+- **rotation à chaque usage** — un jeton consommé ne se réemploie jamais ;
+- **détection de réutilisation** — un jeton consommé deux fois signifie qu'une copie circule.
+  Alors on révoque **toute la famille**, pas seulement le jeton présenté. Révoquer le seul jeton
+  laisserait le voleur *et* la victime en course, et le premier des deux gagnerait ;
+- **la déconnexion à distance de CPT-01 est opérationnelle dès ce cycle**, pas reportée : avant
+  l'enrôlement d'appareil de CPT-05 (tranche T4), c'est **le seul recours** contre un téléphone
+  volé. À 90 jours sans elle, un téléphone perdu garde l'accès un trimestre.
+
+**Ce que « reconstructible » veut encore dire.** Le registre §9 range sessions, JWT et refresh
+dans « éphémère Redis reconstructible ». La lecture par requête ne change pas ce statut : si Redis
+disparaît, aucune session n'est retrouvée, tout le monde se reconnecte, **et aucune donnée métier
+n'est perdue**. Ce qui change est l'exigence de disponibilité — Redis passe de « utile » à « sur
+le chemin de chaque requête ». C'est le prix de la coupure immédiate, et il est assumé
+explicitement plutôt que découvert à la première panne.
+
+**Écarté** — table `session` en Postgres : une écriture Postgres par rafraîchissement sur un
+chemin chaud, une sauvegarde de données sans valeur métier, et une contradiction directe avec le
+registre §9. **Écarté** — porter la révocation par la seule brièveté du jeton : il faudrait
+descendre à quelques minutes pour approcher l'immédiateté, ce qui multiplierait par dix les
+aller-retours sur le réseau le plus mauvais du produit.
 
 ---
 
@@ -71,6 +101,26 @@ première montée de version, silencieusement, dans un sens ou dans l'autre.
 **Rehachage à la connexion** : si le condensat lu porte des paramètres différents des paramètres
 courants, le mot de passe est **rehaché après vérification réussie**. Sans cela, une montée de
 paramètres ne protégerait que les comptes créés après elle.
+
+### La politique de mot de passe, et ce qu'elle rend obligatoire
+
+Le récapitulatif tranche : **8 caractères, aucune règle de composition, refus des mots de passe
+compromis.**
+
+**Imposer majuscule + chiffre + symbole est refusé**, et ce n'est pas un assouplissement : cela
+produit un mot de passe écrit sur un post-it au comptoir de la réception, à la vue des clients.
+La longueur fait le travail, Argon2 fait le reste.
+
+**Mais à 8 caractères sans composition, le refus des mots de passe compromis n'est plus
+optionnel — c'est lui qui fait tout le travail.** Sans lui, `12345678` passe la politique.
+Deux conséquences d'implémentation, non négociables :
+
+- **liste embarquée dans le binaire**, jamais un appel réseau. Vérifier un mot de passe ne peut
+  pas dépendre d'un tiers joignable : le jour où il ne répond pas, soit on bloque toutes les
+  créations de compte, soit on accepte tout — et c'est le second qui arrive ;
+- la vérification porte sur la **création et le changement** de mot de passe, jamais sur la
+  connexion. Refuser à la connexion un mot de passe devenu compromis enfermerait dehors un
+  utilisateur légitime sans lui donner de recours.
 
 ---
 
@@ -128,8 +178,15 @@ même liste pour filtrer les tuiles de `R1` : la calculer deux fois par deux che
 serait la garantie qu'ils divergent.
 
 **Conséquence, cohérente avec l'hypothèse 5 de la spec** : un rôle retiré ne prend effet qu'au
-rafraîchissement suivant. C'est acceptable pour un **retrait**, pas pour une urgence — d'où la
-révocation de session explicite (FR-011), qui, elle, est immédiate au rafraîchissement.
+rafraîchissement suivant, soit **au plus 60 minutes**. C'est acceptable pour un **retrait de
+droit**, qui est une décision d'organisation ; ce ne l'est pas pour un départ d'employé ou un
+téléphone volé — et c'est précisément ce que la **révocation de session couvre, elle,
+immédiatement** (R-01). Les deux mécanismes ne se remplacent pas : le premier ajuste des droits,
+le second coupe un accès.
+
+> **Faute à ne pas commettre** : croire que révoquer les sessions à chaque changement de rôle
+> réglerait le délai. Cela déconnecterait Adjoua de ses trois postes chaque fois qu'on ajuste une
+> permission — et l'équipe apprendrait à ne plus toucher aux rôles.
 
 **Le front ne décode jamais le jeton.** La réponse de connexion porte les permissions en clair, à
 côté des jetons. Décoder un JWT côté client pour y lire des droits, c'est apprendre à l'interface
@@ -371,10 +428,83 @@ terminal ; le harnais à étapes dues (R-09) porte cette échéance.
 
 ---
 
+## R-18 — La file hors ligne ne connaît pas le jeton, et le retour du réseau a un ordre
+
+**Décision.** Les écritures de **classe A** partent en file locale **sans jeton**. Au retour du
+réseau, la séquence est **rafraîchir d'abord, vider ensuite** — jamais l'inverse. Une seule
+fonction porte cet ordre, et la file n'a aucun autre chemin de sortie.
+
+**Pourquoi.** Le jeton d'accès dure 60 minutes ; Aminata prend des commandes pendant une coupure
+de 90. Si la file exigeait un jeton valide au moment de la **mise en file**, aucune commande ne
+partirait ; si elle tentait de vider avant de rafraîchir, chaque élément partirait avec un jeton
+expiré et reviendrait en `401`.
+
+**Ce qui rend ce défaut particulièrement coûteux** : il ne se voit pas en test. En développement,
+la coupure dure trente secondes et le jeton est encore valide au retour — tout passe. Il se
+manifeste à Abengourou, un soir de service, et il perd **un service entier**. C'est la raison pour
+laquelle la règle est écrite dans CPT-01 plutôt que laissée au bon sens de l'implémentation.
+
+**Trois conséquences de conception :**
+
+1. **La file ne stocke aucun jeton.** Un jeton mis en file avec l'élément serait périmé au retour,
+   et le stocker prolongerait la durée de vie d'un secret sur un terminal.
+2. **L'échec du rafraîchissement ne vide pas la file** — elle reste intacte et l'utilisateur voit
+   qu'il doit se reconnecter. Vider en `401` détruirait les écritures qu'on cherche à sauver.
+3. **Cette règle ne vaut que pour la classe A.** Les classes B, C et D n'entrent jamais en file
+   (principe VI) ; leur refus est immédiat et explicite, avant toute saisie.
+
+**Test** : `app/tests/file-jeton-expire.spec.ts` — coupure simulée plus longue que la durée du
+jeton, trois écritures A en file, retour du réseau, et vérification que **le rafraîchissement
+précède le premier envoi**. Le test échoue si l'ordre s'inverse, y compris quand les deux
+réussissent.
+
+---
+
+## R-19 — Le nommage réservé des clés monétaires en JSONB
+
+**Décision.** Toute clé monétaire d'un document JSON du produit porte le suffixe **`_mineur`**,
+une **valeur entière**, et exige une clé **`devise`** au même niveau d'objet.
+
+```json
+{ "ecart_mineur": -12500, "devise": "XOF", "motif": "…" }
+```
+
+Jamais `12500.5`, jamais `"12 500 F"`, jamais un montant sans sa devise.
+
+**Pourquoi — et c'est le point que le plan initial n'avait pas tiré jusqu'au bout.** Constater que
+`journal_audit.contexte` « accueillera des montants » n'est pas une porte à ajuster : c'est le
+**principe V qui cesse de tenir à la frontière du JSONB**. Un document JSON accepte un flottant là
+où le principe impose un entier d'unité mineure, et rien dans le type de la colonne ne s'y oppose.
+
+**Et l'endroit où cela arrive est le pire possible.** Le registre concerné trace les **écarts de
+caisse**, les **modifications de tarif** et les **remises** — les trois choses que le propriétaire
+consulte pour détecter une fraude. Un écart stocké en flottant, et l'audit ment sur le montant
+qu'il est censé prouver. La constitution **1.6.0** étend P-10 en conséquence.
+
+**Deux niveaux de vérification, parce qu'un seul ne suffirait pas :**
+
+- **statique** — `scripts/ci/types-monetaires.sh` cherche les clés `*_mineur` dans le code et
+  échoue sur toute affectation non entière, et sur tout montant JSON nommé autrement (`montant`,
+  `prix`, `total` nus) ;
+- **à l'écriture** — le service d'audit **valide le document** avant insertion : toute clé
+  `*_mineur` doit porter un entier et être accompagnée de `devise`. Le contrôle statique ne voit
+  pas ce qu'un service construit dynamiquement.
+
+**Le versant positif**, sans lequel la porte passerait au vert en n'ayant rien à inspecter : un
+cas de test écrit une entrée d'audit portant un montant, et vérifie qu'elle est **acceptée**
+sous la forme entière et **refusée** en flottant comme en chaîne formatée.
+
+---
+
 ## Ce que la phase 0 laisse ouvert
 
 | Point | Pourquoi il reste ouvert | Quand il se ferme |
 |---|---|---|
 | **O-01** — `personne` en classe C et le check-in d'un client inconnu hors ligne | Le registre §12 le date « avant SEJ-02 », deux cycles plus loin. Ce cycle livre `personne` en **C** sans préempter | Cycle SEJ |
-| Durée exacte du jeton d'accès | Paramètre d'établissement (DoD 9), pas une constante. La valeur initiale se fixe à l'implémentation | `/speckit-tasks` |
-| Extension du **texte** de P-05b au journal d'audit | La constitution s'amende par `/speckit-constitution`, jamais depuis un plan | Après ce cycle |
+
+**Deux points ouverts ont été fermés le 2026-08-01, et ne le sont plus :**
+
+| Point | Comment il s'est fermé |
+|---|---|
+| Durée des jetons | **Tranchée au récapitulatif** : accès **60 min**, rafraîchissement **90 jours avec rotation**. Ce ne sont plus des valeurs à choisir à l'implémentation, ce sont des paramètres d'établissement documentés, avec leurs contreparties obligatoires (R-01) |
+| Extension du texte de P-05b | **Faite** — constitution **1.6.0**. P-05b porte désormais sur la **catégorie « registre immuable »** et non sur une liste de tables : l'outbox et le journal d'audit sont couverts, et le prochain registre le sera sans nouvel amendement. **P-10 a été étendue dans le même mouvement** (R-19) |

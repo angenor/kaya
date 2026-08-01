@@ -1,6 +1,6 @@
 # Quickstart — valider le cycle 003 (CPT)
 
-*Guide de validation, pas de mise en œuvre. Onze vérifications, dans l'ordre où elles doivent
+*Guide de validation, pas de mise en œuvre. Treize vérifications, dans l'ordre où elles doivent
 passer. Chacune dit ce qu'elle prouve — une commande verte dont on ignore ce qu'elle affirme ne
 prouve rien.*
 
@@ -13,6 +13,10 @@ docker compose -f infra/compose.yml up -d        # Postgres 18.4, Redis 8.8.1, G
 bash scripts/dev/preparer-base.sh                # rôles, schémas, migrations
 bash scripts/dev/preparer-stockage.sh            # buckets Garage
 ```
+
+**Redis n'est plus optionnel en développement** : la liste de révocation est consultée à chaque
+requête authentifiée. Une API démarrée sans Redis joignable refuse les appels au lieu de les
+laisser passer — c'est un choix, et il est testé.
 
 **Deux variables d'environnement nouvelles**, sans lesquelles l'API refuse de démarrer
 (research R-05) :
@@ -95,6 +99,43 @@ chronométrer. Le message identique n'y change rien.
 
 ---
 
+## 4b · La révocation coupe immédiatement, et la rotation détecte les copies
+
+```sh
+cargo test --test session_revocation
+pnpm --filter @kaya/app test file-jeton-expire
+```
+
+**Ce que ça prouve** :
+
+- une session révoquée **cesse d'être acceptée à la requête suivante**, sans attendre les 60
+  minutes du jeton d'accès — c'est la « coupure immédiate au départ d'un employé » du cadrage
+  §12.2, et le seul recours contre un téléphone volé avant CPT-05 ;
+- les **autres** sessions du même compte continuent ;
+- un jeton de rafraîchissement présenté **deux fois** révoque **toute la famille**, pas seulement
+  celui qui est présenté ;
+- **et le versant qui ne se voit qu'à Abengourou** : une coupure de 90 minutes — une fois et
+  demie la durée du jeton — ne perd **aucune** écriture de classe A. Les écritures entrent en file
+  **sans jeton**, et le retour du réseau **rafraîchit avant de vider**. Le test échoue si l'ordre
+  s'inverse, **y compris quand les deux réussissent** : en développement, la coupure dure trente
+  secondes et le défaut ne se manifeste pas.
+
+---
+
+## 4c · La politique de mot de passe refuse ce qu'elle doit refuser
+
+```sh
+cargo test --test politique_mot_de_passe
+```
+
+**Ce que ça prouve** : un mot de passe de 7 caractères est refusé ; `12345678` est refusé **bien
+qu'il fasse huit caractères** ; `chaise-tomate-abidjan` est **accepté** sans majuscule, sans
+chiffre et sans symbole. La vérification s'exécute **sans aucun appel réseau** — la liste est
+embarquée — et **ne s'applique pas à la connexion**, sous peine d'enfermer dehors un utilisateur
+légitime.
+
+---
+
 ## 5 · Le cumul de rôles donne l'union, et rien d'autre
 
 ```sh
@@ -145,7 +186,11 @@ pnpm porte:p05b                              # contrôle statique, second volet
   corollaire de l'exigence 4) ;
 - **rejeu** — la même entrée soumise trois fois produit **un** enregistrement ;
 - **désordre** — trois entrées appliquées dans les **six** ordres produisent le même état final,
-  comparé comme **ensemble trié** et sur des identifiants **figés par permutation**.
+  comparé comme **ensemble trié** et sur des identifiants **figés par permutation** ;
+- **montants en `JSONB`** — une entrée portant `{"ecart_mineur": -12500, "devise": "XOF"}` est
+  acceptée ; la même en `-12500.5` ou en `"12 500 F"` est **refusée**, à l'écriture comme au
+  contrôle statique. C'est le registre qui trace les écarts de caisse : un montant en flottant, et
+  l'audit ment sur ce qu'il est censé prouver (`pnpm porte:p10`).
 
 ---
 
@@ -229,7 +274,7 @@ charger aucun morceau de module dont il n'a pas la permission.
 
 ## Le parcours de démonstration — ce que le cycle doit rendre visible
 
-Une fois les onze vérifications vertes, la démonstration tient en six gestes :
+Une fois les treize vérifications vertes, la démonstration tient en six gestes :
 
 1. **Adjoua se connecte** — un identifiant, un mot de passe, un écran.
 2. **Son accueil porte l'union de ses trois métiers** — gérance, caisse, réception. Une seule fois

@@ -189,8 +189,8 @@ cherche.
 **Independent Test**: dérouler une connexion réussie, une connexion échouée sur compte
 inexistant, une connexion échouée sur mot de passe faux — et vérifier que les deux échecs sont
 **indiscernables** en message, en code de retour et en ordre de grandeur de temps de réponse.
-Puis ouvrir deux sessions, en révoquer une, et vérifier que le rafraîchissement de celle-là est
-refusé alors que l'autre continue.
+Puis ouvrir deux sessions, en révoquer une, et vérifier que **la requête suivante** de celle-là
+est refusée — sans attendre d'expiration — alors que l'autre continue.
 
 **Acceptance Scenarios**:
 
@@ -202,11 +202,19 @@ refusé alors que l'autre continue.
 3. **Given** Adjoua connectée sur deux appareils, **When** elle continue de travailler sur les
    deux, **Then** les deux sessions restent valides indépendamment.
 4. **Given** une session listée dans les sessions actives, **When** un compte habilité la
-   révoque, **Then** le rafraîchissement est refusé **immédiatement**, l'appareil concerné est
-   ramené à l'écran de connexion, et les autres sessions ne sont pas affectées.
+   révoque, **Then** **la requête suivante de cet appareil est refusée** — sans attendre
+   l'expiration de son accès en cours —, l'appareil est ramené à l'écran de connexion, et les
+   autres sessions ne sont pas affectées.
 5. **Given** un accès de courte durée expiré, **When** le moyen de rafraîchissement est employé,
    **Then** un nouvel accès est délivré sans ressaisie du mot de passe, et le moyen de
    rafraîchissement consommé ne se réemploie pas.
+5b. **Given** un moyen de rafraîchissement déjà consommé, **When** il est présenté une seconde
+   fois, **Then** la demande est refusée **et toute la famille de jetons est révoquée** — une
+   copie circule, et révoquer le seul jeton présenté laisserait le voleur et la victime en course.
+5c. **Given** une coupure réseau plus longue que la durée du jeton d'accès, **When** des
+   écritures de classe A sont saisies puis que le réseau revient, **Then** aucune n'est perdue :
+   elles sont entrées en file **sans jeton**, et le retour du réseau **rafraîchit le jeton avant
+   de vider la file**.
 6. **Given** un compte désactivé, **When** il tente de se connecter ou de rafraîchir, **Then**
    les deux échouent, avec le même message que toute autre tentative échouée.
 7. **Given** un terminal hors ligne, **When** l'utilisateur tente de se connecter, **Then**
@@ -417,8 +425,13 @@ de rejeu et de désordre sur `journal_audit`, seule entité A du cycle.
 - **FR-006**: Un `compte` DOIT s'identifier par un numéro de téléphone au format E.164 — indicatif
   par défaut hérité de la configuration de l'établissement, `+225` pour le pilote — **ou** par une
   adresse électronique.
-- **FR-007**: Le système DOIT exiger un mot de passe fort, dont la politique est un paramètre
-  d'établissement et non une constante du code.
+- **FR-007**: Le système DOIT exiger un mot de passe d'au moins **8 caractères**, **sans aucune
+  règle de composition**, et DOIT **refuser les mots de passe compromis** contre une liste
+  **embarquée** — jamais un appel réseau. La politique est un paramètre d'établissement, non une
+  constante. Le contrôle porte sur la **création et le changement**, jamais sur la connexion.
+  *Les règles de composition sont explicitement refusées : elles produisent un mot de passe écrit
+  sur un post-it au comptoir. À 8 caractères, c'est le refus des mots de passe compromis qui fait
+  tout le travail.*
 - **FR-008**: Le système DOIT accepter la valeur `MOT_DE_PASSE` pour la méthode
   d'authentification et **refuser explicitement** la valeur `OTP_SMS`, avec un message nommant la
   raison — jamais l'ignorer silencieusement, jamais la traiter comme `MOT_DE_PASSE`.
@@ -427,8 +440,16 @@ de rejeu et de désordre sur `journal_audit`, seule entité A du cycle.
 - **FR-010**: Un même compte DOIT pouvoir tenir plusieurs sessions simultanées sur des appareils
   distincts, chacune révocable indépendamment.
 - **FR-011**: Le système DOIT permettre de lister les sessions actives d'un compte et d'en
-  **révoquer une à distance** ; la révocation prend effet au refus du rafraîchissement suivant,
-  sans délai supplémentaire.
+  **révoquer une à distance**. La révocation est **immédiate** : elle est portée par une liste
+  consultée à chaque requête authentifiée, jamais par la brièveté du jeton. Le cadrage §12.2 exige
+  la « coupure immédiate au départ d'un employé » — attendre l'expiration ne la donne pas. C'est
+  le **seul recours** contre un téléphone volé avant l'enrôlement d'appareil de CPT-05.
+- **FR-011b**: Le jeton de rafraîchissement DOIT **tourner à chaque usage**. Un jeton présenté une
+  seconde fois signifie qu'une copie circule : le système DOIT alors révoquer **toute la famille**
+  de jetons, pas seulement celui qui est présenté.
+- **FR-011c**: Une écriture de **classe A** DOIT pouvoir entrer en file locale **sans jeton**, et
+  le retour du réseau DOIT **rafraîchir le jeton avant de vider la file**, jamais l'inverse. Une
+  coupure plus longue que la durée du jeton d'accès ne DOIT jamais faire perdre une écriture.
 - **FR-012**: Les messages d'erreur d'authentification NE DOIVENT JAMAIS révéler si un compte
   existe : message, code de retour et ordre de grandeur du temps de réponse sont identiques
   quelle que soit la cause de l'échec.
@@ -494,6 +515,11 @@ de rejeu et de désordre sur `journal_audit`, seule entité A du cycle.
 - **FR-033**: Le journal d'audit DOIT être **immuable** : aucune entrée ne se modifie ni ne se
   supprime ; une correction est une nouvelle entrée. Un contrôle outillé échoue le build s'il
   trouve un chemin de suppression ou de modification, sur le modèle de la porte P-05b.
+- **FR-033b**: Tout montant inscrit dans le contexte d'une entrée d'audit DOIT suivre le
+  **nommage réservé** des clés monétaires, porter une valeur **entière** en unité mineure et être
+  accompagné de son code devise — jamais un décimal, jamais une chaîne formatée. *Le registre
+  trace les écarts de caisse, les modifications de tarif et les remises : un écart stocké en
+  flottant, et l'audit ment sur le montant qu'il est censé prouver.*
 - **FR-034**: Chaque entrée DOIT porter au minimum : l'auteur (`compte`), l'établissement, le
   type d'action, la cible, le contexte utile à la relecture, et l'**horodatage d'autorité
   serveur**. L'horodatage du terminal, s'il est conservé, est indicatif et ne sert qu'à l'ordre
@@ -578,8 +604,11 @@ de rejeu et de désordre sur `journal_audit`, seule entité A du cycle.
 - **SC-002**: Une tentative de connexion échouée est **indiscernable** selon que le compte existe
   ou non : message identique, code identique, temps de réponse du même ordre de grandeur sur
   100 tentatives de chaque type.
-- **SC-003**: Une session perdue ou volée est coupée à distance et **ne se rouvre plus** dès la
-  tentative de rafraîchissement suivante, sans affecter les autres sessions du même compte.
+- **SC-003**: Une session perdue ou volée est coupée à distance et **cesse d'être acceptée dès la
+  requête suivante** — sans attendre l'expiration de son jeton —, sans affecter les autres
+  sessions du même compte.
+- **SC-003b**: Une coupure réseau de 90 minutes, soit une fois et demie la durée du jeton
+  d'accès, ne fait perdre **aucune** écriture de classe A.
 - **SC-004**: Quatre comptes de rôles différents ouvrent le même accueil et y voient quatre
   ensembles de tuiles différents, **sans qu'aucune action interdite n'apparaisse**, même grisée.
 - **SC-005**: M. Koffi retrouve **qui a fait quoi, sur quoi et quand** pour n'importe quelle
@@ -618,9 +647,11 @@ révisables en `/speckit-plan` ; chacun est signalé pour qu'aucun ne s'installe
    M. Koffi possède deux établissements aux besoins différents, et un gérant de l'un n'est pas
    gérant de l'autre. Le rôle `admin_editeur` fait exception et est de portée éditeur.
 5. **Effet du retrait d'un rôle sur une session active** — les permissions sont réévaluées au
-   **rafraîchissement suivant**. Couper instantanément toutes les sessions à chaque changement de
-   rôle imposerait une vérification permanente ; révoquer explicitement la session reste
-   possible et immédiat (FR-011).
+   **rafraîchissement suivant**, soit au plus 60 minutes. Révoquer toutes les sessions à chaque
+   changement de rôle déconnecterait Adjoua de ses trois postes chaque fois qu'on ajuste une
+   permission, et l'équipe apprendrait à ne plus toucher aux rôles. Un ajustement de droits et une
+   coupure d'accès sont deux actes différents : le second passe par la révocation de session, qui
+   est **immédiate** (FR-011).
 6. **Types d'action livrables dès ce cycle** — « changement de rôle » (FR-024) et « suppression »
    (désactivation d'un compte, désactivation d'un service d'établissement). Les huit autres sont
    déclarés dus : remise → PDV-03 / SEJ-03 (T2), annulation de ligne envoyée → PDV-03 (T2),
@@ -630,8 +661,12 @@ révisables en `/speckit-plan` ; chacun est signalé pour qu'aucun ne s'installe
 7. **Rattachement du journal d'audit** — `journal_audit` vit dans `socle/comptes`, conformément à
    son classement au §5.2 du registre. Il est lu par les autres modules à travers un trait exposé,
    jamais par jointure inter-schémas (porte P-04).
-8. **Politique de mot de passe** — paramètre d'établissement, valeurs par défaut conformes aux
-   usages courants, jamais une constante du code (DoD point 9).
+8. **~~Politique de mot de passe~~ — n'est plus une hypothèse.** Tranchée le 2026-08-01 et portée
+   au « Récapitulatif des paramètres d'établissement » : **8 caractères, aucune règle de
+   composition, refus des mots de passe compromis**. Les **cinq** paramètres du module y figurent
+   — s'y ajoutent l'indicatif `+225` par défaut, la méthode d'authentification, la **durée du
+   jeton d'accès (60 min)** et celle du **jeton de rafraîchissement (90 jours, avec rotation)**.
+   Voir FR-007, FR-011 et FR-011b.
 9. **Le pilote reste connecté pour l'administration** — la gestion des comptes et des rôles se
    fait au bureau, sur un poste relié. Sa classe C n'est donc pas une friction quotidienne :
    c'est une opération rare, faite en ligne.

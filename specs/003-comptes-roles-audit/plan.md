@@ -20,11 +20,18 @@ cycle 002 a explicitement reporté « au cycle CPT ».
 dont l'inscription à la matrice de dérivation est un préalable, pas une conséquence.
 
 **L'approche technique en trois phrases.** Les sessions vivent en Redis parce que le registre les
-classe « éphémère reconstructible » — aucune table, aucune sauvegarde, et une révocation qui prend
-effet au rafraîchissement suivant. Les permissions effectives sont **l'union** des rôles, calculées
-à la délivrance d'un jeton et portées par lui, jamais recalculées par requête. Le journal d'audit
-est un **agrégat distinct de l'outbox** — classe A contre classe de l'opération tracée — et son
+classe « éphémère reconstructible » — aucune table, aucune sauvegarde — et **la révocation est
+immédiate**, portée par une liste consultée à chaque requête et non par la brièveté du jeton, que
+le cadrage §12.2 exigeait déjà. Les permissions effectives sont **l'union** des rôles, calculées à
+la délivrance d'un jeton et portées par lui, jamais recalculées par requête. Le journal d'audit est
+un **agrégat distinct de l'outbox** — classe A contre classe de l'opération tracée — et son
 immuabilité tient par les privilèges de la table, pas par une convention.
+
+**Cinq paramètres d'établissement** en découlent, tous au récapitulatif de
+`docs/user-stories-v1.md` : indicatif `+225`, méthode d'authentification, **8 caractères sans
+règle de composition avec refus des mots de passe compromis**, **jeton d'accès 60 min**, **jeton
+de rafraîchissement 90 jours avec rotation à chaque usage**. Chaque valeur a une contrepartie
+technique obligatoire, et c'est elle qui la rend défendable (research R-01, R-03).
 
 ---
 
@@ -41,10 +48,16 @@ proposée ici : Actix Web **4.14.0**, sqlx **0.9.0**, utoipa **5.5.0**, `jsonweb
 > n'ajoute **aucune dépendance nouvelle**, ni Rust ni JavaScript.
 
 **Storage** : PostgreSQL **18.4**, schéma `comptes`, RLS `ENABLE` **et** `FORCE`. Redis **8.8.1**
-pour les sessions et la limitation de débit — **éphémère reconstructible seulement**. Garage :
-non touché par ce cycle.
+pour les sessions, la liste de révocation et la limitation de débit — **éphémère reconstructible
+seulement**. Garage : non touché par ce cycle.
 
-**Testing** : `cargo test --workspace` (six fichiers d'intégration nouveaux, huit étendus),
+> ⚠️ **Redis passe de « utile » à « sur le chemin de chaque requête authentifiée ».** La liste de
+> révocation est consultée à chaque appel : c'est le prix de la coupure immédiate exigée par le
+> cadrage §12.2. Le statut « reconstructible » ne change pas — Redis perdu, tout le monde se
+> reconnecte et aucune donnée métier ne manque — mais **l'exigence de disponibilité, si**. Écrit
+> ici plutôt que découvert à la première panne (research R-01).
+
+**Testing** : `cargo test --workspace` (huit fichiers d'intégration nouveaux, huit étendus),
 `vitest` **4.1.10** côté application, portes de CI depuis la racine.
 
 **Target Platform** : Docker sur VPS Contabo, **`linux/amd64`**. Poste de développement `arm64` —
@@ -56,8 +69,9 @@ citer (research R-16).
 **Project Type** : monolithe modulaire Rust + application unique Nuxt 4 / Tauri v2.
 
 **Performance Goals** : la connexion coûte un Argon2id (`m = 19456`, `t = 2`, `p = 1`), dimensionné
-pour rester imperceptible sur la cible. Toute autre opération ne fait **aucune** lecture de
-permissions : elles voyagent dans le jeton (research R-06).
+pour rester imperceptible sur la cible. Toute autre opération coûte **une lecture Redis** — la
+liste de révocation — et **aucune** lecture de permissions, qui voyagent dans le jeton
+(research R-01, R-06).
 
 **Constraints** : sept opérations de **classe C** — aucune atteignable hors ligne, jamais. Un
 échec d'authentification est indiscernable **en temps** autant qu'en message. Aucun secret dans le
@@ -75,19 +89,26 @@ binaire ni dans le dépôt.
 > **Note de périmètre.** Le prompt d'entrée parle de « vingt portes P-01 à P-20 ». La constitution
 > du dépôt en compte **vingt-quatre** — P-01b, P-05b, P-21 et P-21b sont venues après. Les
 > vingt-quatre sont traitées ci-dessous ; c'est la constitution du dépôt qui fait foi.
+>
+> **Version de référence : 1.6.0** (2026-08-01), amendée à l'origine de ce plan. **P-05b** porte
+> désormais sur la **catégorie « registre immuable »** et non sur une liste de tables — l'outbox et
+> le journal d'audit sont couverts, le prochain registre le sera sans nouvel amendement.
+> **P-10** ne s'arrête plus à la frontière du `JSONB` : toute clé monétaire d'un document JSON
+> suit un **nommage réservé** et porte un **entier**. Les deux sont à **implémenter dans ce
+> cycle** — ce ne sont plus des extensions à proposer.
 
 ### Conformité aux douze principes
 
 | # | Principe | Comment ce cycle le tient |
 |---|---|---|
-| I | Sources de vérité | Contrat produit par utoipa, client régénéré en CI. Cinq migrations **additives** — `0001` n'est pas touchée, le schéma `comptes` naît en `0014`. Durée de jeton et politique de mot de passe sont des **paramètres d'établissement**, portés au catalogue **et** au récapitulatif de `user-stories-v1.md` |
+| I | Sources de vérité | Contrat produit par utoipa, client régénéré en CI. Cinq migrations **additives** — `0001` n'est pas touchée, le schéma `comptes` naît en `0014`. **Cinq paramètres d'établissement**, tous déjà au récapitulatif de `user-stories-v1.md` : indicatif, méthode d'authentification, longueur minimale, durée d'accès, durée de rafraîchissement. Aucune valeur en dur |
 | II | Architecture et hiérarchie | Tout dans le schéma `comptes`. **Aucune clé étrangère inter-schémas** : `compte_role.etablissement_id`, `journal_audit.etablissement_id` et `permission.module_code` sont des colonnes nues, vérifiées par trait. Trois traits exposés, aucune jointure |
 | III | Isolation multi-tenant | `ENABLE` + `FORCE` sur les **dix tables**. Les **quatre référentiels globaux** suivent le régime nommé de `0008` — deux politiques, `GRANT SELECT` seul — jamais une exemption |
 | IV | Temps et disponibilité | `cree_le` d'autorité serveur partout ; `horodatage_client` indicatif, jamais employé pour trier ni pour dater une entrée d'audit. **Aucune occupation créée** |
 | V | Argent et fiscalité | Une seule colonne monétaire — `employe.salaire_mineur`, **`BIGINT` d'unité mineure dès la provision**. `journal_audit.contexte` est du `JSONB` : tout montant qui y entrera sera un entier mineur, et **la porte est étendue avant le premier**, pas après |
 | VI | Hors-ligne | Sept opérations **C**, une entité **A**. Les sessions ne sont pas classées — éphémère reconstructible (registre §9). UUID v7 client sur toute écriture, `200` sur rejeu. Refus **immédiat et explicite** hors ligne, jamais de grisé ni de file |
 | VII | Application unique, rôles cumulés | **Le cœur du cycle.** Union des permissions, `BTreeSet` dans la signature du trait pour rendre la hiérarchie structurellement impossible. `R1` en tuiles filtrées, action interdite **absente**. Chargement paresseux par module |
-| VIII | Qualité, i18n, observabilité | Six fichiers de tests d'intégration nouveaux. Quatre écrans en clair **et** sombre, clés fr/en. Les échecs d'authentification vont aux **journaux applicatifs**, jamais au grand livre |
+| VIII | Qualité, i18n, observabilité | Huit fichiers de tests d'intégration nouveaux. Quatre écrans en clair **et** sombre, clés fr/en. Les échecs d'authentification vont aux **journaux applicatifs**, jamais au grand livre |
 | IX | Sécurité | **Le second cœur.** Argon2id à paramètres explicites, indiscernabilité **temporelle**, clé de signature hors binaire avec refus de démarrer, journal d'audit immuable par privilèges. **Aucune adresse MAC, nulle part** |
 | X | Périmètre — prêt ≠ construit | CPT-05 et CPT-06 : **tables et colonnes, aucun privilège d'écriture, aucun endpoint**. Permissions des modules livrés seulement. Les huit types d'audit dus n'ont aucun chemin d'écriture |
 | XI | Versions épinglées | Gel repris tel quel. **Aucune dépendance nouvelle** — les deux crates nécessaires y sont déjà, nommément « (CPT-01) » |
@@ -95,8 +116,8 @@ binaire ni dans le dépôt.
 
 ### Les vingt-quatre portes — mécanisme de vérification de chacune
 
-**Dix-neuf portes sont touchées. Cinq restent vertes à vide.** Trois doivent être **étendues**,
-faute de quoi elles laisseraient passer ce qu'elles sont censées attraper.
+**Dix-neuf portes sont touchées. Cinq restent vertes à vide.** **Deux ont été amendées par la
+constitution 1.6.0 à l'origine de ce plan et doivent être implémentées ici** — P-05b et P-10.
 
 | Porte | Touchée | Mécanisme de vérification | Test |
 |---|---|---|---|
@@ -106,15 +127,15 @@ faute de quoi elles laisseraient passer ce qu'elles sont censées attraper.
 | **P-03** socle ↛ verticales | ✅ | `socle/comptes` ne dépend d'aucune verticale. Les trois traits sont **définis et implémentés** dans le socle, consommés ailleurs | `backend/tests/architecture.rs` |
 | **P-04** pas de jointure inter-schémas | ✅ **trois tentations** | `compte_role.etablissement_id`, `journal_audit.etablissement_id`, `permission.module_code` : trois colonnes qui « appellent » un `JOIN` vers `etablissements`. Aucune ne l'a. L'existence est vérifiée par `EstablishmentDirectory` et `RegistreModules` | `scripts/ci/jointures-inter-schemas.sh` |
 | **P-05** événement dans la transaction | ✅ **10 types → 21** | Rollback provoqué par type : ni ligne métier ni événement. **Décompte comparé au total déclaré**, et **chaque type exercé sur les deux tenants** (exigence 5) | `backend/tests/outbox_transactionnel.rs` (étendu) + recollement |
-| **P-05b** journaux sans purge | ⚠️ **à ÉTENDRE** | Le script ne lit aujourd'hui que l'outbox. Il gagne un **second contrôle** sur `journal_audit` — même recherche, périmètre déclaré en tête, **et son versant positif** : une entrée s'écrit et se relit (research R-10) | `scripts/ci/outbox-sans-purge.sh` **(étendu)** + `backend/tests/audit_immuabilite.rs` |
+| **P-05b** registres immuables sans purge | ⚠️ **AMENDÉE en 1.6.0 — à implémenter** | La porte porte désormais sur la **catégorie**. Le script inspecte l'outbox **et** `journal_audit`, déclare son périmètre en tête, et porte **son versant positif** : une entrée s'écrit et se relit — sans quoi supprimer la table suffirait à passer au vert (research R-10) | `scripts/ci/outbox-sans-purge.sh` **(étendu)** + `backend/tests/audit_immuabilite.rs` |
 | **P-06** capacité ≠ `STOCK`/`SIMPLE` | ⬜ inchangée | Aucune capacité touchée. **Le patron du refus est réutilisé** pour `OTP_SMS` — clé étrangère composite sur `implementee` — mais c'est une porte distincte | `backend/tests/capacites_refusees.rs` |
 | **P-07** RLS sur toute table | ✅ **10 tables → 26** | `relrowsecurity` **et** `relforcerowsecurity`, au moins une politique. Les quatre référentiels globaux comptés **conformes et nommés**. Ré-exécutée après la dernière migration, avec décompte | `backend/tests/rls_catalogue.rs` (étendu) + recollement |
 | **P-08** isolation A/B par endpoint | ✅ **40 opérations** | Paramétré sur le contrat complet. **Les requêtes obtiennent un vrai jeton** — la refonte est le coût principal du cycle (research R-04). Les référentiels globaux rendent la même chose aux deux tenants, **affirmé explicitement**. Deux opérations publiques, liste nommée et fermée | `backend/tests/isolation_tenant.rs` (refondu) + recollement |
 | **P-09** occupation GiST | ⬜ sans cible | Aucune occupation créée | `backend/tests/portes_a_vide.rs` |
-| **P-10** montants entiers, quantités `NUMERIC` | ⚠️ **à ÉTENDRE** | `employe.salaire_mineur` en `BIGINT`. **Et surtout** `journal_audit.contexte` en `JSONB` : une remise, un écart de caisse, une rebascule y inscriront des montants. Le contrôle s'étend au champ **avant** le premier, comme il s'est étendu au catalogue au cycle 002 | `scripts/ci/types-monetaires.sh` **(étendu)** |
+| **P-10** montants entiers, y compris en `JSONB` | ⚠️ **AMENDÉE en 1.6.0 — à implémenter** | `employe.salaire_mineur` en `BIGINT`. **Et surtout** : le principe V cessait de tenir à la frontière du `JSONB`, sur le registre même qui trace les **écarts de caisse, les modifications de tarif et les remises**. Nommage réservé **`*_mineur` + `devise`**, valeur **entière**, vérifié **statiquement** et **à l'écriture** — un service construit son document dynamiquement, le contrôle statique ne le voit pas (research R-19) | `scripts/ci/types-monetaires.sh` **(étendu)** + validation du service d'audit |
 | **P-11** tests dorés fiscaux | ⬜ sans cible | Aucun calcul fiscal | `backend/tests/portes_a_vide.rs` |
 | **P-12** fiscalité confinée | ✅ **une tentation** | L'indicatif `+225` par défaut est une donnée de **juridiction** : il est **paramètre d'établissement**, jamais une constante ni un `CHECK`. La validation E.164 est un format international, pas une règle nationale | `backend/tests/architecture.rs` |
-| **P-13** aucune opération C hors ligne | ✅ **7 opérations** | Backend : aucun chemin d'écriture atteignable depuis la file locale, **avec décompte des opérations inspectées**. Front : `TYPES_CLASSE_A` ne reçoit aucun type du cycle, et le typage refuse la mise en file | `backend/tests/classes_offline.rs` + `app/tests/file-classe-a.spec.ts` |
+| **P-13** aucune opération C hors ligne | ✅ **7 opérations** | Backend : aucun chemin d'écriture atteignable depuis la file locale, **avec décompte des opérations inspectées**. Front : `TYPES_CLASSE_A` ne reçoit aucun type du cycle, et le typage refuse la mise en file. **Et le versant inverse** : une écriture A **doit** pouvoir entrer en file **sans jeton**, et le retour du réseau rafraîchit **avant** de vider (research R-18) | `backend/tests/classes_offline.rs` + `app/tests/file-classe-a.spec.ts` + `app/tests/file-jeton-expire.spec.ts` |
 | **P-14** rejeu triple d'une écriture A | ✅ **seconde entité A** | `journal_audit` : trois soumissions → **un** enregistrement ; six ordres → même état final, comparé en **ensemble trié** sur des identifiants **figés par permutation** | `backend/tests/audit_classe_a.rs` |
 | **P-15** pas de `window.__TAURI__` hors adaptateur | ✅ **enjeu nouveau** | **Le jeton de rafraîchissement doit être stocké de façon sécurisée** — Keystore/Keychain sur mobile, stockage adapté sur web. Ce chemin passe **entièrement par `PlatformAdapter`** ; c'est le premier usage d'une capacité native par un écran. Règle ESLint exécutée par `pnpm lint` **depuis la racine** | `app/eslint.config.js` via `pnpm lint` |
 | **P-16** i18n, parité fr/en | ✅ **4 écrans** | Parité des catalogues. **Chaque phrase passe par `docs/design/lexique.md` avant d'être codée** — ce cycle y ajoute le vocabulaire des comptes, des rôles et du journal | `app/scripts/test-i18n.ts` |
@@ -170,9 +191,9 @@ motif : il se maquette avant de se coder.
 specs/003-comptes-roles-audit/
 ├── plan.md                      # Ce fichier
 ├── spec.md                      # 6 stories · 48 exigences · 12 critères
-├── research.md                  # Phase 0 — 17 décisions
+├── research.md                  # Phase 0 — 19 décisions
 ├── data-model.md                # Phase 1 — 10 tables, 5 migrations, 10 événements
-├── quickstart.md                # Phase 1 — 11 vérifications
+├── quickstart.md                # Phase 1 — 13 vérifications
 ├── contracts/
 │   ├── http-api.md              # 19 opérations (contrat porté à 40)
 │   └── traits-exposes.md        # 3 traits
@@ -207,6 +228,8 @@ backend/
 └── tests/
     ├── personne_compte_employe.rs           # NOUVEAU — CPT-00, le garde-fou
     ├── authentification_indiscernable.rs    # NOUVEAU — message, code ET temps
+    ├── politique_mot_de_passe.rs            # NOUVEAU — 8 car., 12345678 refusé, liste embarquée
+    ├── session_revocation.rs                # NOUVEAU — coupure immédiate, rotation, famille
     ├── roles_cumules.rs                     # NOUVEAU — l'union
     ├── audit_immuabilite.rs                 # NOUVEAU — versants négatif ET positif
     ├── audit_classe_a.rs                    # NOUVEAU — rejeu, désordre
@@ -229,7 +252,8 @@ app/
 │   ├── index.vue                            # R1 — remplace le placeholder du cycle 001
 │   └── comptes.vue · journal-audit.vue      # chargement paresseux par module
 └── tests/
-    └── ecran-r0 · ecran-r1 · ecran-g3 · ecran-g4 · permissions · file-classe-a (étendu)
+    └── ecran-r0 · ecran-r1 · ecran-g3 · ecran-g4 · permissions ·
+        file-classe-a (étendu) · file-jeton-expire (NOUVEAU — rafraîchir AVANT de vider)
 
 docs/                                        # documents normatifs modifiés par ce cycle
 ├── design/derivation.md                     # + ligne R0 — PRÉALABLE au codage
@@ -254,7 +278,7 @@ Redis.
 
 ### Phase 0 — Recherche ✅ terminée
 
-`research.md` — **dix-sept décisions**. Les cinq qui commandent le reste :
+`research.md` — **dix-neuf décisions**. Les cinq qui commandent le reste :
 
 1. **R-01** — sessions en Redis, aucune table, révocation effective au rafraîchissement suivant.
 2. **R-02** — l'indiscernabilité coûte un **hachage factice** ; sans lui, le temps de réponse
@@ -273,19 +297,23 @@ Redis.
 | `data-model.md` | 10 tables, 5 migrations, politiques RLS, privilèges, 10 types d'événements, journal du registre |
 | `contracts/http-api.md` | 19 opérations, `operationId`, permissions, 9 codes d'erreur métier |
 | `contracts/traits-exposes.md` | `AccessController`, `AnnuaireComptes`, `JournalAudit` |
-| `quickstart.md` | 11 vérifications + le parcours de démonstration en six gestes |
+| `quickstart.md` | 13 vérifications + le parcours de démonstration en six gestes |
 
 ### Phase 2 — Tâches ⬜ à produire par `/speckit-tasks`
 
-**Trois contraintes d'ordonnancement, sinon le cycle se bloque :**
+**Quatre contraintes d'ordonnancement, sinon le cycle se bloque :**
 
 1. **L'amendement de `docs/design/derivation.md` (`R0`) précède tout code d'écran.** Un écran
    absent de la matrice **ne se code pas** — la tâche s'arrête. C'est une tâche documentaire, elle
    coûte dix minutes, et son absence bloque quatre écrans.
-2. **La refonte de `contexte.rs` et celle de `isolation_tenant.rs` vont d'un bloc.** Le jour où
-   les en-têtes disparaissent, les 21 opérations existantes cessent d'être testables tant que la
-   fonction d'aide de connexion n'existe pas. Les séparer laisse le dépôt rouge entre les deux.
-3. **La régénération de la police d'icônes suit le choix des icônes et précède la porte.**
+2. **La refonte de `contexte.rs` et celle de `isolation_tenant.rs` sont UNE SEULE TÂCHE, pas
+   deux.** Le jour où les en-têtes disparaissent, les 21 opérations existantes cessent d'être
+   testables tant que la fonction d'aide de connexion n'existe pas. Un dépôt rouge entre les deux,
+   un soir, et on ne sait plus si l'échec vient de la refonte ou d'un vrai défaut.
+3. **La liste de révocation vient avec l'extracteur de contexte, pas après.** Elle est consultée à
+   chaque requête authentifiée : la brancher plus tard supposerait de rouvrir le chemin le plus
+   chaud du produit une fois qu'il est déjà testé.
+4. **La régénération de la police d'icônes suit le choix des icônes et précède la porte.**
    `icones:generer` puis `--verifier` : un glyphe employé mais non embarqué fait échouer P-21b, et
    l'écran s'affiche sans icônes.
 
@@ -303,19 +331,20 @@ ne soient pas « simplifiés » plus tard par quelqu'un qui n'aurait pas la rais
 |---|---|---|
 | **Deux registres — outbox et journal d'audit** | Classes différentes : l'audit est **A**, l'opération tracée garde la sienne. L'ouverture de tiroir se fait et se trace hors ligne ; l'outbox suit une transaction qui, elle, n'a pas eu lieu | *Dériver l'audit d'un consommateur outbox* : rendrait impossible de tracer une action de classe A faite hors ligne, et ferait dépendre le registre que le propriétaire achète du bon fonctionnement d'un worker |
 | **Hachage factice sur compte inexistant** | FR-012 exige l'indiscernabilité **en temps**. Un `401` en 2 ms contre 90 ms publie la liste des comptes | *Se contenter du même message* : c'est la moitié de l'exigence, et c'est la moitié qui ne se voit pas en relecture |
-| **Permissions dans le jeton plutôt qu'en base à chaque requête** | Deux lectures évitées sur **toute** opération du produit, et une seule source pour le filtrage des tuiles | *Relire à chaque requête* : coût permanent sur les chemins les plus chauds, et deux calculs de l'union qui divergeront. Contrepartie assumée : un rôle retiré prend effet au rafraîchissement suivant, ce que la révocation de session rattrape quand c'est urgent |
+| **Permissions dans le jeton plutôt qu'en base à chaque requête** | Deux lectures Postgres évitées sur **toute** opération du produit, et une seule source pour le filtrage des tuiles | *Relire à chaque requête* : coût permanent sur les chemins les plus chauds, et deux calculs de l'union qui divergeront. Contrepartie assumée : un rôle retiré prend effet au rafraîchissement suivant — **au plus 60 minutes**. Ce délai vaut pour un ajustement de droits, jamais pour un départ ou un vol : la **révocation de session, elle, est immédiate** |
+| **Une lecture Redis sur chaque requête authentifiée** | C'est le prix de la « coupure immédiate au départ d'un employé » du cadrage §12.2, et le seul recours contre un téléphone volé avant CPT-05 | *Porter la révocation par la brièveté du jeton* : il faudrait descendre à quelques minutes, ce qui multiplierait les aller-retours sur le pire réseau du produit — et donnerait quand même une coupure en retard, pas immédiate |
 
-### Deux points appelant une décision avant `/speckit-tasks`
+### Les points ouverts du 2026-08-01 sont tranchés
 
-1. **La durée du jeton d'accès et la politique de mot de passe sont des paramètres
-   d'établissement** (DoD 9) : ils doivent figurer au **catalogue** *et* au « Récapitulatif des
-   paramètres d'établissement » de `docs/user-stories-v1.md`, sans quoi
-   `backend/tests/parametres_catalogue.rs` — livré au cycle 002 — fait échouer le build. **Deux
-   lignes à ajouter au récapitulatif**, pas une décision technique.
-2. **Le texte de la porte P-05b ne mentionne que l'outbox.** Le contrôle sur `journal_audit` est
-   livré par ce cycle ; l'extension du **texte** relève de `/speckit-constitution` et se fait
-   séparément. Livrer le contrôle sans amender le texte est acceptable — l'inverse ne le serait
-   pas.
+*Conservés ici parce qu'une décision dont on a perdu la raison se rouvre au cycle suivant.*
+
+| Point | Décision |
+|---|---|
+| Paramètres d'établissement | **Cinq, pas deux.** L'indicatif par défaut et la méthode d'authentification sont ceux que CPT-01 qualifie explicitement de paramétrables — le principe I·c les rendait obligatoires au récapitulatif au même titre que les durées de jetons, et leur absence aurait fait échouer `parametres_catalogue.rs` |
+| Politique de mot de passe | **8 caractères, aucune règle de composition, refus des mots de passe compromis par liste embarquée.** Les règles de composition sont **refusées** : elles produisent un mot de passe sur un post-it au comptoir. À 8 caractères, c'est le refus des mots de passe compromis qui fait tout le travail — il n'est donc pas optionnel |
+| Durée des jetons | **60 min / 90 jours avec rotation.** 60 est meilleur que 30 *parce que* la révocation est portée par Redis ; 90 jours vient de M. Diarra, qui « vient une fois par mois », et oblige à la rotation, à la détection de réutilisation avec révocation de **toute la famille**, et à une déconnexion à distance **opérationnelle dès ce cycle** |
+| P-05b et P-10 | **Amendées — constitution 1.6.0.** P-05b porte sur la catégorie « registre immuable » ; P-10 franchit la frontière du `JSONB` par un nommage réservé. Les deux sont à **implémenter ici** |
+| Icônes à régénérer | **Tâche ordinaire du cycle**, pas une extension de porte. Aucun amendement |
 
 ### Definition of Done — le point 10 est SANS OBJET, et c'est écrit ici
 

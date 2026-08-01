@@ -24,6 +24,9 @@ ce cycle ajoute et **ce qui s'en écarte, avec la raison**.*
 
 **Aucune session en base.** Elles vivent en Redis (research R-01), sont éphémères et
 reconstructibles, et ne figurent donc ni ici, ni au registre des classes, ni dans les sauvegardes.
+**Trois clés** : la session (90 jours), la marque de révocation consultée **à chaque requête
+authentifiée** (60 min), et la famille de jetons de rafraîchissement pour la détection de
+réutilisation (90 jours).
 
 ---
 
@@ -287,11 +290,32 @@ et ici c'est aussi ce qui tient FR-033. Le contrôle statique jumeau de P-05b le
 désigne un compte, ce compte ne peut pas être supprimé. La désactivation, elle, est un `UPDATE`
 de `actif`.
 
-⚠️ **`contexte` est du `JSONB`, et un montant peut y entrer.** Une remise, un écart de caisse, une
-rebascule de palier portent des montants. La porte **P-10** doit donc s'étendre à ce champ comme
-elle s'est étendue au catalogue de paramètres au cycle 002 : **tout montant inscrit dans
-`contexte` est un entier d'unité mineure, accompagné de son code devise.** Aucun montant de ce
-cycle n'y entre encore — le contrôle est posé avant le premier, pas après.
+⚠️ **`contexte` est du `JSONB`, et c'est là que le principe V cessait de tenir.** Un document JSON
+accepte `12500.5` ou `"12 500 F"` là où le principe impose un entier d'unité mineure — et le
+registre concerné trace les **écarts de caisse**, les **modifications de tarif** et les
+**remises**, c'est-à-dire les trois choses que le propriétaire consulte pour détecter une fraude.
+Un écart stocké en flottant, et l'audit ment sur le montant qu'il est censé prouver.
+
+**La constitution 1.6.0 étend P-10 en conséquence.** Convention imposée, vérifiable et
+implémentée par ce cycle (research R-19) :
+
+```json
+{ "ecart_mineur": -12500, "devise": "XOF", "motif": "…" }
+```
+
+| Règle | Vérifiée par |
+|---|---|
+| Toute clé monétaire porte le suffixe **`_mineur`** | `scripts/ci/types-monetaires.sh` — échoue aussi sur un montant nommé `montant`, `prix` ou `total` nu |
+| Sa valeur est un **entier**, jamais un décimal ni une chaîne formatée | Contrôle statique **et** validation du service d'audit à l'écriture |
+| Une clé **`devise`** l'accompagne au même niveau d'objet | Validation du service à l'écriture |
+
+Les deux niveaux sont nécessaires : le contrôle statique ne voit pas un document construit
+dynamiquement par un service, et la validation à l'écriture ne voit pas un littéral mal nommé
+dans du code qui ne s'exécute pas encore.
+
+Aucun montant de ce cycle n'entre encore dans `contexte` — **le contrôle est posé avant le
+premier, pas après**. Son versant positif l'exerce quand même : une entrée portant un montant est
+acceptée sous forme entière, refusée en flottant comme en chaîne.
 
 **Trois index, un par filtre de FR-037** :
 

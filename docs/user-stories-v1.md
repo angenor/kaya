@@ -738,9 +738,9 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Paniers QR en attente max par table | 3 | QRC-04 |
 | Indicatif téléphonique par défaut | +225 (Côte d'Ivoire) | CPT-01 |
 | Méthode d'authentification | Mot de passe (alternative : OTP SMS) | CPT-01 |
-| Longueur minimale du mot de passe | 10 caractères, **aucune règle de composition** | CPT-01 |
-| Durée du jeton d'accès | 30 min | CPT-01 |
-| Durée du jeton de rafraîchissement | 30 jours | CPT-01 |
+| Longueur minimale du mot de passe | 8 caractères, **aucune règle de composition**, refus des mots de passe compromis | CPT-01 |
+| Durée du jeton d'accès | 60 min | CPT-01 |
+| Durée du jeton de rafraîchissement | 90 jours, **avec rotation à chaque usage** | CPT-01 |
 | Rayon de géorepérage | 300 m (alerte seulement) | CPT-06 |
 | Dérive d'horloge signalée | 5 min | SYN-04 |
 | Seuil d'alerte de stock | Par article | STK-04 |

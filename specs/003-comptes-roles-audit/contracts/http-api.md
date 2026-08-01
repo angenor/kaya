@@ -60,16 +60,31 @@ tient pas.
 Refus **nommé**, jamais un repli silencieux sur le mot de passe.
 
 **2 · `session_rafraichir`** — corps : `{ rafraichissement, etablissement_id? }`.
-Le jeton consommé **ne se réemploie pas** (FR-010, rotation). Un jeton révoqué, inconnu ou déjà
-consommé rend `401 session_invalide`. Les permissions sont **recalculées** à cette occasion : un
-rôle retiré prend effet ici (hypothèse 5 de la spec).
+
+**Rotation à chaque usage** : le jeton présenté est consommé et un nouveau est délivré. Un jeton
+inconnu ou révoqué rend `401 session_invalide`.
+
+⚠️ **Un jeton déjà consommé est un signal, pas une erreur ordinaire.** Il signifie qu'une copie
+circule. La réponse est `401` **et la révocation de toute la famille de jetons** — pas seulement
+de celui qui est présenté. Révoquer le seul jeton laisserait le voleur et la victime en course, et
+le premier des deux gagnerait. Émet `session.revoquee` et une entrée d'audit.
+
+Les permissions sont **recalculées** à chaque rafraîchissement : un rôle retiré prend effet ici,
+soit au plus 60 minutes après (hypothèse 5 de la spec).
 
 **5 · `session_lister_actives`** — les sessions du compte appelant, avec libellé d'appareil,
 première ouverture et dernière activité. Reconstruit depuis Redis : si Redis a été vidé, la liste
 est vide et tout le monde s'est reconnecté (research R-01).
 
-**6 · `session_revoquer`** — `204`. Effet au **refus du rafraîchissement suivant**. Émet
-`session.revoquee` et une entrée d'audit. Révoquer sa propre session ne demande aucune permission.
+**6 · `session_revoquer`** — `204`. **Effet immédiat** : la session est marquée dans la liste de
+révocation Redis, consultée à chaque requête authentifiée. Le jeton d'accès en circulation cesse
+d'être accepté à l'appel suivant, sans attendre son expiration — c'est la « coupure immédiate au
+départ d'un employé » du cadrage §12.2. Émet `session.revoquee` et une entrée d'audit. Révoquer sa
+propre session ne demande aucune permission.
+
+**C'est le seul recours contre un téléphone volé** avant l'enrôlement d'appareil de CPT-05
+(tranche T4). Avec un rafraîchissement de 90 jours, une révocation qui ne serait pas immédiate
+laisserait l'accès ouvert un trimestre.
 
 ---
 
@@ -126,7 +141,14 @@ taxonomie — rien ne se supprime jamais, FR-014).
 **14 · `compte_changer_mot_de_passe`** — un compte agissant sur lui-même fournit son mot de passe
 actuel ; un compte habilité ne le fournit pas. Émet `compte.mot_de_passe_change` — **dont la
 charge utile ne porte ni le secret ni son condensat**. Les autres sessions du compte sont
-révoquées.
+révoquées, **immédiatement**.
+
+**La politique s'applique ici et à la création (10), jamais à la connexion** : 8 caractères
+minimum, **aucune règle de composition**, et **refus des mots de passe compromis** contre une
+liste **embarquée dans le binaire** — jamais un appel réseau. Refus : `422 mot_de_passe_refuse`,
+qui distingue en clair « trop court » de « figure parmi les mots de passe les plus répandus »,
+puisque l'utilisateur doit savoir quoi corriger. Vérifier à la **connexion** enfermerait dehors un
+utilisateur légitime dont le mot de passe serait devenu compromis entre-temps.
 
 **15 · `compte_attribuer_role`** — `{ id, role_code, etablissement_id? }`. `etablissement_id` est
 **obligatoire** pour un rôle de portée `ETABLISSEMENT`, **interdit** pour `admin_editeur`
@@ -188,6 +210,7 @@ l'opération qu'elle trace, par le trait `JournalAudit`.
 | `permission_absente` | `403` | 7→19 | L'appelant n'a pas la permission. **L'interface ne devrait jamais le provoquer** : l'action est absente sans permission (FR-026) |
 | `methode_non_implementee` | `422` | 1 | `OTP_SMS` — refus **nommé** (FR-008) |
 | `identifiant_absent` | `422` | 10 | Ni téléphone ni email |
+| `mot_de_passe_refuse` | `422` | 10, 14 | Trop court **ou** figurant parmi les mots de passe compromis. Le motif est explicite : l'utilisateur doit savoir quoi corriger |
 | `identifiant_refuse` | `422` | 10, 12 | La création est impossible — **sans dire pourquoi** |
 | `portee_incompatible` | `422` | 15 | `etablissement_id` fourni pour `admin_editeur`, ou absent pour un rôle d'établissement |
 | `etablissement_inconnu` | `404` | 15 | Vérifié par trait, jamais par clé étrangère |
