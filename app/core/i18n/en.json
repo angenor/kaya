@@ -1,7 +1,30 @@
 {
   "app": {
-    "coquille": "Kaya — technical foundation",
-    "aucun_ecran": "No screen ships in this cycle. The first screen comes with the Establishments cycle."
+    "coquille": "Kaya — technical foundation"
+  },
+  "accueil": {
+    "titre": "Home",
+    "sous_titre": "What you can do today",
+    "utilisateur": "Your account",
+    "chargement": "Loading…",
+    "vide": {
+      "titre": "Nothing to do here yet",
+      "explication": "Your account exists, but nobody has given it access to anything yet. Ask whoever manages access."
+    },
+    "tuiles": {
+      "etablissement": {
+        "libelle": "Your establishment",
+        "description": "What you offer, and what the tax office sees of you"
+      },
+      "comptes": {
+        "libelle": "What each person can do",
+        "description": "The people who sign in at your place"
+      },
+      "journal": {
+        "libelle": "Activity log",
+        "description": "Who did what, on what, and when"
+      }
+    }
   },
   "note_etablissement": {
     "singulier": "Internal note",

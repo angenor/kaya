@@ -1,7 +1,30 @@
 {
   "app": {
-    "coquille": "Kaya — socle technique",
-    "aucun_ecran": "Aucun écran n'est livré à ce cycle. Le premier écran vient du cycle Établissements."
+    "coquille": "Kaya — socle technique"
+  },
+  "accueil": {
+    "titre": "L'accueil",
+    "sous_titre": "Ce que vous pouvez faire aujourd'hui",
+    "utilisateur": "Votre compte",
+    "chargement": "Chargement…",
+    "vide": {
+      "titre": "Rien à faire ici pour l'instant",
+      "explication": "Votre compte existe, mais personne ne lui a encore donné accès à quoi que ce soit. Demandez à la personne qui gère les accès."
+    },
+    "tuiles": {
+      "etablissement": {
+        "libelle": "Votre établissement",
+        "description": "Ce que vous proposez, et ce que les impôts voient de vous"
+      },
+      "comptes": {
+        "libelle": "Ce que chacun peut faire",
+        "description": "Les personnes qui se connectent chez vous"
+      },
+      "journal": {
+        "libelle": "Registre des actions",
+        "description": "Qui a fait quoi, sur quoi, et quand"
+      }
+    }
   },
   "note_etablissement": {
     "singulier": "Note interne",
