@@ -7,6 +7,17 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# Deux crates de `socle/`, et c'est une arête autorisée par le principe II — `socle/` dépend de
+# `socle/` (porte P-03, `backend/tests/architecture.rs`).
+#
+# `kaya-etablissements` apporte deux choses et rien d'autre : `tenant_context::poser_tenant`, le
+# chemin de code le plus sensible du produit — le dupliquer ici en ferait **deux** —, et le trait
+# `EstablishmentDirectory`, par lequel l'attribution de rôle vérifie qu'un établissement existe.
+# Sans lui, `compte_role.etablissement_id` exigerait une clé étrangère inter-schémas, que le
+# principe II interdit et que la porte P-04 refuse.
+kaya-etablissements = { path = "../etablissements" }
+kaya-synchronisation = { path = "../synchronisation" }
+
 # Les deux crates du gel §3.1 portant la mention « (CPT-01) ». Ce cycle les **active** ; il ne
 # choisit aucune version — elles sont épinglées au workspace depuis le cycle 001.
 argon2 = { workspace = true }

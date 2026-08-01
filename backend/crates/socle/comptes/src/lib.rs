@@ -15,4 +15,5 @@
 
 pub mod audit;
 pub mod authentification;
+pub mod personne;
 pub mod preuve_cryptographique;
