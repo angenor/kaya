@@ -59,23 +59,35 @@ pub async fn permissions_effectives(
 /// remplir `etablissements[]` de la réponse de connexion. Le **sélecteur permanent** est ETB-06,
 /// hors périmètre.
 ///
-/// L'ordre est **stable** (`cree_le, id`), et c'est ce qui rend « le premier accessible » une
-/// règle et non un hasard : deux connexions successives sans `etablissement_id` doivent ouvrir le
-/// même établissement, sans quoi l'utilisateur verrait son accueil changer d'une fois sur l'autre.
+/// L'ordre est **stable**, et c'est ce qui rend « le premier accessible » une règle et non un
+/// hasard : deux connexions successives sans `etablissement_id` doivent ouvrir le même
+/// établissement, sans quoi l'utilisateur verrait son accueil changer d'une fois sur l'autre.
+///
+/// # L'ordre vient de `compte_role`, et jamais de `etablissements.etablissement`
+///
+/// La forme évidente — joindre la table des établissements pour trier sur **sa** date de création —
+/// **joint deux schémas de modules**, ce que le principe II interdit et que la porte **P-04**
+/// refuse. Elle a été écrite, et la porte l'a attrapée.
+///
+/// L'ordre retenu est donc celui de **l'attribution du rôle** : le premier établissement sur
+/// lequel le compte a reçu un rôle est le premier proposé. C'est au moins aussi défendable — c'est
+/// l'établissement de rattachement d'origine, pas le plus ancien du groupe — et cela ne suppose
+/// rien de l'autre module.
+///
+/// **Aucune vérification d'existence ici.** Un `etablissement_id` de `compte_role` peut en théorie
+/// désigner un établissement supprimé : rien ne se supprime dans Kaya (FR-014), et la vérification
+/// à l'attribution passe par `EstablishmentDirectory` (T039). La faire ici la ferait passer par
+/// une jointure, c'est-à-dire par la faute qu'on vient d'écarter.
 pub async fn etablissements_accessibles(
     tx: &mut sqlx::PgTransaction<'_>,
     compte_id: Uuid,
 ) -> Result<Vec<Uuid>, ErreurRoles> {
     let ids = sqlx::query_scalar!(
         r#"
-        SELECT e.id AS "id!"
-        FROM etablissements.etablissement e
-        WHERE e.id IN (
-            SELECT cr.etablissement_id
-            FROM comptes.compte_role cr
-            WHERE cr.compte_id = $1 AND cr.etablissement_id IS NOT NULL
-        )
-        ORDER BY e.cree_le, e.id
+        SELECT DISTINCT ON (cr.etablissement_id) cr.etablissement_id AS "id!"
+        FROM comptes.compte_role cr
+        WHERE cr.compte_id = $1 AND cr.etablissement_id IS NOT NULL
+        ORDER BY cr.etablissement_id, cr.cree_le
         "#,
         compte_id
     )
