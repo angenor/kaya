@@ -104,6 +104,31 @@ nombre doit se lire à bout de bras, debout, en tenant une clé. Hors de R4, R7,
 Les demi-valeurs sont voulues : c'est le réglage qui tient le 13 px lisible sur un
 1366 × 768 délavé par le soleil, sans casser l'échelle sur un téléphone.
 
+### 2.1 Décisions consignées — deux questions qui ne se reposent pas
+
+Ces deux observations reviennent à chaque relecture de l'échelle typographique. Elles sont
+tranchées ; elles sont écrites ici pour qu'on cesse de les rouvrir.
+
+**`--text-action` (14,5 px) et `--text-lead` (15 px) sont indistinguables à l'œil — et ils restent
+séparés.** Un demi-pixel d'écart ne se voit pas ; ce n'est pas ce qui les justifie. Ce sont **deux
+rôles distincts** — le libellé de bouton et le chapeau — qui portent aujourd'hui des valeurs
+voisines. C'est précisément ce qui permettra de les faire diverger demain sans rouvrir le balisage.
+Les fusionner échangerait une ligne de table contre la reprise de **chaque bouton du produit** le
+jour où l'un des deux doit bouger : on paierait la simplification au moment le plus coûteux.
+Un token n'est pas une valeur, c'est un point d'articulation.
+
+**`--text-etiquette` (11 px, capitales, `letter-spacing .1em`) est à la limite basse de
+lisibilité — et rien n'y est changé.** Le corps est petit, les capitales et l'interlettrage
+compensent en partie, et l'étiquette ne porte jamais d'information critique : elle nomme la section
+que le contenu dessous rend de toute façon évidente. Mais la question ne se tranche pas ici :
+elle se juge **à Abengourou, à bout de bras, sur un écran délavé par le soleil**, pas sur un poste
+de développement calibré. Un ajustement décidé au bureau serait une préférence, pas une mesure.
+
+**Elle est donc portée à l'ordre du jour de la journée d'observation terrain**, avec le 13 px du
+corps, dont elle est solidaire. Les retours iront dans `docs/design/notes-terrain.md` — fichier
+qui **n'existe pas encore** et se créera au retour de cette journée, quand il aura quelque chose à
+consigner.
+
 ## 3. Espacement et hauteurs
 
 Base 4 px (`--spacing: 4px`). L'échelle fractionnaire de Tailwind 4 couvre toute la

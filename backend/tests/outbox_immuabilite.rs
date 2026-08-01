@@ -107,6 +107,11 @@ async fn sous_le_role_proprietaire_update_et_delete_sont_encore_refuses() {
 /// La **seule** mutation tolérée : `publie_le` de `NULL` vers une valeur, **une seule fois**.
 #[tokio::test]
 async fn le_marquage_de_publication_passe_une_fois_et_une_seule() {
+    // Le premier marquage doit être ACCEPTÉ. Un worker extérieur qui aurait déjà posé `publie_le`
+    // ferait refuser celui du test par le déclencheur `evenement_outbox_immuable` — un échec qui
+    // ressemblerait à une perte d'immuabilité alors que c'en serait la preuve.
+    commun::exiger_grand_livre_sans_consommateur_concurrent().await;
+
     let pool_owner = commun::pool_owner().await;
     let (tenant, evenement_id) = semer(&pool_owner, "immuabilité — marquage").await;
 
@@ -170,6 +175,9 @@ async fn le_marquage_de_publication_passe_une_fois_et_une_seule() {
 /// cas où elle serait le plus facilement perdue.
 #[tokio::test]
 async fn sous_le_role_worker_seul_le_marquage_passe() {
+    // Même raison : le marquage final doit passer, donc l'événement doit être encore en attente.
+    commun::exiger_grand_livre_sans_consommateur_concurrent().await;
+
     let pool_owner = commun::pool_owner().await;
     let (_tenant, evenement_id) = semer(&pool_owner, "immuabilité — worker").await;
 

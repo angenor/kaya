@@ -3,24 +3,24 @@
 *Source de vérité de l'héritage visuel des écrans non maquettés. Extrait de `docs/Kaya_Design.md`
 PARTIE V §25 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
-**Version 1.0.0**
+**Version 1.1.0** — `A1` À propos ajouté le 2026-08-01.
 
 ---
 
-## Les 41 écrans du produit
+## Les 42 écrans du produit
 
 | Catégorie | Nombre | Référence |
 |---|---|---|
 | **Écrans maquettés** | **11** codes, **29 fichiers d'états** | `docs/design/html/{code}-{nom}[-{etat}].html` |
-| **Écrans dérivés** | **30** | la matrice ci-dessous |
+| **Écrans dérivés** | **31** | la matrice ci-dessous |
 
 Codes maquettés : `C4` `F2` `G2` `M4` `P2` `Q1` `R1` `R4` `R7` `S2` `V1`.
 
 ---
 
-## Les 30 écrans codés sans maquette
+## Les 31 écrans codés sans maquette
 
-## 25. Les 30 écrans codés sans maquette
+## 25. Les 31 écrans codés sans maquette
 
 C'est le document qui rend sûr le fait de coder directement. Chaque écran déclare de quel motif il hérite. **Un écran qui n'hérite d'aucun motif ne se code pas — il se maquette d'abord.**
 
@@ -42,6 +42,7 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 | `G1` Établissement et modules | `G2` | Configuration |
 | `G3` Utilisateurs et rôles | `G2` | Configuration |
 | `G4` Journal d'audit | `R5` + `F2` | Liste filtrable, registre sobre |
+| `A1` À propos | `G2` | Configuration en **lecture seule** |
 | `S1` Panneau de synchronisation | Composant 8 | Développement du composant |
 | `S3` États vides et erreurs | Famille d'illustrations | Couvert par la fondation |
 | `M1` Accueil mobile | `R1` + `M4` | Composition en régime mobile |
@@ -58,6 +59,14 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 | `STK` Écrans de stock | `R5` + `G2` | Liste + formulaire |
 
 **Règle de conduite** : au moment de coder un écran dérivé, ouvrir la maquette dont il hérite et la respecter. Si l'écran a besoin d'un motif absent de la matrice, **arrêter et maquetter**.
+
+**Note sur `A1` — inscrit avant d'être demandé.** Aucune story ne l'appelle aujourd'hui, et il ne
+se construit donc pas (principe X, « prêt ≠ construit ») : cette ligne le rend *codable* le jour
+où une story l'appellera, elle ne l'autorise pas à être bâti maintenant. Il existera de toute
+façon — **ADM-02** y logera la version déployée et **TRX-07** le bundle de diagnostic. En
+attendant, les mentions de licence des polices et icônes embarquées vivent dans `G1`, faute
+d'écran d'accueil : cohérent en motif, bancal sur le fond, puisque les licences du produit ne sont
+pas un réglage d'établissement. **Elles migreront vers `A1`.**
 
 ---
 

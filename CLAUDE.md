@@ -12,16 +12,61 @@ et une image de production construite et exercée.
 à la main contre sqlx 0.9. **Le lire avant d'écrire du Rust** — tout extrait trouvé en ligne vise
 sqlx 0.8 et ne compilera pas.
 
-**Deux dettes ouvertes, à connaître avant de coder du front :**
+**Les deux dettes du cycle 002 sont soldées** — lire avant de coder du front :
 
-1. **Le patron front n'existe qu'en lecture.** `G1` affiche ; aucun bouton n'appelle les
-   21 opérations d'écriture, qui existent et sont testées côté API. Formulaires, validation,
-   gestion d'erreur, états de chargement, i18n des messages et RBAC sur les actions **ne sont
-   démontrés nulle part**. Le premier cycle qui écrit depuis un écran fixe ce patron — le cadrer,
-   ne pas l'improviser.
-2. **La police d'icônes n'est pas embarquée.** La maquette charge Phosphor depuis un CDN, ce que
-   le mode hors-ligne interdit (porte **P-21**). Les icônes de `G1` ne s'affichent pas ; elles
-   sont `aria-hidden`, l'écran reste lisible. À embarquer avant la démonstration de tranche.
+1. **Le patron d'écriture front existe, sur UNE opération.** La bascule d'un service (ETB-02) est
+   câblée de bout en bout et documentée dans **`docs/module-dore.md`, « La septième couche »** :
+   appel typé, squelette de chargement, refus métier en langue utilisateur, validation au champ,
+   action **absente** sans permission, refus immédiat hors ligne (classe C), rafraîchissement sans
+   rechargement. **Les vingt autres opérations d'écriture suivent ce patron, cycle par cycle** —
+   le lire avant d'en brancher une, ne pas réinventer.
+2. **La police d'icônes est embarquée et sous-réglée.** 77 glyphes sur ~1530, 9,4 ko au lieu de
+   279. Régénération : `pnpm --filter @kaya/app icones:generer`. La porte **P-21** refuse toute
+   ressource d'hôte externe, **P-21b** vérifie que le contenu local existe vraiment.
+3. **Archivo et Chivo Mono sont embarquées.** Quatre `woff2` variables, 114 ko, `latin` et
+   `latin-ext`, **sans sous-réglage de caractères** — le texte est dynamique, contrairement aux
+   icônes. Régénération : `pnpm --filter @kaya/app polices:generer`.
+
+**Le piège des polices, à connaître avant d'y toucher : U+202F n'existe ni dans Archivo ni dans
+Chivo Mono.** `docs/design/tokens.md` §2 impose pourtant l'espace fine insécable **U+202F** entre
+les groupes de milliers et avant le F (`12 500 F`), et en fait la condition de l'alignement des
+colonnes de montants en Chivo Mono tabulaire. Le caractère est absent des `woff2` de Fontsource
+**et** des `ttf` amont de Google Fonts — alors que la `unicode-range` déclarée annonce
+`U+2000-206F`. **La plage annoncée n'est pas la couverture réelle : seule la table `cmap` fait
+foi.** `app/scripts/generer-polices.ts` ajoute donc l'association `U+202F → dessin de U+2009`, et
+la porte **P-21b** relit la table pour le vérifier. Deux corollaires qui se paient cher :
+
+- **L'ordre des `@font-face` compte** : `latin-ext` AVANT `latin`. Les plages se recouvrent (`œ`
+  est annoncé par les deux, dessiné par une seule) et **à recouvrement, le dernier déclaré gagne**.
+- **Un woff2 réécrit doit être complété à quatre octets**, sinon le décodeur des navigateurs le
+  refuse en bloc.
+
+**Le composant de saisie canonique est `app/core/design-system/ChampSaisie.vue`** — n° 16 de
+`docs/design/composants.md`, avec sa vignette au styleguide. Aucun écran n'en a de maquette : il
+est composé depuis les tokens. **Tout champ de formulaire passe par lui.**
+
+**Un montant s'écrit par `app/core/format/montant.ts`, et par rien d'autre.**
+`formaterMontant(montantMineur, codeDevise)` — le montant est un **entier d'unité mineure**, le
+nombre de décimales et le symbole viennent de la **devise** (principe V), jamais d'une constante.
+Ne pas recopier le `money(n)` de `tokens.md` §2 : c'est du code de maquette, mono-devise et sans
+unité mineure, et le reprendre imposerait de rouvrir chaque appel à la deuxième devise (principe X).
+`Intl.NumberFormat` est écarté aussi — son séparateur dépend de l'ICU embarqué, U+202F ou U+00A0
+selon la version. `app/tests/montant.spec.ts` refuse toute seconde implémentation dans `core/`,
+`modules/` et `pages/`. **Les heures gardent l'espace ORDINAIRE (`17 h 30`)** et ne passent pas
+par là.
+
+**Le styleguide est servi par l'application** : `app/pages/styleguide.vue`, les seize composants
+dans tous leurs états, en clair et en sombre, avec les polices **réellement embarquées** — ce que
+`docs/design/styleguide.html` ne peut pas montrer, chargeant les siennes depuis Google Fonts.
+Route **retirée du routeur** hors développement, comme la Swagger UI du cycle 001 :
+
+```sh
+KAYA_STYLEGUIDE=1 pnpm --filter @kaya/app dev    # puis /styleguide
+```
+
+C'est aussi le seul fichier `.vue` **exempté** du contrôle des littéraux de P-16 — exemption
+nommée, dont la contrepartie (la page n'atteint pas la production) est vérifiée par la porte
+elle-même.
 
 État par tranche : **T1 en cours** (TRX et ETB faits ; restent CPT, HEB, SYN, SEJ-1).
 
@@ -47,8 +92,8 @@ Chaînes visibles par l'utilisateur : **jamais en dur**, clés i18n **fr et en**
 
 En cas de contradiction, trancher dans cet ordre :
 
-1. `.specify/memory/constitution.md` — 12 principes non négociables, **23 portes de CI**
-   bloquantes (P-01 à P-21, dont P-01b et P-05b). **À lire avant toute décision d'architecture.**
+1. `.specify/memory/constitution.md` — 12 principes non négociables, **24 portes de CI**
+   bloquantes (P-01 à P-21, dont P-01b, P-05b et P-21b). **À lire avant toute décision d'architecture.**
    Sa section « Couverture des portes » est née de portes vertes défectueuses aux cycles 001 et
    002 : *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde
    tout* — et une porte dont la cible est vide passe toujours.
@@ -61,8 +106,8 @@ En cas de contradiction, trancher dans cet ordre :
 5. `docs/versions-gelees.md` — versions épinglées, URL des registres, commandes de vérification.
 6. `docs/design/tokens.md`, puis `docs/design/mouvement.md` — valeurs de design.
 7. `docs/design/html/`, `fondation/`, `proto/`, `documents/` — référence normative d'écran.
-   **`docs/design/derivation.md`** dit de quel motif hérite chacun des 30 écrans non maquettés
-   (41 écrans en tout) ; **`docs/design/lexique.md`** donne le vocabulaire utilisateur. Les deux
+   **`docs/design/derivation.md`** dit de quel motif hérite chacun des 31 écrans non maquettés
+   (42 écrans en tout) ; **`docs/design/lexique.md`** donne le vocabulaire utilisateur. Les deux
    sont opposables : un écran hors des deux ne se code pas, un terme technique hors du lexique
    n'atteint jamais l'interface.
 8. `docs/Kaya_Vision_Plateforme.md` — **fermé jusqu'au jalon J1**, sans effet sur le MVP.
@@ -124,6 +169,15 @@ Ceux-ci coûtent une migration ou une refonte s'ils sont manqués. Ils ne se dev
   ménage est modifiable. Les confondre produit des doubles attributions.
 - **Tout calcul de durée, de taxe et toute clôture s'appuient sur l'horodatage d'autorité
   serveur**, jamais sur l'horloge d'un terminal.
+- **Les polices embarquées sont sous licence, et leur attribution est due.** Trois œuvres tierces
+  partent dans le binaire : Archivo et Chivo Mono (OFL 1.1), Phosphor (MIT). Leurs textes vivent
+  dans `app/assets/fonts/*-LICENCE.txt` — **copies exactes de l'amont, jamais retouchées** — et
+  sont importés en clair par `app/core/licences/`, ce qui les fait entrer dans le paquet. Ce qui a
+  été modifié est déclaré dans `app/assets/fonts/MODIFICATIONS.md`, l'inventaire dans
+  `docs/conformite/licences-tierces.md`, et la porte **P-21b, contrôle 5**, refuse toute police
+  sans licence ni avis de copyright. **Ni Archivo ni Chivo Mono ne déclarent de Reserved Font
+  Name** : c'est ce qui permet de modifier leur `cmap` en gardant le nom de famille. Une police à
+  nom réservé imposerait de renommer la famille — donc de toucher aux jetons `--font-*`.
 - **L'API FNE n'a aucune clé d'idempotence.** L'état `INDETERMINEE` (timeout) n'est **jamais**
   rejoué automatiquement — rapprochement manuel obligatoire.
 - **Les `id` d'items retournés par la certification FNE sont persistés.** Sans eux, aucun avoir
@@ -164,6 +218,22 @@ Deux points à connaître pour ne pas perdre une journée :
   pas** : construction de production dans Docker pour `linux/amd64`, jamais par copie d'un binaire
   local.
 
+- **`cargo sqlx prepare` DÉTRUIT le cache silencieusement s'il ne recompile rien.** Il ne collecte
+  que les requêtes des unités **effectivement (re)compilées** : lancé sur un build à jour, il
+  annonce « no queries found » et **vide `.sqlx`**. Sans `-- --all-targets`, il ignore en outre
+  les binaires et les tests. Constaté le 2026-08-01 : la commande perdait les **9 requêtes du
+  binaire `seeds`**, qu'aucun `cargo clean -p` ni `touch` n'a suffi à faire réémettre.
+  **Après tout `prepare`, vérifier les deux, dans cet ordre** — le second seul ne suffit pas, un
+  cache amputé d'une requête inutilisée par le check passerait :
+
+  ```sh
+  git status --short backend/.sqlx    # AUCUNE suppression ; que des ajouts
+  SQLX_OFFLINE=true DATABASE_URL= cargo check --workspace --all-targets --locked
+  ```
+
+  En cas de suppression, `git checkout backend/.sqlx` restaure les entrées commitées **sans
+  toucher** aux fichiers non suivis, donc sans perdre les requêtes nouvelles.
+
 ## Flux de travail
 
 Le dépôt utilise **Spec Kit** (skills `speckit-*` dans `.claude/skills/`).
@@ -189,18 +259,25 @@ bash scripts/dev/preparer-stockage.sh            # amorçage des buckets Garage
 # Backend (depuis backend/)
 cargo test --workspace                           # 15 tests d'intégration
 cargo test --test isolation_tenant                # un seul fichier de test
-cargo sqlx prepare --workspace                    # cache de requêtes (porte P-18)
+cargo sqlx prepare --workspace -- --all-targets   # cache de requêtes — LIRE L'AVERTISSEMENT
 SQLX_OFFLINE=true cargo check --workspace --all-targets --locked   # comme l'image
 
 # Portes de CI, exécutables une par une depuis la racine
-pnpm porte:p01   # client TS régénéré sans diff       pnpm porte:p10   # entiers / NUMERIC
+pnpm porte:p01   # client TS régénéré sans diff       pnpm porte:p15   # pont natif confiné
 pnpm porte:p02   # migration appliquée non modifiée   pnpm porte:p19   # maquette non copiée
 pnpm porte:p04   # pas de jointure inter-schémas      pnpm porte:p20   # versions épinglées
-pnpm porte:p05b  # pas de purge de l'outbox
+pnpm porte:p05b  # pas de purge de l'outbox           pnpm porte:p21   # rien d'un hôte externe
+pnpm porte:p10   # entiers / NUMERIC                  pnpm porte:p21b  # déclaré = embarqué
 pnpm generer:client                               # types TS depuis openapi.json
 
+# ESLint vit à la RACINE et couvre app/ ET web/qr ET web/console — les deux surfaces publiques
+# sont HORS Tauri, donc l'endroit où la porte P-15 compte le plus. `porte:p15` ajoute le décompte
+# des fichiers réellement analysés par arbre : une cible vide passerait autrement.
+pnpm lint                                         # eslint . depuis la racine
+
 # Application (depuis app/)
-pnpm dev · pnpm build · pnpm test · pnpm lint · pnpm lint:tokens · pnpm test:i18n
+pnpm dev · pnpm build · pnpm test · pnpm lint:tokens · pnpm test:i18n
+pnpm --filter @kaya/app polices:generer   # + icones:generer — `--verifier` en CI
 
 # Image de production — TOUJOURS pour linux/amd64, jamais un binaire local
 docker buildx build --platform linux/amd64 -f infra/Dockerfile.api -t kaya-api:<tag> .

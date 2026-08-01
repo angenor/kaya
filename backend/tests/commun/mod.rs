@@ -8,8 +8,18 @@
 
 #![allow(dead_code)]
 
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::str::FromStr;
+
+use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 use uuid::Uuid;
+
+/// `application_name` porté par **toutes** les connexions des tests.
+///
+/// C'est ce qui rend une session de test distinguable d'une session d'un autre processus, et
+/// c'est la seule chose qui le permette : `pg_stat_activity` masque `application_name` et `state`
+/// des backends appartenant à un **autre rôle**, mais les expose pour ceux du **même rôle**. Le
+/// contrôle de `exiger_grand_livre_sans_consommateur_concurrent` s'appuie exactement là-dessus.
+pub const NOM_APPLICATION_TESTS: &str = "kaya-tests";
 
 /// Chaîne de connexion du rôle **propriétaire** — migrations et préparation des jeux d'essai.
 pub fn url_owner() -> String {
@@ -70,11 +80,95 @@ pub async fn pool_worker() -> PgPool {
 }
 
 async fn connecter(url: &str) -> PgPool {
+    let options = PgConnectOptions::from_str(url)
+        .expect("URL de connexion illisible")
+        .application_name(NOM_APPLICATION_TESTS);
+
     PgPoolOptions::new()
         .max_connections(4)
-        .connect(url)
+        .connect_with(options)
         .await
         .expect("connexion à la base de test impossible")
+}
+
+/// Refuse de dérouler un test dont les décomptes exigent d'être **seul consommateur du grand
+/// livre**, si un autre processus en consomme au même instant.
+///
+/// # Le défaut que ce contrôle remplace
+///
+/// `worker_redemarrage.rs` et `outbox_immuabilite.rs` échouaient environ deux fois sur cinq en
+/// `cargo test --workspace`, et jamais en isolation ni en intégration continue. La cause n'était
+/// ni dans le worker ni dans la rédaction des tests : **le binaire de développement était en
+/// train de tourner**. Son worker in-process (`api/src/main.rs`) démarre avec
+/// `ConfigurationWorker::default()`, donc `tenant: None` — **tous les tenants** — et boucle toutes
+/// les 500 ms sur la même base que les tests. Il publiait les événements d'un test entre leur
+/// création et le premier `traiter_un_lot()`, et le test comptait alors moins d'événements que
+/// prévu. En intégration continue le défaut est hors d'atteinte : chaque job monte un PostgreSQL
+/// neuf, sans binaire qui tourne.
+///
+/// **Le worker faisait son travail, correctement.** Le filtre par tenant est posé au moment de la
+/// SÉLECTION du lot, dans le même `WHERE` que `publie_le IS NULL` et donc avant
+/// `FOR UPDATE SKIP LOCKED` : un worker restreint à un tenant ne prélève jamais la ligne d'un
+/// autre. Ce qui était faux, c'est l'hypothèse implicite des tests — *je suis le seul consommateur
+/// de mes événements* — que rien n'écrivait ni ne vérifiait.
+///
+/// # Pourquoi ce contrôle plutôt qu'une sérialisation
+///
+/// Sérialiser les tests masquerait le défaut sans l'expliquer, et surtout ne le corrigerait pas :
+/// le worker concurrent n'est pas un test, aucun `--test-threads=1` ne l'arrête. Aucune rédaction
+/// des tests ne peut d'ailleurs les rendre déterministes face à un consommateur non contrôlé —
+/// ils observent un **partage de travail**, et un tiers change le partage. Le déterminisme exige
+/// d'écarter le tiers ; il ne reste qu'à le constater plutôt qu'à le subir.
+///
+/// # Périmètre inspecté, et ce qu'il ne couvre pas
+///
+/// Sont comptées les sessions du rôle `kaya_worker` sur la base courante dont
+/// l'`application_name` n'est pas [`NOM_APPLICATION_TESTS`]. Deux limites, assumées :
+///
+///   * un worker démarré **après** ce contrôle passe au travers — la fenêtre est celle du test,
+///     pas celle du processus ;
+///   * l'identification se fait par `application_name`, pas par la configuration réelle du tiers :
+///     rien ne permet de lire le `tenant:` d'un autre processus. Un worker étranger correctement
+///     restreint à un autre tenant serait donc refusé alors qu'il serait inoffensif. Le faux
+///     positif coûte un message ; le faux négatif coûtait deux jours.
+///
+/// Le contrôle ne concerne **pas** les autres fichiers de test : leurs décomptes sont filtrés par
+/// tenant et un consommateur concurrent ne les change pas.
+pub async fn exiger_grand_livre_sans_consommateur_concurrent() {
+    // La sonde passe par le pool `kaya_worker` et non par le propriétaire : `pg_stat_activity`
+    // masque `application_name` des backends d'un autre rôle. Interrogé sous `kaya_owner`, le
+    // contrôle ne verrait que des noms vides et ne distinguerait plus ses propres sessions.
+    let pool = pool_worker().await;
+
+    let etrangers: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "c!"
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND usename = 'kaya_worker'
+          AND coalesce(application_name, '') <> $1
+        "#,
+        NOM_APPLICATION_TESTS
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("lecture de pg_stat_activity");
+
+    assert_eq!(
+        etrangers, 0,
+        "{etrangers} session(s) du rôle `kaya_worker` étrangères aux tests sont ouvertes sur cette \
+         base. Un worker de publication tourne donc en dehors de `cargo test`, presque toujours \
+         le binaire de développement (`cargo run -p kaya-api`), dont le worker publie TOUS les \
+         tenants toutes les 500 ms. Il consommerait les événements de ce test avant lui et les \
+         décomptes seraient faux, au hasard de l'ordonnancement.\n\
+         \n\
+         Remède : arrêter le binaire de développement le temps des tests, ou faire pointer les \
+         variables DATABASE_URL* sur une base dédiée aux tests.\n\
+         \n\
+         Ce n'est pas un défaut du worker : son filtre par tenant est posé à la sélection du lot, \
+         et deux workers concurrents se partagent le grand livre sans perte ni doublon. C'est ce \
+         test qui exige d'être seul consommateur de ses propres événements."
+    );
 }
 
 /// Monte **l'application réelle**, celle que sert le binaire.

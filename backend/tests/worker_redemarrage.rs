@@ -27,6 +27,10 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn un_redemarrage_brutal_ne_perd_ni_ne_duplique_aucun_evenement() {
+    // Les décomptes de lot ci-dessous n'ont de sens que si aucun autre worker ne publie sur cette
+    // base. Le filtre par tenant écarte les autres tests, pas un worker `tenant: None` extérieur.
+    commun::exiger_grand_livre_sans_consommateur_concurrent().await;
+
     let pool_owner = commun::pool_owner().await;
     let jeu = commun::creer_tenant(&pool_owner, "worker — redémarrage").await;
 
@@ -161,6 +165,10 @@ async fn un_consommateur_en_echec_laisse_l_evenement_en_attente() {
             })
         }
     }
+
+    // Un worker extérieur publierait l'événement et le laisserait marqué : l'attente « il reste
+    // non publié » deviendrait fausse sans que le consommateur en échec y soit pour rien.
+    commun::exiger_grand_livre_sans_consommateur_concurrent().await;
 
     let pool_owner = commun::pool_owner().await;
     let jeu = commun::creer_tenant(&pool_owner, "worker — consommateur en échec").await;
