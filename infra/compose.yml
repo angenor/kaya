@@ -54,6 +54,14 @@ services:
   #  Sessions, file FNE, verrous distribués, limitation de débit, cache de catalogue. **Jamais**
   #  une donnée métier durable, et **jamais** la file de publication de l'outbox : une file qui
   #  perdrait son état perdrait des événements, ce que la rétention illimitée de TRX-02 exclut.
+  #
+  #  **Depuis CPT-01, Redis n'est plus optionnel.** Il l'était jusqu'au cycle 002 — cache et file
+  #  FNE : perdu, le produit ralentissait. La liste de révocation des sessions est désormais
+  #  consultée **à chaque requête authentifiée**, ce qui est le prix de la « coupure immédiate au
+  #  départ d'un employé » du cadrage §12.2. Le statut *reconstructible* ne change pas (Redis
+  #  vidé, tout le monde se reconnecte et aucune donnée métier ne manque) ; **l'exigence de
+  #  disponibilité, si** : Redis absent, aucune requête authentifiée n'aboutit. La sonde
+  #  ci-dessous cesse donc d'être un confort d'exploitation.
   cache:
     image: redis:8.8.1
     container_name: kaya-cache

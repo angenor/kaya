@@ -11,7 +11,7 @@
 //! partiellement migré — un état où les erreurs sont incompréhensibles et où le client n'a aucun
 //! moyen de savoir qu'il doit réessayer.
 
-use kaya_api::{application, contexte, db, observabilite};
+use kaya_api::{application, contexte, db, observabilite, secrets};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -51,6 +51,10 @@ async fn main() -> std::io::Result<()> {
         chaines = %kaya_comptes::preuve_cryptographique::empreinte_chaines(),
         "chaînes cryptographiques du cycle CPT — constat de construction"
     );
+
+    // Les secrets d'exploitation, vérifiés une fois et bruyamment (principe IX). Aucun n'a de
+    // valeur par défaut : un défaut est un secret publié.
+    secrets::verifier_secrets_de_demarrage();
 
     // Refus de démarrer si la dérogation d'authentification n'est pas ouverte
     // explicitement. Une dérogation qu'on peut oublier d'ouvrir se retrouve ouverte en
