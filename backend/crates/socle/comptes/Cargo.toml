@@ -22,6 +22,11 @@ kaya-synchronisation = { path = "../synchronisation" }
 # choisit aucune version — elles sont épinglées au workspace depuis le cycle 001.
 argon2 = { workspace = true }
 jsonwebtoken = { workspace = true }
+
+# Redis porte les sessions. **Il n'est plus optionnel depuis ce cycle** : la liste de révocation
+# est consultée à chaque requête authentifiée, c'est le prix de la « coupure immédiate au départ
+# d'un employé » du cadrage §12.2. Version épinglée au workspace, comme tout le reste.
+redis = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true }

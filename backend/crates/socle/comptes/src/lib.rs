@@ -16,4 +16,5 @@
 pub mod audit;
 pub mod authentification;
 pub mod personne;
+pub mod session;
 pub mod preuve_cryptographique;

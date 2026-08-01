@@ -2198,6 +2198,7 @@ dependencies = [
  "jsonwebtoken",
  "kaya-etablissements",
  "kaya-synchronisation",
+ "redis",
  "serde",
  "serde_json",
  "sqlx",
