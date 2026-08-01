@@ -2161,6 +2161,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "kaya-api",
+ "kaya-comptes",
  "kaya-domain",
  "kaya-etablissements",
  "kaya-fiscalite",

@@ -169,6 +169,7 @@ path = "src/lib.rs"
 [dev-dependencies]
 kaya-api = { workspace = true }
 kaya-domain = { workspace = true }
+kaya-comptes = { workspace = true }
 kaya-etablissements = { workspace = true }
 kaya-synchronisation = { workspace = true }
 actix-web = { workspace = true }

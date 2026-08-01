@@ -7,6 +7,8 @@
 
 pub mod argon2;
 pub mod mots_de_passe_compromis;
+pub mod politique;
 
 pub use argon2::{ErreurHachage, Verification, condensat_factice, hacher, prechauffer, verifier};
 pub use mots_de_passe_compromis::est_compromis;
+pub use politique::{RefusMotDePasse, verifier as verifier_politique};
