@@ -278,6 +278,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/personnes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crée une personne.
+         * @description **`200` sur rejeu, pas `409`** (module doré, couche 5) : un terminal qui vide sa file après une
+         *     coupure ne doit pas voir d'erreur pour une écriture déjà acceptée. Le corps rendu est la ligne
+         *     **telle qu'elle est en base** — le serveur fait foi en conflit.
+         */
+        post: operations["personne_creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/personnes/{personne_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit une personne. */
+        get: operations["personne_lire"];
+        /**
+         * Modifie une personne — **remplacement complet des champs modifiables**.
+         * @description Un `PUT` qui fusionnerait champ par champ rendrait impossible d'effacer un numéro de
+         *     téléphone : l'absence du champ et sa mise à `null` seraient indistinguables.
+         */
+        put: operations["personne_modifier"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/points-de-vente/{point_de_vente_id}": {
         parameters: {
             query?: never;
@@ -365,6 +409,127 @@ export interface paths {
         get: operations["referentiels_profils_stock"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ouvre une session.
+         * @description **`401 identifiants_invalides` est le seul code d'échec d'authentification** : jamais
+         *     `compte_inconnu`, jamais `mot_de_passe_invalide`, jamais `compte_desactive`, jamais
+         *     « trop de tentatives » (FR-012). Et le **temps de réponse** est du même ordre dans tous les
+         *     cas — c'est la moitié de l'exigence que le code seul ne tient pas, et
+         *     `backend/tests/authentification_indiscernable.rs` la mesure.
+         */
+        post: operations["session_ouvrir"];
+        /**
+         * Ferme la session courante — la déconnexion volontaire.
+         * @description **N'écrit aucune entrée d'audit et n'émet aucun événement** : se déconnecter de son propre
+         *     appareil n'est pas un acte d'administration. Révoquer une **autre** session, si.
+         */
+        delete: operations["session_fermer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/actives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Les sessions actives du compte appelant — **« Appareils connectés »**.
+         * @description Reconstruites depuis Redis. Si Redis a été vidé, la liste est vide et tout le monde s'est
+         *     reconnecté : c'est exact, pas une panne (research R-01).
+         */
+        get: operations["session_lister_actives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/actives/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Révoque une session — **effet immédiat**.
+         * @description La session est marquée dans la liste de révocation Redis, consultée à chaque requête
+         *     authentifiée : le jeton d'accès en circulation cesse d'être accepté **à l'appel suivant**, sans
+         *     attendre son expiration. C'est la « coupure immédiate au départ d'un employé » du cadrage
+         *     §12.2, et le seul recours contre un téléphone volé avant l'enrôlement d'appareil de CPT-05.
+         *
+         *     **Révoquer sa propre session ne demande aucune permission.** Révoquer celle d'un autre exige
+         *     `cpt.session.revoquer` — mais ce cycle ne livre pas encore la révocation croisée : le service
+         *     ne sait couper que les sessions du compte appelant, faute d'un annuaire des sessions par
+         *     tenant. Écrit ici plutôt que découvert : la garde existe, la fonctionnalité qu'elle protège
+         *     viendra avec l'écran d'administration des appareils (CPT-05, tranche T4).
+         */
+        delete: operations["session_revoquer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/moi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rend le contexte de la session courante. */
+        get: operations["session_moi"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/session/rafraichir": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rafraîchit une session — **rotation à chaque usage**.
+         * @description Un jeton **déjà consommé** est un signal, pas une erreur ordinaire : il signifie qu'une copie
+         *     circule. La réponse est `401` **et toute la famille de jetons est révoquée** — pas seulement
+         *     celui qui est présenté. Révoquer le seul laisserait le voleur et la victime en course, et le
+         *     premier des deux gagnerait.
+         *
+         *     Les permissions sont **recalculées** ici : c'est le moment où un rôle retiré prend effet.
+         */
+        post: operations["session_rafraichir"];
         delete?: never;
         options?: never;
         head?: never;
@@ -469,6 +634,18 @@ export interface components {
             origine: string;
             valeur: string;
         };
+        /** @description Le compte connecté, tel que la réponse le rend. */
+        CompteConnecteVue: {
+            /** Format: uuid */
+            compte_id: string;
+            /**
+             * Format: uuid
+             * @description L'établissement actif. `None` pour un compte de portée éditeur.
+             */
+            etablissement_actif?: string | null;
+            /** Format: uuid */
+            tenant_id: string;
+        };
         /** @description Corps rendu par tout refus métier de ce cycle. */
         CorpsErreur: {
             /**
@@ -533,6 +710,25 @@ export interface components {
             id: string;
             /** @description Texte de la note — entre 1 et 2000 caractères après nettoyage. */
             texte: string;
+        };
+        /** @description Corps de création d'une personne. */
+        CreerPersonneRequete: {
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — **jamais employé par une règle métier**.
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** (principe VI) : c'est lui qui rend le rejeu inoffensif —
+             *     `201`, puis `200`, `200`.
+             */
+            id: string;
+            nom: string;
+            prenoms?: string | null;
+            /** @description E.164. */
+            telephone?: string | null;
         };
         /** @description Corps de création d'un point de vente. */
         CreerPointDeVenteRequete: {
@@ -703,12 +899,39 @@ export interface components {
             ncc?: string | null;
             nom?: string | null;
         };
+        /** @description Corps de modification — **remplacement complet**. */
+        ModifierPersonneRequete: {
+            email?: string | null;
+            /** Format: date-time */
+            horodatage_client?: string | null;
+            nom: string;
+            prenoms?: string | null;
+            telephone?: string | null;
+        };
         /** @description Corps de modification. */
         ModifierPointDeVenteRequete: {
             actif?: boolean | null;
             /** Format: uuid */
             caisse_id?: string | null;
             nom?: string | null;
+        };
+        /**
+         * @description Ce que `session_moi` rend — **le contexte tel que le serveur le voit**.
+         *
+         *     Il n'apprend rien au client qu'il ne sache déjà ; il sert à **vérifier** qu'un jeton est encore
+         *     valide sans avoir à provoquer une opération métier, et à relire les permissions après une
+         *     reprise de l'application.
+         */
+        MoiVue: {
+            /** Format: uuid */
+            compte_id: string;
+            /** Format: uuid */
+            etablissement_actif?: string | null;
+            permissions: string[];
+            /** Format: uuid */
+            session_id: string;
+            /** Format: uuid */
+            tenant_id: string;
         };
         /** @description Une note interne, telle qu'elle existe en base. */
         NoteEtablissement: {
@@ -742,6 +965,26 @@ export interface components {
              */
             nombre: number;
         };
+        /** @description Corps d'ouverture de session. */
+        OuvrirRequete: {
+            /**
+             * Format: uuid
+             * @description Établissement souhaité. Sans lui, **le premier accessible par ordre stable** devient actif.
+             */
+            etablissement_id?: string | null;
+            /**
+             * @description Numéro de téléphone ou courriel. **Un seul champ** : l'utilisateur ne sait pas dans quelle
+             *     colonne son identifiant est rangé, et le lui demander serait lui faire porter un détail de
+             *     modèle de données.
+             */
+            identifiant: string;
+            /**
+             * @description Libellé d'appareil, purement indicatif — il sert à ce que l'utilisateur reconnaisse **son**
+             *     téléphone dans la liste avant de couper l'autre.
+             */
+            libelle_appareil?: string | null;
+            mot_de_passe: string;
+        };
         /** @description Une page de notes. */
         PageNotes: {
             /** Format: int64 */
@@ -751,6 +994,37 @@ export interface components {
             limite: number;
             /** Format: int64 */
             total: number;
+        };
+        /**
+         * @description Une personne telle qu'elle est en base.
+         *
+         *     **Ni `type_piece`, ni `numero_piece`.** Les colonnes existent, ce type ne les porte pas — voir
+         *     le commentaire de tête du module. Un champ posé ici serait rempli par le premier handler qui
+         *     en aurait l'occasion.
+         */
+        Personne: {
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur**.
+             */
+            cree_le: string;
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — ordre d'affichage local. **Jamais un critère de tri ni de calcul.**
+             */
+            horodatage_client?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            modifie_le: string;
+            nom: string;
+            prenoms?: string | null;
+            /**
+             * @description E.164. **Aucune contrainte de format national** : l'indicatif par défaut est un paramètre
+             *     d'établissement (`indicatif_telephonique_defaut`), pas une règle de code.
+             */
+            telephone?: string | null;
         };
         /** @description Un point de vente, tel que l'API le rend. */
         PointDeVenteVue: {
@@ -774,6 +1048,12 @@ export interface components {
              *     liste, et il faudrait alors décider lequel des deux ment.
              */
             tables: components["schemas"]["TableVue"][];
+        };
+        /** @description Corps de rafraîchissement. */
+        RafraichirRequete: {
+            /** Format: uuid */
+            etablissement_id?: string | null;
+            rafraichissement: string;
         };
         /** @description Corps de remplacement des tables — **une liste vide fait un comptoir**. */
         RemplacerTablesRequete: {
@@ -805,6 +1085,60 @@ export interface components {
              * @description Ordre d'affichage du référentiel — stable, indépendant de la locale.
              */
             ordre: number;
+        };
+        /**
+         * @description Ce qu'une ouverture ou un rafraîchissement rend.
+         *
+         *     **Le condensat n'y figure pas, et aucune structure de ce fichier n'a de champ où le mettre.**
+         */
+        SessionOuverteVue: {
+            /** @description Jeton d'accès, à porter dans `Authorization: Bearer`. */
+            acces: string;
+            compte: components["schemas"]["CompteConnecteVue"];
+            /** @description Les établissements accessibles. Le sélecteur permanent est **ETB-06**, hors périmètre. */
+            etablissements: string[];
+            /**
+             * Format: int64
+             * @description Durée de vie du jeton d'accès, en secondes — ce que le client met dans son minuteur.
+             */
+            expire_dans_s: number;
+            /**
+             * @description **L'union** des permissions des rôles portés sur l'établissement actif (FR-017).
+             *
+             *     Le front la lit **ici**, jamais en décodant le jeton (research R-06) : deux sources pour la
+             *     même information, et une seule fait autorité.
+             */
+            permissions: string[];
+            /**
+             * @description Jeton de rafraîchissement. **À ranger dans le stockage sécurisé de la plateforme**
+             *     (Keystore / Keychain), jamais dans un stockage web ordinaire.
+             */
+            rafraichissement: string;
+        };
+        /**
+         * @description Une session telle que l'API la rend — **sans rien qui permette de la rejouer**.
+         *
+         *     Ni `famille_id`, ni jeton, ni condensat. Cette structure part dans une réponse HTTP ; y laisser
+         *     de quoi reconstruire un jeton reviendrait à publier la session qu'on donne à révoquer.
+         */
+        SessionVue: {
+            /**
+             * @description **Vrai pour la session qui fait l'appel.** Sans ce drapeau, l'écran ne saurait pas
+             *     laquelle est « cet appareil-ci », et l'utilisateur se déconnecterait lui-même en croyant
+             *     couper le téléphone perdu.
+             */
+            courante: boolean;
+            /** Format: date-time */
+            derniere_activite_le: string;
+            /** Format: uuid */
+            id: string;
+            libelle_appareil?: string | null;
+            /** Format: date-time */
+            ouverte_le: string;
+        };
+        /** @description Une page de sessions actives. */
+        SessionsActivesVue: {
+            elements: components["schemas"]["SessionVue"][];
         };
         /**
          * @description État global du service.
@@ -1859,6 +2193,173 @@ export interface operations {
             };
         };
     };
+    personne_creer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerPersonneRequete"];
+            };
+        };
+        responses: {
+            /** @description Personne déjà créée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Personne"];
+                };
+            };
+            /** @description Personne créée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Personne"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    personne_lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la personne */
+                personne_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La personne */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Personne"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Personne inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    personne_modifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la personne */
+                personne_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierPersonneRequete"];
+            };
+        };
+        responses: {
+            /** @description Personne modifiée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Personne"];
+                };
+            };
+            /** @description Requête invalide */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Personne inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     points_de_vente_modifier: {
         parameters: {
             query?: never;
@@ -2055,6 +2556,197 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    session_ouvrir: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OuvrirRequete"];
+            };
+        };
+        responses: {
+            /** @description Session ouverte */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOuverteVue"];
+                };
+            };
+            /** @description Identifiants invalides — code unique */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Méthode d'authentification non implémentée */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    session_fermer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session fermée */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    session_lister_actives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessions actives du compte appelant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionsActivesVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    session_revoquer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la session à couper */
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session révoquée — effet immédiat */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    session_moi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contexte de la session courante */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoiVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    session_rafraichir: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RafraichirRequete"];
+            };
+        };
+        responses: {
+            /** @description Session rafraîchie */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOuverteVue"];
+                };
+            };
+            /** @description Jeton inconnu, révoqué ou déjà consommé */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
             };
         };
     };
