@@ -325,7 +325,13 @@ fn tout_type_branche_a_reellement_un_chemin_d_ecriture() {
 /// **4 · Décompte — l'état d'avancement, affiché plutôt que deviné.**
 ///
 /// Ce test ne peut pas échouer sur le fond ; il existe pour que `cargo test` imprime où en est la
-/// taxonomie. Le cycle 003 le laisse à **0 branché / 10 dus** ; il finira à 2 / 8.
+/// taxonomie. Le cycle 003 le laisse à **2 branchées / 8 dues** — `suppression` (CPT-01) et
+/// `changement_role` (CPT-02) ; les huit autres reviennent aux tranches T1 à T3.
+///
+/// La **couverture par les tests** de ces deux familles branchées est recollée ailleurs, par
+/// `couverture_portes.rs` : ce fichier-ci compare le document au code de production, pas aux
+/// tests. Les deux questions sont indépendantes — un chemin d'écriture peut exister sans qu'aucun
+/// test ne l'emprunte.
 #[test]
 fn decompte_des_familles_branchees_et_dues() {
     let familles = familles_du_document();

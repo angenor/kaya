@@ -1,25 +1,42 @@
-//! **Recollement des trois portes à décompte — P-05, P-07, P-08.**
+//! **Recollement des portes à décompte — P-05, P-07, P-08, P-01b, et la taxonomie d'audit.**
 //!
 //! # Pourquoi ce fichier existe
 //!
-//! Ces trois portes portent chacune sur un ensemble dont la taille est connue : **11 types
-//! d'événements**, **10 tables créées**, **21 opérations HTTP**. Leur extension s'est faite phase
-//! par phase, ce qui est la manière normale de les faire grandir avec le code — **et la manière
-//! normale de laisser un trou.**
+//! Ces portes portent chacune sur un ensemble dont la taille est connue. Leur extension s'est faite
+//! phase par phase, ce qui est la manière normale de les faire grandir avec le code — **et la
+//! manière normale de laisser un trou.**
 //!
 //! Chaque phase a étendu la porte à ce qu'elle livrait. Aucune n'était responsable de vérifier que
 //! l'ensemble était couvert, et c'est exactement là que se perd un type d'événement : celui qu'une
 //! phase a introduit sans que la tâche d'extension de la phase suivante le reprenne.
 //!
-//! Ce fichier compare, pour chacune des trois portes, **le nombre de cibles réellement inspectées
-//! au total déclaré**, et échoue sur tout écart.
+//! Ce fichier compare, pour chaque porte, **le nombre de cibles réellement inspectées au total
+//! déclaré**, et échoue sur tout écart.
+//!
+//! # Les cinq décomptes, à la clôture du cycle 003
+//!
+//! | Porte | Ensemble | Total |
+//! |---|---|---|
+//! | P-05 | types d'événements outbox déclarés au modèle de données | **22** (13 + 9) |
+//! | P-07 | tables créées par les cycles 002 et 003 | **20** (10 + 10) |
+//! | — | tables des quatre schémas applicatifs, tous cycles | **26** |
+//! | P-08 | opérations HTTP servies par le contrat | **43** |
+//! | P-01b | `operationId` du contrat, tous distincts | **43** |
+//! | — | familles de la taxonomie d'audit | **10**, dont 2 branchées |
+//!
+//! **Trois de ces nombres démentent le plan du cycle 003**, qui annonçait 21 types, 40 opérations
+//! et ne comptait que le schéma `etablissements`. Les écarts sont réels, chacun est justifié à
+//! l'endroit où il se constate, et **aucun n'a été résorbé en ajustant un chiffre** : le décompte
+//! se relit du catalogue système et du contrat, jamais d'une constante recopiée.
 //!
 //! # Ce qu'il inspecte, et ce qu'il n'inspecte pas
 //!
 //! *Exigence 2 du § « Couverture des portes » de la constitution.*
 //!
 //! **Inspecté** — la **couverture** : chaque type d'événement du modèle a-t-il un test ? chaque
-//! table créée est-elle inventoriée ? chaque chemin servi a-t-il un régime d'isolation déclaré ?
+//! table créée est-elle inventoriée et isolée ? chaque chemin servi a-t-il un régime d'isolation
+//! déclaré ? chaque opération a-t-elle un `operationId` distinct ? chaque famille d'audit déclarée
+//! branchée est-elle exercée par un test ?
 //!
 //! **Non inspecté** — la **justesse** de chaque test. Qu'un test d'isolation existe pour un chemin
 //! ne dit pas qu'il vérifie la bonne chose. Ce fichier ferme le trou de la couverture, pas celui de
@@ -32,35 +49,42 @@
 
 mod commun;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kaya_api::application;
 use sqlx::Row;
 
-/// Compte les opérations d'un chemin.
+/// Les opérations d'un chemin, avec leur verbe.
 ///
 /// `PathItem` n'expose pas de carte d'opérations en utoipa 5.5 : chaque verbe est un champ
-/// `Option<Operation>` distinct. Les additionner un par un est verbeux mais **exact** — et un
-/// verbe ajouté à la structure par une montée de version ferait échouer la compilation ici plutôt
-/// que de disparaître silencieusement du décompte.
-fn compter_operations(item: &utoipa::openapi::path::PathItem) -> usize {
+/// `Option<Operation>` distinct. Les énumérer un par un est verbeux mais **exact** — et un verbe
+/// ajouté à la structure par une montée de version ferait échouer la compilation ici plutôt que de
+/// disparaître silencieusement du décompte.
+fn operations_de(
+    item: &utoipa::openapi::path::PathItem,
+) -> Vec<(&'static str, &utoipa::openapi::path::Operation)> {
     [
-        item.get.is_some(),
-        item.put.is_some(),
-        item.post.is_some(),
-        item.delete.is_some(),
-        item.options.is_some(),
-        item.head.is_some(),
-        item.patch.is_some(),
-        item.trace.is_some(),
+        ("GET", item.get.as_ref()),
+        ("PUT", item.put.as_ref()),
+        ("POST", item.post.as_ref()),
+        ("DELETE", item.delete.as_ref()),
+        ("OPTIONS", item.options.as_ref()),
+        ("HEAD", item.head.as_ref()),
+        ("PATCH", item.patch.as_ref()),
+        ("TRACE", item.trace.as_ref()),
     ]
-    .iter()
-    .filter(|present| **present)
-    .count()
+    .into_iter()
+    .filter_map(|(verbe, operation)| operation.map(|o| (verbe, o)))
+    .collect()
+}
+
+/// Compte les opérations d'un chemin.
+fn compter_operations(item: &utoipa::openapi::path::PathItem) -> usize {
+    operations_de(item).len()
 }
 
 // =================================================================================================
-//  P-05 — les onze types d'événements
+//  P-05 — les vingt-deux types d'événements
 // =================================================================================================
 
 /// **Les types d'événements du cycle**, tels que `data-model.md` § Événements les déclare.
@@ -220,61 +244,100 @@ fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
 }
 
 // =================================================================================================
-//  P-07 — les dix tables créées, lues du CATALOGUE SYSTÈME
+//  P-07 — les vingt tables créées, lues du CATALOGUE SYSTÈME, sur DEUX schémas
 // =================================================================================================
 
-/// Les dix tables **créées** par le cycle 002.
+/// Les tables **créées** par les cycles 002 et 003, `(schéma, table)`.
 ///
-/// À ne pas confondre avec les **onze entités** du registre des classes hors-ligne :
-/// `etablissement` y figure aussi, mais elle est *enrichie*, pas créée. Confondre les deux ferait
-/// inspecter un sous-ensemble en croyant tout couvrir — le défaut exact que la constitution a
-/// documenté après le cycle 001.
-const TABLES_CREEES: &[&str] = &[
-    "module_activite",
-    "capacite",
-    "profil_stock",
-    "parametre_catalogue",
-    "etablissement_module",
-    "module_capacite",
-    "point_de_vente",
-    "table_pdv",
-    "parametre_configuration",
-    "branding",
+/// # Le schéma faisait partie du décompte sans que personne l'écrive
+///
+/// La liste ne portait que des noms de table, et la requête qui la vérifiait fixait
+/// `nspname = 'etablissements'`. Tant que le produit n'avait qu'un schéma applicatif métier, les
+/// deux disaient la même chose. **Le cycle 003 a créé dix tables dans `comptes`** : elles seraient
+/// restées invisibles à cette porte, et l'ajouter ne se voit pas — la porte serait restée verte en
+/// inspectant la moitié de ce qu'elle annonçait.
+///
+/// Le même trou avait déjà été trouvé au cycle 002, où le décompte de P-07 ne couvrait que
+/// 4 tables sur 10 (constitution, § Couverture des portes). Il s'est reformé un cran plus haut :
+/// non plus sur les tables d'un schéma, mais sur les schémas eux-mêmes. **Porter le schéma dans la
+/// donnée** est ce qui empêche la troisième occurrence.
+///
+/// À ne pas confondre avec les entités du registre des classes hors-ligne : `etablissement` y
+/// figure aussi, mais elle est *enrichie*, pas créée.
+const TABLES_CREEES: &[(&str, &str)] = &[
+    // ── Cycle 002 (ETB) — dix tables ────────────────────────────────────────────────────────
+    ("etablissements", "module_activite"),
+    ("etablissements", "capacite"),
+    ("etablissements", "profil_stock"),
+    ("etablissements", "parametre_catalogue"),
+    ("etablissements", "etablissement_module"),
+    ("etablissements", "module_capacite"),
+    ("etablissements", "point_de_vente"),
+    ("etablissements", "table_pdv"),
+    ("etablissements", "parametre_configuration"),
+    ("etablissements", "branding"),
+    // ── Cycle 003 (CPT) — dix tables, dont deux de provision ────────────────────────────────
+    //
+    // `employe` et `appareil_enrole` sont des **provisions sans logique** (§14 du cadrage) :
+    // la table existe, isolée comme les autres, aucun chemin de code ne l'écrit. C'est
+    // `provisions_sans_logique.rs` qui garde cette seconde propriété. Les omettre ici les
+    // sortirait du décompte d'isolation, qui, lui, les concerne autant que les autres.
+    ("comptes", "personne"),
+    ("comptes", "methode_authentification"),
+    ("comptes", "compte"),
+    ("comptes", "role"),
+    ("comptes", "permission"),
+    ("comptes", "role_permission"),
+    ("comptes", "compte_role"),
+    ("comptes", "journal_audit"),
+    ("comptes", "employe"),
+    ("comptes", "appareil_enrole"),
 ];
 
-/// **P-07 — les dix tables existent, et toutes sont inspectées par la porte.**
+/// **P-07 — les vingt tables existent, et toutes sont inspectées par la porte.**
 ///
 /// Le décompte est **lu du catalogue système**, jamais d'un nombre écrit à la main : une table
 /// renommée ou supprimée doit se voir ici, pas dans six mois.
 #[tokio::test]
-async fn p07_les_dix_tables_creees_sont_toutes_inspectees() {
+async fn p07_les_tables_creees_sont_toutes_inspectees() {
     let pool = commun::pool_owner().await;
 
-    let reelles: BTreeSet<String> = sqlx::query(
+    // Les schémas viennent de la liste elle-même : en ajouter un se fait en ajoutant une table,
+    // et il n'y a aucun second endroit à mettre à jour — c'est ce qui a manqué au cycle 002.
+    let schemas: BTreeSet<&str> = TABLES_CREEES.iter().map(|(schema, _)| *schema).collect();
+    let schemas: Vec<String> = schemas.into_iter().map(str::to_owned).collect();
+
+    let reelles: BTreeSet<(String, String)> = sqlx::query(
         r#"
-        SELECT c.relname AS nom
+        SELECT n.nspname AS schema, c.relname AS nom
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind = 'r' AND n.nspname = 'etablissements'
+        WHERE c.relkind = 'r' AND n.nspname = ANY($1)
         "#,
     )
+    .bind(&schemas)
     .fetch_all(&pool)
     .await
     .expect("lecture du catalogue")
     .into_iter()
-    .map(|l| l.get::<String, _>("nom"))
+    .map(|l| (l.get::<String, _>("schema"), l.get::<String, _>("nom")))
     .collect();
 
+    assert!(
+        !reelles.is_empty(),
+        "aucune table trouvée dans {schemas:?} — la porte n'a rien inspecté. Base non migrée ?"
+    );
+
     let mut manquantes = Vec::new();
-    for table in TABLES_CREEES {
-        if !reelles.contains(*table) {
-            manquantes.push(*table);
+    for (schema, table) in TABLES_CREEES {
+        if !reelles.contains(&((*schema).to_owned(), (*table).to_owned())) {
+            manquantes.push(format!("{schema}.{table}"));
         }
     }
 
     assert!(
         manquantes.is_empty(),
-        "P-07 — {} table(s) déclarée(s) par le cycle et ABSENTE(s) de la base :\n  {}\n\n\
+        "P-07 — {} table(s) déclarée(s) par un cycle et ABSENTE(s) de la base :\n  {}\n\n\
          Soit une migration a été retirée, soit une table a été renommée sans mettre ce décompte \
          à jour. Dans les deux cas, la porte inspectait moins que ce qu'elle annonçait.",
         manquantes.len(),
@@ -283,20 +346,21 @@ async fn p07_les_dix_tables_creees_sont_toutes_inspectees() {
 
     // Et chacune est bien **isolée** — c'est ce que la porte P-07 garantit, revérifié ici APRÈS
     // la dernière migration du cycle. `rls_catalogue.rs` s'exécute aussi, mais rien ne garantit
-    // qu'il ait tourné après `0013`.
+    // qu'il ait tourné après `0020`.
     let mut sans_isolation = Vec::new();
-    for table in TABLES_CREEES {
+    for (schema, table) in TABLES_CREEES {
         let ligne = sqlx::query(
             r#"
             SELECT c.relrowsecurity AS activee,
                    c.relforcerowsecurity AS forcee,
                    (SELECT COUNT(*) FROM pg_policies p
-                     WHERE p.schemaname = 'etablissements' AND p.tablename = c.relname) AS politiques
+                     WHERE p.schemaname = n.nspname AND p.tablename = c.relname) AS politiques
             FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind = 'r' AND n.nspname = 'etablissements' AND c.relname = $1
+            WHERE c.relkind = 'r' AND n.nspname = $1 AND c.relname = $2
             "#,
         )
+        .bind(schema)
         .bind(table)
         .fetch_one(&pool)
         .await
@@ -308,22 +372,23 @@ async fn p07_les_dix_tables_creees_sont_toutes_inspectees() {
 
         if !activee || !forcee || politiques == 0 {
             sans_isolation.push(format!(
-                "{table} — ENABLE={activee}, FORCE={forcee}, politiques={politiques}"
+                "{schema}.{table} — ENABLE={activee}, FORCE={forcee}, politiques={politiques}"
             ));
         }
     }
 
     assert!(
         sans_isolation.is_empty(),
-        "P-07 — {} table(s) créée(s) par ce cycle sans isolation complète :\n  {}",
+        "P-07 — {} table(s) créée(s) par un cycle sans isolation complète :\n  {}",
         sans_isolation.len(),
         sans_isolation.join("\n  ")
     );
 
     println!(
-        "P-07 — {}/{} tables créées, inspectées et isolées.",
+        "P-07 — {}/{} tables créées sur {} schéma(s), inspectées et isolées.",
         TABLES_CREEES.len(),
-        TABLES_CREEES.len()
+        TABLES_CREEES.len(),
+        schemas.len()
     );
 }
 
@@ -389,8 +454,12 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         operations_attendues,
         "P-08 — {operations} opération(s) servie(s) au lieu des {operations_attendues} attendues.\n\
          Ventilation déclarée :\n{}\n\
-         Le contrat du cycle 003 en annonce 40 au total ; tant que les lots restants ne sont pas \
-         livrés, ce décompte croît lot par lot.",
+         Le total à la clôture du cycle 003 est de **43**, et non les 40 du plan : celui-ci \
+         comptait des chemins là où la porte compte des opérations. `/api/v1/comptes` en sert \
+         deux — `compte_lister` et `compte_creer` — et `/api/v1/session` aussi. L'écart est un \
+         défaut de comptage du plan, constaté au recollement et laissé tel quel : c'est la \
+         ventilation ci-dessus qui fait foi, parce qu'elle oblige à dire de quel lot vient un \
+         écart au lieu de corriger un total.",
         LOTS.iter()
             .map(|(nom, n)| format!("  {n:>3} — {nom}"))
             .collect::<Vec<_>>()
@@ -400,21 +469,360 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
     println!("P-08 — {operations} opérations servies, toutes déclarées.");
 }
 
-/// **Récapitulatif des trois décomptes**, imprimé pour la revue de fin de cycle.
+// =================================================================================================
+//  P-01b — l'unicité des operationId, qui n'était vérifiée NULLE PART
+// =================================================================================================
+
+/// **P-01b — tout `operationId` du contrat est présent, et tous sont distincts.**
+///
+/// # Le trou, et pourquoi aucune autre porte ne le voit
+///
+/// La constitution porte P-01b depuis son amendement du cycle 002 : « deux opérations homonymes
+/// produisent un client TypeScript invalide, **que P-01 ne détecte pas puisqu'elle ne compare que
+/// le généré au commité** ». Un client invalide régénéré de la même façon deux fois de suite reste
+/// identique à lui-même — le déterminisme d'octet que vérifie `generer-client.sh` est vrai d'un
+/// contrat cassé comme d'un contrat sain.
+///
+/// La porte n'avait pourtant **aucune implémentation** : ni script sous `scripts/ci/`, ni test.
+/// Le cycle 003 ajoute 19 `operationId`, ce que le plan désignait comme « risque réel » — c'est le
+/// moment où l'absence coûte quelque chose.
+///
+/// # Périmètre inspecté
+///
+/// *Exigence 1 du § « Couverture des portes ».*
+///
+/// **Inspecté** — toutes les opérations de `application::contrat_complet()`, c'est-à-dire la
+/// **source** dont le contrat et le client dérivent tous deux, pas le `openapi.json` d'un artefact
+/// de build qui pourrait dater.
+///
+/// **Non inspecté** — la *qualité* du nom. Qu'un `operationId` soit unique ne dit pas qu'il soit
+/// lisible, ni qu'il suive la convention `ressource_verbe`. Une porte sur le style des noms se
+/// discuterait ; celle-ci ne porte que sur ce qui casse le client.
+#[test]
+fn p01b_les_operation_id_du_contrat_sont_tous_presents_et_distincts() {
+    let contrat = application::contrat_complet();
+
+    let mut par_identifiant: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut sans_identifiant = Vec::new();
+    let mut operations = 0usize;
+
+    for (chemin, item) in &contrat.paths.paths {
+        for (verbe, operation) in operations_de(item) {
+            operations += 1;
+            let ou = format!("{verbe} {chemin}");
+            match operation.operation_id.as_deref().map(str::trim) {
+                Some(identifiant) if !identifiant.is_empty() => {
+                    par_identifiant
+                        .entry(identifiant.to_owned())
+                        .or_default()
+                        .push(ou);
+                }
+                _ => sans_identifiant.push(ou),
+            }
+        }
+    }
+
+    // Versant « cible non vide » — exigence 4. Un contrat vide passerait les deux assertions
+    // suivantes sans rien vérifier, et c'est exactement le défaut que P-08 a présenté au cycle 001.
+    assert!(
+        operations >= 40,
+        "P-01b — seulement {operations} opération(s) lue(s) du contrat. La porte ne compare rien. \
+         Le contrat est-il assemblé ? (`application::contrat_complet`)"
+    );
+
+    assert!(
+        sans_identifiant.is_empty(),
+        "P-01b — {} opération(s) sans `operationId` :\n  {}\n\n\
+         `openapi-typescript` dérive le nom du membre de l'`operationId` ; sans lui, il retombe \
+         sur une clé construite à partir du chemin, qui change dès qu'on renomme la route.",
+        sans_identifiant.len(),
+        sans_identifiant.join("\n  ")
+    );
+
+    let doublons: Vec<String> = par_identifiant
+        .iter()
+        .filter(|(_, ou)| ou.len() > 1)
+        .map(|(identifiant, ou)| format!("  · « {identifiant} » — {}", ou.join(", ")))
+        .collect();
+
+    assert!(
+        doublons.is_empty(),
+        "P-01b — {} `operationId` porté(s) par plus d'une opération :\n{}\n\n\
+         Le client TypeScript généré déclarerait deux membres homonymes. P-01 resterait VERTE : \
+         elle ne compare que le généré au commité, et un client invalide se régénère à \
+         l'identique.",
+        doublons.len(),
+        doublons.join("\n")
+    );
+
+    assert_eq!(
+        par_identifiant.len(),
+        operations,
+        "P-01b — {} identifiant(s) distinct(s) pour {operations} opération(s) : le décompte ne \
+         retombe pas, alors qu'aucun doublon n'a été signalé. L'extraction est cassée.",
+        par_identifiant.len()
+    );
+
+    println!("P-01b — {operations} opérations, {operations} operationId distincts.");
+}
+
+/// **Test négatif de P-01b** — la porte sait échouer.
+///
+/// *Exigence 4 du § « Couverture des portes ».* Exercé sur un jeu simulé : injecter un doublon
+/// dans le vrai contrat ferait échouer le test ci-dessus au hasard de l'ordonnancement.
+#[test]
+fn test_negatif_p01b_detecte_un_doublon_et_une_absence() {
+    let simule: &[(&str, Option<&str>)] = &[
+        ("GET /api/v1/comptes", Some("compte_lister")),
+        ("POST /api/v1/comptes", Some("compte_creer")),
+        // Le doublon : deux routes, un seul nom.
+        ("GET /api/v1/personnes/{id}", Some("compte_lister")),
+        // L'absence, et sa variante insidieuse — une chaîne vide n'est pas `None`.
+        ("DELETE /api/v1/session", None),
+        ("GET /api/v1/session/moi", Some("   ")),
+    ];
+
+    let mut par_identifiant: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut sans = 0usize;
+    for (_, identifiant) in simule {
+        match identifiant.map(str::trim) {
+            Some(nom) if !nom.is_empty() => *par_identifiant.entry(nom).or_default() += 1,
+            _ => sans += 1,
+        }
+    }
+
+    assert_eq!(
+        par_identifiant.values().filter(|n| **n > 1).count(),
+        1,
+        "la porte n'a pas vu le doublon : elle ne protège rien"
+    );
+    assert_eq!(
+        sans, 2,
+        "la porte n'a pas vu les deux identifiants absents — dont la chaîne vide, qui est le cas \
+         qu'un simple `is_some()` laisserait passer"
+    );
+}
+
+// =================================================================================================
+//  Taxonomie d'audit — le recollement de couverture, distinct de celui de cohérence
+// =================================================================================================
+
+/// La taxonomie, lue à la compilation.
+const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
+
+/// Les tests d'audit de classe A, lus à la compilation — c'est là qu'une famille branchée
+/// s'exerce.
+const AUDIT_CLASSE_A: &str = include_str!("audit_classe_a.rs");
+
+/// Nombre de familles annoncées par CPT-04, repris de `audit_taxonomie.rs`.
+const FAMILLES_ATTENDUES: usize = 10;
+
+/// `changement_role` → `ChangementRole`.
+fn variante_rust(code: &str) -> String {
+    code.split('_')
+        .map(|mot| {
+            let mut c = mot.chars();
+            match c.next() {
+                Some(premiere) => premiere.to_uppercase().collect::<String>() + c.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect()
+}
+
+/// Les familles du document, `(code, branchée)`.
+///
+/// L'extraction est celle de `audit_taxonomie.rs`, réduite à ce que ce recollement demande. La
+/// dupliquer est délibéré : les deux fichiers sont des **binaires de test distincts**, et un module
+/// partagé ferait qu'une extraction cassée casserait les deux du même coup — donc silencieusement,
+/// puisque les deux tomberaient sur une liste vide. La longueur attendue est asserée des deux
+/// côtés, ce qui est la protection réelle.
+fn familles_du_document() -> Vec<(String, bool)> {
+    let Some(debut) = TAXONOMIE.find("## Les dix familles") else {
+        panic!("la section « Les dix familles » a disparu de docs/taxonomie-audit.md");
+    };
+    let section = &TAXONOMIE[debut..];
+    let fin = section[3..]
+        .find("\n## ")
+        .map(|i| i + 3)
+        .unwrap_or(section.len());
+
+    section[..fin]
+        .lines()
+        .filter_map(|ligne| {
+            let cellules: Vec<&str> = ligne
+                .trim()
+                .strip_prefix('|')?
+                .trim_end_matches('|')
+                .split('|')
+                .map(str::trim)
+                .collect();
+            if cellules.len() < 5 || cellules[0].parse::<usize>().is_err() {
+                return None;
+            }
+            let code = cellules[1].trim_matches('`').trim().to_owned();
+            let branchee = match cellules[3].replace('*', "").trim() {
+                "branché" => true,
+                "dû" => false,
+                autre => panic!("état « {autre} » inconnu pour la famille « {code} »"),
+            };
+            Some((code, branchee))
+        })
+        .collect()
+}
+
+/// **Toute famille d'audit déclarée « branchée » est exercée par un test.**
+///
+/// # Ce que ce contrôle ajoute à `audit_taxonomie.rs`, qui n'est pas la même question
+///
+/// `audit_taxonomie.rs` compare le document au **code de production** : une famille branchée a-t-
+/// elle un chemin d'écriture ? C'est la cohérence.
+///
+/// Ce test-ci pose la question de la **couverture**, et elle est indépendante : un chemin
+/// d'écriture peut exister sans qu'aucun test ne l'emprunte. C'est le même couple que P-05, où
+/// `p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste` regarde le code et
+/// `p05_les_types_d_evenements_declares_sont_tous_couverts` regarde les tests.
+///
+/// Deux familles sont branchées à la clôture du cycle 003 — `suppression` (CPT-01) et
+/// `changement_role` (CPT-02) — et huit restent dues aux tranches T2 et T3.
+#[test]
+fn toute_famille_d_audit_branchee_est_exercee_par_un_test() {
+    let familles = familles_du_document();
+
+    assert_eq!(
+        familles.len(),
+        FAMILLES_ATTENDUES,
+        "{} famille(s) extraite(s) de docs/taxonomie-audit.md au lieu de {FAMILLES_ATTENDUES}. \
+         Le tableau a-t-il été reformaté ? Une extraction vide passerait au vert sans rien \
+         comparer.",
+        familles.len()
+    );
+
+    let branchees: Vec<&String> = familles
+        .iter()
+        .filter(|(_, branchee)| *branchee)
+        .map(|(code, _)| code)
+        .collect();
+
+    assert!(
+        !branchees.is_empty(),
+        "aucune famille branchée : ce cycle en livre deux. Une cible vide passe toujours."
+    );
+
+    let non_exercees: Vec<String> = branchees
+        .iter()
+        .filter(|code| !AUDIT_CLASSE_A.contains(&format!("TypeActionAudit::{}", variante_rust(code))))
+        .map(|code| (*code).clone())
+        .collect();
+
+    assert!(
+        non_exercees.is_empty(),
+        "{} famille(s) d'audit déclarée(s) « branchée(s) » sans aucun test dans \
+         `audit_classe_a.rs` :\n  {}\n\n\
+         Un chemin d'écriture existe — `audit_taxonomie.rs` le vérifie — mais rien ne l'emprunte. \
+         Le registre d'audit est à rétention illimitée : ce qu'on y écrit sans l'avoir exercé, on \
+         ne le corrige pas après coup.",
+        non_exercees.len(),
+        non_exercees.join("\n  ")
+    );
+
+    println!(
+        "taxonomie d'audit — {}/{} familles branchées, toutes exercées ; {} due(s).",
+        branchees.len(),
+        FAMILLES_ATTENDUES,
+        FAMILLES_ATTENDUES - branchees.len()
+    );
+}
+
+/// Le fichier de la porte du registre des classes hors-ligne, lu à la compilation.
+///
+/// Il porte lui aussi un décompte de tables — `TABLES_ATTENDUES` — établi indépendamment de
+/// celui-ci, sur les quatre schémas applicatifs. **Deux décomptes du même ensemble doivent
+/// s'accorder** ; qu'ils ne s'accordent pas est le symptôme exact d'un schéma oublié par l'un des
+/// deux, ce qui est arrivé à `comptes` dans les deux fichiers de ce cycle.
+const CLASSES_OFFLINE: &str = include_str!("classes_offline.rs");
+
+/// Le nombre déclaré par `classes_offline.rs`, extrait de son source.
+///
+/// Le lire plutôt que le recopier est ce qui fait de ce test un **recollement** : une constante
+/// recopiée diverge en silence, une constante relue échoue au premier écart.
+fn tables_attendues_par_classes_offline() -> usize {
+    CLASSES_OFFLINE
+        .lines()
+        .find_map(|ligne| {
+            let ligne = ligne.trim();
+            let apres = ligne.strip_prefix("const TABLES_ATTENDUES: usize = ")?;
+            apres.trim_end_matches(';').parse::<usize>().ok()
+        })
+        .expect(
+            "`const TABLES_ATTENDUES: usize = …;` introuvable dans classes_offline.rs. La \
+             déclaration a-t-elle été reformulée ? Sans elle, ce recollement ne compare plus rien.",
+        )
+}
+
+/// **Récapitulatif des décomptes**, imprimé pour la revue de fin de cycle — et recollé.
+///
+/// # Ce test ne se contente pas d'imprimer
+///
+/// Sa version du cycle 002 était un simple affichage. Elle comptait `WHERE nspname =
+/// 'etablissements'` : à la clôture du cycle 003, elle aurait annoncé **13 tables** pour un produit
+/// qui en porte 26, sans qu'aucune assertion ne bronche. Un récapitulatif faux est pire qu'aucun —
+/// c'est le chiffre qu'on recopie dans la revue.
+///
+/// Il compte donc désormais **les quatre schémas applicatifs**, et confronte son total à celui que
+/// `classes_offline.rs` déclare de son côté.
 #[tokio::test]
-async fn recapitulatif_des_trois_portes_a_decompte() {
+async fn recapitulatif_des_portes_a_decompte() {
     let pool = commun::pool_owner().await;
-    let tables: i64 = sqlx::query_scalar(
+
+    // Les quatre schémas applicatifs, dans l'ordre de leur apparition au produit. `public` en est
+    // exclu : `sqlx.toml` y place la table de suivi des migrations, qui ne porte rien de métier.
+    const SCHEMAS_APPLICATIFS: &[&str] =
+        &["etablissements", "synchronisation", "fiscalite", "comptes"];
+
+    let par_schema: Vec<(String, i64)> = sqlx::query(
         r#"
-        SELECT COUNT(*)
+        SELECT n.nspname AS schema, COUNT(*) AS tables
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind = 'r' AND n.nspname = 'etablissements'
+        WHERE c.relkind = 'r' AND n.nspname = ANY($1)
+        GROUP BY n.nspname
+        ORDER BY n.nspname
         "#,
     )
-    .fetch_one(&pool)
+    .bind(SCHEMAS_APPLICATIFS)
+    .fetch_all(&pool)
     .await
-    .expect("comptage");
+    .expect("comptage")
+    .into_iter()
+    .map(|l| (l.get::<String, _>("schema"), l.get::<i64, _>("tables")))
+    .collect();
+
+    let tables: i64 = par_schema.iter().map(|(_, n)| n).sum();
+
+    assert_eq!(
+        par_schema.len(),
+        SCHEMAS_APPLICATIFS.len(),
+        "{} schéma(s) applicatif(s) trouvé(s) sur {} attendu(s) : {:?}\n\n\
+         Un schéma absent du catalogue est un schéma que ce récapitulatif ne compte pas — et son \
+         total resterait plausible. C'est ainsi que `comptes` a échappé au balayage pendant tout \
+         le cycle 003.",
+        par_schema.len(),
+        SCHEMAS_APPLICATIFS.len(),
+        par_schema
+    );
+
+    let attendues = tables_attendues_par_classes_offline();
+    assert_eq!(
+        usize::try_from(tables).expect("décompte positif"),
+        attendues,
+        "{tables} table(s) dans les quatre schémas applicatifs, contre {attendues} déclarée(s) par \
+         `classes_offline.rs`.\n\
+         Ventilation : {par_schema:?}\n\n\
+         Les deux fichiers comptent le même ensemble ; un écart signifie qu'une migration a été \
+         ajoutée sans mettre à jour `TABLES_ATTENDUES`, ou qu'un schéma manque à l'un des deux \
+         balayages."
+    );
 
     let operations: usize = application::contrat_complet()
         .paths
@@ -423,16 +831,30 @@ async fn recapitulatif_des_trois_portes_a_decompte() {
         .map(compter_operations)
         .sum();
 
-    println!("Recollement des trois portes à décompte — cycle 002 :");
+    let familles = familles_du_document();
+    let branchees = familles.iter().filter(|(_, b)| *b).count();
+
+    println!("Recollement des portes à décompte — clôture du cycle 003 (CPT) :");
     println!(
-        "  P-05 — {} types d'événements déclarés et couverts",
-        TYPES_EVENEMENTS.len()
+        "  P-05  — {} types d'événements déclarés et couverts, {} sans émetteur ({})",
+        TYPES_EVENEMENTS.len(),
+        TYPES_SANS_EMETTEUR.len(),
+        TYPES_SANS_EMETTEUR.join(", ")
     );
     println!(
-        "  P-07 — {} tables créées par ce cycle, {tables} tables au total dans `etablissements`",
-        TABLES_CREEES.len()
+        "  P-07  — {} tables créées par les cycles 002 et 003, {tables} au total sur {} schémas",
+        TABLES_CREEES.len(),
+        par_schema.len()
     );
-    println!("  P-08 — {operations} opérations servies, toutes avec un régime déclaré");
+    for (schema, n) in &par_schema {
+        println!("            {schema:>16} — {n} table(s)");
+    }
+    println!("  P-08  — {operations} opérations servies, toutes avec un régime déclaré");
+    println!("  P-01b — {operations} operationId, tous présents et distincts");
+    println!(
+        "  audit — {branchees} famille(s) branchée(s) sur {}, toutes exercées",
+        familles.len()
+    );
     println!();
     println!("Une porte qui s'étend sur plusieurs phases laisse un trou par construction ;");
     println!("ce fichier est ce qui le referme.");
