@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT assujettie_taxe_nuitee, regle_conversion_taxe\n            FROM hebergement.formule\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "assujettie_taxe_nuitee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "assujettie_taxe_nuitee"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "regle_conversion_taxe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "regle_conversion_taxe"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "6ba4d2ecc61b9225e8ddc09e3cdf3896a84e74f3a48cc4e6117039f5752acc1d"
+}

@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                o.formule_id,\n                o.cree_le,\n                now() AS \"instant_autorite!\",\n                (EXTRACT(EPOCH FROM (now() - o.cree_le)) / 60)::BIGINT AS \"duree_minutes!\",\n                f.famille,\n                f.prix_mineur,\n                f.prix_heure_supplementaire_mineur,\n                f.categorie_id\n            FROM hebergement.occupation o\n            JOIN hebergement.formule f ON f.id = o.formule_id\n            WHERE o.id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "formule_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "formule_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "cree_le"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "instant_autorite!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "duree_minutes!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "prix_heure_supplementaire_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_heure_supplementaire_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "categorie_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "c29a84b0fcc9fb7090ebc7d6829f00081e6b97476dc9352ba6732a371a0be4e7"
+}

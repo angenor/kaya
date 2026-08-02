@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT prix_mineur\n            FROM hebergement.formule\n            WHERE categorie_id = $1 AND famille = 'NUITEE'\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_mineur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3aec20dec83e7b49ceaaa636f31c68e469aec3e85c67a815e6b8e9e218c8c8ce"
+}

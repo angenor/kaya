@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hebergement.bareme_palier\n                (formule_id, duree_minutes, prix_mineur, tenant_id)\n            VALUES ($1, $2, $3, $4)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "04f1b9e777b4a986ad617b6e943fa9f24e9c4c60d561b44fe1edf3a3658d8439"
+}

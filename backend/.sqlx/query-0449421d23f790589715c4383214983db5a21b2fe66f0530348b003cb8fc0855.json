@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT famille, duree_min_minutes, duree_max_minutes\n        FROM hebergement.formule\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "duree_min_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_min_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "duree_max_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_max_minutes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "0449421d23f790589715c4383214983db5a21b2fe66f0530348b003cb8fc0855"
+}

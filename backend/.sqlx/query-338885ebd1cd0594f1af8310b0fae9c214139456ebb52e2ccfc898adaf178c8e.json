@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hebergement.plage_demi_journee WHERE formule_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "338885ebd1cd0594f1af8310b0fae9c214139456ebb52e2ccfc898adaf178c8e"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hebergement.temps_remise_en_etat WHERE categorie_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5e6b8c82484607adb10ee116a70f6781d530e908992f148821ab75d38061f604"
+}

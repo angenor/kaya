@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, categorie_id, famille, prix_mineur,\n               duree_min_minutes, duree_max_minutes,\n               heure_arrivee_standard, heure_depart_standard, jours_autorises,\n               assujettie_taxe_nuitee, regle_conversion_taxe,\n               prix_heure_supplementaire_mineur\n        FROM hebergement.formule\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "categorie_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "duree_min_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_min_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "duree_max_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_max_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "heure_arrivee_standard",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "heure_arrivee_standard"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "heure_depart_standard",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "heure_depart_standard"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "jours_autorises",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "jours_autorises"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "assujettie_taxe_nuitee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "assujettie_taxe_nuitee"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "regle_conversion_taxe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "regle_conversion_taxe"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "prix_heure_supplementaire_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_heure_supplementaire_mineur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "e0c88970ffa109fa4a90133ce3ab778afee348e4d94b1ce81e50f63a69706294"
+}

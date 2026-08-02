@@ -1,0 +1,160 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT f.id, f.categorie_id, f.famille, f.prix_mineur,\n               f.duree_min_minutes, f.duree_max_minutes,\n               f.heure_arrivee_standard, f.heure_depart_standard, f.jours_autorises,\n               f.assujettie_taxe_nuitee, f.regle_conversion_taxe,\n               f.prix_heure_supplementaire_mineur\n        FROM hebergement.formule f\n        JOIN hebergement.categorie c ON c.id = f.categorie_id\n        WHERE f.etablissement_id = $1\n        ORDER BY c.nom, f.famille\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "categorie_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "duree_min_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_min_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "duree_max_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "duree_max_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "heure_arrivee_standard",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "heure_arrivee_standard"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "heure_depart_standard",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "heure_depart_standard"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "jours_autorises",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "jours_autorises"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "assujettie_taxe_nuitee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "assujettie_taxe_nuitee"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "regle_conversion_taxe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "regle_conversion_taxe"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "prix_heure_supplementaire_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_heure_supplementaire_mineur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d37e8dcbd2db48d71c0d67b4bd8c9c675be2cb891c07046a2b08d741e154fead"
+}

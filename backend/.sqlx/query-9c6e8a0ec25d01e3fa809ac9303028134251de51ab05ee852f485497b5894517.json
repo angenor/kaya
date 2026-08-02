@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT (EXTRACT(EPOCH FROM (fin_client - debut_client)) / 60)::BIGINT AS \"minutes!\"\n            FROM hebergement.occupation\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "minutes!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "9c6e8a0ec25d01e3fa809ac9303028134251de51ab05ee852f485497b5894517"
+}

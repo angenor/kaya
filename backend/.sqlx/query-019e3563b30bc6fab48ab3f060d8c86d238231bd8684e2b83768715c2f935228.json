@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.formule\n            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,\n             assujettie_taxe_nuitee)\n        VALUES ($1, $2, $3, $4, 'DEMI_JOURNEE', $5, false)\n        ON CONFLICT (categorie_id, famille) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "019e3563b30bc6fab48ab3f060d8c86d238231bd8684e2b83768715c2f935228"
+}

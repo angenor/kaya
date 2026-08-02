@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO etablissements.parametre_configuration\n                (id, tenant_id, etablissement_id, cle, valeur)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (tenant_id, etablissement_id, etablissement_module_id,\n                         point_de_vente_id, cle)\n            DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "80cfa41b1bf2b9d06bc615806535c3fade0963ca1cf406e89fae58ec272372fb"
+}

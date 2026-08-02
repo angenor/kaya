@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, unite_id, formule_id, debut_client, fin_client,\n               upper(periode) AS \"indisponible_jusqu_a!\", statut, cree_le, libere_le\n        FROM hebergement.occupation\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "unite_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "unite_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "formule_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "formule_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "debut_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "debut_client"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "fin_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "fin_client"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "indisponible_jusqu_a!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "statut",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "statut"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "cree_le"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "libere_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "libere_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "985aeabb23d7912db122df14be54f7105285279350a8e5e8da495b0b3119a778"
+}

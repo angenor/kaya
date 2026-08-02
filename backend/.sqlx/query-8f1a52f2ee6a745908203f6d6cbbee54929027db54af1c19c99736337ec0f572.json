@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE hebergement.occupation\n        SET periode = tstzrange(\n                lower(periode),\n                greatest(lower(periode) + interval '1 second',\n                         now() + make_interval(mins => $2)),\n                '[)'\n            ),\n            fin_client = least(fin_client, greatest(debut_client + interval '1 second', now())),\n            statut = 'liberee',\n            libere_le = now()\n        WHERE id = $1 AND statut = 'active'\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8f1a52f2ee6a745908203f6d6cbbee54929027db54af1c19c99736337ec0f572"
+}

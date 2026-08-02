@@ -1,0 +1,37 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE hebergement.formule\n        SET prix_mineur = $2,\n            duree_min_minutes = $3,\n            duree_max_minutes = $4,\n            heure_arrivee_standard = $5,\n            heure_depart_standard = $6,\n            jours_autorises = $7,\n            assujettie_taxe_nuitee = $8,\n            regle_conversion_taxe = $9,\n            prix_heure_supplementaire_mineur = $10,\n            modifie_le = now()\n        WHERE id = $1\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int4",
+        "Int4",
+        "Time",
+        "Time",
+        "Int2Array",
+        "Bool",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ff3fba88926fc0e767969fb28d48e822e82561e6c2c5b6c5a4bdb357278935fc"
+}

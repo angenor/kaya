@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id, p.formule_id, p.heure_debut, p.heure_fin, p.libelle_cle\n        FROM hebergement.plage_demi_journee p\n        JOIN hebergement.formule f ON f.id = p.formule_id\n        WHERE f.etablissement_id = $1\n        ORDER BY p.heure_debut\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "formule_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "formule_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "heure_debut",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "heure_debut"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "heure_fin",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "heure_fin"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "libelle_cle"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "31c8dce9ec79ad3b14a76fc652cb4b61f55903d6a0f579d6555bbc0538c2e2a3"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT o.unite_id, o.formule_id, f.famille\n        FROM hebergement.occupation o\n        JOIN hebergement.formule f ON f.id = o.formule_id\n        WHERE o.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unite_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "unite_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "formule_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "formule_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0954aa157357e8d1639ce2bd623b4d8e4e52c41aed50fae0e7d033dceb7ec567"
+}

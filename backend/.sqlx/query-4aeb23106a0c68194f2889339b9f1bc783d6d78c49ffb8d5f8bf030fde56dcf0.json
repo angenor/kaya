@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, heure_debut, heure_fin, libelle_cle\n        FROM hebergement.plage_demi_journee\n        WHERE formule_id = $1\n        ORDER BY heure_debut\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "heure_debut",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "heure_debut"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "heure_fin",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "heure_fin"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "libelle_cle",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.plage_demi_journee",
+            "name": "libelle_cle"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "4aeb23106a0c68194f2889339b9f1bc783d6d78c49ffb8d5f8bf030fde56dcf0"
+}

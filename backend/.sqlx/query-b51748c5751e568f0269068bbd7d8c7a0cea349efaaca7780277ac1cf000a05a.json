@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.formule\n            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,\n             duree_min_minutes, duree_max_minutes, heure_arrivee_standard,\n             heure_depart_standard, jours_autorises, assujettie_taxe_nuitee,\n             regle_conversion_taxe, prix_heure_supplementaire_mineur)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n        ON CONFLICT (id) DO NOTHING\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Int4",
+        "Int4",
+        "Time",
+        "Time",
+        "Int2Array",
+        "Bool",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b51748c5751e568f0269068bbd7d8c7a0cea349efaaca7780277ac1cf000a05a"
+}

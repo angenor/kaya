@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM hebergement.bareme_palier WHERE formule_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8afa92bee3fd18bccfb1f459a30b1da9ef9bccdc19934c5221befb9a35044801"
+}

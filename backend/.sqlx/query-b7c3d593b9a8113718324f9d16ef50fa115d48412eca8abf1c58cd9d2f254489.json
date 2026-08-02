@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.categorie_id, t.famille_formule, t.duree_minutes\n        FROM hebergement.temps_remise_en_etat t\n        JOIN hebergement.categorie c ON c.id = t.categorie_id\n        WHERE c.etablissement_id = $1\n        ORDER BY t.famille_formule\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.temps_remise_en_etat",
+            "name": "categorie_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "famille_formule",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.temps_remise_en_etat",
+            "name": "famille_formule"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "duree_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.temps_remise_en_etat",
+            "name": "duree_minutes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b7c3d593b9a8113718324f9d16ef50fa115d48412eca8abf1c58cd9d2f254489"
+}

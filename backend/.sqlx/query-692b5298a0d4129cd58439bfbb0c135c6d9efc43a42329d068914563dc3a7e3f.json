@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            ((date_trunc('day', $2 AT TIME ZONE $3) + p.heure_debut) AT TIME ZONE $3)\n                AS \"debut!\",\n            ((date_trunc('day', $2 AT TIME ZONE $3) + p.heure_fin) AT TIME ZONE $3)\n                AS \"fin!\"\n        FROM hebergement.plage_demi_journee p\n        WHERE p.formule_id = $1\n        ORDER BY p.heure_debut\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "debut!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "fin!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "692b5298a0d4129cd58439bfbb0c135c6d9efc43a42329d068914563dc3a7e3f"
+}

@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT EXISTS (\n            SELECT 1\n            FROM hebergement.formule f\n            JOIN hebergement.unite u ON u.categorie_id = f.categorie_id\n            WHERE f.id = $1 AND u.id = $2\n        ) AS \"coherent!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "coherent!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b25d51488e653405bef5c234e9352b066b7a3479c6c501090f683247b2cea3b7"
+}

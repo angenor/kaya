@@ -304,6 +304,20 @@ Deux points à connaître pour ne pas perdre une journée :
   hors ligne échoue sur `no cached data for this query` **dans les cibles que l'autre passe
   couvrait**, alors que `prepare` vient d'annoncer avoir écrit le cache.
 
+- **Le contrôle hors ligne ne prouve rien s'il ne recompile rien** — constaté au cycle 004.
+  `SQLX_OFFLINE=true cargo check` lancé sur un build à jour affiche `Finished` en une seconde
+  **sans consulter `.sqlx`** : les macros ne sont pas réévaluées, donc un cache vide passerait.
+  Le contrôle 1 (`git status`) reste probant en toutes circonstances ; le second exige de forcer
+  la réévaluation :
+
+  ```sh
+  grep -rl "sqlx::query" --include="*.rs" crates api tests | xargs touch
+  SQLX_OFFLINE=true DATABASE_URL= cargo check --workspace --all-targets --locked
+  ```
+
+  Sans le `touch`, le cycle 004 a vu le contrôle 2 passer au vert sur un cache **réellement
+  périmé** — les erreurs sont apparues au premier fichier modifié pour une autre raison.
+
 ## Flux de travail
 
 Le dépôt utilise **Spec Kit** (skills `speckit-*` dans `.claude/skills/`).

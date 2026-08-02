@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT valeur\n            FROM etablissements.parametre_configuration\n            WHERE cle = 'seuil_bascule_nuitee_minutes'\n              AND etablissement_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "valeur",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "etablissements.parametre_configuration",
+            "name": "valeur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "37cf7f6bba626ec3d732860a83e3c9f31864f21a9f8987af10f89bc0e91b646d"
+}

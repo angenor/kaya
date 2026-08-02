@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT famille_formule, duree_minutes\n        FROM hebergement.temps_remise_en_etat\n        WHERE categorie_id = $1\n        ORDER BY famille_formule\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "famille_formule",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.temps_remise_en_etat",
+            "name": "famille_formule"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "duree_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.temps_remise_en_etat",
+            "name": "duree_minutes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "b220a1859398dcb4e4e4ffc96e8f833d73cf47736f4f28bd0cc7734cb25828ab"
+}

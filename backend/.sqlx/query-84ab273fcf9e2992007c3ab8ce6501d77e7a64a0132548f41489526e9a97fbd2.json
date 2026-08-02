@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT duree_minutes, prix_mineur\n        FROM hebergement.bareme_palier\n        WHERE formule_id = $1\n        ORDER BY duree_minutes\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "duree_minutes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.bareme_palier",
+            "name": "duree_minutes"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.bareme_palier",
+            "name": "prix_mineur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "84ab273fcf9e2992007c3ab8ce6501d77e7a64a0132548f41489526e9a97fbd2"
+}

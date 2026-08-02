@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT u.id, u.code, u.etage, u.statut_menage\n        FROM hebergement.unite u\n        WHERE u.etablissement_id = $1\n          AND u.categorie_id = $2\n          AND NOT EXISTS (\n              SELECT 1\n              FROM hebergement.occupation o\n              WHERE o.unite_id = u.id\n                AND o.periode && $3\n          )\n        ORDER BY u.code\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "etage",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "etage"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "statut_menage",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "statut_menage"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TstzRange"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "e69f9021d7089c53943cfb4deb94f9122a2bf72c58f4b1513aa000c1181d9e6f"
+}

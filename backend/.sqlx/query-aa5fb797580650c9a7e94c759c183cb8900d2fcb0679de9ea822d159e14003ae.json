@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT u.id, u.categorie_id, u.code, u.etage, u.statut_menage\n        FROM hebergement.unite u\n        JOIN hebergement.categorie c ON c.id = u.categorie_id\n        WHERE u.etablissement_id = $1\n        ORDER BY c.nom, u.code\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "categorie_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "etage",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "etage"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "statut_menage",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "statut_menage"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "aa5fb797580650c9a7e94c759c183cb8900d2fcb0679de9ea822d159e14003ae"
+}
