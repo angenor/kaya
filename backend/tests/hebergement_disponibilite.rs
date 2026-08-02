@@ -583,3 +583,317 @@ async fn intervalle_traversant_minuit() {
         .expect("7 h est après la fin du passage de nuit");
     tx.commit().await.expect("commit");
 }
+
+// =================================================================================================
+//  SC-002 — LA GARANTIE VIENT DE LA BASE, ET ON LE PROUVE EN CONTOURNANT LE CODE
+// =================================================================================================
+
+/// **Le test qui distingue la garantie du produit de la discipline de son service.**
+///
+/// Les tests précédents insèrent en SQL direct : ils prouvent que la base refuse, mais un lecteur
+/// pourrait objecter qu'ils ne disent rien du chemin réel. Celui-ci répond à l'objection dans
+/// l'autre sens : il passe par le **repository** — le code de production — en **contournant le
+/// service**, donc en neutralisant toute vérification applicative que le service pourrait porter.
+///
+/// L'attribution chevauchante échoue quand même. Il ne reste qu'une explication : c'est la base.
+///
+/// # Pourquoi ce test et T028 ne se remplacent pas
+///
+/// T028 **retire la contrainte** et constate que tout s'effondre — il prouve que la contrainte
+/// fait quelque chose. Celui-ci **retire le service** et constate que rien ne change — il prouve
+/// que le service ne fait rien de plus. Les deux ensemble ferment la question ; l'un sans l'autre
+/// la laisse ouverte.
+#[actix_web::test]
+async fn sc002_l_attribution_echoue_meme_en_contournant_le_service() {
+    let pool = pool_owner().await;
+    let decor = poser_decor(&pool, "SC-002 sans service").await;
+
+    let debut = datetime!(2026-09-01 14:00 UTC);
+    let fin = datetime!(2026-09-03 12:00 UTC);
+    let debut_2 = datetime!(2026-09-02 10:00 UTC);
+    let fin_2 = datetime!(2026-09-02 18:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    // ── Écriture par le REPOSITORY, sans passer par le service ────────────────────────────────
+    //
+    // `repository::inserer` ne lit rien avant d'écrire, ne vérifie aucune disponibilité, et ne
+    // traduit aucune erreur : c'est délibérément la couche la plus nue du produit.
+    let premiere = kaya_hebergement::occupation::repository::inserer(
+        &mut tx,
+        decor.jeu.tenant_id,
+        &kaya_hebergement::occupation::DemandeAttribution {
+            id: Uuid::now_v7(),
+            etablissement_id: decor.jeu.etablissement_id,
+            unite_id: decor.unite_id,
+            formule_id: decor.formule_id,
+            debut_client: debut,
+            fin_client: fin,
+        },
+        fin,
+    )
+    .await
+    .expect("la première écriture directe doit réussir");
+    assert!(premiere, "la première insertion devait créer une ligne");
+
+    let erreur = kaya_hebergement::occupation::repository::inserer(
+        &mut tx,
+        decor.jeu.tenant_id,
+        &kaya_hebergement::occupation::DemandeAttribution {
+            id: Uuid::now_v7(),
+            etablissement_id: decor.jeu.etablissement_id,
+            unite_id: decor.unite_id,
+            formule_id: decor.formule_id,
+            debut_client: debut_2,
+            fin_client: fin_2,
+        },
+        fin_2,
+    )
+    .await
+    .expect_err(
+        "l'écriture chevauchante a réussi alors que le SERVICE était contourné : la garantie \
+         reposait donc sur une vérification applicative, pas sur la base. C'est exactement ce que \
+         le principe IV refuse.",
+    );
+
+    assert!(
+        est_violation_exclusion(&erreur, CONTRAINTE_SANS_CHEVAUCHEMENT),
+        "l'écriture directe a échoué, mais pas par la contrainte d'exclusion : {erreur}"
+    );
+
+    let _ = tx.rollback().await;
+}
+
+// =================================================================================================
+//  Le chemin réel — le service traduit ce que la base refuse
+// =================================================================================================
+
+/// Assemble le service d'occupation **comme l'application réelle le fait**.
+fn service_occupation(
+    pool: sqlx::PgPool,
+    tenant_id: Uuid,
+) -> kaya_hebergement::occupation::ServiceOccupation<
+    kaya_synchronisation::outbox::PgOutboxWriter,
+    kaya_etablissements::etablissement::PgEstablishmentDirectory,
+    kaya_etablissements::modules::PgRegistreModules,
+> {
+    kaya_hebergement::occupation::ServiceOccupation::nouveau(
+        pool.clone(),
+        tenant_id,
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+            pool.clone(),
+            tenant_id,
+        ),
+        kaya_etablissements::modules::PgRegistreModules::nouveau(pool, tenant_id),
+    )
+}
+
+fn demande(decor: &Decor, id: Uuid, debut: OffsetDateTime, fin: OffsetDateTime)
+-> kaya_hebergement::occupation::DemandeAttribution {
+    kaya_hebergement::occupation::DemandeAttribution {
+        id,
+        etablissement_id: decor.jeu.etablissement_id,
+        unite_id: decor.unite_id,
+        formule_id: decor.formule_id,
+        debut_client: debut,
+        fin_client: fin,
+    }
+}
+
+/// La violation d'exclusion est traduite en `unite_deja_occupee` — **le code sur lequel
+/// l'interface branche « Cette chambre est déjà prise sur cette période »**.
+#[actix_web::test]
+async fn le_service_traduit_la_violation_en_unite_deja_occupee() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor(&pool_o, "HEB — traduction du refus").await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let debut = datetime!(2026-10-01 14:00 UTC);
+    let fin = datetime!(2026-10-03 12:00 UTC);
+
+    svc.attribuer(demande(&decor, Uuid::now_v7(), debut, fin))
+        .await
+        .expect("la première attribution doit réussir");
+
+    let erreur = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2026-10-02 10:00 UTC),
+            datetime!(2026-10-02 18:00 UTC),
+        ))
+        .await
+        .expect_err("une attribution chevauchante doit être refusée");
+
+    assert_eq!(
+        erreur.code(),
+        "unite_deja_occupee",
+        "le code de refus est celui sur lequel l'interface branche sa clé i18n : un autre code \
+         afficherait une phrase générique sans que rien n'échoue"
+    );
+}
+
+/// **Trois envois du même identifiant → une occupation, `201` puis `200`, `200`.**
+///
+/// Le terminal qui vide sa file après une coupure ne doit voir aucune erreur pour une écriture que
+/// le serveur a déjà acceptée (principe VI).
+#[actix_web::test]
+async fn trois_attributions_du_meme_identifiant_produisent_une_occupation() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor(&pool_o, "HEB — rejeu d'attribution").await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let id = Uuid::now_v7();
+    let debut = datetime!(2026-11-01 14:00 UTC);
+    let fin = datetime!(2026-11-03 12:00 UTC);
+
+    let (_, une) = svc
+        .attribuer(demande(&decor, id, debut, fin))
+        .await
+        .expect("première");
+    let (_, deux) = svc
+        .attribuer(demande(&decor, id, debut, fin))
+        .await
+        .expect("rejeu 1");
+    let (vue, trois) = svc
+        .attribuer(demande(&decor, id, debut, fin))
+        .await
+        .expect("rejeu 2");
+
+    assert_eq!(une, kaya_hebergement::Issue::Creee);
+    assert_eq!(deux, kaya_hebergement::Issue::DejaPresente);
+    assert_eq!(trois, kaya_hebergement::Issue::DejaPresente);
+    assert_eq!(vue.id, id);
+
+    let mut tx = pool_o.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let total: i64 = sqlx::query("SELECT COUNT(*) AS c FROM hebergement.occupation WHERE unite_id = $1")
+        .bind(decor.unite_id)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("comptage")
+        .get("c");
+    assert_eq!(total, 1, "trois envois, une seule occupation");
+}
+
+/// **Une formule qui n'est pas celle de la chambre est refusée**, et le refus la nomme.
+#[actix_web::test]
+async fn une_formule_hors_categorie_est_refusee() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor(&pool_o, "HEB — formule étrangère").await;
+
+    // Une seconde catégorie, avec sa propre nuitée : la formule existe, mais pas pour cette
+    // chambre-là.
+    let autre_categorie = Uuid::now_v7();
+    let autre_formule = Uuid::now_v7();
+    let mut tx = pool_o.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    sqlx::query(
+        "INSERT INTO hebergement.categorie (id, tenant_id, etablissement_id, nom, capacite_accueil)
+         VALUES ($1, $2, $3, 'Supérieure', 2)",
+    )
+    .bind(autre_categorie)
+    .bind(decor.jeu.tenant_id)
+    .bind(decor.jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("catégorie");
+    sqlx::query(
+        "INSERT INTO hebergement.formule
+            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,
+             assujettie_taxe_nuitee)
+         VALUES ($1, $2, $3, $4, 'NUITEE', 20500, false)",
+    )
+    .bind(autre_formule)
+    .bind(decor.jeu.tenant_id)
+    .bind(decor.jeu.etablissement_id)
+    .bind(autre_categorie)
+    .execute(&mut *tx)
+    .await
+    .expect("formule");
+    tx.commit().await.expect("commit");
+
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+    let mut d = demande(
+        &decor,
+        Uuid::now_v7(),
+        datetime!(2026-12-01 14:00 UTC),
+        datetime!(2026-12-02 12:00 UTC),
+    );
+    d.formule_id = autre_formule;
+
+    let erreur = svc
+        .attribuer(d)
+        .await
+        .expect_err("une formule d'une autre catégorie doit être refusée");
+    assert_eq!(erreur.code(), "formule_hors_categorie");
+}
+
+/// **La libération raccourcit la période et rend la chambre attribuable — après le ménage.**
+///
+/// Ce n'est jamais un `DELETE` : l'occupation reste, avec son statut et son horodatage.
+#[actix_web::test]
+async fn liberer_raccourcit_la_periode_sans_effacer_l_occupation() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor(&pool_o, "HEB — libération").await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let id = Uuid::now_v7();
+    let (avant, _) = svc
+        .attribuer(demande(
+            &decor,
+            id,
+            datetime!(2027-01-01 14:00 UTC),
+            datetime!(2027-01-10 12:00 UTC),
+        ))
+        .await
+        .expect("attribution");
+
+    assert_eq!(avant.statut, kaya_hebergement::occupation::StatutOccupation::Active);
+    assert!(avant.libere_le.is_none());
+
+    let (apres, issue) = svc
+        .liberer(decor.jeu.etablissement_id, id)
+        .await
+        .expect("libération");
+
+    assert_eq!(issue, kaya_hebergement::Issue::Creee, "première libération");
+    assert_eq!(
+        apres.statut,
+        kaya_hebergement::occupation::StatutOccupation::Liberee
+    );
+    assert!(
+        apres.libere_le.is_some(),
+        "une occupation libérée porte son horodatage — la contrainte \
+         `occupation_liberation_coherente` l'exige"
+    );
+    assert!(
+        apres.indisponible_jusqu_a < avant.indisponible_jusqu_a,
+        "la période doit être RACCOURCIE : {} au lieu de {}",
+        apres.indisponible_jusqu_a,
+        avant.indisponible_jusqu_a
+    );
+
+    // L'occupation existe toujours — libérée, jamais effacée.
+    let relue = svc.lire(id).await.expect("relecture").expect("elle existe");
+    assert_eq!(relue.id, id);
+
+    // **Un rejeu ne produit aucun second événement**, et rend la ligne telle qu'elle est.
+    let (_, rejeu) = svc
+        .liberer(decor.jeu.etablissement_id, id)
+        .await
+        .expect("rejeu de libération");
+    assert_eq!(
+        rejeu,
+        kaya_hebergement::Issue::DejaPresente,
+        "une occupation déjà libérée n'est pas une erreur : c'est un terminal qui vide sa file"
+    );
+}
