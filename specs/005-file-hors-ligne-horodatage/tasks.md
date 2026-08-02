@@ -49,9 +49,9 @@ tâches ne touche `app/` ni `backend/crates/`.
 - [x] T001 ~~Lever B-2~~ — **fait avant le cycle** : `docs/design/derivation.md` **1.2.1**, `S1` → composant 10
 - [x] T002 ~~Lever B-3~~ — **fait avant le cycle** : `docs/design/lexique.md` **1.5.0**, quatre entrées ajoutées
 - [x] T003 Compléter `docs/design/lexique.md` — **fait** : version **1.5.1**, la **seconde forme de la dérive** (« **avance** de {n} minutes »), FR-035 portant sur la **valeur absolue** de l'écart et l'edge case de la spec exigeant les deux sens ; et les **formulations anglaises** des cinq libellés nouveaux, que le lexique ne donne pas encore
-- [ ] T004 [P] Ajouter la famille `derive_horloge_constatee` à `docs/taxonomie-audit.md`, contexte `{ ecart_secondes, seuil_secondes, sens }` — **aucune clé monétaire** (P-10 sur le JSONB)
-- [ ] T005 [P] Inscrire les deux paramètres au récapitulatif de `docs/user-stories-v1.md` §708 : `sync.derive_horloge_seuil_secondes` (défaut 300) et `sync.latence_degradee_seuil_ms` (défaut 3000)
-- [ ] T006 Porter `docs/registre-classes-offline.md` en **1.3.0** : §5.6 déclaré effectif, §11 réécrit pour dire que ses tests s'**instancient** désormais, journal des modifications — **aucune ligne d'entité ajoutée**, les deux tables du cycle y figurent depuis le 2026-07-30
+- [x] T004 [P] Ajouter la famille `derive_horloge_constatee` à `docs/taxonomie-audit.md`, contexte `{ ecart_secondes, seuil_secondes, sens }` — **aucune clé monétaire** (P-10 sur le JSONB)
+- [x] T005 [P] Inscrire les deux paramètres au récapitulatif de `docs/user-stories-v1.md` §708 : `sync.derive_horloge_seuil_secondes` (défaut 300) et `sync.latence_degradee_seuil_ms` (défaut 3000)
+- [x] T006 Porter `docs/registre-classes-offline.md` en **1.3.0** : §5.6 déclaré effectif, §11 réécrit pour dire que ses tests s'**instancient** désormais, journal des modifications — **aucune ligne d'entité ajoutée**, les deux tables du cycle y figurent depuis le 2026-07-30
 
 **Point de contrôle** : les documents normatifs disent ce que le code va faire. B-2 et B-3 sont levés.
 

@@ -4,7 +4,7 @@
 Référencé par le principe VI de `.specify/memory/constitution.md` et par le point 5 de la
 Definition of Done (`docs/user-stories-v1.md` §0.4).*
 
-**Version 1.2.0 — 2026-08-02**
+**Version 1.3.0 — 2026-08-02**
 
 ---
 
@@ -196,6 +196,25 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 > **La file d'actions locale du terminal n'est pas une entité de ce registre** : c'est
 > l'infrastructure qui transporte les écritures A. Elle **ne contient jamais** de donnée B, C
 > ou D en cache d'écriture (cadrage §11.5 règle 4).
+
+**Ce paragraphe est effectif depuis le cycle 005 (SYN), et aucune ligne n'y a été ajoutée.** C'est
+le cas le plus sain, et il est assez rare pour qu'il faille le dire : les deux tables que le cycle
+crée — `reconciliation_orpheline` et rien d'autre — figuraient ici depuis le 2026-07-30, avec leur
+classe et leur branche, décidées à froid. Le cycle les **honore**. Une relecture qui n'y trouverait
+aucune modification pourrait y voir un oubli ; c'est l'inverse.
+
+Trois précisions que l'implémentation a values, et qui ne changent aucune classe :
+
+- **`reconciliation_orpheline` a sa table, et `kaya_app` n'a pas le droit d'y écrire.** Les deux
+  classes ci-dessus — création en **A**, résolution en **B** — restent justes et attendent SYN-03,
+  tranche T3. Ce n'est pas la classe qui est différée, c'est l'implémentation : le `GRANT SELECT`
+  seul est ce qui **prouve** la provision, et `backend/tests/provisions_sans_logique.rs` le
+  vérifie, décompte porté de cinq à six.
+- **« Horodatage d'autorité — attribution : serveur uniquement » cesse d'être une convention.**
+  La porte **P-23** (constitution 1.8.0) refuse tout calcul métier, fiscal, de clôture ou de durée
+  appuyé sur `horodatage_client`. La ligne du registre était juste ; rien ne la tenait.
+- **« Horodatage client — enregistrement indicatif : A » est inchangée**, et c'est ce qui rend la
+  précédente applicable : la colonne s'écrit, se relit et s'affiche — elle ne décide de rien.
 
 ### 5.7 `socle/pilotage`
 
@@ -466,6 +485,41 @@ l'entité, pas d'un lot de rattrapage.
 - **Agnosticité du socle** — un établissement portant un module fictif minimal, sans aucune
   capacité, va de la création à la clôture journalière (ETB-02c).
 
+### Depuis le cycle 005, ces tests s'INSTANCIENT — ils ne se recopient plus
+
+C'est le changement de fond de SYN sur ce document, et il vaut d'être lu avant d'ouvrir un cycle
+qui crée une entité.
+
+Le tableau ci-dessus a été honoré trois fois — `note_etablissement`, `journal_audit`,
+`occupation` — et **trois fois par réécriture** : le rejeu triple et les six ordres du désordre ont
+été retapés dans trois fichiers, avec trois formulations, trois messages d'échec, et trois
+occasions d'en couvrir un peu moins que le précédent. Une quatrième réécriture était certaine.
+
+Les tests exigés existent désormais sous forme d'**outillage** :
+
+| Où | Ce qu'il engendre |
+|---|---|
+| `backend/tests/commun/classes.rs` | `tester_classe_a!` — le rejeu triple (une ligne, **un** événement outbox) et le désordre sur les **six** ordres, en six tests **nommés** · `tester_classe_bcd!` — l'inatteignabilité hors ligne, plus la concurrence pour B · `tester_classe_d!` — la double soumission au retour du réseau |
+| `app/tests/commun/classes.ts` | Le versant application : la marque de classe, le refus d'enfilement, l'annonce **avant** la saisie |
+| `backend/tests/outillage_classes.rs` | **Le contrôle qui empêche l'oubli** : il parcourt ce registre, en extrait toute entité ayant une table réelle, et échoue si elle n'a aucune instanciation correspondant à sa classe |
+
+Couvrir une entité nouvelle coûte donc **une déclaration** :
+
+```rust
+tester_classe_a!(note_etablissement, schema = "etablissements", creer = fabrique::note);
+```
+
+**Six tests nommés, jamais un test générique.** Un test unique dirait « un des six ordres a
+échoué » sans dire lequel — et c'est ce qu'on lit en intégration continue à vingt-trois heures.
+
+`outillage_classes.rs` est le **pendant exact** de `classes_offline.rs` : celui-là vérifie qu'une
+classe a été **déclarée**, celui-ci qu'elle a été **exercée**. Les deux ensemble ferment ce que ni
+l'un ni l'autre ne fermait seul.
+
+**Ce qu'aucun des deux ne vérifie reste ce qu'il a toujours été** : la **justesse** de la classe.
+Aucune lecture du schéma ne retrouve qu'un encaissement est B en espèces et D en Mobile Money. La
+revue mensuelle demeure.
+
 ---
 
 ## 12. Cas pièges et décisions ouvertes
@@ -504,6 +558,7 @@ l'entité, pas d'un lot de rattrapage.
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.3.0 | 2026-08-02 | **Le §5.6 devient effectif** — les entités que le cycle 005 (SYN) implémente y figuraient depuis le 2026-07-30, et **aucune ligne n'a été ajoutée**. C'est le premier cycle du produit dont le registre sort inchangé sur ses lignes, et le dire est nécessaire : une relecture y verrait un oubli. `reconciliation_orpheline` reçoit sa table, avec `GRANT SELECT` **seul** à `kaya_app` — les deux classes déclarées (création **A**, résolution **B**) restent justes et attendent SYN-03, tranche T3 ; ce n'est pas la classe qui est différée mais l'implémentation, et le privilège absent est ce qui **prouve** la provision (`provisions_sans_logique.rs`, décompte porté de cinq à six). La ligne « Horodatage d'autorité — attribution : serveur uniquement » **cesse d'être une convention** : la porte **P-23** de la constitution 1.8.0 refuse désormais tout calcul métier, fiscal, de clôture ou de durée appuyé sur `horodatage_client`, sur un périmètre **découvert** et non énuméré. **Le §11 est le vrai changement de ce cycle** : les tests qu'il impose existent maintenant sous forme d'**outillage instancié** — `tester_classe_a!`, `tester_classe_bcd!`, `tester_classe_d!` et leur pendant TypeScript — au lieu d'être recopiés une fois par entité, ce qui avait déjà été fait trois fois avec trois formulations. `backend/tests/outillage_classes.rs` échoue en **nommant** l'entité qui aurait une table sans instanciation : pendant exact de `classes_offline.rs`, qui vérifie qu'une classe est *déclarée* quand celui-ci vérifie qu'elle est *exercée*. À partir de ce cycle enfin, `classes_offline.rs` cesse d'énumérer ses schémas et lit `perimetre::schemas_applicatifs()` — la liste écrite à la main avait laissé un trou à chacun des trois cycles précédents. |
 | 1.2.0 | 2026-08-02 | **Le §7 devient effectif** — les entités du cycle 004 (HEB) qu'il déclarait d'avance depuis le 2026-07-30 reçoivent leurs tables. Comme au cycle 003, les lignes existantes sont **honorées, pas réécrites** : `categorie`, `unite`, `formule`, `bareme_palier` et `occupation` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe. **Deux lignes ajoutées au §7.1**, correspondant à deux tables que le registre ne nommait pas : `temps_remise_en_etat` (**C**, branche C2, sur le régime de sa catégorie — le registre le mentionnait comme *attribut* de `categorie`, « temps de remise en état par formule » ; il varie par catégorie **et** par formule, ce qu'une colonne ne porte pas, et devenu table il se déclare pour lui-même, précédent exact de `profil_stock` au cycle 002) et `plage_demi_journee` (la ligne « Plages de demi-journée » existait **sans nom de table** — elle est honorée, le nom précisé). **`prestation_incluse` n'a PAS été redéclarée** au §7.1 bien que sa table naisse ici : elle figure déjà au §10 des provisions, et la redéclarer lui donnerait deux entrées donc un jour deux classes — raisonnement identique à celui qui a écarté `employe` du §5.2 au cycle précédent. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `hebergement` : **sans cet ajout, les huit tables du cycle échappaient entièrement au balayage**, exactement le trou trouvé sur le schéma `comptes` au cycle 003. |
 | 1.1.0 | 2026-08-01 | **Le §5.2 devient effectif** — les neuf entités qu'il déclarait d'avance depuis le 2026-07-30 sont implémentées par le cycle 003 (CPT). Ses lignes existantes sont **honorées, pas réécrites** : `personne`, `compte`, `compte_role`, `role`, `permission`, `appareil_enrole` et `journal_audit` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe — c'était tout l'objet de les écrire d'avance. **Trois lignes ajoutées**, correspondant à trois tables que le registre ne nommait pas : `methode_authentification` (référentiel global, **C**, branche C2, sur le régime de `module_activite`), `role_permission` (jointure de référentiel, rattachée à la ligne de `role` et `permission` plutôt que déclarée seule — elle n'a pas de cycle de vie propre) — `employe`, lui, était **déjà** déclaré au §10 des provisions et n'a pas été redéclaré : une entité qui figure à deux endroits finit par y porter deux classes. Consigné aussi : **les sessions ne figurent pas à ce registre**, étant éphémères reconstructibles — écrit pour qu'une relecture n'y voie pas un oubli. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `comptes` et compte les tables inspectées face au total attendu : une porte dont la cible est vide passe toujours. |
 | 1.0.0 | 2026-07-30 | Création. Classement initial de toutes les entités des modules TRX, ETB, CPT, HEB, SEJ, RSV, PDV, QRC, CAI, FIS, SYN, IMP, STK, DIR, ADM, MET, plus les provisions du cadrage §14. Dérivé de `docs/cadrage-v1.md` §11 et `docs/user-stories-v1.md` §0.7. Trois décisions ouvertes consignées (O-01, O-02, O-03). |

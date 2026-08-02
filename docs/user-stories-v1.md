@@ -747,7 +747,8 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Tentatives de connexion par identifiant dans la fenêtre (`connexion_limite_par_identifiant`) | **10, RÉUSSIES COMPRISES** — ce qui est limité est le débit d'essais, pas le nombre d'erreurs. **Arbitrage assumé, à trancher au pilote** | CPT-01 |
 | Tentatives de connexion par origine réseau dans la fenêtre (`connexion_limite_par_origine`) | 60 — plus large que le seuil par identifiant : à la relève, tout le poste de réception sort par la **même** adresse | CPT-01 |
 | Rayon de géorepérage | 300 m (alerte seulement) | CPT-06 |
-| Dérive d'horloge signalée | 5 min | SYN-04 |
+| Dérive d'horloge signalée (`sync.derive_horloge_seuil_secondes`) | 300 s (5 min) — clé du catalogue, portée la plus basse **ETABLISSEMENT**. La détection porte sur la **valeur absolue** de l'écart : une horloge en avance est aussi fausse qu'une horloge en retard | SYN-04 |
+| Latence au-delà de laquelle la connexion est dite faible (`sync.latence_degradee_seuil_ms`) | 3 000 ms — clé du catalogue, portée la plus basse **ETABLISSEMENT**. C'est ce seuil qui distingue « connecté » de « connexion faible » : sans lui, l'état ne serait pas testable et une porte ne pourrait pas les séparer | SYN-02 |
 | Seuil d'alerte de stock | Par article | STK-04 |
 | Classe hors-ligne du stock | B (à trancher B-05) | STK-02 |
 | Palier d'abonnement 1 | ≤ 25 unités → 20 000 FCFA | ADM-03 |
