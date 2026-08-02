@@ -71,7 +71,13 @@ interface Amorcage {
 }
 
 /**
- * **Les points d'entrée d'amorçage du produit.** Liste fermée, onze entrées.
+ * **Les points d'entrée d'amorçage du produit.** Liste fermée, douze entrées.
+ *
+ * *Deux mouvements au lot de déconnexion :* `fermerSession` passe de **due** à **branchée** — le
+ * bouton « passer la main » du pied de coquille l'appelle —, et `ecrituresEnAttente` entre
+ * branchée dès sa naissance, avec `brancherFile` qui reste due par SYN-01. C'est exactement le
+ * mouvement que ce harnais existe pour rendre visible : un mécanisme n'entre pas en service en
+ * silence, et celui qui n'y est pas encore le dit.
  *
  * Établie par balayage exhaustif de `app/core/` — toute fonction exportée qu'un chemin d'amorçage
  * doit appeler pour que le produit fonctionne. Les fonctions appelées **par** l'une d'elles dans
@@ -132,6 +138,22 @@ const AMORCAGE: readonly Amorcage[] = [
     etat: 'branché',
     ou: 'nuxt.config.ts',
   },
+  {
+    nom: 'fermerSession',
+    definition: 'core/auth/connexion.ts',
+    role: 'ferme la session, révoque le jeton côté serveur et purge le stockage (principe VI, '
+      + 'terminal partagé)',
+    etat: 'branché',
+    ou: 'layouts/default.vue',
+  },
+  {
+    nom: 'ecrituresEnAttente',
+    definition: 'core/sync/attente.ts',
+    role: 'combien d’écritures ne sont pas parties — la garde qui empêche une purge de les '
+      + 'emporter',
+    etat: 'branché',
+    ou: 'layouts/default.vue',
+  },
 
   // ── Dues : le mécanisme existe, aucun chemin du produit ne l'atteint ──────────────────────
   //
@@ -171,12 +193,12 @@ const AMORCAGE: readonly Amorcage[] = [
     ou: 'SYN-01 · à substituer aux six gardes écrites à la main',
   },
   {
-    nom: 'fermerSession',
-    definition: 'core/auth/connexion.ts',
-    role: 'efface la session et purge le stockage (principe VI, terminal partagé) — **aucun '
-      + 'bouton de déconnexion n’existe dans le produit**, ni aucune clé i18n',
+    nom: 'brancherFile',
+    definition: 'core/sync/attente.ts',
+    role: 'déclare la file du produit à `ecrituresEnAttente` — **tant que personne ne l’appelle, '
+      + 'la garde de déconnexion répond 0 faute de file, pas faute d’écritures**',
     etat: 'dû',
-    ou: 'ETB-06 · le sélecteur de contexte permanent, qui porte la déconnexion',
+    ou: 'SYN-01 · dans le même changement que la première instanciation de `FileLocale`',
   },
 ]
 

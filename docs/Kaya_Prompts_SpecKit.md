@@ -640,7 +640,7 @@ Points d'attention : l'attribution de rôle est de classe C — aucune élévati
 privilège hors ligne, jamais.
 ```
 
-### Cycle 4 — HEB
+### Cycle 4 — HEB(en cours)
 
 ```
 /speckit-specify

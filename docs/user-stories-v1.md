@@ -741,6 +741,9 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Longueur minimale du mot de passe (`mot_de_passe_longueur_min`) | 8 caractères, **aucune règle de composition**, refus des mots de passe compromis | CPT-01 |
 | Durée du jeton d'accès (`jeton_acces_duree_min`) | 60 min | CPT-01 |
 | Durée du jeton de rafraîchissement (`jeton_rafraichissement_duree_jours`) | 90 jours, **avec rotation à chaque usage** | CPT-01 |
+| Fenêtre de limitation des tentatives de connexion (`connexion_limite_fenetre_s`) | 300 s (5 min), **glissante** — jamais de verrouillage définitif | CPT-01 |
+| Tentatives de connexion par identifiant dans la fenêtre (`connexion_limite_par_identifiant`) | **10, RÉUSSIES COMPRISES** — ce qui est limité est le débit d'essais, pas le nombre d'erreurs. **Arbitrage assumé, à trancher au pilote** | CPT-01 |
+| Tentatives de connexion par origine réseau dans la fenêtre (`connexion_limite_par_origine`) | 60 — plus large que le seuil par identifiant : à la relève, tout le poste de réception sort par la **même** adresse | CPT-01 |
 | Rayon de géorepérage | 300 m (alerte seulement) | CPT-06 |
 | Dérive d'horloge signalée | 5 min | SYN-04 |
 | Seuil d'alerte de stock | Par article | STK-04 |
@@ -750,6 +753,27 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Palier d'abonnement 3 | > 50 unités → 1 000 FCFA/unité | ADM-03 |
 | Tarif au compteur | 1 000 FCFA/unité | ADM-03 |
 | Délai de grâce avant suspension pour impayé | 15 jours | ADM-04 |
+
+### Note — les trois seuils de connexion sont inscrits, ils ne sont pas encore paramétrables
+
+Les trois lignes `connexion_limite_*` vivent aujourd'hui en **constantes Rust**
+(`backend/crates/socle/comptes/src/session/limite.rs`), pas dans la configuration d'établissement.
+Le principe I(c) exige les deux — figurer ici *et* être surchargeable par
+`tenant → établissement` —, et seul le premier est acquis. C'est une **dette nommée, pas une
+tolérance** : elle est portée par ADM-06, qui livre l'écran de configuration.
+
+L'inscrire malgré tout est le point de la règle. Le seuil de dix a été arbitré en écrivant le code,
+sans que le pilote soit consulté, et il porte un compromis qui se paie des deux côtés : trop bas, la
+caissière qui hésite reste dehors le temps d'un service ; trop haut, un automate balaie les
+identifiants tranquillement. Non écrit, l'arbitrage se serait perdu dans un `const` que personne ne
+rouvre. Trois conséquences en découlent, et elles sont vraies **maintenant** :
+
+- le refus de dépassement est **indiscernable d'un mot de passe faux** (FR-012), donc un seuil trop
+  bas ne se diagnostique pas depuis l'écran — il faut lire les journaux du serveur ;
+- **les connexions réussies sont comptées**, ce qui n'est pas l'usage courant : ne compter que les
+  échecs laisserait un attaquant muni d'un identifiant volé essayer autant qu'il veut ;
+- la porte **P-22** en dépend : chacun de ses deux moteurs ouvre une session, et quatre passages
+  rapprochés butent sur le seuil.
 
 ---
 

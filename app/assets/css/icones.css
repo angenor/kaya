@@ -16,7 +16,7 @@
    ce qui la fait basculer en mode sombre sans une seule règle de plus.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Phosphor — 77 glyphe(s) ────────────────────────────────────── */
+/* ── Phosphor — 78 glyphe(s) ────────────────────────────────────── */
 @font-face {
   font-family: "Phosphor";
   src: url("../fonts/phosphor-kaya.woff2") format("woff2");
@@ -95,6 +95,7 @@
 .ph.ph-receipt:before { content: "\e3ec"; }
 .ph.ph-scales:before { content: "\e750"; }
 .ph.ph-sign-in:before { content: "\e428"; }
+.ph.ph-sign-out:before { content: "\e42a"; }
 .ph.ph-sparkle:before { content: "\e6a2"; }
 .ph.ph-squares-four:before { content: "\e464"; }
 .ph.ph-storefront:before { content: "\e470"; }

@@ -20,11 +20,32 @@
  * l'exclurait. Une porte qui saute une page pour passer au vert est le défaut que le
  * § « Couverture des portes » nomme.
  *
- * # Un seul navigateur, et c'est déclaré
+ * # DEUX moteurs, parce que la cible est Tauri — et Tauri n'embarque pas Chromium
  *
- * Chromium. Un défaut propre à WebKit passerait — limite assumée, écrite ici plutôt que supposée.
- * L'application cible est une coquille Tauri, dont le moteur varie par plateforme ; couvrir WebKit
- * relèvera du cycle qui construit la coquille.
+ * Tauri v2 n'embarque **aucun** navigateur : il utilise le moteur du système. Le tableau de
+ * `tests-e2e/parcours-reel.spec.ts` en donne la correspondance exacte, et elle décide de ce qui est
+ * couvert. Sur trois cibles du produit — macOS, iOS, Linux — le moteur est WebKit. Chromium seul
+ * validait donc le moteur que le produit **n'utilise pas** sur la majorité de ses cibles, à
+ * commencer par le poste de développement.
+ *
+ * Les deux projets exécutent **les mêmes tests**, sans exclusion : un cas qui tomberait sous WebKit
+ * est un défaut du produit que la coquille Tauri rencontrera, pas un test à exclure.
+ *
+ * # La limite qui reste, et il faut la connaître
+ *
+ * **Le WebKit de Playwright n'est pas WKWebView.** C'est une construction de WebKit maintenue par
+ * l'équipe Playwright, plus proche de la cible que Chromium et **pas identique** : elle ne porte ni
+ * les réglages du composant système d'Apple, ni son intégration au processus hôte. Le vrai contrôle
+ * macOS et iOS viendra avec la coquille Tauri elle-même. Écrit ici pour qu'un rapport vert ne se
+ * lise pas comme « vérifié sur la cible ».
+ *
+ * # Deux projets doublent les connexions — et le limiteur les compte
+ *
+ * `LimiteTentatives` plafonne à **dix tentatives par identifiant sur cinq minutes**, réussies
+ * comprises. Chaque projet ouvre **une** session dans son `beforeAll` : une exécution complète en
+ * consomme deux, le test négatif deux de plus. Quatre passages rapprochés de la porte butent donc
+ * sur le seuil, et le refus est **indiscernable d'un mot de passe faux** (FR-012) — le symptôme
+ * serait « la porte ne sait plus se connecter » sans autre indice. Attendre cinq minutes suffit.
  */
 
 import { defineConfig, devices } from '@playwright/test'
@@ -61,8 +82,13 @@ export default defineConfig({
     locale: 'fr-FR',
   },
 
+  // Les deux moteurs, dans l'ordre où ils couvrent le produit. `fullyParallel: false` et
+  // `workers: 1` les enchaînent : ils partagent la base, le compte de démonstration et le
+  // compteur de tentatives, et les croiser produirait des échecs qui dépendent de
+  // l'ordonnancement.
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
 
   webServer: {

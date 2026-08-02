@@ -4,7 +4,7 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.11 — vérifié le 2026-08-01**
+**Version du gel : 1.0.12 — vérifié le 2026-08-02**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
@@ -187,6 +187,18 @@ entrent dans le lockfile et la porte P-20 les couvre.
 > constaté, pas supposé. **En CI, le prévoir explicitement** (cache d'artefacts sur la clé
 > `chromium-1234`, ou image `mcr.microsoft.com/playwright`), sinon chaque exécution repart du
 > réseau.
+>
+> ⚠️ **DEUX navigateurs depuis le 2026-08-02, et le second pèse trois fois le premier.** P-22
+> exerce `chromium` **et** `webkit` : la cible est Tauri, qui n'embarque aucun navigateur et
+> emprunte celui du système — WebKit couvre **macOS, iOS et Linux**, Chromium couvre Windows et
+> Android. Le même `browsers.json` de `playwright-core@1.62.1` impose WebKit **rev 2336**
+> (version 26.5), relevé sur
+> `https://cdn.jsdelivr.net/npm/playwright-core@1.62.1/browsers.json` le **2026-08-02**.
+> Installation : `pnpm exec playwright install webkit`. **294 Mio sur le poste**, mesurés — pas
+> 95. Une CI qui ne met en cache que `chromium-1234` retéléchargera WebKit à chaque exécution ;
+> la clé de cache doit porter les deux révisions. La porte le vérifie elle-même : son étape 3/5
+> compte les cas par projet et **refuse si un moteur n'en a aucun**, plutôt que de passer au vert
+> sur un seul.
 >
 > **Hors périmètre de P-21, et ce n'est pas une dérogation.** Playwright télécharge des
 > navigateurs, mais il ne s'exécute **jamais** dans le produit : c'est de l'outillage de
@@ -514,12 +526,14 @@ echo "@playwright/test $PW"
 curl -sS "https://cdn.jsdelivr.net/npm/playwright-core@$PW/browsers.json" \
   | python3 -c "
 import sys, json
+# Les DEUX moteurs de P-22 : chromium couvre Windows et Android, webkit couvre macOS, iOS et
+# Linux. N'en relever qu'un rendrait la vérification aveugle sur trois cibles du produit.
 for e in json.load(sys.stdin)['browsers']:
-    if e['name'].startswith('chromium'):
-        print(' ', e['name'], 'rev', e['revision'], '| Chrome', e.get('browserVersion'))
+    if e['name'] in ('chromium', 'webkit'):
+        print(' ', e['name'], 'rev', e['revision'], '| version', e.get('browserVersion'))
 "
 ls -1 "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/ms-playwright}" 2>/dev/null \
-  | grep '^chromium' || echo "  (aucun navigateur en cache)"
+  | grep -E '^(chromium|webkit)-' || echo "  (aucun navigateur en cache)"
 
 # PostgreSQL — la version « current » est celle à retenir
 curl -sS https://www.postgresql.org/versions.json \
@@ -566,6 +580,7 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.12 | 2026-08-02 | **WebKit ajouté aux navigateurs de la porte P-22 — aucun paquet nouveau, une cible de plus.** `@playwright/test` reste en **1.62.1** : ce qui change est le jeu de moteurs que la porte exerce, pas une version. **Motif** : la cible du produit est Tauri, qui n'embarque aucun navigateur et emprunte celui du système — **WKWebView** sur macOS et iOS, **WebKitGTK** sur Linux, **WebView2** (Chromium) sur Windows, **Android System WebView** (Chromium) sur Android. Trois cibles sur cinq sont WebKit, à commencer par le poste de développement : Chromium seul validait le moteur que le produit n'utilise pas sur la majorité de ses cibles. ⚠️ **La révision n'est pas épinglable séparément, et elle pèse trois fois Chromium** : `playwright-core@1.62.1` impose WebKit **rev 2336** (version 26.5), relevée sur `https://cdn.jsdelivr.net/npm/playwright-core@1.62.1/browsers.json` le 2026-08-02 — **294 Mio sur le poste, mesurés**, contre 94,7 pour Chromium. Une CI qui ne met en cache que `chromium-1234` retéléchargera 294 Mio à chaque exécution ; la clé doit porter les deux révisions. La commande de vérification du §5 relève désormais les deux, et l'étape 3/5 de la porte **compte les cas par projet et refuse si un moteur n'en a aucun** — un moteur absent retirerait trois cibles sans changer le verdict. **Limite écrite dans la porte** : le `webkit` de Playwright **n'est pas WKWebView**, seulement plus proche de la cible que Chromium ; le contrôle réel de macOS et d'iOS viendra avec la coquille Tauri. **Hors P-21** pour le même motif que Chromium : un navigateur de test n'entre ni dans le paquet Nuxt, ni dans l'image `linux/amd64`. |
 | 1.0.11 | 2026-08-01 | **`@playwright/test` `1.62.1` inscrit — le harnais de la porte P-22.** Apache-2.0, publiée le 2026-07-30, aucune `peerDependency`, vérifiée sur `https://registry.npmjs.org/@playwright%2Ftest/latest` le 2026-08-01. **Motif** : le cycle 003 a été livré avec 24 portes vertes et 652 tests, et deux des quatre écrans du produit étaient inatteignables en navigateur — aucun outil du dépôt ne savait ouvrir une page. **Une ligne épingle la chaîne entière** : `@playwright/test` → `playwright` → `playwright-core`, toutes trois en `1.62.1` **exact**, aucun intervalle. Le paquet retenu est celui qui **embarque le runner**. ⚠️ **La révision de navigateur n'est pas épinglable séparément** : `1.62.1` impose Chromium **1234** (Chrome 151.0.7922.34) par son `browsers.json`, et le cache du poste (`1217`, `1228`) ne servait pas — 94,7 Mio téléchargés, constaté. **Hors P-21** : la porte ne vise que ce que l'application charge à l'exécution, et un navigateur de test n'entre ni dans le paquet ni dans l'image de production ; pour la même raison, Apache-2.0 n'entre pas à l'inventaire des licences tierces, réservé aux œuvres embarquées — précédent `subset-font`. Déclaré à la **racine** et non dans `app/`, comme ESLint et pour le même motif : la porte exerce `app/`, et `web/qr` et `web/console` dès qu'elles auront des écrans. |
 | 1.0.10 | 2026-07-31 | **Archivo et Chivo Mono embarquées — dernière dette du cycle 002 soldée, portes P-21 et P-21b.** `@fontsource-variable/archivo` **5.3.0** et `@fontsource-variable/chivo-mono` **5.3.0**, OFL-1.1, publiées le 2026-07-19, aucune dépendance ni `peerDependency`, vérifiées sur `https://registry.npmjs.org/@fontsource-variable%2Farchivo` et `https://registry.npmjs.org/@fontsource-variable%2Fchivo-mono` le 2026-07-31. L'application tournait sur les polices système de repli, alors que `theme.css` prescrit le local et que `tokens.md` §2 confie l'alignement des colonnes de montants à Chivo Mono tabulaire. **Variable retenue sur mesure** : 4 fichiers / 114,0 ko contre 12 fichiers / 152,7 ko en statique, pour les quatre graisses d'Archivo et les deux de Chivo Mono réellement employées. **Aucun sous-réglage de caractères** — le texte est dynamique, contrairement aux icônes : `latin` **et** `latin-ext`, sous-ensembles de script entiers. ⚠️ **U+202F absent de la source, ajouté à la `cmap`** (associé au dessin de U+2009, chasse mesurée : 193 en Archivo, 600 en Chivo Mono donc cellule pleine) : le caractère n'existe ni dans les `woff2` de Fontsource ni dans les `ttf` amont de Google Fonts, ce que seule la lecture de la table révèle — la `unicode-range` déclarée annonce `U+2000-206F`. Déterminisme à l'octet vérifié ; validité confirmée par harfbuzz, qui a d'abord **refusé** les fichiers auxquels manquait le complément d'alignement sur quatre octets. |
 | 1.0.9 | 2026-07-31 | **La police d'icônes embarquée — dette du cycle 002 soldée, porte P-21.** `@phosphor-icons/web` **2.1.2** (source des glyphes) et `subset-font` **2.5.0** (outil de sous-réglage), vérifiés sur `https://registry.npmjs.org/` le 2026-07-31, licences MIT et BSD-3-Clause, `peerDependencies` contrôlées — aucune pour le premier, aucune pour le second. La maquette charge Phosphor depuis `unpkg.com` ; l'application ne le fait **jamais**. Sous-ensemble de **77 glyphes sur ~1530**, soit **9,4 ko** au lieu de 279 ko. La version est **alignée sur celle des maquettes** : deux versions différentes donneraient deux dessins d'icône, écart qu'aucune porte ne verrait. Déterminisme à l'octet vérifié, condition du mode `--verifier`. **À reporter à la revue du 2026-08-31** comme les paquets des gels 1.0.5 et 1.0.6. |

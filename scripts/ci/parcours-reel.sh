@@ -19,6 +19,39 @@
 #  dériverait.
 #
 # ═════════════════════════════════════════════════════════════════════════════════════════════
+#  PÉRIMÈTRE — LES MOTEURS, ET CE QU'ILS COUVRENT DU PRODUIT (exigence 1)
+# ═════════════════════════════════════════════════════════════════════════════════════════════
+#
+#  **La cible est Tauri, et Tauri n'embarque pas Chromium.** Il emprunte le moteur du système. La
+#  correspondance décide de ce que cette porte couvre réellement :
+#
+#      Moteur du système                Cible du produit                Projet Playwright
+#      ───────────────────────────────  ──────────────────────────────  ─────────────────
+#      WebView2 (Chromium)              Windows                         chromium
+#      Android System WebView (Chrom.)  Android                         chromium
+#      WKWebView (WebKit)               macOS — le poste de dév.        webkit
+#      WKWebView (WebKit)               iOS                             webkit
+#      WebKitGTK (WebKit)               Linux                           webkit
+#
+#  Trois cibles sur cinq sont WebKit. Tant que la porte n'exerçait que Chromium, elle validait le
+#  moteur que le produit n'utilise PAS sur la majorité de ses cibles — à commencer par celle sur
+#  laquelle il est écrit. Les deux projets exécutent **les mêmes tests, sans exclusion** : un cas
+#  qui tombe sous WebKit est un écart que la coquille Tauri rencontrera, pas un cas à retirer.
+#
+#  L'étape 3/5 ci-dessous ne se contente pas de l'écrire : elle **compte les projets que Playwright
+#  exécutera vraiment** et refuse si l'un des deux manque. Une porte qui annonce deux moteurs et
+#  n'en lance qu'un est indistinguable d'une porte qui passe (exigence 2).
+#
+#  CE QUE CELA NE COUVRE TOUJOURS PAS, et il faut le lire avant de conclure : le `webkit` de
+#  Playwright **n'est pas WKWebView**. C'est une construction de WebKit maintenue par l'équipe
+#  Playwright — plus proche de la cible que Chromium, et pas identique : ni les réglages du
+#  composant système d'Apple, ni son intégration au processus hôte, ni les restrictions d'iOS. Le
+#  contrôle réel de macOS et d'iOS viendra avec la coquille Tauri. Un vert ici dit « le produit
+#  tourne sur un moteur WebKit », jamais « le produit est vérifié sur la cible ».
+#
+#  Firefox n'est pas couvert : aucune cible du produit n'emploie Gecko.
+#
+# ═════════════════════════════════════════════════════════════════════════════════════════════
 #  CE QUE CETTE PORTE EXIGE DE L'ENVIRONNEMENT
 # ═════════════════════════════════════════════════════════════════════════════════════════════
 #
@@ -40,7 +73,7 @@ cd "$racine"
 MODE_NEGATIF=0
 [[ "${1:-}" == "--negatif" ]] && MODE_NEGATIF=1
 
-echo "── P-22 · 1/4 — l'environnement ──────────────────────────────────────────────"
+echo "── P-22 · 1/5 — l'environnement ──────────────────────────────────────────────"
 
 if [[ -f backend/.env ]]; then
     set -a
@@ -79,7 +112,7 @@ if ! curl -sf -m 5 http://localhost:8080/health >/dev/null 2>&1; then
 fi
 echo "  ✓ API joignable, mot de passe de démonstration défini"
 
-echo "── P-22 · 2/4 — les routes inspectées ────────────────────────────────────────"
+echo "── P-22 · 2/5 — les routes inspectées ────────────────────────────────────────"
 # Le décompte est imprimé AVANT l'exécution : une porte dont la cible a rétréci doit se voir ici,
 # pas dans un résumé de fin où « 0 test, 0 échec » ressemble à un succès.
 fichiers=$(find app/pages -maxdepth 1 -name '*.vue' | wc -l | tr -d ' ')
@@ -90,8 +123,37 @@ if [[ "$fichiers" -eq 0 ]]; then
     exit 1
 fi
 
+echo "── P-22 · 3/5 — les moteurs réellement exercés ───────────────────────────────"
+#
+# Exigence 2 : « compter les cibles réellement examinées et les comparer au total attendu ». La
+# correspondance moteur ↔ cible est écrite en tête ; ici on vérifie qu'elle est TENUE. Un
+# `projects:` amputé, un `--project=chromium` oublié dans un script d'appel, et la porte
+# n'exercerait plus qu'un moteur en continuant d'afficher le même vert.
+MOTEURS_ATTENDUS=(chromium webkit)
+inventaire="$(pnpm exec playwright test --list 2>/dev/null || true)"
+
+manquants=()
+for moteur in "${MOTEURS_ATTENDUS[@]}"; do
+    cas=$(printf '%s\n' "$inventaire" | grep -c "^  \[${moteur}\]" || true)
+    if [[ "$cas" -eq 0 ]]; then
+        manquants+=("$moteur")
+        echo "  ✗ ${moteur} — AUCUN cas"
+    else
+        echo "  ✓ ${moteur} — ${cas} cas"
+    fi
+done
+
+if [[ ${#manquants[@]} -gt 0 ]]; then
+    echo "  ✗ moteur(s) annoncé(s) mais non exercé(s) : ${manquants[*]}" >&2
+    echo "    La cible est Tauri, qui emprunte le moteur du système : WebKit couvre macOS, iOS" >&2
+    echo "    et Linux, Chromium couvre Windows et Android. Un moteur absent retire trois cibles" >&2
+    echo "    de la porte sans rien changer à son verdict." >&2
+    echo "    Installer le navigateur manquant : pnpm exec playwright install ${manquants[*]}" >&2
+    exit 1
+fi
+
 if [[ $MODE_NEGATIF -eq 1 ]]; then
-    echo "── P-22 · 3/4 — TEST NÉGATIF : la porte sait-elle échouer ? ───────────────────"
+    echo "── P-22 · 4/5 — TEST NÉGATIF : la porte sait-elle échouer ? ───────────────────"
     #
     # Exigence 4 du § « Couverture des portes » : « le test l'exerce sur au moins un cas réel ».
     # On casse une route pour de vrai — le layout perd son `<main>` —, on constate que la porte
@@ -108,7 +170,12 @@ if [[ $MODE_NEGATIF -eq 1 ]]; then
     perl -0pi -e 's/<main class=/<div class=/; s/<\/main>/<\/div>/' "$cible"
     echo "  · $cible cassé volontairement — <main> remplacé par <div>"
 
-    if pnpm exec playwright test --grep "chargement DIRECT" >/dev/null 2>&1; then
+    # Le filtre porte sur le **numéro** du contrôle, pas sur ses mots seuls : « 1 · chargement
+    # DIRECT » désigne le contrôle par route et lui seul. Un filtre sur « chargement DIRECT »
+    # attraperait aussi le contrôle 7 de la section « passer la main », qui ferme la session — il
+    # tournerait alors sans que le contrôle 6 l'ait fermée, et son verdict dépendrait de la casse
+    # d'un libellé. Une porte ne se pilote pas à la majuscule près.
+    if pnpm exec playwright test --grep "1 · chargement DIRECT" >/dev/null 2>&1; then
         echo "  ✗ LA PORTE A PASSÉ SUR UNE COQUILLE CASSÉE." >&2
         echo "    Elle ne garde rien : le contrôle du <main> n'inspecte pas ce qu'il annonce." >&2
         exit 1
@@ -116,12 +183,14 @@ if [[ $MODE_NEGATIF -eq 1 ]]; then
     echo "  ✓ la porte a refusé la coquille cassée"
     remettre
     trap - EXIT
-    echo "── P-22 · 4/4 — test négatif concluant ───────────────────────────────────────"
+    echo "── P-22 · 5/5 — test négatif concluant ───────────────────────────────────────"
     exit 0
 fi
 
-echo "── P-22 · 3/4 — le parcours réel ─────────────────────────────────────────────"
+echo "── P-22 · 4/5 — le parcours réel ─────────────────────────────────────────────"
 pnpm exec playwright test
 
-echo "── P-22 · 4/4 — bilan ────────────────────────────────────────────────────────"
-echo "P-22 ✓ — les ${fichiers} routes s'atteignent, en direct et par navigation, dans les deux thèmes."
+echo "── P-22 · 5/5 — bilan ────────────────────────────────────────────────────────"
+echo "P-22 ✓ — les ${fichiers} routes s'atteignent, en direct et par navigation, dans les deux"
+echo "         thèmes, sur ${#MOTEURS_ATTENDUS[@]} moteurs (${MOTEURS_ATTENDUS[*]}), et la sortie de session"
+echo "         renvoie sur /connexion par les deux mêmes chemins."

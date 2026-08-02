@@ -74,6 +74,14 @@
       "inattendue": "La connexion n'a pas abouti. Réessayez dans un instant."
     }
   },
+  "deconnexion": {
+    "action": "Passer la main",
+    "effet": "La personne suivante devra entrer son identifiant.",
+    "en_cours": "Fermeture en cours…",
+    "refus": {
+      "en_attente": "Des enregistrements ne sont pas encore partis. Attendez le retour du réseau avant de passer la main."
+    }
+  },
   "comptes": {
     "sur_titre": "Réglages de l'établissement",
     "titre": "Ce que chacun peut faire",

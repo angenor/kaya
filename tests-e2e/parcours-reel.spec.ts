@@ -33,6 +33,28 @@
  *   4. **le `<main>` est toujours dans le DOM** après navigation ;
  *   5. **la classe `.dark` s'applique** et la page reste lisible dans les deux thèmes.
  *
+ * Puis, **une fois toutes les routes exercées**, trois contrôles de sortie de session (§ « passer
+ * la main » plus bas) : le geste ferme la session et purge le stockage, et une route protégée
+ * renvoie ensuite sur `/connexion` — **en chargement direct comme en navigation interne**, les deux
+ * mêmes chemins que ci-dessus.
+ *
+ * **Sur DEUX moteurs de rendu**, et c'est le produit qui l'impose. Tauri v2 n'embarque aucun
+ * navigateur : il emprunte celui du système. La correspondance décide de ce qui est réellement
+ * couvert :
+ *
+ * | Moteur du système | Cible du produit | Projet Playwright |
+ * |---|---|---|
+ * | **WebView2** (Chromium) | Windows | `chromium` |
+ * | **Android System WebView** (Chromium) | Android | `chromium` |
+ * | **WKWebView** (WebKit) | **macOS** — le poste de développement | `webkit` |
+ * | **WKWebView** (WebKit) | **iOS** | `webkit` |
+ * | **WebKitGTK** (WebKit) | **Linux** | `webkit` |
+ *
+ * Trois cibles sur cinq sont WebKit. Chromium seul validait donc le moteur que le produit
+ * n'utilisera pas sur la majorité d'entre elles, à commencer par celle sur laquelle il est écrit.
+ * Les deux projets exécutent **les mêmes tests, sans exclusion** : un cas qui tombe sous WebKit est
+ * un écart que la coquille Tauri rencontrera, pas un cas à retirer de la porte.
+ *
  * **Non inspecté, et écrit ici plutôt que supposé.**
  *
  * - **L'apparence.** Cette porte vérifie qu'une page s'ouvre et qu'elle bascule de thème ; elle ne
@@ -40,9 +62,15 @@
  *   reste humaine — c'est la même limite assumée que `classes_offline.rs` pour la justesse des
  *   classes hors-ligne.
  * - **Le contenu métier.** Qu'un écran s'affiche ne dit pas qu'il affiche les bonnes lignes. Les
- *   428 tests front couvrent cela, et cette porte ne les remplace pas : elle couvre ce qu'ils ne
+ *   tests front couvrent cela, et cette porte ne les remplace pas : elle couvre ce qu'ils ne
  *   peuvent pas voir.
- * - **Les autres navigateurs.** Chromium seul. Un défaut propre à WebKit passerait.
+ * - **WKWebView lui-même.** *La limite la plus facile à mal lire.* Le `webkit` de Playwright est
+ *   une construction de WebKit maintenue par l'équipe Playwright : **plus proche de la cible que
+ *   Chromium, et pas identique**. Il ne porte ni les réglages du composant système d'Apple, ni son
+ *   intégration au processus hôte, ni les restrictions propres à iOS. Le contrôle réel de macOS et
+ *   d'iOS viendra avec la coquille Tauri. Un vert sur `webkit` dit « le produit tourne sur un
+ *   moteur WebKit », jamais « le produit est vérifié sur la cible ».
+ * - **Firefox.** Aucune cible du produit n'emploie Gecko. Non couvert, et sans conséquence.
  *
  * ═══════════════════════════════════════════════════════════════════════════════════════════
  *  LE STYLEGUIDE EST COUVERT — décision écrite, pas laissée implicite
@@ -100,6 +128,41 @@ const BRUIT_TOLERE: readonly RegExp[] = [
   // Vite en mode développement. Absent de la construction de production.
   /\[vite\] (connecting|connected)/,
 ]
+
+/**
+ * Les deux routes que la section « passer la main » nomme — **cherchées dans `ROUTES`**, jamais
+ * écrites à la main.
+ *
+ * C'est la règle de `routes.ts`, appliquée ici : une liste écrite à la main laisse passer la
+ * septième page, et une constante écrite à la main continue de désigner une route supprimée — le
+ * test s'exercerait alors sur une 404 en la prenant pour une redirection. Une cible introuvable
+ * **lève** au chargement du fichier plutôt que de se replier en silence sur autre chose.
+ */
+function routeDeLaPorte(predicat: (route: Route) => boolean, quoi: string): Route {
+  const trouvee = ROUTES.find(predicat)
+  if (!trouvee) {
+    throw new Error(
+      `P-22 — aucune route ${quoi} parmi les ${ROUTES.length} lues de app/pages/.\n`
+      + 'Les contrôles de sortie de session n’ont plus de cible : ils passeraient au vert sans '
+      + 'rien exercer.',
+    )
+  }
+  return trouvee
+}
+
+/** L'écran de connexion — la cible de toute redirection hors session. */
+const R0 = routeDeLaPorte(route => route.chemin === '/connexion', 'de connexion')
+
+/**
+ * La route protégée sur laquelle la redirection est vérifiée.
+ *
+ * La racine est écartée : elle est la destination par défaut de trop de chemins, et une
+ * redirection qui y aboutirait par hasard ressemblerait à une redirection réussie.
+ */
+const PROTEGEE = routeDeLaPorte(
+  route => route.exigeSession && route.chemin !== '/',
+  'protégée autre que la racine',
+)
 
 let contexte: BrowserContext
 let page: Page
@@ -231,6 +294,87 @@ for (const route of ROUTES) {
     })
   })
 }
+
+// =================================================================================================
+//  Passer la main — EN DERNIER, et ce n'est pas une commodité d'écriture
+// =================================================================================================
+//
+//  Ces trois contrôles **détruisent la session partagée**, celle que `beforeAll` a ouverte une
+//  seule fois. Les placer ailleurs qu'à la fin ferait échouer toutes les routes qui suivent, et
+//  la rouvrir coûterait une tentative de plus au compteur de `LimiteTentatives` — dix par
+//  identifiant sur cinq minutes, réussies comprises. L'ordre est donc structurel, et
+//  `test.describe.configure({ mode: 'serial' })` en tête de fichier le garantit.
+//
+//  Ce qu'ils gardent : `fermerSession()` a vécu un cycle entier exportée et **appelée nulle part**.
+//  Sur un terminal de comptoir, où l'appareil ne bouge pas et où c'est la personne qui change, les
+//  actions de Yao entraient au journal d'audit **au nom d'Aminata**. `app/tests/deconnexion.spec.ts`
+//  vérifie que le geste fait ce qu'il annonce ; ici, on vérifie qu'il est **atteignable dans le
+//  produit**, et que ce qu'il ferme reste fermé sur les deux chemins d'accès — c'est exactement la
+//  distinction que P-22 existe pour porter.
+
+test.describe('P-22 · passer la main', () => {
+  test('6 · le bouton ferme la session, purge le stockage et renvoie sur /connexion', async () => {
+    await page.goto('/')
+    await page.waitForLoadState('networkidle')
+    erreurs = []
+
+    // Le bouton est cherché par son **rôle et son libellé**, comme un utilisateur le trouverait —
+    // pas par une classe ni un `data-testid`. Un sélecteur technique passerait encore le jour où
+    // le libellé cesserait d'être celui du lexique.
+    const bouton = page.getByRole('button', { name: /passer la main/i })
+    await expect(
+      bouton,
+      'aucun bouton « passer la main » dans la coquille sous session.\n'
+      + 'C’est l’état d’avant ce lot : `fermerSession()` existait sans aucun appelant, et il '
+      + 'n’y avait aucun moyen de quitter sa session.',
+    ).toBeVisible()
+
+    await bouton.click()
+    await page.waitForURL(url => new URL(url).pathname === '/connexion', { timeout: 20_000 })
+
+    // **La purge, constatée dans le navigateur** — pas déduite de l'appel. Le cadrage §11.5
+    // règle 5 l'impose : ce sont des données d'identité de clients.
+    const restant = await page.evaluate(
+      () => Object.keys(localStorage).filter(cle => cle.startsWith('kaya.')),
+    )
+    expect(
+      restant,
+      `des clés « kaya. » ont survécu à la déconnexion : ${restant.join(', ')}`,
+    ).toEqual([])
+
+    await verifierCoquille(R0, 'après déconnexion')
+  })
+
+  test('7 · une route protégée en CHARGEMENT DIRECT renvoie sur /connexion', async () => {
+    // Le chemin du signet et du rechargement. Sans jeton rangé, le middleware global ne peut plus
+    // reprendre de session : il doit renvoyer, pas afficher un écran vide.
+    await page.goto(PROTEGEE.chemin)
+    await page.waitForLoadState('networkidle')
+
+    await expect(page).toHaveURL(/\/connexion\/?$/)
+    await verifierCoquille(R0, 'protégée en direct, déconnecté')
+  })
+
+  test('8 · une route protégée en NAVIGATION INTERNE renvoie sur /connexion', async () => {
+    await page.goto('/connexion')
+    await page.waitForLoadState('networkidle')
+    erreurs = []
+
+    await page.evaluate((chemin) => {
+      history.pushState({}, '', chemin)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }, PROTEGEE.chemin)
+    await page.waitForLoadState('networkidle')
+
+    await expect(
+      page,
+      `${PROTEGEE.chemin} s’est ouverte sans session par navigation interne.\n`
+      + 'L’adresse a changé sans que le middleware ne redirige — c’est la moitié du défaut du '
+      + 'cycle 003, sur le chemin où il ne se voyait pas.',
+    ).toHaveURL(/\/connexion\/?$/)
+    await verifierCoquille(R0, 'protégée en interne, déconnecté')
+  })
+})
 
 // =================================================================================================
 //  Les vérifications communes — contrôles 3 et 4

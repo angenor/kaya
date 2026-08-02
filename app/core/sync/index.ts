@@ -23,11 +23,19 @@
  * {@link viderFile}, seule sortie de la file, et non par la discipline de l'appelant : le défaut
  * qu'il évite ne se manifeste qu'après une coupure plus longue que la durée du jeton, donc jamais
  * en développement.
+ *
+ * # « Combien attendent ? » se demande d'ailleurs — `attente.ts`
+ *
+ * La file est une instance ; le produit a besoin de l'interroger sans la tenir. C'est ce que porte
+ * `attente.ts` : un point unique où l'on demande combien d'écritures ne sont pas parties, branché
+ * par SYN-01 et **répondant 0 en attendant**. Le premier appelant est le bouton « passer la main »
+ * de la coquille, qui refuse de purger le stockage sur une file non vide.
  */
 
 import { estTypeClasseA, type EntreeFile, type OperationClasseA } from './classes'
 
 export * from './classes'
+export { brancherFile, ecrituresEnAttente, fileBranchee } from './attente'
 export { viderFile, type Envoyeur, type ResultatVidage } from './vidage'
 
 /** État du réseau, affiché en permanence (principe VI). */

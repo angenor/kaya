@@ -74,6 +74,14 @@
       "inattendue": "Sign-in did not go through. Try again in a moment."
     }
   },
+  "deconnexion": {
+    "action": "Hand over",
+    "effet": "The next person will have to enter their ID.",
+    "en_cours": "Closing…",
+    "refus": {
+      "en_attente": "Some entries haven’t been sent yet. Wait for the network before handing over."
+    }
+  },
   "comptes": {
     "sur_titre": "Establishment settings",
     "titre": "What each person can do",

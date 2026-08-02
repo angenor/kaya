@@ -3,6 +3,13 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.3.0** — deux entrées pour le geste qui manquait au produit : **quitter son poste**.
+`fermerSession()` existait depuis le cycle CPT sans aucun appelant — il n'y avait, littéralement,
+aucun moyen de sortir de sa session. Le mot retenu n'est pas « se déconnecter » : sur un terminal
+partagé, l'appareil ne bouge pas, c'est la personne qui change, et le journal d'audit du §8.3 —
+« ce que le propriétaire achète » — devient faux dès que Yao travaille sous le nom d'Aminata. Le
+libellé nomme donc le geste réel, **passer la main**, et la seconde entrée porte son unique refus.
+
 **Version 1.2.0** — le vocabulaire du cycle CPT : compte, personne, appareil connecté, registre des
 actions, et **la phrase unique des deux échecs d'authentification**. Quatre mots y sont écartés
 nommément — « rôle », « permission », « jeton » et « JWT » —, et l'entrée la plus contraignante du
@@ -57,6 +64,8 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | Session, jeton d'accès, jeton de rafraîchissement, JWT | **N'apparaît jamais.** L'utilisateur voit un « **appareil connecté** » ; les quatre mots sont de la mécanique interne |
 | Une session de la liste | « **Appareil connecté** » / *Connected device* — avec l'appareil, la première connexion et la dernière activité. Jamais « session » |
 | Révocation d'une session | « **Déconnecter cet appareil** » / *Disconnect this device* — jamais « révoquer », qui est le mot du jeton. La phrase de confirmation dit l'effet : « Cet appareil devra se reconnecter » |
+| Fermeture de **sa propre** session sur le terminal qu'on a sous la main (`DELETE /api/v1/session`) | « **Passer la main** » / *Hand over* — jamais « Se déconnecter », qui décrit la rupture d'un lien technique là où le geste réel est **de rendre le poste au suivant**. Au comptoir de Deloria, l'appareil ne bouge pas : c'est la personne qui change. L'infobulle dit l'effet : « **La personne suivante devra entrer son identifiant.** » / *The next person will have to enter their ID.* — jamais « votre session sera fermée », ni « vous serez déconnecté ». À ne pas confondre avec « Déconnecter cet appareil » ci-dessus : celui-là coupe un **autre** appareil, à distance, depuis la liste ; celui-ci rend **celui-là même** qu'on tient |
+| Refus de passer la main, file d'envoi non vide | « **Des enregistrements ne sont pas encore partis.** Attendez le retour du réseau avant de passer la main. » / *Some entries haven’t been sent yet. Wait for the network before handing over.* — le mot « file » n'apparaît pas (règle déjà posée pour l'idempotence et le rejeu), et le refus est **immédiat**, jamais un échec après coup |
 | `identifiants_invalides` (401) | « **Identifiant ou mot de passe incorrect** » / *Incorrect ID or password* — **une seule phrase, employée dans les deux cas** : compte inconnu et mot de passe faux. Deux phrases distinctes publieraient la liste des comptes existants (FR-012). C'est aussi pourquoi le compte désactivé et le dépassement de tentatives rendent **cette même phrase** |
 | `session_invalide` (401) | « **Votre session a expiré. Reconnectez-vous.** » / *Your session has expired. Please sign in again.* |
 | `mot_de_passe_refuse` (422) | Deux phrases distinctes, parce que l'utilisateur doit savoir quoi corriger : « **Choisissez un mot de passe d'au moins 8 caractères.** » ou « **Ce mot de passe est trop courant. Choisissez-en un autre.** » Jamais « compromis » ni « figurant dans une fuite », qui alarment sans instruire |

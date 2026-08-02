@@ -577,6 +577,7 @@ Les trois symptômes observés n'en faisaient qu'un :
 | **Anti-scintillement** | script en ligne dans `app.head` de `nuxt.config.ts` | En SPA, la coquille est peinte avec `body { background-color }` **avant** que le moindre module ne s'exécute. Même en `enforce: 'pre'`, un plugin arrive après le premier pixel : l'utilisateur en mode sombre verrait un éclair blanc à chaque ouverture. En ligne, jamais un hôte externe — P-21 intacte. |
 | **Reprise de session** | `middleware/01.session.global.ts` | Un middleware global s'exécute avant **chaque** navigation, la première comprise. C'est la seule place qui couvre les six routes sans être recopiée six fois — et la recopie était la faute. |
 | **Coquille** | `layouts/default.vue` | Une racine stable, **un seul `<main>`**. Une page nouvelle en hérite sans rien écrire, et ne peut pas l'oublier. |
+| **Sortie de session** | `layouts/default.vue`, pied de coquille | Même raison que la reprise : dans un écran, chaque écran suivant devrait s'en souvenir. C'est un **pied** et non un en-tête parce que `R1` et `G1` portent déjà deux `<header>` différents et que `G3`/`G4` n'en ont aucun — se poser au-dessus les rouvrirait tous les trois, ce que `derivation.md` refuse. |
 
 **Trois pièges qui coûtent une heure chacun, écrits une fois pour toutes :**
 
@@ -619,18 +620,35 @@ règle opposable qui en découle : **une page a une seule racine, et c'est un é
 nulle part. Elle n'était pas même testée : `theme-sombre.spec.ts` lit les jetons de `theme.css`, il
 n'importe pas `core/theme`. Le balayage qui l'a trouvée a trouvé **quatre autres** points d'entrée
 sans appelant : `FileLocale`, `marquerClasseA`, `viderFile` et `operationRealisable` — la file
-hors-ligne entière — plus `fermerSession`, qu'aucun bouton n'atteint.
+hors-ligne entière — plus `fermerSession`, qu'aucun bouton n'atteignait.
 
-`app/tests/amorcage.spec.ts` porte désormais les **onze points d'entrée** à deux états, `branché` et
-`dû`, et vérifie **les deux versants** : un `dû` qui acquiert un appelant fait échouer le build, un
-`branché` qui le perd aussi. Sans le second versant, tout déclarer branché rendrait le harnais muet.
+`app/tests/amorcage.spec.ts` porte désormais les **douze points d'entrée** à deux états, `branché`
+et `dû`, et vérifie **les deux versants** : un `dû` qui acquiert un appelant fait échouer le build,
+un `branché` qui le perd aussi. Sans le second versant, tout déclarer branché rendrait le harnais
+muet.
 
-#### Ce que la coquille ne porte pas encore, et pourquoi
+**Le harnais a servi une première fois au lot suivant, et c'est ce qu'on lui demandait.**
+`fermerSession` est passée de **due** à **branchée** — le bouton « passer la main » du pied de
+coquille l'appelle — et le changement n'a pas pu se faire en silence : tant que sa ligne restait
+« due », le versant négatif échouait. Deux entrées sont nées dans le même mouvement,
+`ecrituresEnAttente` branchée et `brancherFile` due par SYN-01. **Une ligne qui bouge est une
+décision qu'on relit ; c'est toute la valeur de la liste.**
 
-Ni barre de contexte unifiée, ni témoin de synchronisation. Ce ne sont pas des oublis :
+#### Ce que la coquille porte, et ce qu'elle ne porte pas
+
+Elle porte, **depuis le lot de déconnexion** : une racine stable, un `<main>` unique, et le pied qui
+permet de **quitter son poste** — un bouton discret (composant 03), absent hors session, qui refuse
+si des écritures ne sont pas parties, révoque côté serveur, purge le stockage et renvoie sur `R0`.
+Le libellé passe par `docs/design/lexique.md` : « **passer la main** », jamais « se déconnecter » —
+sur un terminal de comptoir, l'appareil ne bouge pas, c'est la personne qui change, et c'est ce que
+le journal d'audit doit refléter.
+
+Elle ne porte ni barre de contexte unifiée, ni témoin de synchronisation. Ce ne sont pas des oublis :
 
 - `EcranAccueil` et `EcranEtablissement` portent chacun un `<header>` **différent**. Les fondre est
-  un changement d'écran, et `docs/design/derivation.md` est opposable.
+  un changement d'écran, et `docs/design/derivation.md` est opposable. **C'est la raison pour
+  laquelle la sortie de session est un pied et non un en-tête** : elle se pose sous les trois
+  formes d'écran sans en rouvrir aucune.
 - Le témoin de synchronisation est le **composant 10**, toujours dû à ETB-06. Prêt n'est pas
   construit (principe X).
 

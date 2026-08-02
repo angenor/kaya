@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## État du dépôt — lire en premier
 
 **Le socle, les établissements et les comptes sont en place** — cycles 001 (TRX), 002 (ETB) et
-003 (CPT) livrés : 18 crates Rust, 20 migrations, 224 tests backend, 440 tests front, 11 portes
+003 (CPT) livrés : 18 crates Rust, 20 migrations, 234 tests backend, 458 tests front, 11 portes
 scriptées, les cinq écrans `G1`, `R0`, `R1`, `G3` et `G4`, et une image de production construite
 et exercée.
 
@@ -91,17 +91,22 @@ C'est aussi le seul fichier `.vue` **exempté** du contrôle des littéraux de P
 nommée, dont la contrepartie (la page n'atteint pas la production) est vérifiée par la porte
 elle-même.
 
-**⛔ L'APPLICATION NE NAVIGUE PAS. À corriger avant tout nouveau cycle.**
-`app/app.vue` ne contient que `<NuxtPage />` ; il n'existe ni `app/plugins/` ni `app/layouts/`,
-donc **aucun point d'amorçage**. `pages/index.vue` amorce pour lui seul, les cinq autres pages
-n'ont rien. Trois symptômes d'une seule cause : `TypeError` sur `parentNode` qui vide le `<main>`
-en navigation interne, session jamais reprise en chargement direct, et **`initialiserTheme()`
-appelé nulle part — le produit n'a jamais affiché son mode sombre**. Conséquence : `G3` et `G4`
-sont inatteignables alors que leurs données répondent 200. La porte **P-22** existe désormais
-pour ça ; elle n'est pas encore implémentée.
+**Le parcours est réparé et opposable.** `app/plugins/`, `app/middleware/` et
+`app/layouts/default.vue` portent l'amorçage — thème avant rendu, reprise de session avant chaque
+navigation, coquille unique. La porte **P-22** vérifie que chaque route se charge en direct **et**
+par navigation, sur **Chromium et WebKit**, sans erreur de console.
 
-État par tranche : **T1 en cours** (TRX et ETB faits, CPT livré mais non navigable ;
-restent HEB, SYN, SEJ-1).
+**Tauri n'embarque pas Chromium** : WKWebView sur macOS et iOS, WebKitGTK sur Linux, WebView2
+sur Windows. P-22 tourne donc sur **Chromium et WebKit** — mais le WebKit de Playwright **n'est
+pas** WKWebView. Un vert dit « tourne sur un moteur WebKit », jamais « vérifié sur la cible ».
+La vérification sur WKWebView viendra avec la coquille Tauri.
+
+**Le libellé de la déconnexion est « Passer la main »**, pas « Se déconnecter » : sur un terminal
+de comptoir, l'appareil ne bouge pas, c'est la personne qui change. À ne pas confondre avec
+« Déconnecter cet appareil », qui coupe un autre appareil à distance. Les deux entrées sont au
+lexique — **tout terme visible passe par lui avant d'être codé**.
+
+État par tranche : **T1 en cours** (TRX, ETB et CPT livrés ; restent HEB, SYN, SEJ-1).
 
 ## Langue et conventions de nommage
 
