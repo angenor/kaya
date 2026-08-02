@@ -23,6 +23,7 @@
     "porte:p20": "bash scripts/ci/versions-epinglees.sh",
     "porte:p21": "bash scripts/ci/aucune-ressource-externe.sh",
     "porte:p21b": "bash scripts/ci/ressources-embarquees.sh",
+    "porte:p09:negatif": "bash scripts/ci/exclusion-negatif.sh",
     "porte:p22": "bash scripts/ci/parcours-reel.sh",
     "porte:p22:negatif": "bash scripts/ci/parcours-reel.sh --negatif"
   },
