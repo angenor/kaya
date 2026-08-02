@@ -1,4 +1,53 @@
 <!--
+SYNC IMPACT REPORT — 1.7.1 — 2026-08-02
+========================================
+Changement de version : 1.7.0 → 1.7.1 (PATCH)
+Motif : réparation d'une écriture manquée, pas une décision nouvelle. L'intention
+        était déjà versionnée en 1.7.0 ; seul son inscription au corps manquait.
+
+  1. L'exigence 6 était ANNONCÉE par le rapport de la v1.7.0 et ABSENTE du corps :
+     la section n'en listait que cinq. Le remplacement avait échoué en silence et la
+     vérification comptait les occurrences dans tout le fichier au lieu de la seule
+     section — le défaut même que la section reproche aux portes, commis sur elle.
+     La règle était donc annoncée sans être opposable.
+
+  2. L'intitulé « Trois exigences en découlent » était périmé depuis la v1.3.0, qui
+     en avait ajouté deux. Remplacé par une formulation qui ne se périme plus.
+
+  3. L'exigence 6 est REFORMULÉE PLUS DUREMENT que dans le rapport de la v1.7.0.
+     Celui-ci affirmait qu'initialiserTheme() était « couvert par ses tests, et
+     appelé nulle part ». C'était faux : theme-sombre.spec.ts n'importe pas
+     core/theme — la fonction n'était NI testée NI branchée. La règle juste porte
+     donc sur les deux versants, prouvés séparément. Sur onze fonctions d'amorçage,
+     cinq n'étaient appelées nulle part.
+
+SYNC IMPACT REPORT — 1.7.0 — 2026-08-01
+========================================
+Changement de version : 1.6.0 → 1.7.0 (MINOR)
+Motif : une porte ajoutée (P-22) et une exigence de couverture (6). Jeu porté à
+        25 portes. Aucun principe ajouté, renommé ni supprimé.
+Origine : vérification EN NAVIGATEUR du cycle 003, après livraison de 64 tâches sur
+        64, 24 portes vertes, 224 tests backend et 428 tests front.
+
+  Constat : DEUX DES QUATRE ÉCRANS DU PRODUIT — G3 et G4 — sont inatteignables en
+  navigateur. Trois défauts qu'aucune porte ni aucun test ne voyait :
+    · une TypeError sur `parentNode` vide le <main> à la navigation vers une page
+      paresseuse — reproduite sur /etablissement, donc antérieure au cycle 003 ;
+    · un chargement direct d'adresse ne reprend jamais la session ;
+    · la classe .dark n'est jamais appliquée.
+
+  La cause est UNIQUE et architecturale : `app/app.vue` ne contient que <NuxtPage />,
+  il n'existe ni `app/plugins/` ni `app/layouts/`, donc aucun point d'amorçage de
+  l'application. `pages/index.vue` amorce pour lui seul ; les cinq autres pages n'ont
+  rien. Le patron front documenté au cycle 002 couvrait l'écriture, l'appel typé, les
+  erreurs et les permissions — pas le cycle de vie de l'application.
+
+  Les 428 tests ne pouvaient pas le voir : ils montent les écrans avec
+  @vue/test-utils, ce qui contourne le routeur, <Suspense>, les layouts et les
+  plugins. P-22 rend enfin opposable le point 8 de la Definition of Done — « écran
+  vérifié en mode clair et en mode sombre » — qui n'a été coché pour AUCUNE story
+  depuis le début du projet, faute d'être vérifiable autrement qu'à la main.
+
 SYNC IMPACT REPORT — 1.6.0 — 2026-08-01
 ========================================
 Changement de version : 1.5.0 → 1.6.0 (MINOR)
@@ -631,6 +680,7 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-20 | Aucune dépendance déclarée en intervalle ; lockfiles commités et à jour | XI |
 | P-21 | **Aucune ressource chargée depuis un hôte externe** — police, icône, script, feuille de style, image. Un CDN rend l'écran dépendant du réseau, ce que le mode hors-ligne interdit | VI, XII |
 | P-21b | **Toute ressource déclarée est effectivement embarquée** — chaque famille de `--font-*` du bloc `@theme` est servie par un `@font-face` local, chaque glyphe employé figure dans la police sous-réglée, et **toute police embarquée est accompagnée de sa licence et de son avis de copyright, atteignables depuis le produit**. Retirer un CDN sans embarquer son contenu fait passer P-21 au vert **en n'affichant rien** ; embarquer une police sans son attribution redistribue une œuvre sous licence sans en respecter les termes | VI, IX, XII |
+| P-22 | **PARCOURS RÉEL — l'application démarre et chaque route déclarée s'atteint**, sans erreur de console, de deux manières : par navigation interne **et** par chargement direct de l'adresse. Le thème déclaré s'applique effectivement. Un composant monté en test n'est pas un écran atteint : `@vue/test-utils` contourne le routeur, `<Suspense>`, les layouts et les plugins — tout ce qui fait qu'une page existe pour un utilisateur | VII, VIII |
 
 ### Couverture des portes — leçon du cycle 1
 
@@ -646,7 +696,7 @@ Le cycle 002 l'a confirmé deux fois : le décompte de P-07 ne couvrait que 4 ta
 masquée par l'unique composant non annoté du cycle précédent. Une porte dont la cible est vide est
 indistinguable d'une porte qui passe.
 
-Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée :
+Les exigences suivantes en découlent, applicables à toute porte nouvelle ou corrigée :
 
 1. **Déclarer le périmètre inspecté** en commentaire de tête : ce que la porte lit, et ce qu'elle
    ne lit pas. Une limite assumée et écrite vaut mieux qu'une couverture supposée.
@@ -668,6 +718,12 @@ Trois exigences en découlent, applicables à toute porte nouvelle ou corrigée 
    migration 0012 — n'a été trouvé ni par relecture ni par une porte, mais par le premier
    événement de portée tenant appliqué à un second tenant. La couverture s'étend avec les
    fonctionnalités : elle doit être re-exercée, pas supposée acquise.
+6. **Une unité écrite n'est ni testée ni branchée par défaut.** Pour toute fonction d'amorçage —
+   thème, session, file hors-ligne, adaptateur de plateforme, i18n, télémétrie — **deux preuves
+   distinctes sont dues** : un test qui l'exerce, et un test qui vérifie qu'elle est **appelée dans
+   le parcours réel**. L'application en comptait onze, dont **cinq n'étaient appelées nulle part**
+   et une n'était pas même importée par le fichier de test censé la couvrir. Le nom d'un fichier de
+   test ne prouve pas ce qu'il teste.
 
 ### Flux de développement
 
@@ -701,7 +757,7 @@ Un principe n'est jamais contourné en silence : il est amendé ou il est respec
 - **PATCH** — clarification, reformulation, correction sans effet sémantique.
 
 **Conformité.** Chaque plan de fonctionnalité passe un `Constitution Check` avant
-implémentation. Les portes P-01 à P-21 (P-01b, P-05b et P-21b incluses) sont exécutées en intégration continue et leur échec
+implémentation. Les portes P-01 à P-22 (P-01b, P-05b et P-21b incluses) sont exécutées en intégration continue et leur échec
 bloque la fusion. Toute complexité ajoutée doit être justifiée par écrit dans le plan ; à
 justification absente, l'option la plus simple s'impose.
 
@@ -735,4 +791,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.6.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-01
+**Version**: 1.7.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-02

@@ -389,7 +389,10 @@ montants en entiers d'unité mineure ET quantités en NUMERIC ; chaque entité d
 sa classe dans docs/registre-classes-offline.md ; les provisions sont des données
 seulement.
 
-PORTES DE CI : la constitution définit vingt portes bloquantes P-01 à P-20. Le plan
+PORTES DE CI : la constitution définit VINGT-CINQ portes bloquantes P-01 à P-22 (dont
+P-01b, P-05b, P-21b), et exige de chaque porte qu'elle déclare son périmètre inspecté,
+vérifie sa complétude, ne modifie pas ce qu'elle inspecte et prouve que sa cible n'est pas
+vide — section « Couverture des portes ». Le plan
 doit dire, pour chaque porte que ce module touche, COMMENT elle est vérifiée et par
 quel test. Une porte concernée sans mécanisme de vérification est un trou du plan.
 
