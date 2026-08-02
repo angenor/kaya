@@ -897,3 +897,411 @@ async fn liberer_raccourcit_la_periode_sans_effacer_l_occupation() {
         "une occupation déjà libérée n'est pas une erreur : c'est un terminal qui vide sa file"
     );
 }
+
+// =================================================================================================
+//  US4 — LA DEMI-JOURNÉE : des plages fixes, et rien entre les deux
+// =================================================================================================
+
+/// Une salle de réunion, sa formule de demi-journée, ses deux plages, et son battement.
+///
+/// # Trois choix de la fabrique, et ce qu'ils évitent
+///
+/// **`battement_minutes` est un paramètre**, parce qu'un des tests fait exactement cela : reposer
+/// le même décor à 2 h au lieu d'1 h et constater que la même paire d'instants n'est plus
+/// attribuable. Deux fabriques presque identiques auraient noyé la seule différence qui compte.
+///
+/// **`duree_min_minutes` et `duree_max_minutes` restent nuls, et c'est délibéré.** Une formule
+/// bornée à 180–240 minutes refuserait 9 h – 11 h pour `duree_hors_contrainte` — au point 3 de
+/// `attribuer_dans`, **avant** que le point 4 n'ait regardé une seule plage. Le test du
+/// fractionnement serait vert sans jamais exercer la validation qu'il prétend vérifier : une porte
+/// qui échoue pour la mauvaise raison est indistinguable d'une porte qui fonctionne.
+///
+/// **La salle de réunion est une catégorie, pas une entité nouvelle.** C'est la décision de HEB-01,
+/// et le décor la tient : ni table, ni colonne, ni branche de code particulière.
+async fn poser_decor_demi_journee(pool: &sqlx::PgPool, nom: &str, battement_minutes: i32) -> Decor {
+    let jeu = creer_tenant(pool, nom).await;
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    sqlx::query(
+        r#"
+        INSERT INTO etablissements.etablissement_module
+            (id, tenant_id, etablissement_id, module_code, module_implemente)
+        VALUES ($1, $2, $3, 'HEBERGEMENT', true)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(Uuid::now_v7())
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("activation du module");
+
+    let categorie_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.categorie (id, tenant_id, etablissement_id, nom, capacite_accueil)
+        VALUES ($1, $2, $3, 'Salle de réunion', 20)
+        "#,
+    )
+    .bind(categorie_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("catégorie");
+
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.temps_remise_en_etat
+            (categorie_id, famille_formule, duree_minutes, tenant_id)
+        VALUES ($1, 'DEMI_JOURNEE', $2, $3)
+        "#,
+    )
+    .bind(categorie_id)
+    .bind(battement_minutes)
+    .bind(jeu.tenant_id)
+    .execute(&mut *tx)
+    .await
+    .expect("temps de remise en état");
+
+    let unite_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.unite
+            (id, tenant_id, etablissement_id, categorie_id, code, etage)
+        VALUES ($1, $2, $3, $4, 'SR1', NULL)
+        "#,
+    )
+    .bind(unite_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .bind(categorie_id)
+    .execute(&mut *tx)
+    .await
+    .expect("unité");
+
+    let formule_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.formule
+            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,
+             assujettie_taxe_nuitee)
+        VALUES ($1, $2, $3, $4, 'DEMI_JOURNEE', 25000, false)
+        "#,
+    )
+    .bind(formule_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .bind(categorie_id)
+    .execute(&mut *tx)
+    .await
+    .expect("formule");
+
+    // Les deux plages de Deloria, en heures **murales**.
+    for (debut, fin, cle) in [
+        ("08:00", "12:00", "plage.matin"),
+        ("13:00", "16:00", "plage.apres_midi"),
+    ] {
+        sqlx::query(
+            r#"
+            INSERT INTO hebergement.plage_demi_journee
+                (id, formule_id, heure_debut, heure_fin, libelle_cle, tenant_id)
+            VALUES ($1, $2, $3::time, $4::time, $5, $6)
+            "#,
+        )
+        .bind(Uuid::now_v7())
+        .bind(formule_id)
+        .bind(debut)
+        .bind(fin)
+        .bind(cle)
+        .bind(jeu.tenant_id)
+        .execute(&mut *tx)
+        .await
+        .expect("plage");
+    }
+
+    tx.commit().await.expect("commit");
+
+    Decor {
+        jeu,
+        unite_id,
+        formule_id,
+        categorie_id,
+    }
+}
+
+/// **Une demi-journée se loue en entier** (FR-033).
+///
+/// 9 h – 11 h tient dans la plage du matin, ne chevauche aucune occupation, et serait acceptée par
+/// la contrainte d'exclusion sans rien casser. C'est une règle **commerciale** : la salle se vend
+/// par plage, sinon la plage du matin devient invendable pour deux heures de recette.
+#[actix_web::test]
+async fn une_demi_journee_ne_se_fractionne_pas() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor_demi_journee(&pool_o, "HEB — fractionnement", 60).await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let erreur = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-01 09:00 UTC),
+            datetime!(2027-03-01 11:00 UTC),
+        ))
+        .await
+        .expect_err("9 h – 11 h ne coïncide avec aucune plage déclarée");
+
+    assert_eq!(
+        erreur.code(),
+        "plage_non_fractionnable",
+        "le refus doit nommer la plage : c'est le code sur lequel l'interface branche « Cette \
+         salle se loue par demi-journée entière ». Un `unite_deja_occupee` ou un \
+         `duree_hors_contrainte` afficherait une phrase qui n'explique rien à qui saisit."
+    );
+
+    // Et le versant symétrique : une plage **débordante** est refusée elle aussi. Sans ce cas, une
+    // implémentation qui vérifierait « l'intervalle est CONTENU dans une plage » passerait le test
+    // précédent.
+    let erreur = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-01 08:00 UTC),
+            datetime!(2027-03-01 16:00 UTC),
+        ))
+        .await
+        .expect_err("8 h – 16 h couvre les deux plages ET la coupure entre elles");
+    assert_eq!(erreur.code(), "plage_non_fractionnable");
+}
+
+/// **Deux demi-journées consécutives sur la même unité** — le test indépendant de la story.
+///
+/// 8 h – 12 h puis 13 h – 16 h, avec 1 h de remise en état. La première occupe `[8 h, 13 h)`, la
+/// seconde commence exactement à 13 h : la borne haute étant **exclue**, elles sont contiguës et
+/// coexistent. La salle se loue donc deux fois dans la journée, ce qui est tout l'intérêt de la
+/// demi-journée.
+#[actix_web::test]
+async fn deux_demi_journees_consecutives_sur_la_meme_unite() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor_demi_journee(&pool_o, "HEB — deux demi-journées", 60).await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let (matin, _) = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-02 08:00 UTC),
+            datetime!(2027-03-02 12:00 UTC),
+        ))
+        .await
+        .expect("la plage du matin est déclarée et doit être acceptée");
+
+    assert_eq!(
+        matin.indisponible_jusqu_a,
+        datetime!(2027-03-02 13:00 UTC),
+        "la salle reste indisponible 1 h après 12 h — le battement vient du SERVEUR, jamais du \
+         client, sans quoi un terminal pourrait le mettre à zéro et supprimer la remise en état"
+    );
+
+    svc.attribuer(demande(
+        &decor,
+        Uuid::now_v7(),
+        datetime!(2027-03-02 13:00 UTC),
+        datetime!(2027-03-02 16:00 UTC),
+    ))
+    .await
+    .expect("13 h commence là où la remise en état finit : la borne haute est exclue");
+}
+
+/// **La même paire, refusée si la remise en état passe à 2 h — par la MÊME contrainte.**
+///
+/// C'est le point de conception que ce test doit rendre indiscutable : il n'existe nulle part une
+/// « règle du ménage » qu'un chemin d'attribution pourrait oublier d'appliquer. Il y a un
+/// intervalle plus long — `[8 h, 14 h)` au lieu de `[8 h, 13 h)` — et la contrainte d'exclusion
+/// fait le reste. Le seul écart entre ce décor et le précédent est la valeur de
+/// `temps_remise_en_etat.duree_minutes` ; les instants demandés sont les mêmes, à la minute près.
+///
+/// Le refus est `unite_deja_occupee`, **pas** `plage_non_fractionnable` : la plage est bien
+/// déclarée, c'est la salle qui n'est pas rendue. Confondre les deux afficherait « cette salle se
+/// loue par demi-journée entière » à quelqu'un qui a demandé une demi-journée entière.
+#[actix_web::test]
+async fn la_meme_paire_refusee_si_la_remise_en_etat_passe_a_deux_heures() {
+    let pool_o = pool_owner().await;
+    let decor = poser_decor_demi_journee(&pool_o, "HEB — remise en état 2 h", 120).await;
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+
+    let (matin, _) = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-02 08:00 UTC),
+            datetime!(2027-03-02 12:00 UTC),
+        ))
+        .await
+        .expect("la plage du matin reste acceptée : seul le battement a changé");
+
+    assert_eq!(
+        matin.indisponible_jusqu_a,
+        datetime!(2027-03-02 14:00 UTC),
+        "2 h de remise en état repoussent la disponibilité à 14 h"
+    );
+
+    let erreur = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-02 13:00 UTC),
+            datetime!(2027-03-02 16:00 UTC),
+        ))
+        .await
+        .expect_err(
+            "13 h tombe dans la remise en état : la même paire de plages qui passait à 1 h ne \
+             passe plus à 2 h",
+        );
+
+    assert_eq!(
+        erreur.code(),
+        "unite_deja_occupee",
+        "le refus vient du chevauchement avec la période d'indisponibilité, donc de la contrainte \
+         d'exclusion — et non d'une règle de remise en état écrite quelque part dans le service"
+    );
+
+    // Et la plage de l'après-midi redevient attribuable **le lendemain**, ce qui vérifie que rien
+    // n'a été invalidé au-delà de la journée en cause.
+    svc.attribuer(demande(
+        &decor,
+        Uuid::now_v7(),
+        datetime!(2027-03-03 13:00 UTC),
+        datetime!(2027-03-03 16:00 UTC),
+    ))
+    .await
+    .expect("le lendemain, la même plage est libre");
+}
+
+/// **8 h désigne 8 h à Abengourou, quelle que soit l'horloge du terminal ou du serveur.**
+///
+/// Trois versants, et aucun n'est redondant :
+///
+/// 1. **Le réglage `TimeZone` de la session PostgreSQL n'entre pas dans le calcul.** C'est l'erreur
+///    naturelle : un `date_trunc('day', $2)` sans `AT TIME ZONE` prendrait le fuseau de la session,
+///    donc celui du serveur — et le même code rendrait deux résultats selon la machine.
+/// 2. **Le fuseau passé est réellement employé.** Le même jour, la même formule, un autre fuseau :
+///    les instants bougent d'une heure. Sans ce cas, un `$3` ignoré passerait le point 1.
+/// 3. **Une demande décalée n'est pas rattrapée.** Un terminal en avance de 40 minutes ne se voit
+///    pas attribuer une plage décalée de 40 minutes : il se voit refuser sa demande.
+///
+/// # L'instant de référence est choisi, pas quelconque
+///
+/// 2 h UTC est **le 4 mars à Abengourou et le 3 mars à New York**. Un instant de milieu de journée
+/// aurait donné le même jour dans les deux fuseaux, et le versant 1 serait passé au vert sur un
+/// code fautif. La sonde le confirme : en remplaçant le fuseau de l'établissement par celui de la
+/// session, les deux plages reculent d'un jour entier — et c'est ce que cette assertion attrape.
+///
+/// Les deux autres formulations fautives évidentes — `date_trunc('day', $2)` et
+/// `date_trunc('day', $2::timestamptz)` — ne compilent même pas : sqlx refuse la première pour
+/// ambiguïté de surcharge, et la seconde change le type de retour en `PlainDateTime`. Écrit ici
+/// pour qu'une relecture ne cherche pas des tests qui manquent : ces deux-là sont tenues par le
+/// compilateur, pas par ce fichier.
+#[actix_web::test]
+async fn huit_heures_designe_huit_heures_a_abengourou() {
+    let pool = pool_owner().await;
+    let decor = poser_decor_demi_journee(&pool, "HEB — fuseau", 60).await;
+
+    // Un instant **dans** la journée visée, pas ses bornes : c'est ce que le service transmet.
+    let reference = datetime!(2027-03-04 02:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    let en_utc = kaya_hebergement::occupation::repository::plages_en_instants(
+        &mut tx,
+        decor.formule_id,
+        reference,
+        "Africa/Abidjan",
+    )
+    .await
+    .expect("conversion des plages");
+
+    assert_eq!(
+        en_utc,
+        vec![
+            (
+                datetime!(2027-03-04 08:00 UTC),
+                datetime!(2027-03-04 12:00 UTC)
+            ),
+            (
+                datetime!(2027-03-04 13:00 UTC),
+                datetime!(2027-03-04 16:00 UTC)
+            ),
+        ],
+        "Abengourou est à UTC+0 : 8 h murales valent 8 h UTC"
+    );
+
+    // ── 1 · le fuseau du SERVEUR ne change rien ───────────────────────────────────────────────
+    sqlx::query("SET LOCAL TimeZone = 'America/New_York'")
+        .execute(&mut *tx)
+        .await
+        .expect("réglage du fuseau de session");
+
+    let depuis_new_york = kaya_hebergement::occupation::repository::plages_en_instants(
+        &mut tx,
+        decor.formule_id,
+        reference,
+        "Africa/Abidjan",
+    )
+    .await
+    .expect("conversion des plages");
+
+    assert_eq!(
+        depuis_new_york, en_utc,
+        "les plages ont bougé quand le fuseau de la SESSION a changé.\n\
+         Le calcul dépend donc du réglage du serveur : la même salle serait louable à des heures \
+         différentes selon la machine qui répond, et un déploiement multi-instances suffirait à \
+         produire l'écart."
+    );
+
+    // ── 2 · le fuseau PASSÉ, lui, change tout ─────────────────────────────────────────────────
+    let ailleurs = kaya_hebergement::occupation::repository::plages_en_instants(
+        &mut tx,
+        decor.formule_id,
+        reference,
+        "Africa/Lagos", // UTC+1 — aucun établissement du produit n'y est, c'est un témoin
+    )
+    .await
+    .expect("conversion des plages");
+
+    assert_eq!(
+        ailleurs[0].0,
+        datetime!(2027-03-04 07:00 UTC),
+        "8 h murales à UTC+1 valent 7 h UTC. Un résultat identique à Abidjan signifierait que le \
+         fuseau de l'établissement est ignoré — et qu'un UTC en dur en tient lieu."
+    );
+
+    tx.rollback().await.expect("rollback");
+
+    // ── 3 · un terminal décalé se voit refuser, jamais rattraper ──────────────────────────────
+    let svc = service_occupation(pool_app().await, decor.jeu.tenant_id);
+    let erreur = svc
+        .attribuer(demande(
+            &decor,
+            Uuid::now_v7(),
+            datetime!(2027-03-04 08:40 UTC),
+            datetime!(2027-03-04 12:40 UTC),
+        ))
+        .await
+        .expect_err("une demande décalée de 40 minutes ne coïncide avec aucune plage");
+    assert_eq!(
+        erreur.code(),
+        "plage_non_fractionnable",
+        "une plage décalée doit être REFUSÉE, jamais alignée en silence : un alignement ferait \
+         payer une plage que le client n'a pas demandée, et rendrait la salle indisponible sur des \
+         heures qu'il n'a pas réservées"
+    );
+}

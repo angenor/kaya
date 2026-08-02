@@ -263,8 +263,8 @@ décision de rebascule — sans écran, sans occupation persistée, sans réseau
 **Test indépendant** : deux demi-journées consécutives sur la même unité, et un fractionnement
 refusé.
 
-- [ ] T045 [US4] Écrire la validation des plages dans `backend/crates/verticales/hebergement/src/occupation/service.rs` : conversion des `TIME` en instants **au serveur**, avec le fuseau de l'établissement lu par `EstablishmentDirectory`. La comparaison se fait **après** conversion, sur des instants — comparer des heures murales échouerait au passage de minuit. Refus `plage_non_fractionnable` si l'intervalle demandé ne coïncide pas avec une plage déclarée.
-- [ ] T046 [US4] Écrire les tests de demi-journée dans `backend/tests/hebergement_disponibilite.rs` : 9 h – 11 h refusé (non fractionnable) · 8 h – 12 h puis 13 h – 16 h acceptées avec 1 h de battement · **la même paire refusée si le temps de remise en état passe à 2 h** — par la **même contrainte** d'exclusion que tout chevauchement, ce qui prouve que la remise en état n'est jamais une règle à part · 8 h désigne 8 h à Abengourou quelle que soit l'horloge du terminal ou du serveur.
+- [X] T045 [US4] Écrire la validation des plages dans `backend/crates/verticales/hebergement/src/occupation/service.rs` : conversion des `TIME` en instants **au serveur**, avec le fuseau de l'établissement lu par `EstablishmentDirectory`. La comparaison se fait **après** conversion, sur des instants — comparer des heures murales échouerait au passage de minuit. Refus `plage_non_fractionnable` si l'intervalle demandé ne coïncide pas avec une plage déclarée.
+- [X] T046 [US4] Écrire les tests de demi-journée dans `backend/tests/hebergement_disponibilite.rs` : 9 h – 11 h refusé (non fractionnable) · 8 h – 12 h puis 13 h – 16 h acceptées avec 1 h de battement · **la même paire refusée si le temps de remise en état passe à 2 h** — par la **même contrainte** d'exclusion que tout chevauchement, ce qui prouve que la remise en état n'est jamais une règle à part · 8 h désigne 8 h à Abengourou quelle que soit l'horloge du terminal ou du serveur.
 
 ---
 
