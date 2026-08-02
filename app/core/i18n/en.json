@@ -27,6 +27,10 @@
       "hebergement_offre": {
         "libelle": "Your rate plans",
         "description": "How your rooms are let, their prices and their tax."
+      },
+      "hebergement_chambres": {
+        "libelle": "Your rooms",
+        "description": "Your establishment's rooms, grouped by type."
       }
     }
   },

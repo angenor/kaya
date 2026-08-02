@@ -97,6 +97,15 @@ export const CATALOGUE_TUILES: readonly Tuile[] = [
     moduleRequis: 'HEBERGEMENT',
   },
   {
+    code: 'hebergement-chambres',
+    libelleCle: 'accueil.tuiles.hebergement_chambres.libelle',
+    descriptionCle: 'accueil.tuiles.hebergement_chambres.description',
+    icone: 'ph-door-open',
+    permission: 'heb.offre.lire',
+    route: '/chambres',
+    moduleRequis: 'HEBERGEMENT',
+  },
+  {
     code: 'journal-audit',
     libelleCle: 'accueil.tuiles.journal.libelle',
     descriptionCle: 'accueil.tuiles.journal.description',

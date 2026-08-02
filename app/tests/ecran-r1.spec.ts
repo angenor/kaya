@@ -179,7 +179,9 @@ describe('l’état vide est EXPLICITE', () => {
 
 describe('le catalogue ne promet que des écrans qui existent — principe X', () => {
   it('chaque tuile ouvre une route livrée par ce cycle ou le précédent', () => {
-    const routes = new Set(['/etablissement', '/comptes', '/journal-audit', '/hebergement'])
+    const routes = new Set([
+      '/etablissement', '/comptes', '/journal-audit', '/hebergement', '/chambres',
+    ])
 
     for (const tuile of CATALOGUE_TUILES) {
       expect(routes, `« ${tuile.code} » ouvre une route non livrée`).toContain(tuile.route)
@@ -193,8 +195,8 @@ describe('le catalogue ne promet que des écrans qui existent — principe X', (
     // `permission.module_code` ses cinq premières valeurs non nulles.
     const rattachees = CATALOGUE_TUILES.filter(tuile => tuile.moduleRequis !== undefined)
 
-    expect(rattachees.map(t => t.code)).toEqual(['hebergement-offre'])
-    expect(rattachees[0]!.moduleRequis).toBe('HEBERGEMENT')
+    expect(rattachees.map(t => t.code)).toEqual(['hebergement-offre', 'hebergement-chambres'])
+    expect(rattachees.every(t => t.moduleRequis === 'HEBERGEMENT')).toBe(true)
 
     // Et les autres restent transverses : une tuile qui exigerait un module par recopie
     // disparaîtrait des établissements qui ne l'ont pas — un maquis n'a pas d'hébergement, et il

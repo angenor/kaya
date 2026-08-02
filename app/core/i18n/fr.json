@@ -27,6 +27,10 @@
       "hebergement_offre": {
         "libelle": "Vos formules",
         "description": "Les façons de louer vos chambres, leurs prix et leur taxe."
+      },
+      "hebergement_chambres": {
+        "libelle": "Vos chambres",
+        "description": "Les chambres de votre établissement, rangées par type."
       }
     }
   },

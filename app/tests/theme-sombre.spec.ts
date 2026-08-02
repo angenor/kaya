@@ -216,10 +216,14 @@ describe('G1 — mode clair et mode sombre', () => {
       'ChampSaisie.vue',
       // ── Cycle 003 — les quatre écrans ──────────────────────────────────────────────────
       'EcranAccueil.vue', // `R1`
+      'EcranChambres.vue', // `G5` — écran COMPOSÉ, sans maquette
       'EcranComptes.vue', // `G3`
       'EcranEtablissement.vue',
       'EcranJournalAudit.vue', // `G4`
       'EcranOffre.vue', // `G2` — écran maquetté, deux états
+      'FormulaireCategorie.vue',
+      'FormulaireUnite.vue',
+      'ListeUnites.vue',
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
       // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
@@ -236,6 +240,7 @@ describe('G1 — mode clair et mode sombre', () => {
       // Ce sont des coquilles, et elles rendent quand même quelque chose : le fond et le texte de
       // « chargement… » et du message d'erreur. C'est l'écran qu'on voit quand quelque chose ne va
       // pas — celui où un texte illisible en mode sombre coûte le plus cher.
+      'chambres.vue', // `G5`
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`
       'etablissement.vue', // `G1`
