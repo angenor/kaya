@@ -289,6 +289,31 @@ impl EtatApplication {
         )
     }
 
+    /// Service de tarification — HEB-04.
+    ///
+    /// Il détient le **trait d'audit de `socle/comptes`** : la rebascule de palier se trace au
+    /// registre des actions dans la transaction du calcul (CPT-04). C'est une dépendance
+    /// `verticales/` → `socle/`, autorisée par le principe II.
+    pub fn service_tarification(
+        &self,
+        tenant_id: uuid::Uuid,
+    ) -> kaya_hebergement::tarification::ServiceTarification<
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+        kaya_comptes::audit::JournalAuditPostgres,
+    > {
+        kaya_hebergement::tarification::ServiceTarification::nouveau(
+            self.pool.clone(),
+            tenant_id,
+            kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+                self.pool.clone(),
+                tenant_id,
+            ),
+            kaya_etablissements::modules::PgRegistreModules::nouveau(self.pool.clone(), tenant_id),
+            kaya_comptes::audit::JournalAuditPostgres,
+        )
+    }
+
     /// Service des points de vente — ETB-03.
     pub fn service_points_de_vente(
         &self,

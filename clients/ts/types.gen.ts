@@ -406,6 +406,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/tarif": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calcule le montant dû pour une occupation. */
+        post: operations["hebergement_calculer_tarif"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/hebergement/unites": {
         parameters: {
             query?: never;
@@ -1263,6 +1280,33 @@ export interface components {
             /** Format: uuid */
             id: string;
         };
+        /** @description Ce que le moteur décide. **Il calcule, il ne facture pas.** */
+        DecisionTarification: {
+            /** @description ISO 4217, **au même niveau que le montant**, toujours. */
+            devise: string;
+            /** Format: int64 */
+            duree_reelle_minutes: number;
+            formule_appliquee: components["schemas"]["FamilleFormule"];
+            /** Format: int32 */
+            heures_supplementaires: number;
+            /**
+             * Format: date-time
+             * @description **Horodatage d'autorité serveur** — jamais l'horloge d'un terminal.
+             */
+            instant_autorite: string;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (principe V, porte P-10).
+             */
+            montant_du_mineur: number;
+            /**
+             * Format: int32
+             * @description **Absent quand la durée a fait basculer en nuitée** : ce n'est pas un palier majoré, c'est
+             *     un changement de formule.
+             */
+            palier_retenu_minutes?: number | null;
+            rebascule?: null | components["schemas"]["Rebascule"];
+        };
         /** @description Corps de déclaration de capacité. */
         DeclarerCapaciteRequete: {
             /** @description `STOCK` seule est implémentée au MVP. */
@@ -1798,6 +1842,21 @@ export interface components {
             /** Format: uuid */
             etablissement_id?: string | null;
             rafraichissement: string;
+        };
+        /** @description La rebascule d'un passage : le palier vendu, et celui qui s'applique en réalité. */
+        Rebascule: {
+            /**
+             * Format: int64
+             * @description Ce qui reste dû. **Peut être négatif** — un départ anticipé existe.
+             */
+            difference_mineur: number;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (P-10).
+             */
+            montant_vendu_mineur: number;
+            /** Format: int32 */
+            palier_vendu_minutes: number;
         };
         /**
          * @description Comment la taxe de nuitée se compte sur une occupation de plusieurs nuits.
@@ -3530,6 +3589,74 @@ export interface operations {
             };
             /** @description Service hébergement non actif */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_calculer_tarif: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Identifiant de l'occupation */
+                occupation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Décision de tarification à l'instant d'autorité serveur */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionTarification"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Occupation inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Barème absent sur la formule */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -208,6 +208,12 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/liberation",
         Regime::Isole,
     ),
+    // Le calcul de tarif lit une occupation et son barème : deux données de tenant. Il n'écrit
+    // qu'au registre des actions, lui-même isolé.
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/tarif",
+        Regime::Isole,
+    ),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.

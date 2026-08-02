@@ -17,6 +17,7 @@ pub mod erreurs;
 pub mod etablissements;
 pub mod hebergement_disponibilite;
 pub mod hebergement_referentiel;
+pub mod hebergement_tarification;
 pub mod journal_audit;
 pub mod notes;
 pub mod personnes;
@@ -161,6 +162,10 @@ pub fn configurer(config: &mut ServiceConfig) {
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/liberation")
             .service(hebergement_disponibilite::liberer),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/tarif")
+            .service(hebergement_tarification::calculer_tarif),
     );
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations")
