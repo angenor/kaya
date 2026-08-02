@@ -1,6 +1,7 @@
 # Revue de la Definition of Done — Cycle 003 · CPT
 
-**T064** · 2026-08-01 · `docs/user-stories-v1.md` §0.4
+**T064** · 2026-08-01, **révisée le 2026-08-02** après le lot d'amorçage ·
+`docs/user-stories-v1.md` §0.4
 
 Les dix points, pour chacune des **six user stories**, **avec la preuve de chacun**. Un point coché
 sans preuve est un point que personne n'a vérifié.
@@ -9,11 +10,14 @@ sans preuve est un point que personne n'a vérifié.
 > n'imprime rien : aucun document, aucune file d'impression, aucun pilote. Même règle qu'au
 > cycle 001 pour le point 8, et qu'au cycle 002 pour le point 10.
 
-> **Trois défauts trouvés en navigateur ne sont couverts par AUCUN test, et deux rendent `G3` et
-> `G4` inatteignables.** Ils sont au § « Ce qui reste non conforme », et ils sont la raison d'être
-> de cette revue : les 428 tests front montent les composants directement, ce qui contourne le
-> routeur, `<Suspense>` et les coquilles de page. **Le point 8 n'est donc coché pour aucune
-> story.**
+> **Trois défauts trouvés en navigateur n'étaient couverts par AUCUN test, et deux rendaient `G3`
+> et `G4` inatteignables.** Ils sont la raison d'être de cette revue : les 428 tests front montaient
+> les composants directement, ce qui contourne le routeur, `<Suspense>`, les layouts et les plugins.
+>
+> **Ils sont soldés au 2026-08-02**, et leur cause était **unique** : l'application n'avait aucun
+> point d'amorçage. La constitution a été amendée en **1.7.0** — porte **P-22**, parcours réel — et
+> le § « Ce qui reste non conforme » porte l'état d'après. C'est ce qui fait passer le **point 8**
+> de ✗ à ✓, pour la première fois depuis le premier cycle.
 
 ---
 
@@ -28,7 +32,8 @@ sans preuve est un point que personne n'a vérifié.
 | Migrations du cycle | **7** (`0014` à `0020`) | **5** (`0014` à `0018`) |
 | Familles d'audit | **10**, dont **2 branchées** | 10 |
 | Tests backend | **224**, 0 échec | — |
-| Tests front | **428**, 0 échec, 0 erreur de type | — |
+| Tests front | **428** à la clôture, **440** après le lot d'amorçage — 0 échec, 0 erreur de type | — |
+| Tests de parcours réel (P-22) | **19** sur **6** routes — la porte n'existait pas | — |
 | Clés i18n | **183 fr / 183 en**, écart nul | — |
 
 **Quatre écarts au plan, et non trois.** La première version de cette revue portait « 7 » dans les
@@ -57,7 +62,7 @@ cycle entier**
 | **5** Classe hors-ligne déclarée + test | ✓ | ✓ | ✓ | — | ✓ | ✓ |
 | **6** Événement outbox par transition | ✓ | ✓ | ✓ | — | — | — |
 | **7** Clés i18n fr **et** en, rien en dur | — | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **8** Écran vérifié en clair **et** en sombre | — | ✗ | ✗ | ✗ | ✗ | — |
+| **8** Écran vérifié en clair **et** en sombre | — | ✓ | ✓ | ✓ | ✓ | — |
 | **9** Paramètres au récapitulatif si « paramétrable » | — | ✓ | — | — | — | — |
 | **10** Document imprimé sur thermique réelle | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ |
 
@@ -72,8 +77,10 @@ Les `—` sont des sans-objet **de story**, chacun justifié au point correspond
 - **Le point 9** ne concerne que US2 : c'est la seule story qui dise « paramétrable » — cinq clés,
   toutes au récapitulatif.
 
-**Le point 8 est en échec pour les quatre stories qui portent un écran**, `R0` compris : son thème
-sombre est juste, mais aucun chemin du produit ne l'active. Voir le dernier §.
+**Le point 8 était en échec pour les quatre stories qui portent un écran** à la clôture du cycle —
+`R0` compris : son thème sombre était juste, et aucun chemin du produit ne l'activait. **Soldé le
+2026-08-02** par le lot d'amorçage, et rendu opposable par la porte **P-22**. C'est la première fois
+que ce point est coché sur une preuve mécanique depuis le début du projet ; voir le point 8.
 
 ---
 
@@ -88,7 +95,9 @@ sombre est juste, mais aucun chemin du produit ne l'active. Voir le dernier §.
 | **US5** — journal d'audit (CPT-04) | `audit_immuabilite.rs` (6), `audit_classe_a.rs` (5), `audit_taxonomie.rs` (6) | `ecran-g4.spec.ts` |
 | **US6** — le hors-ligne ne fabrique pas de droit | `classes_offline.rs` (9) | `file-classe-a.spec.ts`, `file-jeton-expire.spec.ts` |
 
-**224 tests backend sur 28 fichiers d'intégration, 428 tests front, tous verts.**
+**224 tests backend sur 28 fichiers d'intégration, 440 tests front, 19 tests de parcours réel —
+tous verts.** Les douze tests front et les dix-neuf de P-22 ajoutés après la clôture sont ceux qui
+couvrent ce que cette revue avait trouvé à la main.
 
 **Ce que ces tests ne couvrent pas, et il faut le dire ici** : ils montent les composants avec
 `@vue/test-utils`, hors routeur et hors `<Suspense>`. Trois défauts d'intégration leur échappent
@@ -198,25 +207,32 @@ Les deux échecs de connexion rendent **une seule phrase**, et le front traite l
 sans consulter le code : brancher sur le code marcherait aujourd'hui et fuirait au premier code
 ajouté côté serveur.
 
-## 8 · Les quatre écrans en mode clair **et** en mode sombre — **NON CONFORME**
+## 8 · Les quatre écrans en mode clair **et** en mode sombre — **CONFORME au 2026-08-02**
 
-*Contrôle mécanique vert, vérification en navigateur **échouée**. Le détail est au dernier §.*
+*Non conforme à la clôture du cycle. Soldé par le lot d'amorçage, et **désormais opposable** — ce
+qui n'avait jamais été le cas depuis le début du projet.*
 
-**Ce qui est vérifié et tient** : `theme-sombre.spec.ts` — chaque jeton de couleur employé porte une
-valeur sous `.dark`, aucune classe `dark:` ne porte de couleur, pas de seconde palette. **P-17
-verte** (`lint:tokens`). Et le styleguide servi par l'application rend ses **18 sections** dans les
-deux thèmes, avec les polices réellement embarquées, l'espace fine U+202F et les colonnes de
-montants alignées au chiffre près — capture à l'appui.
+**L'état à la clôture, conservé parce qu'il explique la porte P-22.** Le contrôle mécanique était
+vert et la vérification en navigateur échouait : le produit n'appliquait **jamais** la classe
+`.dark` — `initialiserTheme()` n'était appelé nulle part — et `G3` et `G4` ne s'affichaient pas, la
+navigation vers une page paresseuse cassant l'application. Les captures sombres de la revue avaient
+été obtenues en forçant la classe à la main. **Le point 8 n'avait été coché pour aucune story
+depuis le premier cycle**, faute d'être vérifiable autrement qu'à l'œil.
 
-**Ce qui ne tient pas**, constaté en navigateur réel contre l'API réelle :
+**Ce qui est vérifié maintenant, et par quoi :**
 
-- **le produit n'applique JAMAIS la classe `.dark`** — `initialiserTheme()` n'est appelé nulle part,
-  et aucun composant ne bascule le thème. La palette sombre est juste ; l'interrupteur n'existe pas.
-  Les captures sombres de cette revue ont été obtenues en **forçant la classe à la main** ;
-- **`G3` et `G4` ne s'affichent pas** — la navigation vers une page paresseuse casse l'application.
+| Preuve | Ce qu'elle établit |
+|---|---|
+| **P-22**, 19 tests sur **6 routes** | chaque route s'ouvre — en chargement **direct** et par navigation **interne** — sans erreur de console, avec un `<main>` unique, et la classe `.dark` **effectivement appliquée** dans les deux thèmes |
+| Test négatif de P-22 | le layout cassé pour de vrai, la porte refuse, le fichier est remis par un `trap` |
+| `theme-sombre.spec.ts` | chaque jeton de couleur employé porte une valeur sous `.dark` ; aucune classe `dark:` ne porte de couleur, donc pas de seconde palette |
+| **P-17** (`lint:tokens`) | aucune couleur ni espacement littéral hors jetons |
+| Styleguide, **18 sections** | les seize composants dans les deux thèmes, polices réellement embarquées, espace fine U+202F, colonnes de montants alignées au chiffre près |
 
-`R0` et `R1` ont bien été vus dans les deux thèmes, sur données réelles : `R1` montre **deux tuiles**
-pour Adjoua, filtrées par ses permissions, icônes embarquées présentes.
+**Ce que le point 8 ne couvre toujours pas, et c'est écrit ici plutôt que coché** : P-22 vérifie
+qu'une page s'ouvre et qu'elle bascule de thème, **pas qu'elle est belle**. Aucune capture n'est
+comparée. La conformité à la maquette reste humaine — même limite assumée que `classes_offline.rs`
+pour la justesse des classes hors-ligne.
 
 ## 9 · Paramètres exposés dans la configuration d'établissement
 
@@ -300,8 +316,13 @@ sont sur un produit dont deux écrans ne s'affichent pas.
 | 10 | Opérations isolées, contrat à jour — **43**, non 40 | ✓ |
 | 11 | Les quatre écrans, en clair et en sombre | **✗** |
 
-**Le quickstart porte les mêmes chiffres périmés que le plan** — « 21 types », « 40 opérations ». Ils
-sont laissés tels quels et corrigés ici : ce document est le recollement, pas le quickstart.
+**Le quickstart portait les mêmes chiffres périmés que le plan** — « 21 types », « 40 opérations ».
+Ils y étaient laissés tels quels, au motif que ce document est le recollement. **C'était une erreur
+de jugement** : le quickstart est le seul document que quelqu'un *exécute*, et un lecteur qui aurait
+comparé ses valeurs attendues aux sorties de `couverture_portes.rs` aurait conclu à une régression.
+Les **39 occurrences** de quatre chiffres périmés, réparties sur onze fichiers, sont recalées au
+2026-08-02 — y compris un quatrième écart que personne n'avait consigné : **sept migrations livrées
+pour cinq annoncées**.
 
 ---
 
@@ -309,10 +330,18 @@ sont laissés tels quels et corrigés ici : ce document est le recollement, pas 
 
 *Écrit ici pour que la revue de tranche l'arbitre, pas pour être découvert plus tard.*
 
-### Trois défauts d'intégration, trouvés en navigateur, couverts par aucun test
+### Les trois défauts d'intégration — **SOLDÉS au 2026-08-02**
+
+*Conservés parce qu'ils sont l'origine de la porte P-22 et de la huitième couche du module doré. Un
+défaut effacé de la revue qui l'a trouvé est un défaut qu'on refera.*
 
 Constatés le 2026-08-01 contre l'API réelle, sur données de démonstration, compte
-`adjoua@deloria.test`. **Les deux premiers sont bloquants pour la démonstration de tranche.**
+`adjoua@deloria.test`. Les deux premiers étaient bloquants pour la démonstration de tranche.
+
+**Leur cause était UNIQUE, et elle était architecturale** : l'application n'avait aucun point
+d'amorçage — `app.vue` faisait 23 lignes avec `<NuxtPage />` et rien d'autre, il n'existait ni
+`plugins/`, ni `layouts/`, ni `middleware/`. Les trois symptômes étaient la même absence vue sous
+trois angles.
 
 | # | Défaut | Preuve | Portée |
 |---|---|---|---|
@@ -320,14 +349,51 @@ Constatés le 2026-08-01 contre l'API réelle, sur données de démonstration, c
 | **2** | **Un chargement direct de `/comptes` ou `/journal-audit` ne reprend jamais la session.** `reprendreSession()` n'est appelé que par `pages/index.vue` : l'écran affiche « Connectez-vous pour continuer » alors qu'un jeton de rafraîchissement valide est en stockage | `localStorage` porte `kaya.auth.rafraichissement` ; `/` reprend la session, `/comptes` ne la reprend pas | Ce cycle |
 | **3** | **Le produit n'applique jamais la classe `.dark`.** `initialiserTheme()` est défini, testé, exporté — et **appelé nulle part**. `app.vue` est encore la coquille du cycle 001, sans bascule de thème | `grep -rl initialiserTheme app/` ne rend que sa propre définition ; en navigateur, `document.documentElement.className` reste vide | Ce cycle |
 
-**Conséquence combinée : `G3` et `G4` sont inatteignables dans un navigateur.** Par la tuile, le
-défaut 1 ; par l'adresse directe, le défaut 2. Leurs données, elles, se chargent — les requêtes
-`GET /api/v1/comptes` et `GET /api/v1/referentiels/roles` rendent `200`.
+**Conséquence combinée à la clôture : `G3` et `G4` étaient inatteignables dans un navigateur.** Par
+la tuile, le défaut 1 ; par l'adresse directe, le défaut 2. Leurs données, elles, se chargeaient —
+les requêtes `GET /api/v1/comptes` et `GET /api/v1/referentiels/roles` rendaient `200`.
 
 **Pourquoi 428 tests ne l'ont pas vu** : ils montent `EcranComptes.vue` et `EcranJournalAudit.vue`
-directement avec `@vue/test-utils`, ce qui contourne le routeur, `<Suspense>` et la coquille de
-page. Les composants sont justes ; c'est leur montage qui ne l'est pas. **Il manque un test qui
-navigue.**
+directement avec `@vue/test-utils`, ce qui contourne le routeur, `<Suspense>`, les layouts et les
+plugins. Les composants étaient justes ; c'est leur montage qui ne l'était pas.
+
+#### Ce par quoi chacun est soldé
+
+| # | Correctif | Ce qui l'oppose désormais |
+|---|---|---|
+| **1** | `layouts/default.vue` rend une **racine stable** et l'unique `<main>` ; les six pages ont une racine **élément**, plus aucun `v-if`/`v-else` de premier niveau. Le chargement paresseux est **intact** — principe VII | P-22, contrôle du `<main>` unique après navigation interne, sur les 6 routes |
+| **2** | `middleware/01.session.global.ts` — la reprise avant **chaque** navigation, la première comprise | P-22, contrôle du chargement direct, sur les 6 routes |
+| **3** | `plugins/01.theme.client.ts` + un script en ligne dans le `<head>` contre le scintillement | P-22, contrôle de la classe `.dark` effective |
+
+**La cause du défaut 1 a été ÉTABLIE par expérience**, quatre pages sondes et une variable à la
+fois : il faut **trois** conditions réunies — racine fragmentée, composant paresseux, bascule après
+montage. Une racine unique suffit à l'éliminer. La table de vérité est dans `layouts/default.vue` et
+dans la huitième couche du module doré.
+
+#### Trois défauts de plus, trouvés par P-22 dès sa première exécution
+
+| Défaut | Portée |
+|---|---|
+| **`/etablissement` rendait un `404`.** La tuile pointe la route sans paramètre, et la page lisait `config.public.etablissementId` — vide depuis que CPT-01 a retiré l'identité du `runtimeConfig` — **en sautant la session**. `G1` était inatteignable depuis l'accueil, comme `G3` et `G4`, pour une raison différente | Cycle 002, aggravé par CPT-01 |
+| **`<dt>` et `<dd>` enfants d'un `<span>`** dans `SectionPointsDeVente.vue` — HTML invalide, signalé **à chaque construction** par le compilateur de Vue. Aucun test ne lit les diagnostics du compilateur | Cycle 002 |
+| **Le limiteur de tentatives compte les connexions RÉUSSIES** — dix par identifiant, comptées avant vérification. C'est délibéré (un compteur qui ne compterait que les échecs rétablirait la fuite que FR-012 referme), mais un utilisateur légitime qui se connecte dix fois dans la fenêtre est refusé. **Non corrigé : c'est un arbitrage, pas un défaut** | À arbitrer au pilote |
+
+#### Le quatrième défaut, et il n'est pas dans le produit
+
+**Cinq points d'entrée d'amorçage sur onze n'étaient appelés nulle part** —
+`initialiserTheme` n'était que le plus visible. La file hors-ligne entière est débranchée :
+`FileLocale` jamais instanciée, `marquerClasseA` jamais appelée, `viderFile` sans crochet de retour
+au premier plan, `operationRealisable` contournée par six gardes écrites à la main. Et
+`fermerSession` — la purge du principe VI sur terminal partagé — qu'aucun bouton n'atteint : **il
+n'existe aucune déconnexion dans le produit**, ni clé i18n, ni composant.
+
+Pire que prévu sur un point : `initialiserTheme` **n'était pas même testée**.
+`theme-sombre.spec.ts` n'importe pas `core/theme` — il lit les jetons de `theme.css`. La règle
+juste est donc plus dure que « une unité testée n'est pas une unité branchée » : **une unité écrite
+n'est ni testée ni branchée par défaut**, et il faut un contrôle pour chacune des deux propriétés.
+
+`app/tests/amorcage.spec.ts` porte les onze points d'entrée à deux états — **6 branchés, 5 dus** —
+et vérifie les **deux versants**.
 
 ### Le reste
 
@@ -339,5 +405,10 @@ navigue.**
 | **`OTP_SMS`** | Méthode d'authentification déclarée au référentiel, refusée explicitement par le service | Hors périmètre MVP |
 | **CPT-05 / CPT-06** | `employe` et `appareil_enrole` provisionnées, isolées, **sans aucun chemin d'écriture ni point d'entrée** — vérifié par `provisions_sans_logique.rs` | Tranche T4 |
 | **Huit familles d'audit dues** | `remise`, `annulation_ligne_envoyee`, `avoir`, `ouverture_tiroir`, `modification_tarif`, `ecart_caisse`, `rebascule_palier_passage`, `forcage_disponibilite` — chacune nomme sa story, et le harnais fait échouer le build le jour où l'une acquiert un chemin sans changer d'état | T1 à T3 |
-| **`pgrep` de la fiche de reprise** | Le motif `target/debug/kaya-api` ne voyait pas un second binaire nommé `target/debug/api`, resté en écoute sur le port 8080 pendant toute la session précédente | À élargir dans la prochaine fiche |
+| **Binaire fantôme sur le port 8080** | **Corrigé.** Le motif `pgrep -fl 'target/debug/kaya-api'` ne voyait pas un `target/debug/api` d'une compilation antérieure, resté en écoute toute une session et répondant `/health` **à la place** du bon. `lsof -nP -iTCP:8080 -sTCP:LISTEN` est désormais le contrôle qui fait foi — dans `REPRISE.md` et dans le script de P-22 —, parce qu'il ne dépend d'aucun nom | — |
+| **Cinq points d'amorçage dus** | `FileLocale`, `marquerClasseA`, `viderFile`, `operationRealisable`, `fermerSession` — déclarés « dus » dans `amorcage.spec.ts`, qui fait échouer le build le jour où l'un acquiert un appelant sans changer d'état | SYN-01 pour la file, **ETB-06 pour la déconnexion** |
+| **Aucune déconnexion dans le produit** | Ni bouton, ni clé i18n, alors que le principe VI pose que le terminal peut être partagé. `fermerSession` existe et attend | **ETB-06** |
+| **Exigence 6 absente du corps de la constitution** | La v1.7.0 l'annonce dans son rapport d'impact — « une exigence de couverture (6) » — mais le § « Couverture des portes » n'en liste que cinq, sous un intitulé « Trois exigences en découlent » périmé depuis la v1.3.0. **Non corrigé à la main** : la clause d'amendement impose `/speckit-constitution` | Prochain amendement |
+| **Barre de contexte et témoin de synchronisation** | Le layout ne les porte pas. Les deux en-têtes d'écran sont **différents** et les fondre est un changement d'écran, `derivation.md` étant opposable ; le témoin est le composant 10 | ETB-06 |
+| **P-22 ne juge pas l'apparence** | Elle ouvre les pages et vérifie la bascule de thème ; aucune capture n'est comparée. La conformité à la maquette reste humaine | Revue mensuelle |
 | **Mesures de performance** | Aucune prise ce cycle | Mesure sur le pilote |
