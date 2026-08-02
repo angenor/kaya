@@ -15,7 +15,9 @@ littéralement pas de ligne où s'inscrire, et la porte P-19 l'aurait refusé po
 
 Le troisième cas est **fermé à la zone de charme** : un écran de comptoir se maquette toujours.
 
-**Version 1.2.0** — `R0` Connexion ajouté le 2026-08-01 (cycle CPT). `A1` À propos ajouté le
+**Version 1.2.1** — `S1` référençait le composant **8** (ligne de liste) au lieu du **10**
+(témoin de synchronisation) : reste d'une numérotation antérieure, corrigé le 2026-08-02 sur
+signalement du plan du cycle 005. —  `R0` Connexion ajouté le 2026-08-01 (cycle CPT). `A1` À propos ajouté le
 2026-08-01.
 
 ---
@@ -89,7 +91,7 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 | `G3` Utilisateurs et rôles | `G2` | Configuration |
 | `G4` Journal d'audit | `R5` + `F2` | Liste filtrable, registre sobre |
 | `A1` À propos | `G2` | Configuration en **lecture seule** |
-| `S1` Panneau de synchronisation | Composant 8 | Développement du composant |
+| `S1` Panneau de synchronisation | **Composant 10** — témoin de synchronisation | Développement du composant : le témoin dit l'état d'un coup d'œil, le panneau détaille ce qui attend et permet d'agir |
 | `S3` États vides et erreurs | Famille d'illustrations | Couvert par la fondation |
 | `M1` Accueil mobile | `R1` + `M4` | Composition en régime mobile |
 | `M2` Commande mobile | `P2` | C'est déjà la cible mobile de `P2` |

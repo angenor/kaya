@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle, les établissements et les comptes sont en place** — cycles 001 (TRX), 002 (ETB) et
-003 (CPT) livrés : 18 crates Rust, 20 migrations, 234 tests backend, 458 tests front, 11 portes
+**Le socle, les établissements, les comptes et l'hébergement sont en place** — cycles 001 (TRX),
+002 (ETB), 003 (CPT) et 004 (HEB) livrés : 18 crates Rust, 20 migrations, 234 tests backend, 458 tests front, 11 portes
 scriptées, les cinq écrans `G1`, `R0`, `R1`, `G3` et `G4`, et une image de production construite
 et exercée.
 
@@ -137,8 +137,8 @@ Chaînes visibles par l'utilisateur : **jamais en dur**, clés i18n **fr et en**
 
 En cas de contradiction, trancher dans cet ordre :
 
-1. `.specify/memory/constitution.md` — 12 principes non négociables, **25 portes de CI**
-   bloquantes (P-01 à P-22, dont P-01b, P-05b et P-21b). **À lire avant toute décision d'architecture.**
+1. `.specify/memory/constitution.md` — 12 principes non négociables, **26 portes de CI**
+   bloquantes (P-01 à P-23, dont P-01b, P-05b et P-21b). **À lire avant toute décision d'architecture.**
    Sa section « Couverture des portes » est née de portes vertes défectueuses aux cycles 001 et
    002 : *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde
    tout* — et une porte dont la cible est vide passe toujours.

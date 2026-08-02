@@ -15,7 +15,7 @@ cd kaya
 
 ```
 CLAUDE.md                      guide de session — à lire en premier
-.specify/memory/constitution.md  v1.2.0 — 12 principes, 21 portes P-01→P-20
+.specify/memory/constitution.md  **la version et le nombre de portes se lisent DANS le fichier**
 docs/
 ├── cadrage-v1.md              source de vérité produit et technique
 ├── user-stories-v1.md         source de vérité fonctionnelle, priorités
@@ -126,7 +126,7 @@ puis : /speckit-specify (§3) → /speckit-clarify (§2.1) → /speckit-plan (§
 ## 1. Constitution (à coller une seule fois)
 
 > ✅ **CONSOMMÉ le 2026-07-30 — ne pas recoller.** La constitution est ratifiée et vit
-> dans `.specify/memory/constitution.md` (**v1.2.0** : 12 principes, **21 portes** de CI
+> dans `.specify/memory/constitution.md` (12 principes ; **le nombre de portes se lit dans le fichier**, il a changé neuf fois
 > P-01 à P-20 dont P-05b, section « Couverture des portes », gouvernance). **C'est elle qui fait foi, pas le
 > prompt ci-dessous**, conservé comme archive de ce qui a été soumis.
 >
@@ -389,7 +389,7 @@ montants en entiers d'unité mineure ET quantités en NUMERIC ; chaque entité d
 sa classe dans docs/registre-classes-offline.md ; les provisions sont des données
 seulement.
 
-PORTES DE CI : la constitution définit VINGT-CINQ portes bloquantes P-01 à P-22 (dont
+PORTES DE CI : la constitution définit VINGT-SIX portes bloquantes P-01 à P-23 (dont
 P-01b, P-05b, P-21b), et exige de chaque porte qu'elle déclare son périmètre inspecté,
 vérifie sa complétude, ne modifie pas ce qu'elle inspecte et prouve que sa cible n'est pas
 vide — section « Couverture des portes ». Le plan
@@ -417,12 +417,12 @@ docs/registre-classes-offline.md et le test correspondant.
 RÉFÉRENCE VISUELLE — SI ce cycle produit des écrans. Plusieurs cycles n'en produisent
 aucun (TRX, SYN, MET, et la part backend de FIS) : dans ce cas, ignore ce paragraphe,
 ne fabrique pas de tâche d'interface pour respecter la forme.
-Le produit compte 43 écrans au 2026-08-01 — docs/design/derivation.md fait foi sur ce
-décompte, ne le cite pas de mémoire. Chaque tâche d'interface cite sa référence, qui est dans
+LE DÉCOMPTE D'ÉCRANS SE LIT DANS docs/design/derivation.md, JAMAIS ICI. Il a changé trois fois
+en quatre jours ; tout nombre recopié dans ce prompt est faux avant d'être lu. Chaque tâche d'interface cite sa référence, qui est dans
 l'un de ces deux cas — jamais un troisième :
-(a) ÉCRAN MAQUETTÉ — 11 écrans, 29 fichiers d'états dans docs/design/html/, nommage
+(a) ÉCRAN MAQUETTÉ — les fichiers d'états de docs/design/html/, nommage
     {code}-{nom}[-{etat}].html. La référence est le fichier d'état exact.
-(b) ÉCRAN DÉRIVÉ — 32 écrans. La référence est sa ligne de la MATRICE DE DÉRIVATION,
+(b) ÉCRAN DÉRIVÉ — la référence est sa ligne de la MATRICE DE DÉRIVATION,
     docs/design/derivation.md, qui dit de quel motif il hérite et ce qui change
     (ex. « R3 Check-in nuitée hérite de R4 : parcours long, plus de champs, même
     grammaire »). Ouvre la maquette dont il hérite et respecte-la.
@@ -626,7 +626,7 @@ exhaustivement y compris les surcharges partielles et les valeurs absentes à to
 les niveaux.
 ```
 
-### Cycle 3 — CPT(en cours)
+### Cycle 3 — CPT
 
 ```
 /speckit-specify
@@ -662,7 +662,7 @@ Points d'attention : l'attribution de rôle est de classe C — aucune élévati
 privilège hors ligne, jamais.
 ```
 
-### Cycle 4 — HEB(en cours)
+### Cycle 4 — HEB
 
 ```
 /speckit-specify
@@ -710,7 +710,7 @@ sous-statut ménage est librement modifiable. La salle de réunion est une unit�
 louable d'une catégorie dédiée, PAS une entité nouvelle.
 ```
 
-### Cycle 5 — SYN
+### Cycle 5 — SYN(en cours)
 
 ```
 /speckit-specify

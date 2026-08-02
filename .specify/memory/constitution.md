@@ -1,4 +1,31 @@
 <!--
+SYNC IMPACT REPORT — 1.8.0 — 2026-08-02
+========================================
+Changement de version : 1.7.1 → 1.8.0 (MINOR)
+Motif : une porte ajoutée (P-23). Jeu porté à 26 portes. Aucun principe ajouté,
+        renommé ni supprimé.
+Origine : plan du cycle 005 (SYN — file hors-ligne et horodatage d'autorité).
+
+  P-23 — PROVENANCE DE L'INSTANT. Le principe IV exige déjà en toutes lettres que
+  « toute logique métier, tout calcul fiscal, toute clôture et TOUT CALCUL DE DURÉE
+  DE PASSAGE s'appuient exclusivement sur l'horodatage d'autorité serveur, jamais
+  sur l'horloge d'un terminal ». AUCUNE des vingt-cinq portes ne le gardait : P-09
+  vérifie que les occupations sont des intervalles protégés par une contrainte
+  d'exclusion, pas la PROVENANCE d'un instant. La colonne `horodatage_client` existe
+  sur quatre tables depuis les cycles précédents, et rien n'empêchait un calcul de
+  s'y appuyer.
+
+  Le moment est celui qui coûte le moins. SEJ et FIS écriront les premières règles de
+  durée de passage et de taxe de nuitée — exactement les calculs que le principe IV
+  vise. Poser la porte maintenant coûte un test ; la poser après coûte la revue de
+  deux moteurs déjà écrits. Le cadrage §11.4 en donne la raison : « un téléphone
+  d'entrée de gamme dérive et le personnel change l'heure », et « le passage aggrave
+  la sensibilité à l'horloge » puisqu'il se facture à l'heure.
+
+  Périmètre DÉCOUVERT, jamais énuméré — l'énumération à la main a produit un trou à
+  chacun des quatre cycles précédents. Trois exemptions limitativement énumérées dans
+  le script : ordre d'affichage local, détection de dérive, rendu de l'instant perçu.
+
 SYNC IMPACT REPORT — 1.7.1 — 2026-08-02
 ========================================
 Changement de version : 1.7.0 → 1.7.1 (PATCH)
@@ -681,6 +708,7 @@ Chacune fait échouer le build. Aucune n'est contournable par convention ou revu
 | P-21 | **Aucune ressource chargée depuis un hôte externe** — police, icône, script, feuille de style, image. Un CDN rend l'écran dépendant du réseau, ce que le mode hors-ligne interdit | VI, XII |
 | P-21b | **Toute ressource déclarée est effectivement embarquée** — chaque famille de `--font-*` du bloc `@theme` est servie par un `@font-face` local, chaque glyphe employé figure dans la police sous-réglée, et **toute police embarquée est accompagnée de sa licence et de son avis de copyright, atteignables depuis le produit**. Retirer un CDN sans embarquer son contenu fait passer P-21 au vert **en n'affichant rien** ; embarquer une police sans son attribution redistribue une œuvre sous licence sans en respecter les termes | VI, IX, XII |
 | P-22 | **PARCOURS RÉEL — l'application démarre et chaque route déclarée s'atteint**, sans erreur de console, de deux manières : par navigation interne **et** par chargement direct de l'adresse. Le thème déclaré s'applique effectivement. Un composant monté en test n'est pas un écran atteint : `@vue/test-utils` contourne le routeur, `<Suspense>`, les layouts et les plugins — tout ce qui fait qu'une page existe pour un utilisateur | VII, VIII |
+| P-23 | **PROVENANCE DE L'INSTANT — aucun calcul métier, fiscal, de clôture ou de durée ne s'appuie sur `horodatage_client`.** Seul l'horodatage d'autorité serveur fait foi. Exemptions limitativement énumérées dans le script : ordre d'affichage local, détection de dérive d'horloge, rendu de l'instant tel que le terminal l'a perçu. Périmètre **découvert**, jamais énuméré à la main | IV |
 
 ### Couverture des portes — leçon du cycle 1
 
@@ -757,7 +785,7 @@ Un principe n'est jamais contourné en silence : il est amendé ou il est respec
 - **PATCH** — clarification, reformulation, correction sans effet sémantique.
 
 **Conformité.** Chaque plan de fonctionnalité passe un `Constitution Check` avant
-implémentation. Les portes P-01 à P-22 (P-01b, P-05b et P-21b incluses) sont exécutées en intégration continue et leur échec
+implémentation. Les portes P-01 à P-23 (P-01b, P-05b et P-21b incluses) sont exécutées en intégration continue et leur échec
 bloque la fusion. Toute complexité ajoutée doit être justifiée par écrit dans le plan ; à
 justification absente, l'option la plus simple s'impose.
 
@@ -791,4 +819,4 @@ classes hors-ligne avec le code.
   typographique — « 14,5 px » contre « 14.5px », « / .85 » contre « / 0.85 ». La règle de
   préséance du principe XII reste en vigueur comme filet, sans objet aujourd'hui.
 
-**Version**: 1.7.1 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-02
+**Version**: 1.8.0 | **Ratified**: 2026-07-30 | **Last Amended**: 2026-08-02

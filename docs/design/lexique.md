@@ -3,6 +3,22 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.5.1** — complément des cinq entrées ci-dessous, trouvé à l'analyse de cohérence du
+cycle SYN, le 2026-08-02. Trois manques, chacun réel :
+
+- **la dérive d'horloge n'avait qu'un sens.** La phrase disait « retarde de {n} minutes », alors que
+  la détection porte sur la **valeur absolue** de l'écart (SYN-04) : une horloge **en avance** — le
+  cas du scénario de recette — n'avait aucune formulation, donc la moitié des cas était muette ;
+- **les formulations anglaises manquaient** aux cinq libellés nouveaux, alors que le reste du
+  document en donne ;
+- **le titre de `S1` ne disait rien de sa route.** « Synchronisation » est proscrit du visible, et
+  une URL est visible : le mot serait rentré par la porte du nom de fichier.
+
+**Version 1.5.0** — le vocabulaire du cycle SYN : les **quatre formulations** que le témoin et le
+panneau d'envoi réclamaient — connexion faible, saisie refusée, dérive d'horloge, titre de `S1` —
+et la **confirmation que le lexique prime sur `app/core/i18n`**, qui avait dérivé sur les trois
+libellés du témoin. Ajoutée le 2026-08-02.
+
 **Version 1.4.0** — le vocabulaire du cycle HEB : la **formule**, le **type de chambre**, les cinq
 refus du moteur de disponibilité, et le choix fiscal que l'exploitant fait à l'écran. Le mot
 « formule » était déjà sur la maquette `G2` — « Vos formules », « Ajouter une formule » — et absent
@@ -56,7 +72,11 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | Code d'erreur HTTP, `message` de diagnostic | **N'apparaît jamais.** L'interface branche sa clé i18n sur le `code`, jamais sur le `message` — qui nomme des tables et parle anglais technique |
 | Unité louable | « Chambre » en hôtel, « logement » en résidence, « salle » pour la réunion — selon le contexte |
 | RBAC, permissions | « Ce que chacun peut faire » |
-| Synchronisation | « Enregistré » / « En attente d'envoi (4) » / « Hors connexion » |
+| Synchronisation | « Enregistré » / *Saved* · « En attente d'envoi (4) » / *Pending send (4)* · « Hors connexion » / *No connection* — **ces trois libellés font foi ; `app/core/i18n` disait « Connecté », « Hors ligne », « {n} éléments en attente », ce qui décrit le RÉSEAU au lieu de dire ce qui compte pour Aminata : son travail est-il en sécurité** |
+| Réseau **dégradé** (le mot n'apparaît jamais) | « **Connexion faible** » / *Weak connection* — le réseau répond mal, les envois partent lentement. « Dégradé » est un terme d'ingénieur ; « faible » est ce qu'on dit spontanément d'un réseau qui rame |
+| Écriture **définitivement refusée** par le serveur | « **Cette saisie a été refusée** » / *This entry was refused* **suivi du motif en clair et de ce qui reste possible.** Même patron que l'échec de certification : on dit qui refuse et pourquoi, jamais « erreur » seul. Ne jamais employer « rejet », « échec de synchronisation » ni un code |
+| **Dérive d'horloge** au-delà du seuil | **Deux formes, une par sens** — « **L'heure de cet appareil retarde de {n} minutes.** » / *This device's clock is {n} minutes behind.* ou « **L'heure de cet appareil avance de {n} minutes.** » / *This device's clock is {n} minutes ahead.*, suivies **dans les deux cas** de « **Les durées et les montants restent calculés sur l'heure du serveur.** » / *Durations and amounts are still calculated from the server's time.* — **la seconde phrase est obligatoire** : sans elle, l'exploitant croira ses passages mal facturés, alors que l'horodatage d'autorité les protège (principe IV). **Les deux sens sont dus** : la détection porte sur la **valeur absolue** de l'écart (SYN-04), et une horloge en avance est aussi fausse qu'une horloge en retard — une seule forme laisserait la moitié des cas sans phrase |
+| Titre de l'écran `S1` — panneau de synchronisation | « **Mes envois** » / *My uploads* — jamais « Synchronisation », le mot est proscrit par la ligne ci-dessus. Court, possessif : c'est son travail qui est en jeu, pas un mécanisme. **La route de la page suit le titre** (`/mes-envois`) : une URL est visible dans la barre d'adresse, et le mot proscrit ne s'y invite pas par la porte du nom de fichier |
 | Attestation d'intégrité, enrôlement | « Téléphones autorisés » |
 | `note_etablissement` | « **Note interne** » / *Internal note* — jamais « note d'établissement » : le §6 pose déjà que l'utilisateur est toujours dans le sien, le mot serait superflu sur un bouton |
 | `capacite` | **N'apparaît jamais.** Le mot est un terme d'architecture — il nomme le transverse (stock, livraison, fidélité) par opposition au module d'activité. L'utilisateur ne voit que la **capacité concrète**, sous le service qui la consomme |
