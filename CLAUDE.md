@@ -106,7 +106,14 @@ de comptoir, l'appareil ne bouge pas, c'est la personne qui change. À ne pas co
 « Déconnecter cet appareil », qui coupe un autre appareil à distance. Les deux entrées sont au
 lexique — **tout terme visible passe par lui avant d'être codé**.
 
-État par tranche : **T1 en cours** (TRX, ETB et CPT livrés ; restent HEB, SYN, SEJ-1).
+État par tranche : **T1 en cours** (TRX, ETB, CPT et HEB livrés ; restent SYN et SEJ-1).
+
+**⚠️ N'ARRÊTE JAMAIS UN PROCESSUS PAR SON NOM DE COMMANDE.** `pkill -f "nuxt.mjs dev"` a tué le
+serveur de développement d'un **autre projet** de ce poste, qui tournait depuis cinq heures.
+Cible par **port** — `lsof -ti:3000 | xargs kill` — ou par répertoire de travail. Le projet
+emploie déjà `lsof` sur le port dans `REPRISE.md` pour la détection ; utilise le même moyen pour
+l'arrêt. Plus généralement : **rien hors du dépôt** — ni processus, ni fichier de configuration
+du poste.
 
 ## Langue et conventions de nommage
 
