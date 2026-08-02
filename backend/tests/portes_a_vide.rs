@@ -67,40 +67,53 @@ fn p06_est_levee_et_vit_desormais_dans_son_propre_fichier() {
     );
 }
 
-/// **P-09** — toute occupation est un `tstzrange` protégé par une contrainte d'exclusion GiST.
+/// **P-09 — LEVÉE au cycle 004.** La porte a désormais sa cible, elle n'est plus à vide.
 ///
-/// Cible attendue : la table `occupation` de **HEB-02**.
+/// L'assertion de non-régression a fonctionné exactement comme prévu, pour la **deuxième** fois du
+/// produit : la migration `0025_occupation.sql` a créé `hebergement.occupation`, ce test a échoué
+/// avec le message que le cycle 001 avait rédigé, et la porte a été activée **dans le même
+/// changement** (T018, tâche déclarée indivisible pour cette raison).
 ///
-/// # Partiellement exercée dès ce cycle
+/// Ce qui reste ici est le **chaînage**, sur le précédent de P-06 : le contenu réel de P-09 vit
+/// dans `backend/tests/hebergement_disponibilite.rs`, et ce test échoue si ce fichier disparaît.
+/// Sans ce relais, supprimer la porte réelle ne casserait plus rien — l'assertion à vide ayant été
+/// retirée, plus personne ne réclamerait sa présence.
 ///
-/// `fiscalite.exercice_comptable` utilise `EXCLUDE USING gist` sur `daterange`. Ce n'est pas une
-/// occupation, mais c'est **le même mécanisme** : le spike valide `btree_gist` et le mapping de
-/// type sqlx 0.9 avant que la disponibilité des unités n'en dépende. Voir
-/// `backend/tests/provisions_sans_logique.rs`.
+/// # Le spike du cycle 001 reste exercé, et c'est vérifié ici
+///
+/// `fiscalite.exercice_comptable` utilise `EXCLUDE USING gist` sur `daterange`. Ce n'est plus le
+/// **seul** usage du mécanisme, mais c'est celui qui l'a validé avant HEB-02, et sa disparition
+/// retirerait la démonstration sur `daterange` que rien d'autre ne referait.
 #[tokio::test]
-async fn p09_occupation_protegee_par_exclusion_gist() {
+async fn p09_est_levee_et_vit_desormais_dans_son_propre_fichier() {
+    use std::path::Path;
+
     let pool = commun::pool_owner().await;
 
-    // Assertion de non-régression : le mécanisme lui-même doit rester exercé.
     let exercice = table_existe(&pool, "fiscalite", "exercice_comptable").await;
     assert!(
         exercice,
-        "P-09 : `fiscalite.exercice_comptable` a disparu. C'était le SEUL usage d'EXCLUDE USING \
-         gist du produit — sans lui, plus rien ne valide le mécanisme sur lequel HEB-02 s'appuiera \
-         pour empêcher la double attribution de chambre."
+        "P-09 : `fiscalite.exercice_comptable` a disparu. C'était le premier usage d'EXCLUDE \
+         USING gist du produit, et celui qui a validé le mécanisme sur `daterange` avant que \
+         HEB-02 n'en dépende sur `tstzrange`."
     );
 
+    // La cible existe désormais — c'est ce que le message du cycle 001 annonçait.
     let occupation = table_existe(&pool, "hebergement", "occupation").await;
     assert!(
-        !occupation,
-        "P-09 : la table `occupation` existe désormais, mais la porte est toujours installée à \
-         vide.\n\
-         HEB-02 doit, dans le MÊME changement, vérifier ici que :\n\
-           1. la période est un `tstzrange`, JAMAIS une paire de dates — le marché pratique \
-              massivement le passage horaire et la demi-journée ;\n\
-           2. une contrainte `EXCLUDE USING gist (unite_id WITH =, periode WITH &&)` la protège ;\n\
-           3. deux attributions concurrentes chevauchantes échouent — pas « improbablement », \
-              jamais."
+        occupation,
+        "P-09 : `hebergement.occupation` a disparu alors que la porte a été levée. Sa levée \
+         supposait que la table existe ; sans elle, le fichier de la porte réelle vérifierait le \
+         vide et resterait vert."
+    );
+
+    assert!(
+        Path::new("tests/hebergement_disponibilite.rs").exists(),
+        "P-09 : `backend/tests/hebergement_disponibilite.rs` a disparu. La porte a été levée quand \
+         `hebergement.occupation` est apparue ; son contenu réel vit désormais dans ce fichier — \
+         les trois assertions dictées par le cycle 001, dont le test de concurrence qui asserte la \
+         CAUSE du refus. Le supprimer laisserait P-09 sans aucune cible ET sans assertion à vide, \
+         c'est-à-dire silencieusement absente."
     );
 }
 
@@ -156,8 +169,11 @@ fn p11_tests_dores_fiscaux() {
 /// relire trois tests.
 #[test]
 fn recapitulatif_des_portes_installees_a_vide() {
-    let a_vide = ["P-09 (HEB-02)", "P-11 (T3, FIS-01 à FIS-07)"];
-    let levees = ["P-06 (ETB-02b) → backend/tests/capacites_refusees.rs"];
+    let a_vide = ["P-11 (T3, FIS-01 à FIS-07)"];
+    let levees = [
+        "P-06 (ETB-02b) → backend/tests/capacites_refusees.rs",
+        "P-09 (HEB-02)  → backend/tests/hebergement_disponibilite.rs",
+    ];
 
     println!("Portes encore installées à vide, avec assertion de non-régression :");
     for porte in a_vide {
@@ -192,7 +208,22 @@ fn recapitulatif_des_portes_installees_a_vide() {
 #[test]
 fn fr008_aucun_compteur_d_etablissements_a_visee_tarifaire() {
     let mut suspects = Vec::new();
-    let motifs = ["palier", "abonnement", "facturation_editeur", "quota_etablissement"];
+    // **Le motif `palier` seul a cessé d'être utilisable au cycle 004**, et c'est un fait du
+    // produit, pas un assouplissement : `hebergement.bareme_palier` porte les paliers du **barème
+    // de passage** — 1 h : 1 500, 2 h : 2 800 — qui n'ont aucun rapport avec les paliers
+    // d'abonnement de l'éditeur (ADM-03). Un mot légitime est apparu là où il n'y en avait aucun.
+    //
+    // La cible est resserrée plutôt qu'élargie par une exclusion de fichier : ce que FR-008
+    // interdit est une logique **tarifaire d'abonnement**, et ses formes réelles portent toutes
+    // l'un de ces mots. Une exclusion par fichier aurait laissé un vrai manquement s'y cacher.
+    let motifs = [
+        "palier_abonnement",
+        "palier_tarifaire",
+        "palier_unites",
+        "abonnement",
+        "facturation_editeur",
+        "quota_etablissement",
+    ];
 
     for repertoire in ["crates/socle/etablissements/src", "api/src"] {
         for fichier in sources_rust(std::path::Path::new(repertoire)) {
