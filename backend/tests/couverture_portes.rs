@@ -142,6 +142,21 @@ const TYPES_EVENEMENTS: &[&str] = &[
     "role.attribue",
     "role.retire",
     "session.revoquee",
+    // ── Cycle 004 (HEB) — cinq types, RELUS DU CODE ────────────────────────────────────────
+    //
+    // **Le décompte n'est pas le sujet ; la liste des fichiers balayés l'est.** Avant ce
+    // recollement, `p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste` ne lisait aucun
+    // fichier de `verticales/` : les cinq types ci-dessous étaient émis en production et
+    // **invisibles à la porte**, qui restait verte. Ajouter les types sans ajouter les fichiers
+    // aurait rendu le total juste et la porte toujours aveugle — c'est le trou trouvé sur
+    // `comptes` au cycle 003, reformé un cran plus loin.
+    //
+    // Total du produit : **27 types**, 13 + 9 + 5.
+    "heb.categorie.tarif_modifie",
+    "heb.formule.creee",
+    "heb.formule.modifiee",
+    "heb.occupation.attribuee",
+    "heb.occupation.liberee",
 ];
 
 /// Les types déclarés au modèle de données **sans émetteur**, nommés un par un.
@@ -205,6 +220,9 @@ fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
         "crates/socle/comptes/src/compte/service.rs",
         "crates/socle/comptes/src/roles/service.rs",
         "crates/socle/comptes/src/authentification/service.rs",
+        // ── Cycle 004 — LA VERTICALE, qui échappait entièrement au balayage ─────────────────
+        "crates/verticales/hebergement/src/referentiel/service.rs",
+        "crates/verticales/hebergement/src/occupation/service.rs",
     ] {
         let contenu = std::fs::read_to_string(Path::new(chemin))
             .unwrap_or_else(|_| panic!("{chemin} introuvable — le décompte porterait sur moins"));
@@ -292,6 +310,19 @@ const TABLES_CREEES: &[(&str, &str)] = &[
     ("comptes", "journal_audit"),
     ("comptes", "employe"),
     ("comptes", "appareil_enrole"),
+    // ── Cycle 004 (HEB) — huit tables, dont une de provision ────────────────────────────────
+    //
+    // Six pour le référentiel (`0024`), `occupation` (`0025`), et `prestation_incluse` (`0026`).
+    // La provision figure ici pour la même raison qu'`employe` et `appareil_enrole` : l'isolation
+    // la concerne autant que les autres, et l'omettre la sortirait du décompte.
+    ("hebergement", "categorie"),
+    ("hebergement", "temps_remise_en_etat"),
+    ("hebergement", "unite"),
+    ("hebergement", "formule"),
+    ("hebergement", "bareme_palier"),
+    ("hebergement", "plage_demi_journee"),
+    ("hebergement", "occupation"),
+    ("hebergement", "prestation_incluse"),
 ];
 
 /// **P-07 — les vingt tables existent, et toutes sont inspectées par la porte.**
@@ -446,6 +477,14 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         ("cycle 003 — comptes et rôles (CPT-02, contrat §10-18)", 9),
         // Une seule, et en lecture. Aucun point d'entrée d'écriture d'audit — research R-17.
         ("cycle 003 — registre des actions (CPT-04, contrat §19)", 1),
+        // ── Cycle 004 (HEB) — treize opérations, la première verticale ───────────────────────
+        //
+        // Neuf pour le référentiel (catégories, unités, formules — lire, créer, modifier), une
+        // pour la disponibilité, deux pour l'occupation (attribuer, libérer), une pour le tarif.
+        // La ventilation suit les trois fichiers de routes, ce qui rend un écart localisable.
+        ("cycle 004 — référentiel d'hébergement (HEB-01/03/04/05, opérations 1-9)", 9),
+        ("cycle 004 — disponibilité et occupation (HEB-02, opérations 10-12)", 3),
+        ("cycle 004 — tarification du passage (HEB-04, opération 13)", 1),
     ];
     let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
 
@@ -454,12 +493,13 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         operations_attendues,
         "P-08 — {operations} opération(s) servie(s) au lieu des {operations_attendues} attendues.\n\
          Ventilation déclarée :\n{}\n\
-         Le total à la clôture du cycle 003 est de **43**, et non les 40 du plan : celui-ci \
-         comptait des chemins là où la porte compte des opérations. `/api/v1/comptes` en sert \
-         deux — `compte_lister` et `compte_creer` — et `/api/v1/session` aussi. L'écart est un \
-         défaut de comptage du plan, constaté au recollement et laissé tel quel : c'est la \
-         ventilation ci-dessus qui fait foi, parce qu'elle oblige à dire de quel lot vient un \
-         écart au lieu de corriger un total.",
+         Le total à la clôture du cycle 004 est de **56** — 43 après le cycle 003, plus les \
+         treize opérations de l'hébergement. Le 43 lui-même n'était pas le 40 du plan : celui-ci \
+         comptait des chemins là où la porte compte des opérations (`/api/v1/comptes` en sert \
+         deux, `/api/v1/session` aussi). Ces écarts sont des défauts de comptage des plans, \
+         constatés au recollement et laissés tels quels : c'est la ventilation ci-dessus qui fait \
+         foi, parce qu'elle oblige à dire de quel lot vient un écart au lieu de corriger un \
+         total.",
         LOTS.iter()
             .map(|(nom, n)| format!("  {n:>3} — {nom}"))
             .collect::<Vec<_>>()
@@ -525,8 +565,9 @@ fn p01b_les_operation_id_du_contrat_sont_tous_presents_et_distincts() {
     // Versant « cible non vide » — exigence 4. Un contrat vide passerait les deux assertions
     // suivantes sans rien vérifier, et c'est exactement le défaut que P-08 a présenté au cycle 001.
     assert!(
-        operations >= 40,
-        "P-01b — seulement {operations} opération(s) lue(s) du contrat. La porte ne compare rien. \
+        operations >= 56,
+        "P-01b — seulement {operations} opération(s) lue(s) du contrat, pour 56 attendues au \
+         minimum à la clôture du cycle 004. La porte ne compare rien, ou le contrat a rétréci. \
          Le contrat est-il assemblé ? (`application::contrat_complet`)"
     );
 
@@ -613,6 +654,28 @@ const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
 /// Les tests d'audit de classe A, lus à la compilation — c'est là qu'une famille branchée
 /// s'exerce.
 const AUDIT_CLASSE_A: &str = include_str!("audit_classe_a.rs");
+const HEBERGEMENT_TARIFICATION: &str = include_str!("hebergement_tarification.rs");
+
+/// **Les fichiers de tests qui exercent le registre des actions, nommés un par un.**
+///
+/// # Pourquoi ce n'est plus un fichier unique (corrigé au cycle 004)
+///
+/// La porte ne lisait que `audit_classe_a.rs`. Or un test d'audit vit naturellement **près du
+/// cycle qui branche sa famille** : la rebascule de palier est exercée par
+/// `hebergement_tarification.rs`, qui crée un dépassement réel et relit le registre. La porte
+/// signalait donc une famille « branchée sans test » alors que le test existait, à côté.
+///
+/// Un fichier fautif se serait corrigé de deux façons : déplacer le test là où la porte regarde —
+/// c'est-à-dire l'éloigner de ce qu'il teste —, ou élargir le regard. La seconde est la bonne, à
+/// une condition : que la liste reste **nommée**. Un balayage de `tests/*.rs` ferait passer la
+/// porte au premier fichier qui mentionnerait une famille en commentaire.
+///
+/// `include_str!` est le garde-fou : un fichier retiré de la liste ne compile plus, au lieu de
+/// rétrécir la cible en silence.
+const TESTS_QUI_EXERCENT_L_AUDIT: &[(&str, &str)] = &[
+    ("audit_classe_a.rs", AUDIT_CLASSE_A),
+    ("hebergement_tarification.rs", HEBERGEMENT_TARIFICATION),
+];
 
 /// Nombre de familles annoncées par CPT-04, repris de `audit_taxonomie.rs`.
 const FAMILLES_ATTENDUES: usize = 10;
@@ -706,24 +769,44 @@ fn toute_famille_d_audit_branchee_est_exercee_par_un_test() {
 
     assert!(
         !branchees.is_empty(),
-        "aucune famille branchée : ce cycle en livre deux. Une cible vide passe toujours."
+        "aucune famille branchée : le produit en compte trois à la fin du cycle 004. Une cible \
+         vide passe toujours."
     );
 
+    // Une famille est exercée si l'un des fichiers déclarés emploie sa **variante Rust** —
+    // `TypeActionAudit::ChangementRole`, quand le test construit l'entrée — ou son **code
+    // littéral** entre guillemets, quand le test relit la colonne `type_action` en base. Les deux
+    // formes sont du code : le second motif ne peut pas être satisfait par une simple mention.
     let non_exercees: Vec<String> = branchees
         .iter()
-        .filter(|code| !AUDIT_CLASSE_A.contains(&format!("TypeActionAudit::{}", variante_rust(code))))
+        .filter(|code| {
+            let variante = format!("TypeActionAudit::{}", variante_rust(code));
+            let litteral = format!("\"{code}\"");
+            !TESTS_QUI_EXERCENT_L_AUDIT
+                .iter()
+                .any(|(_, source)| source.contains(&variante) || source.contains(&litteral))
+        })
         .map(|code| (*code).clone())
         .collect();
 
     assert!(
         non_exercees.is_empty(),
-        "{} famille(s) d'audit déclarée(s) « branchée(s) » sans aucun test dans \
-         `audit_classe_a.rs` :\n  {}\n\n\
+        "{} famille(s) d'audit déclarée(s) « branchée(s) » sans aucun test dans les {} fichier(s) \
+         inspecté(s) :\n  {}\n\n\
+         Fichiers inspectés : {}\n\n\
          Un chemin d'écriture existe — `audit_taxonomie.rs` le vérifie — mais rien ne l'emprunte. \
          Le registre d'audit est à rétention illimitée : ce qu'on y écrit sans l'avoir exercé, on \
-         ne le corrige pas après coup.",
+         ne le corrige pas après coup.\n\
+         Si le test existe dans un fichier absent de cette liste, l'y inscrire — la liste est \
+         nommée exprès, et `include_str!` empêche qu'elle rétrécisse en silence.",
         non_exercees.len(),
-        non_exercees.join("\n  ")
+        TESTS_QUI_EXERCENT_L_AUDIT.len(),
+        non_exercees.join("\n  "),
+        TESTS_QUI_EXERCENT_L_AUDIT
+            .iter()
+            .map(|(nom, _)| *nom)
+            .collect::<Vec<_>>()
+            .join(", ")
     );
 
     println!(
@@ -769,16 +852,26 @@ fn tables_attendues_par_classes_offline() -> usize {
 /// qui en porte 26, sans qu'aucune assertion ne bronche. Un récapitulatif faux est pire qu'aucun —
 /// c'est le chiffre qu'on recopie dans la revue.
 ///
-/// Il compte donc désormais **les quatre schémas applicatifs**, et confronte son total à celui que
+/// Il compte donc désormais **les cinq schémas applicatifs**, et confronte son total à celui que
 /// `classes_offline.rs` déclare de son côté.
+///
+/// **`hebergement` est le cinquième, ajouté au cycle 004.** Sans lui, le récapitulatif aurait
+/// compté 26 tables là où `classes_offline.rs` en déclarait 34 — et c'est bien ce qu'il a fait au
+/// premier passage de ce recollement. La confrontation des deux totaux est ce qui l'a montré : un
+/// décompte seul serait resté plausible.
 #[tokio::test]
 async fn recapitulatif_des_portes_a_decompte() {
     let pool = commun::pool_owner().await;
 
-    // Les quatre schémas applicatifs, dans l'ordre de leur apparition au produit. `public` en est
+    // Les cinq schémas applicatifs, dans l'ordre de leur apparition au produit. `public` en est
     // exclu : `sqlx.toml` y place la table de suivi des migrations, qui ne porte rien de métier.
-    const SCHEMAS_APPLICATIFS: &[&str] =
-        &["etablissements", "synchronisation", "fiscalite", "comptes"];
+    const SCHEMAS_APPLICATIFS: &[&str] = &[
+        "etablissements",
+        "synchronisation",
+        "fiscalite",
+        "comptes",
+        "hebergement",
+    ];
 
     let par_schema: Vec<(String, i64)> = sqlx::query(
         r#"
@@ -816,7 +909,7 @@ async fn recapitulatif_des_portes_a_decompte() {
     assert_eq!(
         usize::try_from(tables).expect("décompte positif"),
         attendues,
-        "{tables} table(s) dans les quatre schémas applicatifs, contre {attendues} déclarée(s) par \
+        "{tables} table(s) dans les cinq schémas applicatifs, contre {attendues} déclarée(s) par \
          `classes_offline.rs`.\n\
          Ventilation : {par_schema:?}\n\n\
          Les deux fichiers comptent le même ensemble ; un écart signifie qu'une migration a été \

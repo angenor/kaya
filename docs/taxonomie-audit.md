@@ -50,7 +50,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 6 | `suppression` | La mise hors service de ce qui ne se supprime jamais | **branché** | **CPT-01 — ce cycle** |
 | 7 | `changement_role` | Une attribution ou un retrait de rôle | **branché** | **CPT-02 — ce cycle** |
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
-| 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **dû** | HEB-04 — tranche T1 |
+| 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **branché** | **HEB-04 — cycle 004** |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
 
 **Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document a été écrit
@@ -71,7 +71,21 @@ d'attribution et de retrait de `socle/comptes/src/roles/service.rs` écrit une e
 explique que `compte_role` n'ait pas de privilège `UPDATE` : changer un rôle est un retrait suivi
 d'une attribution, donc deux lignes au registre, pas une modification silencieuse.
 
-**Deux sur dix sont donc branchées à la fin du cycle 003**, et les huit autres restent dues aux
+**`rebascule_palier_passage` est passée à branché au cycle 004**, avec le moteur de tarification
+du passage. Le dépassement constaté au départ fait changer de palier ; la différence est ajoutée à
+la note, et l'entrée d'audit porte la durée constatée et les **deux paliers** — celui qui avait été
+vendu et celui qui s'applique. Le passage est aujourd'hui massivement encaissé en espèces sans
+trace : c'est précisément cette famille qui donne au propriétaire la visibilité que le cadrage §5.6
+lui promet, et c'est aussi la raison pour laquelle elle rencontrera de la résistance.
+
+> **Le harnais a signalé l'écart avec un cycle de retard, et il faut le dire.** Le chemin
+> d'écriture est apparu en T042, mais `backend/tests/audit_taxonomie.rs` n'a été relancé qu'au
+> recollement T049 : le test était **rouge dans l'arbre** entre les deux, sans que rien ne le
+> montre, parce que les tâches intermédiaires lançaient des suites ciblées. La porte a fait son
+> travail ; c'est la fréquence à laquelle on l'interroge qui a manqué. `cargo test --workspace`
+> avant chaque commit de fin de phase est le remède, et non une porte de plus.
+
+**Trois sur dix sont donc branchées à la fin du cycle 004**, et les sept autres restent dues aux
 tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
 chaque étape.
 
