@@ -275,9 +275,21 @@
     }
   },
   "configuration": {
+    "heure_arrivee_standard": {
+      "libelle": "Check-in time",
+      "description": "The time from which a room is ready for the night."
+    },
+    "heure_depart_standard": {
+      "libelle": "Check-out time",
+      "description": "The time by which the room must be vacated."
+    },
     "politique_impression": {
       "libelle": "What gets printed",
       "description": "What goes to the printer when you take payment."
+    },
+    "seuil_bascule_nuitee_minutes": {
+      "libelle": "Stay that becomes a night",
+      "description": "Beyond this duration, a stay is billed as a night."
     }
   },
   "mentions": {

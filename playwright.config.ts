@@ -50,7 +50,20 @@
 
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 3000
+/**
+ * Port du serveur Nuxt exercé par la porte. **3000 par défaut**, ce qui laisse la CI et le poste
+ * de développement inchangés.
+ *
+ * `KAYA_PORT_E2E` existe pour un cas rencontré au cycle 004 : un serveur Nuxt d'un **autre projet**
+ * occupait déjà le 3000. Nuxt se rabat alors silencieusement sur 3001, Playwright continue
+ * d'attendre sur 3000, et la porte échoue au bout de trois minutes sur `Timed out waiting
+ * 180000ms` — un message qui ne dit rien de la cause et envoie chercher un défaut dans
+ * l'application.
+ *
+ * Changer de port ne change rien à ce que la porte vérifie : elle exerce les mêmes routes, sur les
+ * mêmes moteurs, dans les mêmes thèmes.
+ */
+const PORT = Number(process.env.KAYA_PORT_E2E ?? 3000)
 const BASE = `http://localhost:${PORT}`
 
 export default defineConfig({
@@ -92,7 +105,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'pnpm --filter @kaya/app dev',
+    // `--port` explicite : sans lui, Nuxt choisit le port suivant quand le sien est pris, et
+    // Playwright attend sur une adresse que personne ne sert.
+    command: `pnpm --filter @kaya/app dev --port ${PORT}`,
     url: `${BASE}/connexion`,
     reuseExistingServer: true,
     timeout: 180_000,

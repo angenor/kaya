@@ -275,9 +275,21 @@
     }
   },
   "configuration": {
+    "heure_arrivee_standard": {
+      "libelle": "Heure d'arrivée",
+      "description": "L'heure à partir de laquelle une chambre est prête pour la nuitée."
+    },
+    "heure_depart_standard": {
+      "libelle": "Heure de départ",
+      "description": "L'heure à laquelle la chambre doit être libérée."
+    },
     "politique_impression": {
       "libelle": "Ce qui s'imprime",
       "description": "Ce qui part à l'imprimante quand vous encaissez."
+    },
+    "seuil_bascule_nuitee_minutes": {
+      "libelle": "Passage qui devient une nuit",
+      "description": "Au-delà de cette durée, un passage est facturé comme une nuitée."
     }
   },
   "mentions": {

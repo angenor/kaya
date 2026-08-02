@@ -97,6 +97,22 @@ const aDesPointsDeVente = computed(() => props.pointsDeVente.length > 0)
         :key="valeur.cle"
         class="flex w-full flex-col items-start gap-0.75 rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf p-3 text-left shadow-basse"
       >
+        <!-- ⚠️ **La clé est FABRIQUÉE ici, alors que le catalogue en déclare une** (dette, cycle
+             004). `etablissements.parametre_catalogue.libelle_cle` porte la clé i18n de chaque
+             paramètre — mais l'API ne l'expose pas dans cette réponse, qui ne rend que `cle`,
+             `valeur` et `origine`. Cette ligne reconstruit donc `configuration.<clé>.libelle`, et
+             les deux conventions ont divergé sans que rien ne le signale : `politique_impression`
+             déclare `configuration.politique_impression.libelle` au catalogue, les huit autres
+             paramètres déclarent `parametres.<clé>.libelle`.
+
+             Tant qu'aucun établissement n'avait de valeur pour ces huit-là, rien ne s'affichait et
+             l'écart restait invisible. Les seeds du cycle 004 en ont posé trois, et P-22 a échoué
+             sur trois avertissements `intlify` — c'est ainsi que la dette a été trouvée.
+
+             Le correctif de fond est d'exposer `libelle_cle` au contrat et de le lire ici : la clé
+             i18n est une donnée du catalogue, pas une convention implicite d'un écran. Il touche
+             l'API, le contrat, le client TS et cette section ; il n'a pas été fait au recollement
+             d'un cycle. -->
         <dt class="min-w-0 flex-1 font-titre text-titre-s font-semibold text-ink">
           {{ t(`configuration.${valeur.cle}.libelle`) }}
         </dt>
