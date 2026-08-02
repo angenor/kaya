@@ -774,6 +774,7 @@ Instrumentation dès le premier cycle : tous les indicateurs sont calculés depu
 | B-07 | Barèmes de passage réels du pilote (seeds) | S3 (atelier terrain) |
 | B-08 | Politique de support : horaires, canaux, SLA par formule | S14 |
 | B-09 | Second pays cible et calendrier de l'adaptateur de juridiction | S30 |
+| **B-10** | **Exonération de taxe de nuitée par personne** — un enfant en bas âge, un résident, un séjour au-delà d'un seuil sont-ils taxés ? Le corpus n'en porte aucune trace : §9.6 et FIS-03 disent « par nuitée et par client, accompagnants inclus », sans exception. **Si l'exonération existe, il manque une colonne de motif — nullable, jamais un booléen, qui ne justifierait rien devant le trésorier municipal.** La fenêtre où l'ajout coûte zéro est le cycle SEJ, qui crée `accompagnant` — pas HEB | **avant le cycle SEJ**, à l'atelier terrain |
 
 ## Annexe C — Glossaire
 

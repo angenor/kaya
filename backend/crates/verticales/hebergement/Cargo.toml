@@ -6,7 +6,27 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+# **Aucune dépendance NOUVELLE au workspace** (principe XI, porte P-20). Toutes les lignes
+# ci-dessous reprennent des versions déjà épinglées dans `backend/Cargo.toml` — le gel n'est pas
+# touché, et aucun lockfile ne doit bouger de ce cycle.
+#
+# `kaya-comptes` entre ici pour le **trait d'audit** : la rebascule de palier se trace au registre
+# des actions (CPT-04). `kaya-synchronisation` pour `OutboxWriter`. Ce sont deux dépendances
+# `verticales/` → `socle/`, autorisées par le principe II et vérifiées par la porte P-03 — dont
+# c'est le premier cycle où elle peut échouer, ce crate étant la première verticale non vide.
 [dependencies]
 kaya-domain = { workspace = true }
 kaya-etablissements = { workspace = true }
+kaya-comptes = { workspace = true }
+kaya-synchronisation = { workspace = true }
 kaya-stocks = { workspace = true }
+
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+utoipa = { workspace = true }

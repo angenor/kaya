@@ -1,7 +1,15 @@
-# Kaya — les 14 composants canoniques
+# Kaya — les composants canoniques
 
-Tout écran de Kaya est composé de ces quatorze pièces. Le n° 15 (barre de proportion) est
-apparu après la série et attend sa validation — voir `README.md`, décisions.
+Tout écran de Kaya est composé de ces pièces — **seize au 2026-08-02**. Le décompte est celui
+des sections numérotées de ce fichier, jamais un nombre écrit ailleurs : il a déjà été faux deux
+fois.
+
+Les **quatorze premiers** ont été dessinés sur onze écrans de lecture et de geste. Le **n° 15**
+(barre de proportion) est apparu après la série et attend sa validation — voir `README.md`,
+décisions. Le **n° 16** (champ de saisie) a été **composé depuis les tokens**, sans maquette :
+aucun des 29 fichiers de `docs/design/html/` ne contient de champ. Il est né du besoin d'un
+patron d'écriture, et c'est lui qui rend possible les **écrans composés** au sens de
+`Kaya_Design.md` §2.
 
 Le **n° 16 (champ de saisie)** est arrivé après elles aussi, et pour une raison différente : les
 quatorze premiers ont été dessinés sur onze écrans de **lecture et de geste**, où l'on ne saisit

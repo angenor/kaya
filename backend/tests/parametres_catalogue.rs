@@ -172,6 +172,13 @@ async fn le_catalogue_contient_exactement_les_cles_des_cycles_livres() {
         "mot_de_passe_longueur_min",
         "jeton_acces_duree_min",
         "jeton_rafraichissement_duree_jours",
+        // HEB-03 / HEB-04 — les trois du cycle 004. Le cycle en ajoute trois et **pas sept** :
+        // temps de remise en état, barème de passage et plages de demi-journée sont des
+        // référentiels en table, pas des scalaires d'établissement. Le motif est écrit dans
+        // `0023_parametres_hebergement.sql` et au récapitulatif de `user-stories-v1.md`.
+        "heure_arrivee_standard",
+        "heure_depart_standard",
+        "seuil_bascule_nuitee_minutes",
     ]
     .into_iter()
     .map(str::to_owned)
@@ -230,6 +237,30 @@ async fn les_portees_des_parametres_livres_sont_celles_qui_ont_ete_decidees() {
             "ETABLISSEMENT",
             "ENTIER",
             "CPT-01",
+        ),
+        // HEB-03 — **`HEURE_LOCALE`, et non `TEXTE`.** Le plan du cycle 004 écrivait `TEXTE` ; le
+        // type fermé de `0008` porte `HEURE_LOCALE`, et l'employer est ce qui empêche la
+        // validation d'accepter « demain matin ». L'écart au plan est consigné dans la migration
+        // `0023`, à l'endroit où il se constate.
+        (
+            "heure_arrivee_standard",
+            "ETABLISSEMENT",
+            "HEURE_LOCALE",
+            "HEB-03",
+        ),
+        (
+            "heure_depart_standard",
+            "ETABLISSEMENT",
+            "HEURE_LOCALE",
+            "HEB-03",
+        ),
+        // HEB-04 — **`DUREE_MINUTES`, et non `ENTIER`**, même raisonnement : le nom de la clé
+        // porte l'unité, le type la confirme, et un `ENTIER` nu se serait un jour lu en heures.
+        (
+            "seuil_bascule_nuitee_minutes",
+            "ETABLISSEMENT",
+            "DUREE_MINUTES",
+            "HEB-04",
         ),
     ];
 

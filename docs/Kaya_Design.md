@@ -1,5 +1,11 @@
 # Kaya — Prompts Design (fichier unique et complet)
 
+> ⚠️ **Décompte de composants : ce fichier dit « 14 », et c'était vrai au maquettage.**
+> Il y en a **seize** au 2026-08-02 — le n° 15 (barre de proportion) et le n° 16 (champ de
+> saisie, composé depuis les tokens faute de maquette). `docs/design/composants.md` **fait
+> foi** sur le nombre ; les mentions ci-dessous sont des constats d'époque, laissés tels quels.
+> Si vous recollez un prompt de la partie III, corrigez le décompte avant de l'envoyer.
+
 *Compagnon du Cadrage v1 et des User Stories v1 — Maquettage avant développement*
 *Version 2.0 — Remplace `Kaya_Prompts_Design.md`, `Kaya_Design_Personnalite_Mouvement.md` et `Kaya_Design_Plan_Resserre.md`, qui peuvent être archivés.*
 

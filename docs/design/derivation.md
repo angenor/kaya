@@ -100,5 +100,5 @@ valeurs, on réimplémente. Seule exception : `docs/design/theme.css`, copié te
 ## Voir aussi
 
 - `docs/design/lexique.md` — le vocabulaire utilisateur, opposable au même titre
-- `docs/design/composants.md` + `styleguide.html` — les 14 composants dans tous leurs états
+- `docs/design/composants.md` + `styleguide.html` — les composants canoniques dans tous leurs états
 - `docs/design/tokens.md` — les valeurs curées, qui priment sur tout export

@@ -28,9 +28,9 @@ docs/
 └── design/
     ├── theme.css              ⚠️ copié vers app/assets/css/ AU CYCLE 1
     ├── tokens.md              valeurs curées — PRIME sur tout export
-    ├── composants.md          les 14 composants canoniques
+    ├── composants.md          les composants canoniques — composants.md fait foi sur le nombre
     ├── mouvement.md           durées, courbes, sept patrons
-    ├── styleguide.html        les 14 composants, tous états, clair + sombre
+    ├── styleguide.html        tous les composants, tous états, clair + sombre
     ├── README.md              ce qui se copie, ce qui se lit, valeurs arbitraires
     ├── derivation.md          ✅ 30 écrans dérivés + leur motif — NORMATIF
     ├── lexique.md             ✅ vocabulaire utilisateur — NORMATIF
@@ -417,16 +417,38 @@ docs/registre-classes-offline.md et le test correspondant.
 RÉFÉRENCE VISUELLE — SI ce cycle produit des écrans. Plusieurs cycles n'en produisent
 aucun (TRX, SYN, MET, et la part backend de FIS) : dans ce cas, ignore ce paragraphe,
 ne fabrique pas de tâche d'interface pour respecter la forme.
-Le produit compte 41 écrans. Chaque tâche d'interface cite sa référence, qui est dans
+Le produit compte 43 écrans au 2026-08-01 — docs/design/derivation.md fait foi sur ce
+décompte, ne le cite pas de mémoire. Chaque tâche d'interface cite sa référence, qui est dans
 l'un de ces deux cas — jamais un troisième :
 (a) ÉCRAN MAQUETTÉ — 11 écrans, 29 fichiers d'états dans docs/design/html/, nommage
     {code}-{nom}[-{etat}].html. La référence est le fichier d'état exact.
-(b) ÉCRAN DÉRIVÉ — 30 écrans. La référence est sa ligne de la MATRICE DE DÉRIVATION,
+(b) ÉCRAN DÉRIVÉ — 32 écrans. La référence est sa ligne de la MATRICE DE DÉRIVATION,
     docs/design/derivation.md, qui dit de quel motif il hérite et ce qui change
     (ex. « R3 Check-in nuitée hérite de R4 : parcours long, plus de champs, même
     grammaire »). Ouvre la maquette dont il hérite et respecte-la.
-UN ÉCRAN QUI N'EST NI DANS (a) NI DANS (b) NE SE CODE PAS : la tâche s'arrête et
-l'écran part en maquettage. Ne l'invente pas, ne le déduis pas — signale-le.
+(c) ÉCRAN COMPOSÉ — ni maquetté ni dérivé, mais assemblé UNIQUEMENT à partir des seize
+    composants canoniques de docs/design/composants.md, visibles au styleguide de
+    l'application. Autorisé par docs/Kaya_Design.md §2, colonne « on code directement si »,
+    aux QUATRE conditions cumulatives qui y figurent :
+      · c'est une liste, un formulaire ou une table ;
+      · sa conception découle entièrement de la bibliothèque de composants ;
+      · il est consulté rarement, par un utilisateur formé ;
+      · personne n'a de doute sur ce à quoi il ressemble.
+    Plus deux garde-fous :
+      · ZONE DE CHARME UNIQUEMENT (Kaya_Design.md §1) — configuration, référentiels,
+        réglages. UN ÉCRAN DE ZONE DE VITESSE NE SE COMPOSE JAMAIS : R4, P2 et C4 portent
+        une intention dessinée — 46 px pour les durées, 88 px pour l'heure de fin — qu'un
+        assemblage ne retrouvera pas. Debout, pressé, un client en face ou de l'argent en
+        jeu : on maquette.
+      · SI UN MOTIF MANQUE À LA BIBLIOTHÈQUE, ON S'ARRÊTE. C'est le sens du §2 : « on
+        maquette un écran parce qu'il pose un motif que d'autres reprendront ». Un composant
+        nouveau se maquette, il ne s'improvise pas dans un écran.
+    Tout écran composé est INSCRIT À docs/design/derivation.md dans le même changement,
+    avec la mention « composé », les composants employés, et la marque « à valider à
+    l'atelier terrain » — personne ne l'a dessiné, c'est une proposition.
+
+UN ÉCRAN QUI N'ENTRE DANS AUCUN DES TROIS CAS NE SE CODE PAS : la tâche s'arrête et l'écran
+part en maquettage. Ne l'invente pas, ne le déduis pas — signale-le.
 
 LE HTML DE MAQUETTE N'EST JAMAIS COPIÉ NI DÉPLACÉ VERS app/ : on en lit les valeurs et
 la structure, on réimplémente en composants Nuxt avec i18n, mode sombre, RBAC et
@@ -1194,7 +1216,7 @@ Chaque cycle spécifie l'ensemble de son périmètre ; dans `/speckit-tasks`, le
 
 ## 5. Règles de conduite du dépôt
 
-- **Un écran ne se code pas sans référence visuelle.** Soit il existe dans `docs/design/html/` (29 fichiers pour 11 écrans, nommage `{code}-{nom}[-{etat}].html`), soit la matrice de dérivation `docs/design/derivation.md` déclare de quel motif maquetté il hérite (30 écrans). Sans l'un ni l'autre, le cycle s'arrête et l'écran part en maquettage.
+- **Un écran se code dans trois cas, et seulement trois.** (a) **Maquetté** — un fichier d'état de `docs/design/html/`. (b) **Dérivé** — une ligne de `docs/design/derivation.md` qui dit de quel motif il hérite. (c) **Composé** — assemblé uniquement à partir des seize composants canoniques, aux conditions de `docs/Kaya_Design.md` §2 : liste, formulaire ou table ; conception entièrement issue de la bibliothèque ; consulté rarement par un utilisateur formé ; aucun doute sur son aspect. **Zone de charme seulement** — un écran de comptoir se maquette — et **inscrit à la matrice dans le même changement**. Hors de ces trois cas, le cycle s'arrête et l'écran part en maquettage. Le risque à écarter n'est pas la laideur, c'est la **dérive** : trente écrans inventés un par un, chacun avec sa grammaire.
 - **Aucun terme technique visible par l'utilisateur sans entrée au lexique `docs/design/lexique.md`.** « Certification FNE », « état indéterminé », « écriture orpheline » ne doivent jamais atteindre un bouton ou un message. Tout nouveau concept exposé entre au lexique **avant** d'être codé.
 - **Une branche par cycle** (`feat/heb-formules`), merge quand la checklist du §2.5 passe.
 - **Commits conventionnels référençant les stories** : `feat(hebergement): HEB-02 disponibilité par contrainte d'exclusion GiST`.

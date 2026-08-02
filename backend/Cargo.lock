@@ -2258,9 +2258,20 @@ dependencies = [
 name = "kaya-hebergement"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "kaya-comptes",
  "kaya-domain",
  "kaya-etablissements",
  "kaya-stocks",
+ "kaya-synchronisation",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "time",
+ "tracing",
+ "utoipa",
+ "uuid",
 ]
 
 [[package]]
