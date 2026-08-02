@@ -45,6 +45,30 @@
 //! n'est pas un test désactivé : c'est une déclaration que rien ne peut encore l'exercer, assortie
 //! du nom du cycle qui la doit.
 //!
+//! # Ce que le cycle 004 change pour ce harnais — et ce qu'il ne change pas
+//!
+//! **C'est la première fois qu'il peut échouer.** Jusqu'ici il prouvait que le socle n'exigeait
+//! rien d'une verticale, mais **aucune verticale n'existait pour le contredire** : `verticales/`
+//! était vide, `contrat_complet()` ne servait aucune route d'hébergement, et le parcours maquis ne
+//! pouvait rencontrer aucune supposition parce qu'il n'y avait rien à supposer.
+//!
+//! Désormais `kaya-hebergement` est compilé, lié au binaire, et ses treize opérations sont au
+//! contrat. Le parcours **maquis** — `RESTAURATION` seule — s'exécute donc dans un produit où
+//! l'hébergement existe pleinement, et reste vert. « Aucun crate partagé ne suppose l'existence
+//! d'un hébergement » cesse d'être une intention pour devenir un fait mesuré.
+//!
+//! **Mesuré sur quoi, exactement** — la portée compte autant que le résultat : sur les **quatre
+//! étapes réalisables** des trois parcours (création d'établissement, activation de module, refus
+//! de capacité, résolution de configuration). Les quatre autres restent **dues** aux cycles PDV,
+//! CAI et FIS. Le fait établi est donc : *ces quatre-là fonctionnent pour un établissement sans
+//! hébergement, alors même que l'hébergement est livré*. Ni plus, ni moins.
+//!
+//! **Aucune étape d'hébergement n'a été ajoutée à la liste, et c'est délibéré.** Les huit étapes
+//! décrivent le cycle de vie **commun** aux trois parcours ; une étape « attribution d'unité » ne
+//! vaudrait que pour la résidence meublée, et un maquis la verrait éternellement due — ce qui
+//! transformerait une liste de dettes réelles en liste d'étapes sans objet. Les opérations
+//! d'hébergement sont gardées par `hebergement_hors_ligne.rs`, qui les tient toutes les treize.
+//!
 //! # Ce harnais ne modifie jamais ce qu'il inspecte
 //!
 //! Il ne crée ni table, ni route, ni référentiel. Le service fictif du troisième parcours est créé

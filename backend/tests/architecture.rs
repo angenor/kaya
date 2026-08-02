@@ -173,6 +173,123 @@ fn p03_la_hierarchie_des_crates_est_respectee() {
     );
 }
 
+/// **LA CIBLE DE P-03 N'EST PLUS VIDE — et c'est ce test qui le constate.**
+///
+/// # Trois cycles pendant lesquels la porte ne pouvait rien interdire
+///
+/// Jusqu'au cycle 004, `verticales/` ne contenait **aucun crate**. La porte parcourait le graphe,
+/// ne trouvait aucune arête vers cette famille, et passait au vert — exactement comme elle
+/// passerait au vert le jour où quelqu'un supprimerait la famille entière. Les deux situations
+/// étaient indistinguables, et c'est la définition d'une porte à cible vide (constitution,
+/// § « Couverture des portes »).
+///
+/// Ce test rend les deux distinguables, à trois niveaux qui ne se remplacent pas :
+///
+/// 1. **une famille `verticales/` peuplée** — sinon il n'y a rien à interdire ;
+/// 2. **du code réel dedans** — un crate au `lib.rs` vide satisferait le point 1 sans qu'aucun
+///    symbole ne puisse jamais remonter dans le socle ;
+/// 3. **une arête autorisée réellement empruntée** — la verticale dépend du socle. Sans elle, la
+///    hiérarchie serait respectée par absence de relation, pas par discipline : deux familles qui
+///    ne se parlent pas ne prouvent rien de la règle qui dit dans quel sens elles peuvent le faire.
+///
+/// La référence compilée à `kaya_hebergement::MODULE_HEBERGEMENT` en fin de test est la garantie
+/// la plus forte des trois : si le crate disparaissait, **ce fichier ne compilerait plus**, au lieu
+/// de passer au vert en n'ayant rien vu.
+#[test]
+fn p03_la_cible_de_la_porte_n_est_pas_vide() {
+    use std::fs;
+    use std::path::Path;
+
+    let graphe = lire_graphe();
+
+    // ── 1 · la famille est peuplée ────────────────────────────────────────────────────────────
+    let verticales: Vec<&String> = graphe
+        .familles
+        .iter()
+        .filter(|(_, f)| **f == Famille::Verticales)
+        .map(|(nom, _)| nom)
+        .collect();
+
+    assert!(
+        !verticales.is_empty(),
+        "aucun crate de `verticales/` dans le workspace.\n\
+         P-03 parcourrait alors le graphe sans trouver une seule arête à interdire, et passerait \
+         au vert — indistinguable d'une porte qui fonctionne. C'était l'état des cycles 001 à 003 ; \
+         y revenir serait une régression, pas une simplification."
+    );
+
+    // ── 2 · il y a du code dedans ─────────────────────────────────────────────────────────────
+    //
+    // Compté sur les **sources**, pas sur le manifeste : un crate déclaré au workspace avec un
+    // `lib.rs` vide satisferait le point 1 tout en n'exposant rien.
+    fn compter_items_publics(racine: &Path) -> usize {
+        let mut total = 0;
+        let Ok(entrees) = fs::read_dir(racine) else {
+            return 0;
+        };
+        for entree in entrees.flatten() {
+            let chemin = entree.path();
+            if chemin.is_dir() {
+                total += compter_items_publics(&chemin);
+            } else if chemin.extension().is_some_and(|e| e == "rs") {
+                let Ok(source) = fs::read_to_string(&chemin) else {
+                    continue;
+                };
+                total += source
+                    .lines()
+                    .filter(|l| {
+                        let l = l.trim_start();
+                        l.starts_with("pub fn ")
+                            || l.starts_with("pub struct ")
+                            || l.starts_with("pub enum ")
+                            || l.starts_with("pub trait ")
+                            || l.starts_with("pub const ")
+                            || l.starts_with("pub async fn ")
+                    })
+                    .count();
+            }
+        }
+        total
+    }
+
+    let publics = compter_items_publics(Path::new("crates/verticales"));
+    assert!(
+        publics >= 20,
+        "seulement {publics} item(s) public(s) dans `crates/verticales/`.\n\
+         Un crate présent mais creux rendrait la porte P-03 aussi vide qu'une famille absente : \
+         rien ne pourrait remonter dans le socle, donc rien ne pourrait être interdit."
+    );
+
+    // ── 3 · une arête autorisée est réellement empruntée ──────────────────────────────────────
+    let branchees: Vec<&&String> = verticales
+        .iter()
+        .filter(|nom| {
+            dependances_transitives(&graphe, nom)
+                .iter()
+                .any(|atteint| graphe.familles[atteint] == Famille::Socle)
+        })
+        .collect();
+
+    assert!(
+        !branchees.is_empty(),
+        "aucun crate de `verticales/` ne dépend d'un crate de `socle/` : {verticales:?}\n\
+         La hiérarchie serait alors respectée par absence de relation, pas par discipline. Deux \
+         familles qui ne se parlent pas ne prouvent rien de la règle qui dit dans quel sens elles \
+         peuvent le faire."
+    );
+
+    // ── Le garde-fou du compilateur ───────────────────────────────────────────────────────────
+    //
+    // Si `kaya_hebergement` disparaissait, ce fichier cesserait de compiler. Aucune assertion
+    // lue à l'exécution n'offre cette garantie-là.
+    assert_eq!(
+        kaya_hebergement::MODULE_HEBERGEMENT,
+        "HEBERGEMENT",
+        "le code du module d'activité a changé : la constante est le nom du module au référentiel \
+         d'ETB-02, et le lien entre la verticale et le socle passe par elle"
+    );
+}
+
 /// **P-12** — aucun crate hors `socle/fiscalite` ne référence les types de taxe de `domain`.
 ///
 /// # Porte installée avec une cible réelle, et une assertion de non-régression
