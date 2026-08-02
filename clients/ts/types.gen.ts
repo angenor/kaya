@@ -2008,14 +2008,14 @@ export interface components {
             famille_formule: components["schemas"]["FamilleFormule"];
         };
         /**
-         * @description Les dix familles d'actions tracées au registre (CPT-04).
+         * @description Les **onze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04.
          *
          *     L'ordre des variantes suit celui de `docs/taxonomie-audit.md`, qui suit lui-même celui de
          *     CPT-04. Il n'a aucune portée fonctionnelle — il rend seulement la comparaison des deux listes
          *     lisible à l'œil.
          * @enum {string}
          */
-        TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite";
+        TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite" | "derive_horloge_constatee";
         /** @description Une unité attribuable, telle que la consultation de disponibilité la rend. */
         UniteDisponible: {
             code: string;

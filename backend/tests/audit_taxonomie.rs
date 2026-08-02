@@ -3,12 +3,13 @@
 //!
 //! # Ce qu'elle rend vérifiable
 //!
-//! CPT-04 énumère dix familles d'actions à tracer. **Huit n'ont aucun chemin d'écriture avant la
-//! tranche T2 ou T3** : la remise n'existe pas encore, l'avoir non plus, le tiroir-caisse n'est pas
-//! branché. Une liste de choses à faire qui vit dans une spécification se perd ; une liste qui vit
-//! dans un harnais fait échouer le build le jour où quelqu'un branche un type sans le déclarer.
+//! CPT-04 énumère dix familles d'actions à tracer, et SYN-04 en a ajouté une onzième. **Huit
+//! n'ont aucun chemin d'écriture avant la tranche T2 ou T3** : la remise n'existe pas encore,
+//! l'avoir non plus, le tiroir-caisse n'est pas branché. Une liste de choses à faire qui vit dans
+//! une spécification se perd ; une liste qui vit dans un harnais fait échouer le build le jour où
+//! quelqu'un branche un type sans le déclarer.
 //!
-//! C'est le harnais à étapes dues du cycle 002 (`agnosticite_socle.rs`), appliqué aux dix familles
+//! C'est le harnais à étapes dues du cycle 002 (`agnosticite_socle.rs`), appliqué aux familles
 //! de `docs/taxonomie-audit.md`.
 //!
 //! # Périmètre inspecté — et ce qui ne l'est PAS
@@ -45,12 +46,24 @@ use std::path::{Path, PathBuf};
 /// La taxonomie, lue à la compilation. Une modification du document recompile le test.
 const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
 
-/// Nombre de familles annoncées par CPT-04. **Figé** : une onzième famille se décide, elle
-/// n'apparaît pas.
-const FAMILLES_ATTENDUES: usize = 10;
+/// Nombre de familles au document. **Figé** : une famille de plus se décide, elle n'apparaît pas.
+///
+/// Dix au cycle 003 (CPT-04). **Onze depuis le cycle 005** : `derive_horloge_constatee` (SYN-04)
+/// est la première famille qui ne trace aucun geste d'utilisateur — elle constate qu'une horloge
+/// de terminal s'écarte de celle du serveur. Le document dit pourquoi elle est ici plutôt qu'au
+/// grand livre.
+const FAMILLES_ATTENDUES: usize = 11;
 
 /// Le fichier de **définition** de l'énumération — exclu du balayage, voir le commentaire de tête.
 const DEFINITION: &str = "crates/socle/comptes/src/audit/taxonomie.rs";
+
+/// Le titre de la section du document où vit le tableau des familles.
+///
+/// **Il porte le décompte en toutes lettres**, et c'est délibéré : ajouter une famille sans
+/// toucher au titre laisserait le document se contredire lui-même. Le contrepoids est ici — la
+/// constante et [`FAMILLES_ATTENDUES`] changent dans le même geste, sans quoi l'extraction panique
+/// au lieu de rendre une liste vide qui passerait au vert.
+const TITRE_SECTION: &str = "## Les onze familles";
 
 /// État déclaré d'une famille au document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,7 +74,7 @@ enum Etat {
     Du,
 }
 
-/// Une ligne du tableau des dix familles.
+/// Une ligne du tableau des familles.
 #[derive(Debug, Clone)]
 struct Famille {
     code: String,
@@ -71,15 +84,15 @@ struct Famille {
     story: String,
 }
 
-/// Extrait les dix familles du tableau de `docs/taxonomie-audit.md`.
+/// Extrait les familles du tableau de `docs/taxonomie-audit.md`.
 ///
 /// Le format attendu est celui du document : `| n | \`code\` | description | **état** | story |`.
 /// L'extraction est volontairement stricte — un tableau reformaté doit faire échouer bruyamment
 /// plutôt que rendre une liste vide, qui passerait au vert en n'ayant rien à comparer.
 fn familles_du_document() -> Vec<Famille> {
-    let Some(debut) = TAXONOMIE.find("## Les dix familles") else {
+    let Some(debut) = TAXONOMIE.find(TITRE_SECTION) else {
         panic!(
-            "la section « Les dix familles » a disparu de docs/taxonomie-audit.md. C'est la \
+            "la section « {TITRE_SECTION} » a disparu de docs/taxonomie-audit.md. C'est la \
              source que CPT-04 désigne ; sans elle, cette porte n'a plus rien à comparer."
         );
     };
@@ -215,9 +228,9 @@ fn chemins_par_famille(familles: &[Famille]) -> BTreeMap<String, Vec<String>> {
 //  Les trois contrôles
 // =================================================================================================
 
-/// **1 · Le document déclare exactement dix familles, sans doublon.**
+/// **1 · Le document déclare exactement le nombre de familles annoncé, sans doublon.**
 #[test]
-fn le_document_declare_les_dix_familles_de_cpt_04() {
+fn le_document_declare_toutes_ses_familles_sans_doublon() {
     let familles = familles_du_document();
 
     assert_eq!(

@@ -14,7 +14,8 @@
 //!
 //! # Le harnais, et ce qu'il vérifie dans les deux sens
 //!
-//! `docs/taxonomie-audit.md` déclare dix familles, chacune avec son état — `branché` ou `dû` —
+//! `docs/taxonomie-audit.md` déclare **onze** familles, chacune avec son état — `branché` ou
+//! `dû` —
 //! et la story qui la doit. `backend/tests/audit_taxonomie.rs` compare :
 //!
 //!   * **code → document** : toute variante d'ici figure au document ;
@@ -34,7 +35,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// Les dix familles d'actions tracées au registre (CPT-04).
+/// Les **onze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04.
 ///
 /// L'ordre des variantes suit celui de `docs/taxonomie-audit.md`, qui suit lui-même celui de
 /// CPT-04. Il n'a aucune portée fonctionnelle — il rend seulement la comparaison des deux listes
@@ -70,6 +71,17 @@ pub enum TypeActionAudit {
     RebasculePalierPassage,
     /// L'attribution d'une unité que le système déclarait indisponible. **Dû par HEB.**
     ForcageDisponibilite,
+    /// L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil. **SYN-04.**
+    ///
+    /// **La première famille qui ne trace aucun geste d'utilisateur** : elle constate un état de
+    /// l'appareil, pas une décision d'une personne. Elle a sa place ici parce que son public est
+    /// celui des dix autres — l'exploitant, qui doit pouvoir retrouver après coup quel terminal
+    /// déviait pendant le service.
+    ///
+    /// **Elle ne refuse jamais l'écriture qui l'a révélée** (FR-036), et elle est écrite **une
+    /// fois par épisode**, non une fois par écriture : deux cents saisies pendant un service
+    /// produiraient deux cents entrées identiques, et un registre illisible n'est plus lu.
+    DeriveHorlogeConstatee,
 }
 
 impl TypeActionAudit {
@@ -91,6 +103,7 @@ impl TypeActionAudit {
             TypeActionAudit::EcartCaisse => "ecart_caisse",
             TypeActionAudit::RebasculePalierPassage => "rebascule_palier_passage",
             TypeActionAudit::ForcageDisponibilite => "forcage_disponibilite",
+            TypeActionAudit::DeriveHorlogeConstatee => "derive_horloge_constatee",
         }
     }
 
@@ -106,8 +119,8 @@ impl TypeActionAudit {
             .find(|t| t.code() == code)
     }
 
-    /// Les dix, dans l'ordre du document. Employé par le filtre de l'écran `G4` et par le harnais.
-    pub const TOUS: [TypeActionAudit; 10] = [
+    /// Les onze, dans l'ordre du document. Employé par le filtre de `G4` et par le harnais.
+    pub const TOUS: [TypeActionAudit; 11] = [
         TypeActionAudit::Remise,
         TypeActionAudit::AnnulationLigneEnvoyee,
         TypeActionAudit::Avoir,
@@ -118,6 +131,7 @@ impl TypeActionAudit {
         TypeActionAudit::EcartCaisse,
         TypeActionAudit::RebasculePalierPassage,
         TypeActionAudit::ForcageDisponibilite,
+        TypeActionAudit::DeriveHorlogeConstatee,
     ];
 }
 
@@ -145,6 +159,7 @@ mod tests {
             "ecart_caisse",
             "rebascule_palier_passage",
             "forcage_disponibilite",
+            "derive_horloge_constatee",
         ];
 
         let reels: Vec<&str> = TypeActionAudit::TOUS.iter().map(|t| t.code()).collect();
@@ -160,7 +175,7 @@ mod tests {
     fn tous_couvre_l_enumeration_entiere() {
         assert_eq!(
             TypeActionAudit::TOUS.len(),
-            10,
+            11,
             "une famille a été ajoutée ou retirée sans que `TOUS` suive"
         );
 

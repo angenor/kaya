@@ -677,8 +677,18 @@ const TESTS_QUI_EXERCENT_L_AUDIT: &[(&str, &str)] = &[
     ("hebergement_tarification.rs", HEBERGEMENT_TARIFICATION),
 ];
 
-/// Nombre de familles annoncées par CPT-04, repris de `audit_taxonomie.rs`.
-const FAMILLES_ATTENDUES: usize = 10;
+/// Nombre de familles au document, repris de `audit_taxonomie.rs`.
+///
+/// Dix au cycle 003, **onze depuis le cycle 005** — `derive_horloge_constatee` (SYN-04).
+const FAMILLES_ATTENDUES: usize = 11;
+
+/// Le titre de la section du document où vit le tableau des familles.
+///
+/// Il porte le décompte en toutes lettres ; `audit_taxonomie.rs` déclare la même constante de son
+/// côté. **La duplication est délibérée** — les deux fichiers sont des binaires de test distincts,
+/// et un module partagé ferait qu'une extraction cassée casserait les deux du même coup, donc
+/// silencieusement.
+const TITRE_SECTION_TAXONOMIE: &str = "## Les onze familles";
 
 /// `changement_role` → `ChangementRole`.
 fn variante_rust(code: &str) -> String {
@@ -701,8 +711,8 @@ fn variante_rust(code: &str) -> String {
 /// puisque les deux tomberaient sur une liste vide. La longueur attendue est asserée des deux
 /// côtés, ce qui est la protection réelle.
 fn familles_du_document() -> Vec<(String, bool)> {
-    let Some(debut) = TAXONOMIE.find("## Les dix familles") else {
-        panic!("la section « Les dix familles » a disparu de docs/taxonomie-audit.md");
+    let Some(debut) = TAXONOMIE.find(TITRE_SECTION_TAXONOMIE) else {
+        panic!("la section « {TITRE_SECTION_TAXONOMIE} » a disparu de docs/taxonomie-audit.md");
     };
     let section = &TAXONOMIE[debut..];
     let fin = section[3..]

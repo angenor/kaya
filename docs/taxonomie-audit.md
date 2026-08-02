@@ -3,7 +3,14 @@
 *Source de vérité des types d'action tracés au journal d'audit (`comptes.journal_audit`).
 Créé par le cycle 003 (CPT), story **CPT-04**.*
 
-**Version 1.1.0** — 2026-08-01. Dix familles, **1 branchée, 9 dues**.
+**Version 1.2.0** — 2026-08-02. **Onze** familles, 3 branchées, 8 dues.
+
+> **La onzième est `derive_horloge_constatee`**, ajoutée par le cycle 005 (SYN-04). Elle ne trace
+> pas un geste d'utilisateur mais un **constat d'exploitation** : l'heure d'un terminal s'écarte de
+> celle du serveur au-delà du seuil paramétré. C'est la première famille de cette nature, et le §
+> « Ce que la taxonomie n'est pas » dit pourquoi elle a quand même sa place ici plutôt qu'au grand
+> livre. Elle est déclarée **due** tant que le service ne l'écrit pas ; son passage à « branché »
+> se fait dans le changement qui la branche, comme les trois autres avant elle.
 
 ---
 
@@ -38,7 +45,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 
 ---
 
-## Les dix familles
+## Les onze familles
 
 | # | Code | Ce que ça trace | État | Story qui la doit |
 |---|---|---|---|---|
@@ -52,6 +59,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
 | 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **branché** | **HEB-04 — cycle 004** |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
+| 11 | `derive_horloge_constatee` | L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil | **dû** | **SYN-04 — ce cycle** |
 
 **Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document a été écrit
 **avant** la première migration, donc avant que `changement_role` et `suppression` aient un chemin.
@@ -85,9 +93,27 @@ lui promet, et c'est aussi la raison pour laquelle elle rencontrera de la résis
 > travail ; c'est la fréquence à laquelle on l'interroge qui a manqué. `cargo test --workspace`
 > avant chaque commit de fin de phase est le remède, et non une porte de plus.
 
-**Trois sur dix sont donc branchées à la fin du cycle 004**, et les sept autres restent dues aux
+**Trois sur onze sont branchées à l'ouverture du cycle 005**, et les huit autres restent dues aux
 tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
 chaque étape.
+
+### `derive_horloge_constatee` — la première famille qui ne trace aucun geste
+
+Les dix premières familles tracent ce qu'**une personne a fait**. La onzième trace ce qu'un
+**appareil est** : son horloge s'écarte de celle du serveur. Elle a sa place ici et non au grand
+livre parce que son public est le même que celui des dix autres — Adjoua et M. Koffi, qui doivent
+pouvoir constater après coup quel terminal déviait pendant le service, et non une projection.
+
+| Ce qui la déclenche | Écart **absolu** entre `horodatage_client` et l'horodatage d'autorité supérieur à `sync.derive_horloge_seuil_secondes` (défaut 300) |
+|---|---|
+| Contexte écrit | `{ ecart_secondes, seuil_secondes, sens }` — **aucune clé monétaire**, ce que la porte P-10 vérifie jusque dans le JSONB |
+| Ce qu'elle ne fait **jamais** | Refuser l'écriture. La dérive est signalée, pas opposée (FR-036) |
+| Fréquence | **Une entrée par épisode, pas une par écriture.** Deux cents saisies pendant un service produiraient deux cents entrées identiques et le registre deviendrait illisible, donc inutilisé. Le débrayage passe par une clé Redis à durée de vie portant `(tenant, compte, appareil)` — **éphémère reconstructible** au sens du principe II : la perdre produit une entrée de plus, jamais une donnée manquante |
+
+**Le mot « dérive » n'atteint jamais l'écran.** L'utilisateur lit « L'heure de cet appareil retarde
+de {n} minutes », ou « avance », suivi de la phrase qui le rassure sur ce qui va bien —
+`docs/design/lexique.md` fait foi, et les **deux sens** sont dus puisque la détection porte sur la
+valeur absolue.
 
 ### Ce que `suppression` recouvre — et pourquoi le mot est faux mais gardé
 
@@ -123,7 +149,7 @@ unité.
 | Public | Le **propriétaire**, dans l'interface | Les **projections**, en interne |
 | Contenu | Ce qu'une personne a fait | Une transition d'état |
 | Classe | **A** — l'entrée s'écrit hors ligne avec l'action qu'elle trace | Celle de l'opération tracée |
-| Granularité | Dix familles, stables sur la vie du produit | Un type par transition, **vingt-deux** à ce cycle (13 + 9 ; `compte.modifie` est déclaré sans émetteur et n'en fait pas vingt-trois) |
+| Granularité | Onze familles, stables sur la vie du produit | Un type par transition, **vingt-deux** à ce cycle (13 + 9 ; `compte.modifie` est déclaré sans émetteur et n'en fait pas vingt-trois) |
 
 Une attribution de rôle produit **les deux** : l'événement `role.attribue` et l'entrée d'audit
 `changement_role`, dans la même transaction. Ce n'est pas une redondance — l'un alimente les
@@ -138,7 +164,8 @@ ici (research R-15). Le registre est permanent et à rétention illimitée : y �
 
 ## Ajouter une famille
 
-Une onzième famille se justifie par une story, pas par une intuition. Le cas normal est l'inverse :
+Une **douzième** famille se justifie par une story, pas par une intuition — la onzième l'a été par
+SYN-04, et le tableau la nomme. Le cas normal est l'inverse :
 faire passer une famille de `dû` à `branché`, dans le **même changement** que le code qui l'écrit.
 
 1. Le type est ajouté à l'énumération `TypeActionAudit`
