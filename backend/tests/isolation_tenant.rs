@@ -155,6 +155,41 @@ const COUVERTURE: &[(&str, Regime)] = &[
     // `journal_audit` porte un `tenant_id` et sa politique. **Une seule opération, en lecture** :
     // aucun point d'entrée d'écriture n'existe, et c'est une décision (research R-17).
     ("/api/v1/journal-audit", Regime::Isole),
+    // ── Cycle 004 — référentiel d'hébergement (HEB-01, HEB-03, HEB-04, HEB-05) ─────────────
+    //
+    // Les six chemins sont **isolés**, sans exception. Les six tables du schéma `hebergement`
+    // portent un `tenant_id` et leur politique `isolation_tenant`, `WITH CHECK` compris.
+    //
+    // Une tentation méritait d'être écartée par écrit : `famille` et `regle_conversion_taxe` sont
+    // des valeurs de référentiel — quatre familles, quatre règles — et il serait tentant d'en
+    // conclure que les formules le sont aussi. Elles ne le sont pas : ce que ces chemins touchent
+    // est **le prix qu'un exploitant donné pratique**, qui est la donnée la plus sensible du
+    // référentiel. Un concurrent qui lirait les tarifs d'un autre client aurait tout ce qui
+    // l'intéresse.
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/categories",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/categories/{categorie_id}",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/unites",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/unites/{unite_id}",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/formules",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/formules/{formule_id}",
+        Regime::Isole,
+    ),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.
@@ -717,4 +752,262 @@ async fn p08_les_points_de_vente_sont_isoles_meme_par_identifiant_direct() {
         "des tables ont été posées chez B par A : {:?}",
         apres[0].tables
     );
+}
+
+// =================================================================================================
+//  Cycle 004 — isolation du référentiel d'hébergement
+// =================================================================================================
+
+/// **Isolation par endpoint sur les six chemins du cycle 004.**
+///
+/// Le tenant A vise l'établissement du tenant B par identifiant direct, sur chaque verbe. Deux
+/// vérifications par appel : le statut refuse, **et** rien n'a été écrit chez B.
+///
+/// # Ce que B possède, et qui rend le test signifiant
+///
+/// B a un type de chambre, une chambre et une formule à **25 000 F** — le prix est le point : un
+/// concurrent qui lirait les tarifs d'un autre exploitant aurait tout ce qui l'intéresse. Le test
+/// vérifie donc que A ne voit **aucune** de ces trois lignes, et pas seulement qu'il reçoit un
+/// refus.
+///
+/// # `404` plutôt que `403`
+///
+/// Du point de vue de A, l'établissement de B **n'existe pas**. Un `403` confirmerait son
+/// existence — une fuite ténue mais réelle, qui permet d'énumérer les établissements des autres
+/// clients. C'est le régime déjà retenu par les cycles 002 et 003.
+#[actix_web::test]
+async fn p08_cycle_004_appels_croises_sur_le_referentiel_d_hebergement() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 004 tenant A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 004 tenant B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+    let cx_a = commun::compte_connecte(
+        &pool_owner,
+        a,
+        "P-08 004 A",
+        &[("proprietaire", Some(a.etablissement_id))],
+    )
+    .await;
+
+    // Les deux tenants activent l'hébergement : sans module actif, le refus serait
+    // `service_inactif` et le test ne prouverait rien de l'isolation.
+    for jeu in [a, b] {
+        kaya_etablissements::modules::ServiceModules::nouveau(
+            pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "HEBERGEMENT",
+            kaya_etablissements::modules::BasculerService {
+                id: uuid::Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation de l'hébergement");
+    }
+
+    // B se constitue une offre : un type de chambre, une chambre, une formule à 25 000 F.
+    let service_b = kaya_api::application::EtatApplication::depuis_environnement(pool.clone())
+        .expect("état applicatif")
+        .service_hebergement(b.tenant_id);
+
+    let categorie_b = uuid::Uuid::now_v7();
+    service_b
+        .creer_categorie(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_b,
+                etablissement_id: b.etablissement_id,
+                nom: "Supérieure B".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: Vec::new(),
+            },
+        )
+        .await
+        .expect("catégorie de B");
+
+    let unite_b = uuid::Uuid::now_v7();
+    service_b
+        .creer_unite(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerUnite {
+                id: unite_b,
+                etablissement_id: b.etablissement_id,
+                categorie_id: categorie_b,
+                code: "SECRET-1".to_owned(),
+                etage: Some(3),
+            },
+        )
+        .await
+        .expect("unité de B");
+
+    let formule_b = uuid::Uuid::now_v7();
+    service_b
+        .creer_formule(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerFormule {
+                id: formule_b,
+                etablissement_id: b.etablissement_id,
+                categorie_id: categorie_b,
+                famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                prix_mineur: 25_000,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect("formule de B");
+
+    let etb_b = b.etablissement_id;
+
+    // --- Les trois lectures croisées ------------------------------------------------------
+    for chemin in [
+        format!("/api/v1/etablissements/{etb_b}/hebergement/categories"),
+        format!("/api/v1/etablissements/{etb_b}/hebergement/unites"),
+        format!("/api/v1/etablissements/{etb_b}/hebergement/formules"),
+    ] {
+        let requete = actix_web::test::TestRequest::get()
+            .uri(&chemin)
+            .insert_header((AUTORISATION, cx_a.bearer.clone()))
+            .to_request();
+        let reponse = actix_web::test::call_service(&app, requete).await;
+
+        assert_eq!(
+            reponse.status().as_u16(),
+            404,
+            "le tenant A a obtenu {} sur {chemin} : l'établissement de B ne doit pas exister de \
+             son point de vue",
+            reponse.status()
+        );
+
+        // Et le corps ne contient rien de B, quel que soit le statut. Un `200 []` serait un refus
+        // apparent qui aurait pourtant traversé la politique.
+        let corps = actix_web::test::read_body(reponse).await;
+        let texte = String::from_utf8_lossy(&corps);
+        assert!(
+            !texte.contains("SECRET-1") && !texte.contains("25000") && !texte.contains("Supérieure B"),
+            "le corps rendu à A contient des données de B : {texte}"
+        );
+    }
+
+    // --- Les six écritures croisées -------------------------------------------------------
+    let ecritures: Vec<(&str, String, serde_json::Value)> = vec![
+        (
+            "POST",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/categories"),
+            serde_json::json!({
+                "id": uuid::Uuid::now_v7(),
+                "nom": "intrusion",
+                "capacite_accueil": 2,
+            }),
+        ),
+        (
+            "PUT",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/categories/{categorie_b}"),
+            serde_json::json!({ "nom": "intrusion", "capacite_accueil": 9 }),
+        ),
+        (
+            "POST",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/unites"),
+            serde_json::json!({
+                "id": uuid::Uuid::now_v7(),
+                "categorie_id": categorie_b,
+                "code": "INTRUS",
+            }),
+        ),
+        (
+            "PUT",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/unites/{unite_b}"),
+            serde_json::json!({ "code": "INTRUS" }),
+        ),
+        (
+            "POST",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/formules"),
+            serde_json::json!({
+                "id": uuid::Uuid::now_v7(),
+                "categorie_id": categorie_b,
+                "famille": "PASSAGE",
+                "prix_mineur": 1,
+                "assujettie_taxe_nuitee": false,
+                "paliers": [{ "duree_minutes": 60, "prix_mineur": 1 }],
+            }),
+        ),
+        (
+            "PUT",
+            format!("/api/v1/etablissements/{etb_b}/hebergement/formules/{formule_b}"),
+            serde_json::json!({ "prix_mineur": 1, "assujettie_taxe_nuitee": false }),
+        ),
+    ];
+
+    for (verbe, chemin, corps) in ecritures {
+        let requete = match verbe {
+            "POST" => actix_web::test::TestRequest::post(),
+            _ => actix_web::test::TestRequest::put(),
+        }
+        .uri(&chemin)
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
+        .set_json(&corps)
+        .to_request();
+
+        let reponse = actix_web::test::call_service(&app, requete).await;
+        assert_eq!(
+            reponse.status().as_u16(),
+            404,
+            "le tenant A a obtenu {} en écrivant sur {chemin}",
+            reponse.status()
+        );
+    }
+
+    // --- Et rien n'a bougé chez B, quel que soit le statut rendu ---------------------------
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, b.tenant_id)
+        .await
+        .expect("pose du tenant B");
+
+    let categories: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.categorie WHERE etablissement_id = $1"#,
+        etb_b
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des catégories");
+    let unites: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.unite WHERE etablissement_id = $1"#,
+        etb_b
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des unités");
+    let (nom, code, prix): (String, String, i64) = sqlx::query_as(
+        r#"
+        SELECT c.nom, u.code, f.prix_mineur
+        FROM hebergement.categorie c
+        JOIN hebergement.unite u ON u.categorie_id = c.id
+        JOIN hebergement.formule f ON f.categorie_id = c.id
+        WHERE c.id = $1
+        "#,
+    )
+    .bind(categorie_b)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("relecture de l'offre de B");
+
+    assert_eq!(categories, 1, "A a créé une catégorie chez B");
+    assert_eq!(unites, 1, "A a créé une unité chez B");
+    assert_eq!(nom, "Supérieure B", "A a renommé la catégorie de B");
+    assert_eq!(code, "SECRET-1", "A a renommé la chambre de B");
+    assert_eq!(prix, 25_000, "A a changé le tarif de B");
 }

@@ -154,7 +154,7 @@ leurs prix s'y lisent en mode clair et en mode sombre — **sans qu'aucune occup
 ### API
 
 - [X] T016 [US1] Écrire `backend/api/src/routes/hebergement_referentiel.rs` : les **neuf opérations** 1 à 8 et **5b** de [contracts/http-api.md §1](contracts/http-api.md). `#[utoipa::path]` **sans** `path` ni verbe (déduits de l'attribut Actix, feature `actix_extras`), `operation_id` explicite sur chacune (P-01b), montage par `service(...)` et **jamais** `route(...)` — `utoipa-actix-web` ne collecte que depuis `service(...)`. Garde de permission `heb.offre.lire` / `heb.offre.gerer`. Vérification du module actif via `RegistreModules`, refus normalisé du cycle 002. **L'opération 8 porte les deux champs fiscaux** : c'est là que l'exploitant active la taxe et choisit sa règle. **L'opération 5b (`PUT /unites/{unite_id}`) ne porte QUE `code` et `etage`** — ce que le registre §7.1 classe littéralement (« `unite` — code, étage », classe C). Un corps portant `categorie_id`, `statut_menage` ou une mise hors service est **refusé explicitement**, jamais ignoré : ces trois-là sont classés ailleurs (effet fiscal non classé · classe A HEB-06 · classe B HEB-06). **Terminer par** : régénération du client TypeScript (`pnpm generer:client`), commit du diff, `cargo build` vert.
-- [ ] T017 [P] [US1] Étendre `backend/tests/isolation_tenant.rs` aux neuf opérations : le tenant A ne lit ni n'écrit aucune ligne du tenant B (porte **P-08**), avec régime d'isolation déclaré pour chacune.
+- [X] T017 [P] [US1] Étendre `backend/tests/isolation_tenant.rs` aux neuf opérations : le tenant A ne lit ni n'écrit aucune ligne du tenant B (porte **P-08**), avec régime d'isolation déclaré pour chacune.
 
 **Point de contrôle US1 (backend)** : le référentiel est servi, isolé, permissionné.
 
