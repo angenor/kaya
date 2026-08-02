@@ -1,6 +1,6 @@
 # Phase 1 — Modèle de données : comptes, rôles cumulables et journal d'audit
 
-**Cycle 003 (CPT)** · schéma `comptes` · **dix tables**, **cinq migrations**
+**Cycle 003 (CPT)** · schéma `comptes` · **dix tables**, **sept migrations** (`0014` à `0020`)
 
 *Toutes les décisions de forme viennent de `docs/module-dore.md` couche 1. Ce document dit ce que
 ce cycle ajoute et **ce qui s'en écarte, avec la raison**.*
@@ -30,7 +30,7 @@ réutilisation (90 jours).
 
 ---
 
-## Les cinq migrations
+## Les sept migrations
 
 | Migration | Contenu | Pourquoi séparée |
 |---|---|---|
@@ -39,6 +39,8 @@ réutilisation (90 jours).
 | `0016_roles_permissions.sql` | `role`, `permission`, `role_permission`, `compte_role` | Trois référentiels globaux + la table du cumul |
 | `0017_journal_audit.sql` | `journal_audit` + ses trois index de filtre | Agrégat distinct, régime de privilèges distinct |
 | `0018_provisions_rh_appareils.sql` | `employe`, `appareil_enrole` | **Provisions**. Séparées pour que leur absence de privilèges soit lisible d'un coup d'œil |
+| `0019_parametres_comptes.sql` | Les **cinq paramètres** d'établissement du cycle | **Écrite dans le schéma `etablissements`, pas `comptes`** : le catalogue des clés de configuration est un référentiel unique du produit (`0008`), pas un objet par module |
+| `0020_resolution_identifiant.sql` | Rôle `kaya_auth`, politique `resolution_identifiant`, fonction `comptes.resoudre_identifiant` | **Ni ce document ni le plan n'avaient vu le problème.** `compte` porte `FORCE ROW LEVEL SECURITY` et compare `tenant_id` à `app.current_tenant` ; hors requête applicative ce réglage vaut `NULL`, donc **aucune ligne n'est visible**. Or la connexion part d'un identifiant et de rien d'autre — le tenant est ce qu'elle doit découvrir. Sans cette migration, `session_ouvrir` ne trouve jamais de compte et le produit n'a pas d'écran d'entrée |
 
 ---
 
@@ -360,16 +362,23 @@ une colonne : c'est un réglage d'établissement, pas une propriété d'appareil
 
 ---
 
-## Les dix types d'événements outbox
+## Les dix types d'événements outbox — dont **neuf** émis
 
-Nomenclature `agregat.action`, comme les onze types existants.
+**Total du produit après ce cycle : 22 types, 13 + 9** — et non les 21 du plan. Le tableau ci-dessous
+déclare dix lignes ; `compte.modifie` n'en est pas une de plus au décompte, faute d'opération qui la
+produise.
+
+Nomenclature `agregat.action`, comme les **treize** types existants. *Treize, et non les onze qu'on
+lit ailleurs* : le tableau du cycle 002 compte onze **lignes**, mais deux d'entre elles portent deux
+types chacune — « `point_de_vente.cree` / `.modifie` » et « `table_pdv.creee` / `.desactivee` ». Un
+décompte tiré du nombre de lignes d'un tableau compte des lignes, pas des types.
 
 | Type | Agrégat | Portée | Émis par |
 |---|---|---|---|
 | `personne.creee` | `personne` | tenant | Création d'une personne |
 | `personne.modifiee` | `personne` | tenant | Modification |
 | `compte.cree` | `compte` | tenant | Création d'un compte |
-| `compte.modifie` | `compte` | tenant | Modification d'identifiant |
+| `compte.modifie` | `compte` | tenant | ⚠️ **PROVISION — aucun émetteur.** Le contrat n'expose aucune modification d'identifiant (§10 à 16 : créer, lister, lire, changer l'état, changer le mot de passe, attribuer et retirer un rôle). Écart entre deux documents de conception écrits en parallèle. La ligne reste ici pour que le type soit **déjà décidé** le jour où l'opération existera ; `TYPES_SANS_EMETTEUR` de `couverture_portes.rs` la nomme, sans quoi la porte chercherait un dixième émetteur qui n'existe pas |
 | `compte.desactive` | `compte` | tenant | Désactivation |
 | `compte.reactive` | `compte` | tenant | Réactivation |
 | `compte.mot_de_passe_change` | `compte` | tenant | Changement de secret — **le payload ne porte JAMAIS le secret ni son condensat** |

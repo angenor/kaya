@@ -14,8 +14,12 @@ littéralement « CPT-01 » ; les permissions en dur du cycle 002 (`bascule-serv
 `etablissement.vue`), marquées « provisoire nommé, levé par CPT-02 » ; et l'accueil `R1`, que le
 cycle 002 a explicitement reporté « au cycle CPT ».
 
-**Dix tables** dans un schéma `comptes` nouveau, **cinq migrations**, **dix-neuf opérations HTTP**
-(contrat porté à 40), **trois traits exposés**, **dix types d'événements outbox** (portés à 21),
+**Dix tables** dans un schéma `comptes` nouveau, **sept migrations** (`0014` à `0020` — `0019` pose
+les cinq paramètres au catalogue d'`etablissements`, `0020` la résolution d'identifiant avant que le
+tenant soit connu, que ni le plan ni le modèle de données n'avaient vue), **dix-neuf opérations
+HTTP** (contrat porté à **43** : l'existant était de vingt-quatre et non vingt et une, et deux
+chemins servent deux opérations chacun), **trois traits exposés**, **neuf types d'événements outbox
+émis sur dix déclarés** (portés à **22** — `compte.modifie` n'a aucune opération qui le produise),
 **quatre écrans** — dont un, `R0` Connexion, qui **n'existe dans aucun document de référence** et
 dont l'inscription à la matrice de dérivation est un préalable, pas une conséquence.
 
@@ -77,8 +81,9 @@ liste de révocation — et **aucune** lecture de permissions, qui voyagent dans
 échec d'authentification est indiscernable **en temps** autant qu'en message. Aucun secret dans le
 binaire ni dans le dépôt.
 
-**Scale/Scope** : 10 tables · 5 migrations · 19 opérations HTTP · 3 traits · 10 types d'événements
-· 4 écrans · 17 permissions · 8 rôles · 10 familles d'audit dont **2 branchées et 8 dues**.
+**Scale/Scope** : 10 tables · 7 migrations (`0014` à `0020`) · 19 opérations HTTP (contrat porté à
+43) · 3 traits · 10 types d'événements déclarés dont **9 émis** (total produit : 22) · 4 écrans ·
+17 permissions · 8 rôles · 10 familles d'audit dont **2 branchées et 8 dues**.
 
 ---
 
@@ -101,7 +106,7 @@ binaire ni dans le dépôt.
 
 | # | Principe | Comment ce cycle le tient |
 |---|---|---|
-| I | Sources de vérité | Contrat produit par utoipa, client régénéré en CI. Cinq migrations **additives** — `0001` n'est pas touchée, le schéma `comptes` naît en `0014`. **Cinq paramètres d'établissement**, tous déjà au récapitulatif de `user-stories-v1.md` : indicatif, méthode d'authentification, longueur minimale, durée d'accès, durée de rafraîchissement. Aucune valeur en dur |
+| I | Sources de vérité | Contrat produit par utoipa, client régénéré en CI. **Sept** migrations **additives** (`0014` à `0020` ; le plan en prévoyait cinq, `0019` et `0020` sont nées du cycle) — `0001` n'est pas touchée, le schéma `comptes` naît en `0014`. **Cinq paramètres d'établissement**, tous déjà au récapitulatif de `user-stories-v1.md` : indicatif, méthode d'authentification, longueur minimale, durée d'accès, durée de rafraîchissement. Aucune valeur en dur |
 | II | Architecture et hiérarchie | Tout dans le schéma `comptes`. **Aucune clé étrangère inter-schémas** : `compte_role.etablissement_id`, `journal_audit.etablissement_id` et `permission.module_code` sont des colonnes nues, vérifiées par trait. Trois traits exposés, aucune jointure |
 | III | Isolation multi-tenant | `ENABLE` + `FORCE` sur les **dix tables**. Les **quatre référentiels globaux** suivent le régime nommé de `0008` — deux politiques, `GRANT SELECT` seul — jamais une exemption |
 | IV | Temps et disponibilité | `cree_le` d'autorité serveur partout ; `horodatage_client` indicatif, jamais employé pour trier ni pour dater une entrée d'audit. **Aucune occupation créée** |
@@ -123,14 +128,14 @@ constitution 1.6.0 à l'origine de ce plan et doivent être implémentées ici**
 |---|---|---|---|
 | **P-01** client TS identique | ✅ 19 opérations | Génération puis `git diff --exit-code` | `scripts/ci/generer-client.sh --verifier` |
 | **P-01b** `operationId` uniques | ✅ **risque réel** | 19 identifiants nouveaux, dont six préfixés `session_` et sept `compte_`. Unicité vérifiée sur le contrat complet | `backend/tests/couverture_portes.rs` |
-| **P-02** migrations figées | ✅ 5 nouvelles | Empreinte comparée. `0001` **doit** rester intacte : le schéma naît en `0014` (research R-11) | `scripts/ci/migrations-figees.sh` |
+| **P-02** migrations figées | ✅ **7 nouvelles** (`0014` à `0020`) | Empreinte comparée. `0001` **doit** rester intacte : le schéma naît en `0014` (research R-11). **Deux migrations n'étaient pas au plan** : `0019` pose les cinq paramètres au catalogue d'`etablissements` — le catalogue est un référentiel unique du produit, pas un objet par module —, et `0020` crée le rôle `kaya_auth` et la fonction `comptes.resoudre_identifiant` : sous `FORCE ROW LEVEL SECURITY`, `session_ouvrir` ne trouve **jamais** de compte, puisqu'elle part d'un identifiant et doit découvrir le tenant | `scripts/ci/migrations-figees.sh` |
 | **P-03** socle ↛ verticales | ✅ | `socle/comptes` ne dépend d'aucune verticale. Les trois traits sont **définis et implémentés** dans le socle, consommés ailleurs | `backend/tests/architecture.rs` |
 | **P-04** pas de jointure inter-schémas | ✅ **trois tentations** | `compte_role.etablissement_id`, `journal_audit.etablissement_id`, `permission.module_code` : trois colonnes qui « appellent » un `JOIN` vers `etablissements`. Aucune ne l'a. L'existence est vérifiée par `EstablishmentDirectory` et `RegistreModules` | `scripts/ci/jointures-inter-schemas.sh` |
-| **P-05** événement dans la transaction | ✅ **10 types → 21** | Rollback provoqué par type : ni ligne métier ni événement. **Décompte comparé au total déclaré**, et **chaque type exercé sur les deux tenants** (exigence 5) | `backend/tests/outbox_transactionnel.rs` (étendu) + recollement |
+| **P-05** événement dans la transaction | ✅ **9 types émis → 22** | Rollback provoqué par type : ni ligne métier ni événement. **Décompte comparé au total déclaré**, et **chaque type exercé sur les deux tenants** (exigence 5). Deux corrections de comptage : l'existant est de **treize** et non onze — deux lignes du tableau du cycle 002 portent deux types chacune —, et des dix types déclarés ici **`compte.modifie` n'a aucun émetteur**, le contrat n'exposant aucune modification d'identifiant | `backend/tests/outbox_transactionnel.rs` (étendu) + recollement |
 | **P-05b** registres immuables sans purge | ⚠️ **AMENDÉE en 1.6.0 — à implémenter** | La porte porte désormais sur la **catégorie**. Le script inspecte l'outbox **et** `journal_audit`, déclare son périmètre en tête, et porte **son versant positif** : une entrée s'écrit et se relit — sans quoi supprimer la table suffirait à passer au vert (research R-10) | `scripts/ci/outbox-sans-purge.sh` **(étendu)** + `backend/tests/audit_immuabilite.rs` |
 | **P-06** capacité ≠ `STOCK`/`SIMPLE` | ⬜ inchangée | Aucune capacité touchée. **Le patron du refus est réutilisé** pour `OTP_SMS` — clé étrangère composite sur `implementee` — mais c'est une porte distincte | `backend/tests/capacites_refusees.rs` |
 | **P-07** RLS sur toute table | ✅ **10 tables → 26** | `relrowsecurity` **et** `relforcerowsecurity`, au moins une politique. Les quatre référentiels globaux comptés **conformes et nommés**. Ré-exécutée après la dernière migration, avec décompte | `backend/tests/rls_catalogue.rs` (étendu) + recollement |
-| **P-08** isolation A/B par endpoint | ✅ **40 opérations** | Paramétré sur le contrat complet. **Les requêtes obtiennent un vrai jeton** — la refonte est le coût principal du cycle (research R-04). Les référentiels globaux rendent la même chose aux deux tenants, **affirmé explicitement**. Deux opérations publiques, liste nommée et fermée | `backend/tests/isolation_tenant.rs` (refondu) + recollement |
+| **P-08** isolation A/B par endpoint | ✅ **43 opérations sur 33 chemins** | Paramétré sur le contrat complet. **Les requêtes obtiennent un vrai jeton** — la refonte est le coût principal du cycle (research R-04). Les référentiels globaux rendent la même chose aux deux tenants, **affirmé explicitement**. Deux opérations publiques, liste nommée et fermée. **Quarante-trois et non quarante** : un chemin n'est pas une opération — `/api/v1/comptes` et `/api/v1/session` en servent deux chacun — et l'existant était de vingt-quatre, sonde de santé et deux opérations de note comprises | `backend/tests/isolation_tenant.rs` (refondu) + recollement |
 | **P-09** occupation GiST | ⬜ sans cible | Aucune occupation créée | `backend/tests/portes_a_vide.rs` |
 | **P-10** montants entiers, y compris en `JSONB` | ⚠️ **AMENDÉE en 1.6.0 — à implémenter** | `employe.salaire_mineur` en `BIGINT`. **Et surtout** : le principe V cessait de tenir à la frontière du `JSONB`, sur le registre même qui trace les **écarts de caisse, les modifications de tarif et les remises**. Nommage réservé **`*_mineur` + `devise`**, valeur **entière**, vérifié **statiquement** et **à l'écriture** — un service construit son document dynamiquement, le contrôle statique ne le voit pas (research R-19) | `scripts/ci/types-monetaires.sh` **(étendu)** + validation du service d'audit |
 | **P-11** tests dorés fiscaux | ⬜ sans cible | Aucun calcul fiscal | `backend/tests/portes_a_vide.rs` |
@@ -146,8 +151,13 @@ constitution 1.6.0 à l'origine de ce plan et doivent être implémentées ici**
 | **P-21** aucune ressource externe | ✅ 4 écrans | Aucune police, icône, script ni image d'hôte externe sur les écrans nouveaux | `scripts/ci/aucune-ressource-externe.sh` |
 | **P-21b** déclaré = embarqué | ⚠️ **à RÉGÉNÉRER** | La police d'icônes est **sous-réglée à 77 glyphes**. Les quatre écrans en emploieront de nouvelles. **Sans `pnpm icones:generer`, la porte échoue sur un glyphe employé mais absent** : c'est exactement ce qui a produit un écran sans icônes au cycle 002 | `scripts/ci/ressources-embarquees.sh` + `icones:generer --verifier` |
 
-**Les trois portes à décompte** — P-05, P-07 et P-08 — passent de 11 types, 16 tables et
-21 opérations à **21 types, 26 tables, 40 opérations**. La tâche de recollement de fin de cycle
+**Les trois portes à décompte** — P-05, P-07 et P-08 — passent de 13 types, 16 tables et
+24 opérations à **22 types, 26 tables, 43 opérations**. **Quatre des six chiffres ont été recomptés
+au recollement, et seul celui des tables tenait** : le tableau du cycle 002 comptait onze *lignes*
+pour treize types, deux d'entre elles en portant deux ; l'existant du contrat était de vingt-quatre
+opérations et non vingt et une, la sonde de santé et les deux opérations de note du module doré n'y
+figurant pas ; et le total sert 43 opérations sur 33 chemins, `/api/v1/comptes` et `/api/v1/session`
+en servant deux chacun. La tâche de recollement de fin de cycle
 compare, pour chacune, les cibles réellement inspectées au total déclaré. Elle ne se parallélise
 pas : elle suppose que toutes les migrations, tous les points d'entrée et tous les événements
 existent.
@@ -167,7 +177,8 @@ CPT-04.
 | **D** | aucune | Sans objet — consigné plutôt que passé sous silence | — |
 | Scénario orphelin | aucune entité rattachée à un séjour | Sans objet — `sejour` n'existe pas avant SEJ | — |
 
-**Isolation multi-tenant sur chaque endpoint** : les quarante opérations, sans exception.
+**Isolation multi-tenant sur chaque endpoint** : les quarante-trois opérations — 33 chemins, dont
+dix en servent deux —, sans exception.
 
 ### Écrans concernés
 
@@ -192,10 +203,10 @@ specs/003-comptes-roles-audit/
 ├── plan.md                      # Ce fichier
 ├── spec.md                      # 6 stories · 48 exigences · 12 critères
 ├── research.md                  # Phase 0 — 19 décisions
-├── data-model.md                # Phase 1 — 10 tables, 5 migrations, 10 événements
+├── data-model.md                # Phase 1 — 10 tables, 7 migrations, 10 événements dont 9 émis
 ├── quickstart.md                # Phase 1 — 13 vérifications
 ├── contracts/
-│   ├── http-api.md              # 19 opérations (contrat porté à 40)
+│   ├── http-api.md              # 19 opérations (contrat porté à 43)
 │   └── traits-exposes.md        # 3 traits
 ├── checklists/requirements.md
 └── tasks.md                     # Phase 2 — produit par /speckit-tasks
@@ -211,6 +222,11 @@ backend/
 │   ├── 0016_roles_permissions.sql           # role, permission, role_permission, compte_role
 │   ├── 0017_journal_audit.sql               # journal_audit + 3 index de filtre
 │   ├── 0018_provisions_rh_appareils.sql     # employe, appareil_enrole — SANS privilège d'écriture
+│   ├── 0019_parametres_comptes.sql          # les cinq paramètres — au catalogue d'`etablissements`,
+│   │                                        #   référentiel unique du produit, pas par module
+│   ├── 0020_resolution_identifiant.sql      # rôle `kaya_auth` + fonction SECURITY DEFINER : trouver
+│   │                                        #   un compte AVANT que le tenant soit connu — ni le plan
+│   │                                        #   ni le modèle de données n'avaient vu le problème
 │   └── seeds/                               # M. Koffi, Adjoua (3 rôles), Yao
 ├── crates/socle/comptes/src/
 │   ├── lib.rs                               # remplace la coquille du cycle 001
@@ -294,7 +310,7 @@ Redis.
 
 | Artefact | Contenu |
 |---|---|
-| `data-model.md` | 10 tables, 5 migrations, politiques RLS, privilèges, 10 types d'événements, journal du registre |
+| `data-model.md` | 10 tables, 7 migrations (`0014` à `0020`), politiques RLS, privilèges, 10 types d'événements déclarés dont **9 émis** — `compte.modifie` reste une provision sans opération —, journal du registre |
 | `contracts/http-api.md` | 19 opérations, `operationId`, permissions, 9 codes d'erreur métier |
 | `contracts/traits-exposes.md` | `AccessController`, `AnnuaireComptes`, `JournalAudit` |
 | `quickstart.md` | 13 vérifications + le parcours de démonstration en six gestes |
@@ -317,8 +333,10 @@ Redis.
    `icones:generer` puis `--verifier` : un glyphe employé mais non embarqué fait échouer P-21b, et
    l'écran s'affiche sans icônes.
 
-**Et une tâche de recollement en fin de cycle**, non parallélisable : décompte de P-05 (21 types),
-P-07 (26 tables), P-08 (40 opérations), plus la cohérence de la taxonomie d'audit.
+**Et une tâche de recollement en fin de cycle**, non parallélisable : décompte de P-05 (**22** types,
+13 + 9), P-07 (26 tables), P-08 (**43** opérations sur 33 chemins), plus la cohérence de la taxonomie
+d'audit. **Ce recollement recompte, il n'ajuste pas** : deux des trois totaux annoncés ici étaient
+faux, et un total qu'on corrige d'un chiffre est un total que personne n'a relu.
 
 ---
 

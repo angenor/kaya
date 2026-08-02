@@ -2,9 +2,11 @@
 
 *Patron de référence de tous les cycles. Six couches produites par le cycle 001 (TRX) sur
 `note_etablissement` ; la **septième — le patron d'écriture front** — ajoutée après le cycle 002
-(ETB) sur la bascule d'un service.*
+(ETB) sur la bascule d'un service ; la **huitième — le cycle de vie de l'application** — après la
+vérification en navigateur du cycle 003 (CPT), qui a trouvé deux écrans inatteignables alors que
+24 portes et 652 tests étaient verts.*
 
-**Version 1.1.0 — 2026-07-31**
+**Version 1.2.0 — 2026-08-01**
 
 ---
 
@@ -56,6 +58,13 @@ cycle 002, sur une entité qui en avait un. Voir « La septième couche — le p
 **Elle ne se lit pas comme les six autres.** Les couches 1 à 6 décrivent des décisions de structure
 qui se recopient telles quelles ; la septième décrit des décisions d'**interface**, où la faute type
 n'est pas une erreur de compilation mais un grisé posé par réflexe.
+
+**La huitième non plus, et pour une raison de nature différente.** Les sept premières décrivent
+comment on écrit **une tranche** ; la huitième décrit ce que l'**application** doit faire au
+démarrage — thème, session, coquille — et ne se recopie donc pas par tranche : elle s'écrit une fois
+et se vérifie ensuite. Son absence n'a produit aucune erreur de compilation et aucun test rouge :
+elle a rendu deux écrans inatteignables. Voir « La huitième couche — le CYCLE DE VIE de
+l'application ».
 
 ---
 
@@ -334,7 +343,8 @@ déclarerait ses propres routes ne prouverait rien du service servi.
 *Ajoutée après le cycle 002 (ETB), sur l'activation et la désactivation d'un service (ETB-02).*
 *Étendue de trois points par le cycle 003 (CPT) — voir « Ce que le cycle 003 ajoute au patron ».*
 
-**Une seule opération sur les vingt et une que l'API expose.** C'est la leçon de la section
+**Une seule opération sur les vingt et une que l'API exposait au cycle 002** — elle en sert **43**
+depuis le cycle 003. C'est la leçon de la section
 suivante : le cycle 001 a manqué sa couche écran, et le cycle 002 a livré un écran qui **affiche
 sans rien écrire** — vingt et une opérations d'écriture testées côté API, aucun bouton qui les
 appelle. *Une opération, complète et documentée, vaut mieux que vingt et une approximatives.*
@@ -540,6 +550,90 @@ un jeton expiré part en `401` opération par opération, et chaque échec est i
 métier. L'inversion est **exercée** par un test, pas seulement commentée — c'est la seule façon de
 la garder, un ordre correct par accident se rétablit à la première refonte.
 
+### La huitième couche — le CYCLE DE VIE de l'application
+
+*Ajoutée après la vérification en navigateur du cycle 003, qui a trouvé deux des quatre écrans du
+produit inatteignables alors que 24 portes et 652 tests étaient verts.*
+
+**Les sept premières couches décrivent comment on écrit une tranche. Aucune ne dit comment
+l'application démarre** — et c'est ce trou qui a produit le défaut. `app/app.vue` faisait vingt-trois
+lignes et ne contenait que `<NuxtPage />` ; il n'existait ni `app/plugins/` ni `app/layouts/`.
+Chaque page amorçait pour elle-même ce qu'elle avait pensé à amorcer, et **cinq sur six avaient
+oublié la reprise de session**.
+
+Les trois symptômes observés n'en faisaient qu'un :
+
+| Symptôme | Ce qui manquait |
+|---|---|
+| `TypeError: Cannot read properties of null (reading 'parentNode')` à la navigation | une **racine stable** — donc un layout |
+| Un chargement direct d'adresse ne reprend jamais la session | un **middleware global** |
+| La classe `.dark` n'est jamais appliquée | un **plugin** |
+
+#### Le découpage, et pourquoi chaque pièce est à cet endroit-là
+
+| Pièce | Fichier | Pourquoi pas ailleurs |
+|---|---|---|
+| **Thème** | `plugins/01.theme.client.ts` | Nuxt résout **tous** les plugins avant `vueApp.mount()`. Un `onMounted` dans une page n'amorcerait que cette page — c'est le défaut, pas le remède. Suffixe `.client` obligatoire : le module touche `document` et `localStorage`. |
+| **Anti-scintillement** | script en ligne dans `app.head` de `nuxt.config.ts` | En SPA, la coquille est peinte avec `body { background-color }` **avant** que le moindre module ne s'exécute. Même en `enforce: 'pre'`, un plugin arrive après le premier pixel : l'utilisateur en mode sombre verrait un éclair blanc à chaque ouverture. En ligne, jamais un hôte externe — P-21 intacte. |
+| **Reprise de session** | `middleware/01.session.global.ts` | Un middleware global s'exécute avant **chaque** navigation, la première comprise. C'est la seule place qui couvre les six routes sans être recopiée six fois — et la recopie était la faute. |
+| **Coquille** | `layouts/default.vue` | Une racine stable, **un seul `<main>`**. Une page nouvelle en hérite sans rien écrire, et ne peut pas l'oublier. |
+
+**Trois pièges qui coûtent une heure chacun, écrits une fois pour toutes :**
+
+- **`<NuxtLayout>` n'est jamais la racine.** Il rend son `<slot>` dans un `<Transition>` ; le poser
+  en racine reproduit la famille de défauts qu'on vient de fermer. Le `<div>` d'`app.vue` l'enveloppe.
+- **Le middleware s'exécute bien à la première navigation en SPA, mais par un détour.** Le
+  `router.beforeEach` qui porte les middlewares est posé **après** `router.isReady()` : la première
+  résolution lui échappe, et Nuxt rejoue la route initiale au hook `app:created` avec `force: true`.
+  Corollaire utile : un middleware s'exécute toujours **après** tous les plugins.
+- **`return navigateTo(...)`, jamais `abortNavigation()` ni `return false`.** Sur la navigation
+  initiale d'une application sans rendu serveur, ces deux-là n'annulent pas : ils affichent
+  « Page Not Found ». Un utilisateur dont la session a expiré verrait une 404 au lieu de `R0`.
+
+#### La cause du `parentNode`, isolée par expérience
+
+Elle a été **établie**, pas supposée — quatre pages sondes, une variable changée à la fois :
+
+| Racine du template | Composant | Bascule après montage | Erreur |
+|---|---|---|---|
+| fragment | paresseux | non | — |
+| fragment | **paresseux** | **oui** | **`parentNode`** |
+| fragment | synchrone | oui | — |
+| **élément unique** | paresseux | oui | — |
+
+**Il faut les trois conditions réunies.** Une racine multiple compile en *fragment* ; un fragment
+dont la branche active devient un `defineAsyncComponent` non encore résolu a un `el` **nul**, et au
+rendu suivant Vue appelle `hostParentNode(prevTree.el)`.
+
+**Une racine unique suffit à l'éliminer, et le chargement paresseux reste intact** — le principe VII
+l'exige module par module : « un serveur de salle ne télécharge pas le code du back-office ». La
+règle opposable qui en découle : **une page a une seule racine, et c'est un élément, jamais un
+`v-if`/`v-else` de premier niveau.**
+
+#### La règle qui vaut au-delà de ce défaut
+
+> **Une unité écrite n'est ni testée ni branchée par défaut, et il faut un contrôle pour chacune
+> des deux propriétés.**
+
+`initialiserTheme()` a vécu deux cycles exportée, documentée « à appeler au démarrage » — et appelée
+nulle part. Elle n'était pas même testée : `theme-sombre.spec.ts` lit les jetons de `theme.css`, il
+n'importe pas `core/theme`. Le balayage qui l'a trouvée a trouvé **quatre autres** points d'entrée
+sans appelant : `FileLocale`, `marquerClasseA`, `viderFile` et `operationRealisable` — la file
+hors-ligne entière — plus `fermerSession`, qu'aucun bouton n'atteint.
+
+`app/tests/amorcage.spec.ts` porte désormais les **onze points d'entrée** à deux états, `branché` et
+`dû`, et vérifie **les deux versants** : un `dû` qui acquiert un appelant fait échouer le build, un
+`branché` qui le perd aussi. Sans le second versant, tout déclarer branché rendrait le harnais muet.
+
+#### Ce que la coquille ne porte pas encore, et pourquoi
+
+Ni barre de contexte unifiée, ni témoin de synchronisation. Ce ne sont pas des oublis :
+
+- `EcranAccueil` et `EcranEtablissement` portent chacun un `<header>` **différent**. Les fondre est
+  un changement d'écran, et `docs/design/derivation.md` est opposable.
+- Le témoin de synchronisation est le **composant 10**, toujours dû à ETB-06. Prêt n'est pas
+  construit (principe X).
+
 ### Ce que ce patron ne démontre PAS
 
 Écrit ici pour que le cycle suivant ne le suppose pas acquis :
@@ -711,7 +805,8 @@ tel trait n'est pas dyn-compatible. L'injection de dépendances du cadrage §13.
 
 ## Voir aussi
 
-- `.specify/memory/constitution.md` — les douze principes, les vingt et une portes
+- `.specify/memory/constitution.md` — les douze principes, les **vingt-cinq** portes (P-01 à P-22,
+  dont P-01b, P-05b et P-21b ; P-22 est née de la vérification en navigateur du cycle 003)
 - `docs/registre-classes-offline.md` — classe de chaque entité
 - `docs/versions-gelees.md` — versions épinglées et journal des gels
 - `specs/001-socle-technique-monorepo/` — spécification, plan, recherche, modèle de données

@@ -25,14 +25,21 @@ sans preuve est un point que personne n'a vérifié.
 | Opérations HTTP servies | **43** | 40 |
 | `operationId` distincts | **43** | non compté |
 | Tables, quatre schémas applicatifs | **26**, dont **10** créées ici | « 26 », mais comptées sur un seul schéma |
-| Migrations du cycle | **7** (`0014` à `0020`) | 7 |
+| Migrations du cycle | **7** (`0014` à `0020`) | **5** (`0014` à `0018`) |
 | Familles d'audit | **10**, dont **2 branchées** | 10 |
 | Tests backend | **224**, 0 échec | — |
 | Tests front | **428**, 0 échec, 0 erreur de type | — |
 | Clés i18n | **183 fr / 183 en**, écart nul | — |
 
-Les trois écarts sont réels et documentés à l'endroit où ils se constatent. **Aucun n'a été résorbé
-en corrigeant un chiffre** : `couverture_portes.rs` relit le catalogue système et le contrat.
+**Quatre écarts au plan, et non trois.** La première version de cette revue portait « 7 » dans les
+deux colonnes de la ligne des migrations, ce qui faisait disparaître le quatrième derrière un
+« pas d'écart » — dans la colonne même qui sert à mesurer les écarts. Le plan annonçait cinq
+migrations, `0014` à `0018` ; `0019` (les cinq paramètres au catalogue) et `0020` (résolution d'un
+identifiant **avant que le tenant soit connu**, ce que ni le plan ni le modèle de données n'avaient
+prévu) sont nées en cours de cycle.
+
+Aucun des quatre n'a été résorbé en corrigeant un chiffre : `couverture_portes.rs` relit le
+catalogue système et le contrat.
 
 ---
 

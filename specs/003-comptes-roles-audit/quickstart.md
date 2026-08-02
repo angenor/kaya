@@ -210,7 +210,7 @@ chacun portant la story qui le doit.
 
 ---
 
-## 9 · Les dix types d'événements sont émis, sur les deux tenants
+## 9 · Les neuf types d'événements sont émis, sur les deux tenants
 
 ```sh
 cargo test --test outbox_transactionnel
@@ -219,7 +219,7 @@ cargo test --test couverture_portes
 
 **Ce que ça prouve** (portes **P-05** et **P-05b**) : chaque type émet dans la transaction de son
 opération — rollback provoqué, ni ligne métier ni événement — et le **décompte des types testés
-est comparé au total déclaré**, désormais **21** (11 + 10).
+est comparé au total déclaré**, désormais **22** (13 + 9). **Aucun des deux termes du plan n'était juste, et pour deux raisons différentes.** Le tableau du cycle 002 comptait **onze lignes**, mais deux d'entre elles portent deux types chacune — « `point_de_vente.cree` / `.modifie` » et « `table_pdv.creee` / `.desactivee` » : treize types, pas onze. Un décompte tiré du nombre de lignes d'un tableau compte des lignes. Et des dix types déclarés ici, **`compte.modifie` n'a aucun émetteur** — le contrat n'expose aucune modification d'identifiant : neuf sont émis, `TYPES_SANS_EMETTEUR` nomme le dixième.
 
 **Et sur les deux tenants de démonstration**, sans exception : c'est l'exigence 5 du
 § « Couverture des portes », née du défaut de séquence que la migration `0012` a corrigé et
@@ -227,16 +227,23 @@ qu'aucune relecture n'avait vu.
 
 ---
 
-## 10 · Les quarante opérations sont isolées, et le contrat est à jour
+## 10 · Les quarante-trois opérations sont isolées, et le contrat est à jour
 
 ```sh
-cargo test --test isolation_tenant           # P-08, 40 opérations
+cargo test --test isolation_tenant           # P-08, 43 opérations sur 33 chemins
 pnpm porte:p01                               # client TS régénéré sans diff
 pnpm generer:client
 ```
 
 **Ce que ça prouve** : le tenant A ne lit ni n'écrit aucune ligne du tenant B, sur **chacune** des
-quarante opérations, et le décompte des chemins couverts est comparé aux chemins servis.
+quarante-trois opérations, et le décompte des chemins couverts est comparé aux chemins servis.
+
+**Quarante-trois, et non les quarante du plan** : celui-ci comptait des **chemins** là où la porte
+compte des **opérations** — `/api/v1/comptes` en sert deux (`compte_lister`, `compte_creer`) et
+`/api/v1/session` aussi (`session_ouvrir`, `session_fermer`) —, et son existant de « vingt et une »
+oubliait la sonde de santé et les deux opérations de note du module doré. 33 chemins, 43 opérations,
+ventilées par lot dans `couverture_portes.rs` : un total unique se corrige en changeant un chiffre,
+une ventilation oblige à dire de quel lot vient l'écart.
 
 **Ce qui change dans ce test, et qui est le vrai coût du cycle** : les requêtes n'envoient plus
 `x-kaya-tenant`. Elles **obtiennent un jeton par le vrai chemin de connexion** (research R-04).

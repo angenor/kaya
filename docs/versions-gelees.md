@@ -4,7 +4,7 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.10 — vérifié le 2026-07-31**
+**Version du gel : 1.0.11 — vérifié le 2026-08-01**
 **Prochaine revue : 2026-08-31** (revue mensuelle groupée)
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
@@ -157,11 +157,54 @@ entrent dans le lockfile et la porte P-20 les couvre.
 | `@vue/test-utils` | **2.4.11** | Montage de composants Vue en test — **SC-005** : aucun service inactif dans le HTML rendu |
 | `happy-dom` | **20.11.1** | Environnement DOM de Vitest, requis par le montage ci-dessus |
 | `@vitejs/plugin-vue` | **6.0.8** | Compile les composants monofichiers pour Vitest **hors Nuxt** — sans lui, `@vue/test-utils` ne peut monter aucun `.vue` |
+| `@playwright/test` | **1.62.1** | Harnais **end-to-end** — porte **P-22** : l'application démarre et chaque route s'atteint. Runner, fixtures et `expect` à réessai inclus ; télécharge ses navigateurs sur le poste, **jamais dans le paquet livré** |
 | `@types/node` | **24.13.3** ⚠️ | Types du runtime — **dernière `24.x`, alignée sur Node `24.18.1`**, pas la dernière stable |
 | `@phosphor-icons/web` | **2.1.2** | **Source des glyphes d'icônes** — sous-réglée à la construction, jamais expédiée telle quelle (porte **P-21**) |
 | `subset-font` | **2.5.0** | Sous-règle la police d'icônes ; **contrôle tiers** des polices de texte par harfbuzz — outil de génération, absent du paquet livré |
 | `@fontsource-variable/archivo` | **5.3.0** | **Source d'Archivo** — texte et titres, embarquée en local (portes **P-21** et **P-21b**) |
 | `@fontsource-variable/chivo-mono` | **5.3.0** | **Source de Chivo Mono** — montants, quantités, heures ; le tabulaire qui aligne les colonnes |
+
+> **Un paquet ajouté au gel 1.0.11 — le harnais de la porte P-22.** `@playwright/test`
+> **1.62.1** (Apache-2.0, publiée le 2026-07-30, **aucune `peerDependency`**), vérifiée sur
+> `https://registry.npmjs.org/@playwright%2Ftest/latest` le **2026-08-01**.
+>
+> **Ce qu'il achète.** Le cycle 003 a été livré avec 24 portes vertes, 224 tests backend et
+> 428 tests front — et deux des quatre écrans du produit étaient inatteignables en navigateur.
+> Les tests front montent les composants avec `@vue/test-utils`, ce qui contourne le routeur,
+> `<Suspense>`, les layouts et les plugins. Aucun outil du dépôt ne savait ouvrir une page.
+>
+> **Une seule ligne épingle toute la chaîne.** `@playwright/test` **1.62.1** dépend de
+> `playwright` **1.62.1** en version **exacte**, qui dépend de `playwright-core` **1.62.1** en
+> version exacte — aucun intervalle nulle part. Inscrire le second paquet serait redondant et
+> créerait deux valeurs à tenir en phase. C'est `@playwright/test` et non `playwright` parce que
+> le premier **embarque le runner** — `test`, les fixtures, `expect` à réessai, les reporters ;
+> le second n'est que la bibliothèque d'automatisation, à adosser à un autre harnais.
+>
+> ⚠️ **La révision de navigateur n'est pas épinglable séparément, et le cache du poste ne
+> servait pas.** `1.62.1` exige Chromium **1234** (Chrome 151.0.7922.34), figée dans le
+> `browsers.json` de `playwright-core`. Le poste portait `chromium-1217` (Playwright 1.59.x) et
+> `chromium-1228` (1.61.x) : ni l'un ni l'autre. Le téléchargement a bien eu lieu — 94,7 Mio,
+> constaté, pas supposé. **En CI, le prévoir explicitement** (cache d'artefacts sur la clé
+> `chromium-1234`, ou image `mcr.microsoft.com/playwright`), sinon chaque exécution repart du
+> réseau.
+>
+> **Hors périmètre de P-21, et ce n'est pas une dérogation.** Playwright télécharge des
+> navigateurs, mais il ne s'exécute **jamais** dans le produit : c'est de l'outillage de
+> développement, au même titre que `subset-font`. La porte **P-21** ne porte que sur ce que
+> l'**application** charge à l'exécution, et un navigateur rangé dans
+> `~/Library/Caches/ms-playwright` n'entre ni dans le paquet Nuxt, ni dans l'image
+> `linux/amd64`. Même raison pour la licence : Apache-2.0 **n'entre pas** à
+> `docs/conformite/licences-tierces.md`, qui inventorie les œuvres **embarquées** et dont
+> l'attribution est due. Précédent identique : `subset-font`, BSD-3-Clause, déjà gelé et déjà
+> absent de cet inventaire.
+>
+> **Déclaré à la RACINE, pas dans `app/`** — même motif qu'ESLint : la porte exerce les trois
+> surfaces servies, `app/` aujourd'hui, `web/qr` et `web/console` dès qu'elles auront des écrans.
+> Le placer dans `app/` le rendrait aveugle aux deux autres, ou imposerait de le déclarer trois
+> fois.
+>
+> **À reporter à la revue du 2026-08-31** comme les paquets des gels 1.0.5, 1.0.6, 1.0.9 et
+> 1.0.10.
 
 > **Deux paquets ajoutés au gel 1.0.10 — les polices de texte embarquées, dernière dette du
 > cycle 002.** `docs/design/theme.css`, section « POLICES », prescrit de les servir en local
@@ -455,11 +498,28 @@ done
 for p in nuxt tailwindcss @tauri-apps/cli @tauri-apps/api @nuxtjs/i18n pnpm \
          openapi-typescript openapi-fetch typescript \
          @phosphor-icons/web subset-font \
-         @fontsource-variable/archivo @fontsource-variable/chivo-mono; do
+         @fontsource-variable/archivo @fontsource-variable/chivo-mono \
+         @playwright/test; do
   printf "%-22s " "$p"
   curl -sS "https://registry.npmjs.org/$(echo $p | sed 's|/|%2F|')/latest" \
     | python3 -c "import sys,json;print(json.load(sys.stdin)['version'])"
 done
+
+# Playwright — la révision de navigateur, que le numéro npm ne donne PAS.
+# `browsers.json` de playwright-core fait foi ; la révision n'est pas épinglable séparément, et
+# un écart avec le cache du poste = un navigateur de ~95 Mio à retélécharger.
+PW=$(curl -sS https://registry.npmjs.org/@playwright%2Ftest/latest \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['version'])")
+echo "@playwright/test $PW"
+curl -sS "https://cdn.jsdelivr.net/npm/playwright-core@$PW/browsers.json" \
+  | python3 -c "
+import sys, json
+for e in json.load(sys.stdin)['browsers']:
+    if e['name'].startswith('chromium'):
+        print(' ', e['name'], 'rev', e['revision'], '| Chrome', e.get('browserVersion'))
+"
+ls -1 "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/ms-playwright}" 2>/dev/null \
+  | grep '^chromium' || echo "  (aucun navigateur en cache)"
 
 # PostgreSQL — la version « current » est celle à retenir
 curl -sS https://www.postgresql.org/versions.json \
@@ -506,6 +566,7 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.11 | 2026-08-01 | **`@playwright/test` `1.62.1` inscrit — le harnais de la porte P-22.** Apache-2.0, publiée le 2026-07-30, aucune `peerDependency`, vérifiée sur `https://registry.npmjs.org/@playwright%2Ftest/latest` le 2026-08-01. **Motif** : le cycle 003 a été livré avec 24 portes vertes et 652 tests, et deux des quatre écrans du produit étaient inatteignables en navigateur — aucun outil du dépôt ne savait ouvrir une page. **Une ligne épingle la chaîne entière** : `@playwright/test` → `playwright` → `playwright-core`, toutes trois en `1.62.1` **exact**, aucun intervalle. Le paquet retenu est celui qui **embarque le runner**. ⚠️ **La révision de navigateur n'est pas épinglable séparément** : `1.62.1` impose Chromium **1234** (Chrome 151.0.7922.34) par son `browsers.json`, et le cache du poste (`1217`, `1228`) ne servait pas — 94,7 Mio téléchargés, constaté. **Hors P-21** : la porte ne vise que ce que l'application charge à l'exécution, et un navigateur de test n'entre ni dans le paquet ni dans l'image de production ; pour la même raison, Apache-2.0 n'entre pas à l'inventaire des licences tierces, réservé aux œuvres embarquées — précédent `subset-font`. Déclaré à la **racine** et non dans `app/`, comme ESLint et pour le même motif : la porte exerce `app/`, et `web/qr` et `web/console` dès qu'elles auront des écrans. |
 | 1.0.10 | 2026-07-31 | **Archivo et Chivo Mono embarquées — dernière dette du cycle 002 soldée, portes P-21 et P-21b.** `@fontsource-variable/archivo` **5.3.0** et `@fontsource-variable/chivo-mono` **5.3.0**, OFL-1.1, publiées le 2026-07-19, aucune dépendance ni `peerDependency`, vérifiées sur `https://registry.npmjs.org/@fontsource-variable%2Farchivo` et `https://registry.npmjs.org/@fontsource-variable%2Fchivo-mono` le 2026-07-31. L'application tournait sur les polices système de repli, alors que `theme.css` prescrit le local et que `tokens.md` §2 confie l'alignement des colonnes de montants à Chivo Mono tabulaire. **Variable retenue sur mesure** : 4 fichiers / 114,0 ko contre 12 fichiers / 152,7 ko en statique, pour les quatre graisses d'Archivo et les deux de Chivo Mono réellement employées. **Aucun sous-réglage de caractères** — le texte est dynamique, contrairement aux icônes : `latin` **et** `latin-ext`, sous-ensembles de script entiers. ⚠️ **U+202F absent de la source, ajouté à la `cmap`** (associé au dessin de U+2009, chasse mesurée : 193 en Archivo, 600 en Chivo Mono donc cellule pleine) : le caractère n'existe ni dans les `woff2` de Fontsource ni dans les `ttf` amont de Google Fonts, ce que seule la lecture de la table révèle — la `unicode-range` déclarée annonce `U+2000-206F`. Déterminisme à l'octet vérifié ; validité confirmée par harfbuzz, qui a d'abord **refusé** les fichiers auxquels manquait le complément d'alignement sur quatre octets. |
 | 1.0.9 | 2026-07-31 | **La police d'icônes embarquée — dette du cycle 002 soldée, porte P-21.** `@phosphor-icons/web` **2.1.2** (source des glyphes) et `subset-font` **2.5.0** (outil de sous-réglage), vérifiés sur `https://registry.npmjs.org/` le 2026-07-31, licences MIT et BSD-3-Clause, `peerDependencies` contrôlées — aucune pour le premier, aucune pour le second. La maquette charge Phosphor depuis `unpkg.com` ; l'application ne le fait **jamais**. Sous-ensemble de **77 glyphes sur ~1530**, soit **9,4 ko** au lieu de 279 ko. La version est **alignée sur celle des maquettes** : deux versions différentes donneraient deux dessins d'icône, écart qu'aucune porte ne verrait. Déterminisme à l'octet vérifié, condition du mode `--verifier`. **À reporter à la revue du 2026-08-31** comme les paquets des gels 1.0.5 et 1.0.6. |
 | 1.0.8 | 2026-07-31 | **`actix-cors` `0.7.1` inscrit — manque révélé par le PREMIER ÉCRAN du produit.** L'application est une SPA servie depuis une autre origine que l'API : `localhost:3000` en développement, `tauri://localhost` sous Tauri. Sans en-têtes CORS, le navigateur bloque chaque appel et **aucun écran ne fonctionne** — le préflight `OPTIONS` rendait `404`. Le cycle 001 ne pouvait pas le rencontrer, n'ayant livré aucun écran ; `G1` l'a révélé au premier chargement réel. **`0.x` assumé, contrairement au motif qui a écarté `@hey-api/openapi-ts 0.99.0`** : c'est le crate officiel de l'écosystème Actix, maintenu par la même équipe, sa branche 0.7 est stable depuis 2025-03-11, et il déclare `actix-web ^4` — compatible avec le `4.14.0` gelé (vérifié sur `https://crates.io/api/v1/crates/actix-cors/0.7.1/dependencies` le 2026-07-31). L'alternative — écrire un CORS à la main sur un chemin de sécurité — était le mauvais échange. La politique est par **liste d'origines explicite**, jamais `*`, et son défaut ne contient que des origines locales. |

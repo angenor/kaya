@@ -109,7 +109,7 @@ unité.
 | Public | Le **propriétaire**, dans l'interface | Les **projections**, en interne |
 | Contenu | Ce qu'une personne a fait | Une transition d'état |
 | Classe | **A** — l'entrée s'écrit hors ligne avec l'action qu'elle trace | Celle de l'opération tracée |
-| Granularité | Dix familles, stables sur la vie du produit | Un type par transition, vingt et un à ce cycle |
+| Granularité | Dix familles, stables sur la vie du produit | Un type par transition, **vingt-deux** à ce cycle (13 + 9 ; `compte.modifie` est déclaré sans émetteur et n'en fait pas vingt-trois) |
 
 Une attribution de rôle produit **les deux** : l'événement `role.attribue` et l'entrée d'audit
 `changement_role`, dans la même transaction. Ce n'est pas une redondance — l'un alimente les

@@ -9,7 +9,9 @@
 **59 tâches sur 64.** Phases 1 à 9 complètes ; **phase 10 entamée** — T059 est livrée, et la
 moitié « types d'événements » de T060 aussi.
 
-**226 tests backend**, **426 tests front**. Portes vérifiées vertes cette session : P-01, P-04,
+**226 tests backend**, **426 tests front** — **chiffres arrêtés à T059** ; au terme du cycle, T064 en
+compte **224** et **428** ([revue-dod.md](revue-dod.md)). Portes vérifiées vertes cette session :
+P-01, P-04,
 P-05b, P-15, P-16, P-17, P-19, P-21, P-21b.
 
 ### Ce que la troisième session a livré
@@ -131,7 +133,18 @@ cause** : un worker de développement consomme le grand livre toutes les 500 ms.
 régression du cycle. Vérifier avant de chercher ailleurs :
 
 ```sh
-pgrep -fl 'target/debug/kaya-api'
+# LE CONTRÔLE QUI FAIT FOI — il ne dépend d'aucun nom de binaire.
+#
+# Au cycle 003, un binaire nommé `target/debug/api` — d'une compilation antérieure, sous un nom qui
+# n'existe plus au Cargo.toml — a écouté le port 8080 pendant toute une session sans être vu par
+# `pgrep -fl 'target/debug/kaya-api'`. Il répondait `/health` À LA PLACE du bon : les vérifications
+# passaient contre un serveur périmé. Un motif sur le nom ne peut pas attraper ça ; le port, oui.
+lsof -nP -iTCP:8080 -sTCP:LISTEN || echo '  ✓ port 8080 libre'
+
+# En second, et seulement pour NOMMER le fautif — le motif est volontairement large, il attrapera
+# donc aussi les binaires des autres projets du poste. C'est un contrôle de diagnostic, pas une
+# condition d'entrée : c'est la ligne ci-dessus qui décide.
+pgrep -fl 'target/(debug|release)/' || echo '  aucun binaire de développement en cours'
 ```
 
 **2 · Ne jamais lancer deux `cargo test --workspace` en parallèle.** Ils se partagent la base et
@@ -145,9 +158,10 @@ les sessions `kaya_worker`, et produisent exactement le même symptôme.
 
 ```sh
 docker compose -f infra/compose.yml up -d
-pgrep -fl 'target/debug/kaya-api'    # doit ne rien rendre — sinon, arrêter le binaire
-cd backend && cargo test --workspace              # 226 tests attendus, 0 échec
-cd ../app && pnpm test                            # 426 tests attendus, 0 échec
+lsof -nP -iTCP:8080 -sTCP:LISTEN     # DOIT être libre — le contrôle qui fait foi
+pgrep -fl 'target/(debug|release)/'  # pour nommer le fautif ; large, faux positifs possibles
+cd backend && cargo test --workspace              # 224 tests attendus, 0 échec
+cd ../app && pnpm test                            # 428 tests attendus, 0 échec
 cd .. && pnpm lint && pnpm porte:p01 && pnpm porte:p15 && pnpm porte:p21b
 ```
 
@@ -165,7 +179,9 @@ message conventionnel référençant la story.
 
 Cinq choses à ne pas redécouvrir :
 
-- AVANT TOUT : `pgrep -fl 'target/debug/kaya-api'`. Si un binaire de développement tourne,
+- AVANT TOUT : `lsof -nP -iTCP:8080 -sTCP:LISTEN` — le port doit être **libre**. C'est le seul
+  contrôle qui ne dépende pas d'un nom de binaire, et c'est un nom qui a manqué au cycle 003. Si un
+  binaire de développement tourne,
   son worker consomme le grand livre et DEUX tests de outbox_immuabilite.rs échouent — le
   message du test nomme la cause. Ce n'est pas une régression. Et ne jamais lancer deux
   `cargo test --workspace` en parallèle : même symptôme.

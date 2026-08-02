@@ -361,11 +361,14 @@ rejouables, ce que la mécanique de TRX-05a interdit.
 
 ---
 
-## R-15 — Dix types d'événements outbox, et la connexion n'en est pas un
+## R-15 — Dix types d'événements outbox déclarés, neuf émis, et la connexion n'en est pas un
 
 **Décision.** Les transitions d'état de ce cycle émettent : `personne.creee`,
 `personne.modifiee`, `compte.cree`, `compte.modifie`, `compte.desactive`, `compte.reactive`,
-`compte.mot_de_passe_change`, `role.attribue`, `role.retire`, `session.revoquee`. Soit **dix**.
+`compte.mot_de_passe_change`, `role.attribue`, `role.retire`, `session.revoquee`. Soit **dix déclarés
+et neuf émis** : `compte.modifie` n'a trouvé aucune opération au contrat — les §10 à 16 n'exposent
+aucune modification d'identifiant — et reste une **provision nommée**, portée par
+`TYPES_SANS_EMETTEUR`. Total du produit : **22**, treize existants plus neuf.
 `employe.*` : **aucun**, la table est vide.
 
 **Ce qui n'émet pas, et pourquoi** : la connexion, le rafraîchissement et l'échec
@@ -379,7 +382,8 @@ quelqu'un, et il a une valeur de reconstitution.
 
 **Deux tenants, obligatoire.** L'exigence 5 du § « Couverture des portes » — née du défaut de
 séquence corrigé par la migration `0012` — impose d'exercer **tout nouveau type d'événement sur
-les deux tenants de démonstration**. Dix types nouveaux, donc dix × deux.
+les deux tenants de démonstration**. Neuf types nouveaux réellement émis, donc **neuf × deux** — le
+dixième déclaré, `compte.modifie`, n'a pas d'émetteur à exercer.
 
 ---
 

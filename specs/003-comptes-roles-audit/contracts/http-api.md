@@ -4,7 +4,15 @@
 document dit ce que le code doit annoncer, il ne le remplace pas. Après toute modification de
 handler : `scripts/ci/generer-client.sh`, puis commit du client (porte **P-01**).
 
-**Total du contrat après ce cycle : 40 opérations** (21 existantes + 19).
+**Total du contrat après ce cycle : 43 opérations** (24 existantes + 19), servies par **33 chemins**.
+
+**Deux comptages se corrigent ici, et aucun des deux ne se voyait en relecture.** L'existant est de
+**vingt-quatre** et non vingt et une : aux 21 opérations du cycle 002 s'ajoutent la sonde de santé et
+les **deux** opérations de note du module doré. Et **un chemin n'est pas une opération** :
+`/api/v1/comptes` en sert deux (`compte_lister`, `compte_creer`), `/api/v1/session` aussi
+(`session_ouvrir`, `session_fermer`). `backend/tests/couverture_portes.rs` ventile le total par lot
+plutôt que de le poser en un seul nombre — un total unique se corrige en changeant un chiffre, une
+ventilation oblige à dire de quel lot vient l'écart.
 
 ---
 

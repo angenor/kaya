@@ -4,22 +4,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle et les établissements sont en place** — cycles 001 (TRX) et 002 (ETB) livrés :
-18 crates Rust, 13 migrations, 98 tests backend, 60 tests front, 8 portes scriptées, l'écran `G1`,
-et une image de production construite et exercée.
+**Le socle, les établissements et les comptes sont en place** — cycles 001 (TRX), 002 (ETB) et
+003 (CPT) livrés : 18 crates Rust, 20 migrations, 224 tests backend, 440 tests front, 11 portes
+scriptées, les cinq écrans `G1`, `R0`, `R1`, `G3` et `G4`, et une image de production construite
+et exercée.
 
-**Le patron de référence est `docs/module-dore.md`** (451 lignes) : une tranche verticale écrite
-à la main contre sqlx 0.9. **Le lire avant d'écrire du Rust** — tout extrait trouvé en ligne vise
-sqlx 0.8 et ne compilera pas.
+**La leçon la plus chère du projet à ce jour** : le cycle 003 a été livré avec 24 portes vertes et
+652 tests, et **deux de ces cinq écrans étaient inatteignables en navigateur**. L'application
+n'avait aucun point d'amorçage — ni `plugins/`, ni `layouts/`, ni `middleware/` — et chaque page
+amorçait pour elle seule ce qu'elle avait pensé à amorcer. C'est réparé, et la porte **P-22** ouvre
+désormais chaque route pour de vrai, en direct et par navigation, dans les deux thèmes. **Deux
+règles en sont sorties, et elles coûtent cher à réapprendre :**
 
-**Les deux dettes du cycle 002 sont soldées** — lire avant de coder du front :
+- **Une page a UNE SEULE racine, et c'est un élément** — jamais un `v-if`/`v-else` de premier
+  niveau. Une racine multiple compile en fragment ; un fragment dont la branche active est un
+  `defineAsyncComponent` non résolu a un `el` nul, et Vue lève
+  `Cannot read properties of null (reading 'parentNode')` à la navigation suivante. L'écran ne se
+  monte pas, l'ancien reste affiché, l'adresse a pourtant changé.
+- **Une unité écrite n'est ni testée ni branchée par défaut.** `initialiserTheme()` a vécu deux
+  cycles exportée, documentée « à appeler au démarrage » — et appelée nulle part. Quatre autres
+  points d'entrée étaient dans le même état. `app/tests/amorcage.spec.ts` les porte tous, à deux
+  états, et vérifie **les deux versants**.
+
+**Le patron de référence est `docs/module-dore.md`** (812 lignes, **huit** couches — la huitième
+est le cycle de vie de l'application) : une tranche verticale écrite à la main contre sqlx 0.9.
+**Le lire avant d'écrire du Rust** — tout extrait trouvé en ligne vise sqlx 0.8 et ne compilera
+pas. **Et avant de créer une page** : la huitième couche dit où va le thème, où va la session, et
+ce que le layout rend.
+
+**Les trois dettes du cycle 002 sont soldées** — lire avant de coder du front :
 
 1. **Le patron d'écriture front existe, sur UNE opération.** La bascule d'un service (ETB-02) est
    câblée de bout en bout et documentée dans **`docs/module-dore.md`, « La septième couche »** :
    appel typé, squelette de chargement, refus métier en langue utilisateur, validation au champ,
    action **absente** sans permission, refus immédiat hors ligne (classe C), rafraîchissement sans
-   rechargement. **Les vingt autres opérations d'écriture suivent ce patron, cycle par cycle** —
-   le lire avant d'en brancher une, ne pas réinventer.
+   rechargement. Le cycle 003 l'a étendu de trois points — garde de permission, stockage sécurisé
+   par `PlatformAdapter`, ordre **rafraîchir-avant-vider** — et l'a appliqué à quatre écrans.
+   **Les opérations d'écriture restantes suivent ce patron, cycle par cycle** — le compte n'est plus
+   tenu ici : le contrat en sert 43 et il grandit à chaque cycle. Le lire avant d'en brancher une,
+   ne pas réinventer.
 2. **La police d'icônes est embarquée et sous-réglée.** 77 glyphes sur ~1530, 9,4 ko au lieu de
    279. Régénération : `pnpm --filter @kaya/app icones:generer`. La porte **P-21** refuse toute
    ressource d'hôte externe, **P-21b** vérifie que le contenu local existe vraiment.
@@ -68,7 +91,17 @@ C'est aussi le seul fichier `.vue` **exempté** du contrôle des littéraux de P
 nommée, dont la contrepartie (la page n'atteint pas la production) est vérifiée par la porte
 elle-même.
 
-État par tranche : **T1 en cours** (TRX et ETB faits ; restent CPT, HEB, SYN, SEJ-1).
+**⛔ L'APPLICATION NE NAVIGUE PAS. À corriger avant tout nouveau cycle.**
+`app/app.vue` ne contient que `<NuxtPage />` ; il n'existe ni `app/plugins/` ni `app/layouts/`,
+donc **aucun point d'amorçage**. `pages/index.vue` amorce pour lui seul, les cinq autres pages
+n'ont rien. Trois symptômes d'une seule cause : `TypeError` sur `parentNode` qui vide le `<main>`
+en navigation interne, session jamais reprise en chargement direct, et **`initialiserTheme()`
+appelé nulle part — le produit n'a jamais affiché son mode sombre**. Conséquence : `G3` et `G4`
+sont inatteignables alors que leurs données répondent 200. La porte **P-22** existe désormais
+pour ça ; elle n'est pas encore implémentée.
+
+État par tranche : **T1 en cours** (TRX et ETB faits, CPT livré mais non navigable ;
+restent HEB, SYN, SEJ-1).
 
 ## Langue et conventions de nommage
 
@@ -92,8 +125,8 @@ Chaînes visibles par l'utilisateur : **jamais en dur**, clés i18n **fr et en**
 
 En cas de contradiction, trancher dans cet ordre :
 
-1. `.specify/memory/constitution.md` — 12 principes non négociables, **24 portes de CI**
-   bloquantes (P-01 à P-21, dont P-01b, P-05b et P-21b). **À lire avant toute décision d'architecture.**
+1. `.specify/memory/constitution.md` — 12 principes non négociables, **25 portes de CI**
+   bloquantes (P-01 à P-22, dont P-01b, P-05b et P-21b). **À lire avant toute décision d'architecture.**
    Sa section « Couverture des portes » est née de portes vertes défectueuses aux cycles 001 et
    002 : *un test négatif prouve qu'une porte sait échouer, il ne prouve pas qu'elle regarde
    tout* — et une porte dont la cible est vide passe toujours.
@@ -300,6 +333,9 @@ pnpm porte:p02   # migration appliquée non modifiée   pnpm porte:p19   # maque
 pnpm porte:p04   # pas de jointure inter-schémas      pnpm porte:p20   # versions épinglées
 pnpm porte:p05b  # pas de purge de l'outbox           pnpm porte:p21   # rien d'un hôte externe
 pnpm porte:p10   # entiers / NUMERIC                  pnpm porte:p21b  # déclaré = embarqué
+pnpm porte:p22   # PARCOURS RÉEL — chaque route s'ouvre, en direct ET par navigation, deux thèmes
+                 #   exige l'API, la base et les seeds ; le script le vérifie et le dit
+pnpm porte:p22:negatif   # prouve que P-22 sait échouer (casse le layout, constate, remet)
 pnpm generer:client                               # types TS depuis openapi.json
 
 # ESLint vit à la RACINE et couvre app/ ET web/qr ET web/console — les deux surfaces publiques
