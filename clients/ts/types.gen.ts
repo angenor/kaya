@@ -314,6 +314,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/disponibilite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hebergement_consulter_disponibilite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/hebergement/formules": {
         parameters: {
             query?: never;
@@ -346,6 +362,44 @@ export interface paths {
          */
         put: operations["hebergement_modifier_formule"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/occupations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["hebergement_attribuer_unite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/liberation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Libère une occupation.
+         * @description La période est **raccourcie** à `now()` + le battement de remise en état, et `statut` passe à
+         *     `liberee`. Ce n'est jamais un `DELETE` : une chambre occupée reste une chambre occupée dans
+         *     l'histoire, et `DELETE` n'est pas accordé à `kaya_app`.
+         */
+        post: operations["hebergement_liberer_occupation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -865,6 +919,28 @@ export interface components {
             nom_etablissement: string;
             pied_document?: string | null;
         };
+        /**
+         * @description Demande d'attribution.
+         *
+         *     **La borne haute de la période n'y figure pas**, et c'est délibéré : le serveur la calcule en
+         *     ajoutant le battement de remise en état de la catégorie. Si le client l'envoyait, il pourrait
+         *     la mettre à zéro et supprimer le ménage.
+         */
+        AttribuerRequete: {
+            /** Format: date-time */
+            debut_client: string;
+            /** Format: date-time */
+            fin_client: string;
+            /** Format: uuid */
+            formule_id: string;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** — c'est lui qui rend le rejeu inoffensif.
+             */
+            id: string;
+            /** Format: uuid */
+            unite_id: string;
+        };
         /** @description Corps d'attribution de rôle. */
         AttribuerRoleRequete: {
             /**
@@ -1196,6 +1272,17 @@ export interface components {
             /** @description `SIMPLE` seul est implémenté au MVP. */
             profil_code: string;
         };
+        /** @description Ce que la consultation rend. */
+        DisponibiliteVue: {
+            /**
+             * Format: date-time
+             * @description **Horodatage serveur.** Il dit *quand* cette réponse était vraie — elle ne l'est plus
+             *     nécessairement au moment où le client la lit, et c'est une information honnête plutôt
+             *     qu'une garantie qu'on ne peut pas tenir.
+             */
+            instant_autorite: string;
+            unites_disponibles: components["schemas"]["UniteDisponible"][];
+        };
         /** @description Corps d'écriture de l'identité visuelle. */
         EcrireBrandingRequete: {
             coordonnees?: string | null;
@@ -1388,6 +1475,15 @@ export interface components {
             prix_mineur: number;
             regle_conversion_taxe?: null | components["schemas"]["RegleConversionTaxe"];
         };
+        /** @description Corps de libération. */
+        LibererRequete: {
+            /**
+             * Format: uuid
+             * @description UUID v7 de l'**opération**, pour l'idempotence côté client. La libération elle-même est
+             *     idempotente par son effet : une occupation déjà libérée rend `200` sans second événement.
+             */
+            id: string;
+        };
         /** @description La clé d'objet d'un logo téléversé. */
         LogoReponse: {
             /**
@@ -1528,6 +1624,36 @@ export interface components {
              *     pluriel ne s'accorde pas partout de la même façon.
              */
             nombre: number;
+        };
+        /** @description Une occupation, telle que l'API la rend. */
+        OccupationVue: {
+            /**
+             * Format: date-time
+             * @description **Horodatage d'autorité serveur.** C'est lui que le calcul de durée d'un passage lit.
+             */
+            cree_le: string;
+            /**
+             * Format: date-time
+             * @description Borne commerciale — ce que le client connaît.
+             */
+            debut_client: string;
+            /** Format: date-time */
+            fin_client: string;
+            /** Format: uuid */
+            formule_id: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description **Borne haute de la période d'indisponibilité** — `fin_client` + le battement de remise en
+             *     état. Le serveur la calcule ; le client ne l'envoie pas et ne peut pas l'influencer.
+             */
+            indisponible_jusqu_a: string;
+            /** Format: date-time */
+            libere_le?: string | null;
+            statut: components["schemas"]["StatutOccupation"];
+            /** Format: uuid */
+            unite_id: string;
         };
         /** @description Corps d'ouverture de session. */
         OuvrirRequete: {
@@ -1791,6 +1917,11 @@ export interface components {
          */
         StatutMenage: "a_nettoyer" | "propre" | "maintenance";
         /**
+         * @description L'état d'une occupation.
+         * @enum {string}
+         */
+        StatutOccupation: "active" | "liberee";
+        /**
          * @description État global du service.
          * @enum {string}
          */
@@ -1826,6 +1957,19 @@ export interface components {
          * @enum {string}
          */
         TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite";
+        /** @description Une unité attribuable, telle que la consultation de disponibilité la rend. */
+        UniteDisponible: {
+            code: string;
+            /** Format: int32 */
+            etage?: number | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description Rendu pour information : une chambre « à nettoyer » est attribuable, elle demande
+             *     simplement qu'on passe avant. **Aucun endpoint de ce cycle ne l'écrit** (HEB-06).
+             */
+            statut_menage: components["schemas"]["StatutMenage"];
+        };
         /** @description Une chambre, un logement, une salle. */
         UniteVue: {
             /** Format: uuid */
@@ -2969,6 +3113,82 @@ export interface operations {
             };
         };
     };
+    hebergement_consulter_disponibilite: {
+        parameters: {
+            query: {
+                /** @description Le type de chambre interrogé. */
+                categorie_id: string;
+                /** @description Début de l'intervalle, RFC 3339. */
+                debut: string;
+                /**
+                 * @description Fin de l'intervalle, RFC 3339. **Exclue** — une chambre libérée à midi est disponible à
+                 *     midi.
+                 */
+                fin: string;
+            };
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unités attribuables à l'instant d'autorité — AUCUNE garantie de réservation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisponibiliteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Intervalle invalide */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     hebergement_lister_formules: {
         parameters: {
             query?: never;
@@ -3168,6 +3388,148 @@ export interface operations {
             };
             /** @description Barème ou plages absents, règle fiscale incohérente */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_attribuer_unite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttribuerRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà attribuée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccupationVue"];
+                };
+            };
+            /** @description Unité attribuée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccupationVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Unité ou formule inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Chambre déjà prise sur cette période, ou service non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Formule hors catégorie, intervalle invalide, durée hors contrainte, plage non fractionnable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_liberer_occupation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Identifiant de l'occupation */
+                occupation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibererRequete"];
+            };
+        };
+        responses: {
+            /** @description Occupation libérée, ou déjà libérée (rejeu) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OccupationVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Occupation inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

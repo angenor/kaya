@@ -15,6 +15,7 @@ pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
+pub mod hebergement_disponibilite;
 pub mod hebergement_referentiel;
 pub mod journal_audit;
 pub mod notes;
@@ -153,6 +154,21 @@ pub fn configurer(config: &mut ServiceConfig) {
         scope("/api/v1/etablissements/{etablissement_id}/hebergement/formules")
             .service(hebergement_referentiel::lister_formules)
             .service(hebergement_referentiel::creer_formule),
+    );
+
+    // Disponibilité et attribution — HEB-02, le cœur du cycle. Toujours du plus spécifique au
+    // plus général : `.../occupations/{id}/liberation` avant `.../occupations`.
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/liberation")
+            .service(hebergement_disponibilite::liberer),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations")
+            .service(hebergement_disponibilite::attribuer),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/disponibilite")
+            .service(hebergement_disponibilite::consulter),
     );
 
     config.service(

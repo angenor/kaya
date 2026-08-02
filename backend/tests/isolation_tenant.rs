@@ -190,6 +190,24 @@ const COUVERTURE: &[(&str, Regime)] = &[
         "/api/v1/etablissements/{etablissement_id}/hebergement/formules/{formule_id}",
         Regime::Isole,
     ),
+    // ── Cycle 004 — disponibilité et attribution (HEB-02) ──────────────────────────────────
+    //
+    // Isolés eux aussi. `occupation` porte un `tenant_id` et sa politique. La consultation de
+    // disponibilité mérite une mention : elle ne rend que des unités, pas des occupations — mais
+    // savoir quelles chambres d'un concurrent sont libres un soir de match est exactement le
+    // genre d'information qu'on ne partage pas.
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/disponibilite",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/occupations",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/liberation",
+        Regime::Isole,
+    ),
     // Sonde de santé — publique, sans contexte, elle ne touche aucune table applicative
     // (`contracts/http-api.md` §1). Toute autre route déclarée ainsi doit être justifiée par
     // écrit, ici même.

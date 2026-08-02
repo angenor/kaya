@@ -264,6 +264,31 @@ impl EtatApplication {
         )
     }
 
+    /// Service de la disponibilité et de l'attribution — HEB-02.
+    ///
+    /// Le tenant est porté par **l'instance** : le trait `MoteurDisponibilite` est consommé par
+    /// SEJ-02 dans sa propre transaction, et l'ajouter à chaque signature le ferait remonter dans
+    /// tous les appelants, où il finirait par être fourni par le corps d'une requête.
+    pub fn service_occupation(
+        &self,
+        tenant_id: uuid::Uuid,
+    ) -> kaya_hebergement::occupation::ServiceOccupation<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+    > {
+        kaya_hebergement::occupation::ServiceOccupation::nouveau(
+            self.pool.clone(),
+            tenant_id,
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+                self.pool.clone(),
+                tenant_id,
+            ),
+            kaya_etablissements::modules::PgRegistreModules::nouveau(self.pool.clone(), tenant_id),
+        )
+    }
+
     /// Service des points de vente — ETB-03.
     pub fn service_points_de_vente(
         &self,
