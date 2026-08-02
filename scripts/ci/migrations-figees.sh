@@ -20,6 +20,20 @@
 #
 # Sur une branche sans base de comparaison — premier commit d'un dépôt neuf — la porte ne peut
 # rien vérifier et le dit, plutôt que de passer au vert en silence.
+#
+# # Ce que la porte ne regarde PAS, et pourquoi (corrigé au cycle 004)
+#
+# **Seuls les `.sql` à la racine de `backend/migrations/` sont des migrations.** Le sous-répertoire
+# `seeds/` n'en contient aucune : le principe I(b) sépare les deux, précisément parce qu'une
+# migration n'est jamais rejouée et qu'un seed l'est constamment. Un seed **doit** pouvoir changer.
+#
+# Jusqu'au cycle 004, le diff portait sur tout le répertoire : la mise à jour de
+# `backend/migrations/seeds/README.md` faisait échouer la porte, avec un message demandant de
+# « créer une migration nouvelle qui corrige » — pour un fichier de documentation. Le décompte final
+# de ce script, lui, était déjà limité à `-maxdepth 1` : les deux extrémités se contredisaient.
+#
+# Le nombre de fichiers réellement comparés est affiché, sans quoi restreindre une cible reviendrait
+# à la vider sans que rien ne le dise (constitution, § « Couverture des portes »).
 
 set -euo pipefail
 
@@ -55,11 +69,19 @@ echo "  référence : $reference"
 
 echec=0
 modifiees=()
+comparees=0
 
 # `git diff --name-status` distingue Ajout (A) de Modification (M), Renommage (R) et
 # Suppression (D). Seul A est acceptable sur une migration.
 while IFS=$'\t' read -r statut fichier reste; do
     [[ -z "${fichier:-}" ]] && continue
+
+    # Une migration est un `.sql` **à la racine** du répertoire. Tout le reste — `seeds/`, la
+    # documentation — n'en est pas une, et le principe I(b) veut qu'il puisse changer.
+    relatif="${fichier#"$MIGRATIONS"/}"
+    [[ "$relatif" == *.sql && "$relatif" != */* ]] || continue
+    comparees=$((comparees + 1))
+
     case "$statut" in
         A) ;;                                   # nouvelle migration — normal
         M) modifiees+=("$fichier (modifié)"); echec=1 ;;
@@ -87,4 +109,13 @@ if [[ $echec -ne 0 ]]; then
 fi
 
 nombre=$(find "$MIGRATIONS" -maxdepth 1 -name '*.sql' | wc -l | tr -d ' ')
-echo "P-02 ✓ — $nombre migration(s), aucune modifiée."
+
+if [[ "$nombre" -eq 0 ]]; then
+    echo >&2
+    echo "P-02 ÉCHOUE — aucune migration trouvée dans « $MIGRATIONS »." >&2
+    echo "Une porte dont la cible est vide passe toujours au vert : celle-ci refuse de le faire." >&2
+    exit 1
+fi
+
+echo "  $comparees fichier(s) .sql comparé(s) à la référence (seeds et documentation exclus)"
+echo "P-02 ✓ — $nombre migration(s) au total, aucune modifiée."

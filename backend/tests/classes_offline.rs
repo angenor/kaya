@@ -66,7 +66,7 @@ const SCHEMAS_APPLICATIFS: &[&str] = &[
 /// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34.
 /// L'écrire d'avance rendrait la porte rouge entre deux migrations pour une raison qui n'est pas
 /// un défaut, et on prendrait l'habitude de la lire rouge.
-const TABLES_ATTENDUES: usize = 33;
+const TABLES_ATTENDUES: usize = 34;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///

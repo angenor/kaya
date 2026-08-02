@@ -9,7 +9,7 @@
 //!
 //! Ce fichier rend ce glissement bruyant.
 //!
-//! # Périmètre inspecté — **quatre provisions, deux cycles**
+//! # Périmètre inspecté — **cinq provisions, trois cycles**
 //!
 //! *§ « Couverture des portes » : une porte dont la cible est vide passe toujours au vert. Le
 //! décompte est donc comparé à [`PROVISIONS`], et la liste est ici.*
@@ -20,6 +20,7 @@
 //! | `fiscalite.mapping_comptable` | 001 | idem |
 //! | `comptes.employe` | 003 | CPT-05 — le contrat de travail, la paie |
 //! | `comptes.appareil_enrole` | 003 | CPT-05 / CPT-06 — l'enrôlement par paire de clés |
+//! | `hebergement.prestation_incluse` | 004 | HEB-09 — le petit-déjeuner inclus, incrément 2 |
 //!
 //! **N'est PAS inspecté** : ce que ferait un binaire de maintenance sous `kaya_owner`. Le
 //! propriétaire des tables peut tout écrire, par construction — c'est le rôle applicatif qui est
@@ -43,11 +44,16 @@ const PROVISIONS: &[(&str, &str, &str)] = &[
         "appareil_enrole",
         "cycle 003 — CPT-05/06, enrôlement d'appareil",
     ),
+    (
+        "hebergement",
+        "prestation_incluse",
+        "cycle 004 — HEB-09, petit-déjeuner inclus",
+    ),
 ];
 
-/// Les quatre tables existent, avec leurs contraintes.
+/// Les cinq tables existent, avec leurs contraintes.
 #[tokio::test]
-async fn les_quatre_tables_de_provision_existent() {
+async fn les_tables_de_provision_existent() {
     let pool = commun::pool_owner().await;
     let mut inspectees = 0_usize;
 
@@ -267,6 +273,148 @@ async fn le_role_applicatif_ne_peut_pas_ecrire_dans_les_provisions() {
          Aucun chemin d'écriture ne doit pouvoir naître par inadvertance. Le jour où la \
          comptabilité sera implémentée, une migration accordera ces droits — un acte visible et \
          daté."
+    );
+}
+
+// =================================================================================================
+//  Cycle 004 — HEB-09, la provision qui se paierait le plus cher d'être mal posée
+// =================================================================================================
+
+/// **`quantite` est `NUMERIC`, et ce n'est pas un détail de provision.**
+///
+/// Un petit-déjeuner se compte à l'unité, une prestation de blanchisserie **au kilo**, une course
+/// de conciergerie peut se compter en demi-heures. Un `INTEGER` posé aujourd'hui « puisque personne
+/// ne s'en sert » imposerait de migrer **toutes les lignes de tous les clients** le jour où la
+/// table est enfin peuplée — c'est-à-dire au pire moment possible.
+///
+/// La porte P-10 balaie les migrations ; ce test asserte la colonne **telle que la base la porte**,
+/// ce qui reste vrai même si la table était un jour altérée par une migration ultérieure.
+#[tokio::test]
+async fn la_quantite_de_prestation_incluse_est_numeric_et_le_plafond_un_entier() {
+    let pool = commun::pool_owner().await;
+
+    let colonnes: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_schema = 'hebergement' AND table_name = 'prestation_incluse'
+        ORDER BY ordinal_position
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture du catalogue");
+
+    assert!(
+        !colonnes.is_empty(),
+        "`hebergement.prestation_incluse` n'a aucune colonne — le test n'inspecte rien, et son vert \
+         ne dirait rien"
+    );
+
+    let genre = |nom: &str| -> String {
+        colonnes
+            .iter()
+            .find(|(c, _)| c == nom)
+            .unwrap_or_else(|| panic!("colonne `{nom}` absente. Colonnes : {colonnes:?}"))
+            .1
+            .clone()
+    };
+
+    assert_eq!(
+        genre("quantite"),
+        "numeric",
+        "`quantite` est « {} » au lieu de `numeric`.\n\
+         Une quantité entière interdit la blanchisserie au kilo, et passer d'entier à décimal après \
+         mise en production imposerait de migrer toutes les lignes de tous les clients.",
+        genre("quantite")
+    );
+
+    assert_eq!(
+        genre("valeur_unitaire_plafond_mineur"),
+        "bigint",
+        "le plafond est un **entier d'unité mineure** (principe V) : un `numeric` ici rouvrirait la \
+         question des arrondis sur une valeur monétaire"
+    );
+}
+
+/// **Aucun endpoint n'expose la prestation incluse**, et aucun ne le fera par distraction.
+///
+/// Même mécanique que pour les provisions des cycles 001 et 003 : le contrat OpenAPI est la source
+/// de vérité de ce que l'API expose (principe I(a)).
+#[test]
+fn aucun_endpoint_n_expose_la_prestation_incluse() {
+    let contrat = kaya_api::application::contrat_complet();
+
+    let suspects: Vec<&String> = contrat
+        .paths
+        .paths
+        .keys()
+        .filter(|chemin| {
+            let c = chemin.to_lowercase();
+            c.contains("prestation") || c.contains("petit-dejeuner") || c.contains("incluse")
+        })
+        .collect();
+
+    assert!(
+        suspects.is_empty(),
+        "des endpoints exposent la prestation incluse : {suspects:?}\n\
+         HEB-09 est une TABLE SEULEMENT (principe X) : la fonctionnalité — décompte à la \
+         consommation, non facturation, bascule du dépassement — arrive en incrément 2. Un \
+         endpoint, même en lecture, en fait une fonctionnalité que personne n'a décidé de \
+         construire — et il échouerait au premier appel : `kaya_app` n'a aucun privilège dessus."
+    );
+}
+
+/// **Aucun privilège sur `prestation_incluse` — et les six tables voisines en ont quatre.**
+///
+/// C'est ce qui rend l'assertion probante : dans le **même schéma**, `0024` accorde
+/// `SELECT, INSERT, UPDATE, DELETE` à `kaya_app` sur les six tables du référentiel. Un test qui se
+/// contenterait de constater l'absence sur une table isolée ne dirait pas si `kaya_app` a des
+/// droits quelque part ; ici, la différence est mesurée côte à côte.
+#[tokio::test]
+async fn le_role_applicatif_n_a_aucun_privilege_sur_la_prestation_incluse() {
+    let pool = commun::pool_owner().await;
+
+    let privileges: Vec<(String, i64)> = sqlx::query_as(
+        r#"
+        SELECT table_name, COUNT(*)
+        FROM information_schema.role_table_grants
+        WHERE grantee = 'kaya_app' AND table_schema = 'hebergement'
+        GROUP BY table_name
+        ORDER BY table_name
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture des privilèges");
+
+    let sur_la_provision = privileges
+        .iter()
+        .find(|(table, _)| table == "prestation_incluse");
+
+    assert!(
+        sur_la_provision.is_none(),
+        "le rôle applicatif détient des privilèges sur `hebergement.prestation_incluse` : {:?}\n\
+         Une provision n'accorde RIEN, pas même `SELECT` — c'est ce qui la distingue d'un début \
+         d'implémentation. Ne pas ajouter de `GRANT` « pour pouvoir tester » : ce test teste \
+         précisément cette absence.",
+        sur_la_provision
+    );
+
+    // Le témoin : les tables du référentiel, elles, sont bien ouvertes. Sans cette assertion, un
+    // `REVOKE` massif sur tout le schéma ferait passer le test ci-dessus au vert.
+    let referentiel: Vec<&String> = privileges
+        .iter()
+        .filter(|(_, n)| *n == 4)
+        .map(|(table, _)| table)
+        .collect();
+    assert!(
+        referentiel.len() >= 6,
+        "seules {} table(s) du schéma `hebergement` portent les quatre verbes pour `kaya_app`. \
+         Les six tables du référentiel de `0024` doivent les avoir — sans ce témoin, un `REVOKE` \
+         général rendrait l'assertion précédente vraie pour la mauvaise raison. Obtenu : \
+         {privileges:?}",
+        referentiel.len()
     );
 }
 

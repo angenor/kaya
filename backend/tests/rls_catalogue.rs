@@ -47,10 +47,10 @@ const SCHEMAS_APPLICATIFS: &[&str] = &[
 /// La liste ci-dessus est le point unique où un module entier peut sortir du champ sans qu'aucune
 /// erreur ne se produise : le décompte est ce qui rend cette sortie visible.
 ///
-/// 16 au cycle 002, 26 au cycle 003, **33 après `0025`** et 34 à la fin du cycle 004. Le décompte
+/// 16 au cycle 002, 26 au cycle 003, **33 après `0025`**, **34** après `0026`, terme du cycle 004. Le décompte
 /// suit les tables réellement créées, migration par migration : l'écrire d'avance rendrait la
 /// porte rouge entre deux migrations pour une raison qui n'est pas un défaut.
-const TOTAL_TABLES_ATTENDU: usize = 33;
+const TOTAL_TABLES_ATTENDU: usize = 34;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///
