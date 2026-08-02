@@ -1029,3 +1029,194 @@ async fn p08_cycle_004_appels_croises_sur_le_referentiel_d_hebergement() {
     assert_eq!(code, "SECRET-1", "A a renommé la chambre de B");
     assert_eq!(prix, 25_000, "A a changé le tarif de B");
 }
+
+/// **Isolation par endpoint sur les trois chemins de la disponibilité (HEB-02).**
+///
+/// Le tenant A tente de voir les chambres libres de B, d'attribuer chez B, et de libérer une
+/// occupation de B. Les trois refusent — et l'occupation de B reste **active**, ce qui est la
+/// vérification qui compte : un refus qui aurait quand même libéré la chambre aurait mis un client
+/// à la porte.
+#[actix_web::test]
+async fn p08_cycle_004_appels_croises_sur_la_disponibilite() {
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 dispo A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 dispo B").await;
+
+    let pool = commun::pool_app().await;
+    let app = monter_application!(pool.clone());
+    let cx_a = commun::compte_connecte(
+        &pool_owner,
+        a,
+        "P-08 dispo A",
+        &[("proprietaire", Some(a.etablissement_id))],
+    )
+    .await;
+
+    for jeu in [a, b] {
+        kaya_etablissements::modules::ServiceModules::nouveau(
+            pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+        .basculer(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            "HEBERGEMENT",
+            kaya_etablissements::modules::BasculerService {
+                id: uuid::Uuid::now_v7(),
+                actif: true,
+            },
+        )
+        .await
+        .expect("activation");
+    }
+
+    let etat = kaya_api::application::EtatApplication::depuis_environnement(pool.clone())
+        .expect("état applicatif");
+
+    // B se constitue une chambre occupée.
+    let categorie_b = uuid::Uuid::now_v7();
+    let unite_b = uuid::Uuid::now_v7();
+    let formule_b = uuid::Uuid::now_v7();
+    let referentiel_b = etat.service_hebergement(b.tenant_id);
+    referentiel_b
+        .creer_categorie(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_b,
+                etablissement_id: b.etablissement_id,
+                nom: "Standard B".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: Vec::new(),
+            },
+        )
+        .await
+        .expect("catégorie B");
+    referentiel_b
+        .creer_unite(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerUnite {
+                id: unite_b,
+                etablissement_id: b.etablissement_id,
+                categorie_id: categorie_b,
+                code: "B-1".to_owned(),
+                etage: None,
+            },
+        )
+        .await
+        .expect("unité B");
+    referentiel_b
+        .creer_formule(
+            b.tenant_id,
+            kaya_hebergement::referentiel::CreerFormule {
+                id: formule_b,
+                etablissement_id: b.etablissement_id,
+                categorie_id: categorie_b,
+                famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                prix_mineur: 15_500,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect("formule B");
+
+    let occupation_b = uuid::Uuid::now_v7();
+    etat.service_occupation(b.tenant_id)
+        .attribuer(kaya_hebergement::occupation::DemandeAttribution {
+            id: occupation_b,
+            etablissement_id: b.etablissement_id,
+            unite_id: unite_b,
+            formule_id: formule_b,
+            debut_client: time::macros::datetime!(2027-03-01 14:00 UTC),
+            fin_client: time::macros::datetime!(2027-03-05 12:00 UTC),
+        })
+        .await
+        .expect("occupation B");
+
+    let etb_b = b.etablissement_id;
+
+    // --- A consulte la disponibilité de B -------------------------------------------------
+    let requete = actix_web::test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/etablissements/{etb_b}/hebergement/disponibilite\
+             ?categorie_id={categorie_b}&debut=2027-03-02T00:00:00Z&fin=2027-03-03T00:00:00Z"
+        ))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a consulté la disponibilité du tenant B : {}",
+        reponse.status()
+    );
+
+    // --- A attribue chez B ----------------------------------------------------------------
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!("/api/v1/etablissements/{etb_b}/hebergement/occupations"))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": uuid::Uuid::now_v7(),
+            "unite_id": unite_b,
+            "formule_id": formule_b,
+            "debut_client": "2027-04-01T14:00:00Z",
+            "fin_client": "2027-04-02T12:00:00Z",
+        }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a attribué une chambre du tenant B : {}",
+        reponse.status()
+    );
+
+    // --- A libère l'occupation de B — LE cas grave ----------------------------------------
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{etb_b}/hebergement/occupations/{occupation_b}/liberation"
+        ))
+        .insert_header((AUTORISATION, cx_a.bearer.clone()))
+        .set_json(serde_json::json!({ "id": uuid::Uuid::now_v7() }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(
+        reponse.status().as_u16(),
+        404,
+        "le tenant A a libéré une occupation du tenant B : {}",
+        reponse.status()
+    );
+
+    // --- Et l'occupation de B est toujours active -----------------------------------------
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, b.tenant_id)
+        .await
+        .expect("tenant B");
+    let (statut, occupations): (String, i64) = sqlx::query_as(
+        r#"
+        SELECT o.statut,
+               (SELECT COUNT(*) FROM hebergement.occupation WHERE etablissement_id = $2)
+        FROM hebergement.occupation o
+        WHERE o.id = $1
+        "#,
+    )
+    .bind(occupation_b)
+    .bind(etb_b)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("relecture de l'occupation de B");
+
+    assert_eq!(
+        statut, "active",
+        "le tenant A a libéré la chambre du tenant B — un client vient d'être mis à la porte"
+    );
+    assert_eq!(occupations, 1, "A a créé une occupation chez B");
+}

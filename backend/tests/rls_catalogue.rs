@@ -34,6 +34,11 @@ const SCHEMAS_APPLICATIFS: &[&str] = &[
     "fiscalite",
     // Cycle 003 (CPT) — dix tables, dont quatre référentiels globaux.
     "comptes",
+    // Cycle 004 (HEB) — sept tables, **aucun référentiel global** : les types de chambre, les
+    // chambres et les formules appartiennent chacun à un établissement, donc à un tenant. C'est
+    // la première verticale, et son schéma n'a pas de régime particulier — ce qui est en soi une
+    // information : la hiérarchie du principe II ne change rien à l'isolation.
+    "hebergement",
 ];
 
 /// Nombre de tables attendues sous la porte, **tous schémas confondus**.
@@ -42,8 +47,10 @@ const SCHEMAS_APPLICATIFS: &[&str] = &[
 /// La liste ci-dessus est le point unique où un module entier peut sortir du champ sans qu'aucune
 /// erreur ne se produise : le décompte est ce qui rend cette sortie visible.
 ///
-/// 16 au cycle 002, **26 au cycle 003**.
-const TOTAL_TABLES_ATTENDU: usize = 26;
+/// 16 au cycle 002, 26 au cycle 003, **33 après `0025`** et 34 à la fin du cycle 004. Le décompte
+/// suit les tables réellement créées, migration par migration : l'écrire d'avance rendrait la
+/// porte rouge entre deux migrations pour une raison qui n'est pas un défaut.
+const TOTAL_TABLES_ATTENDU: usize = 33;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///
