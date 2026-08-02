@@ -1202,3 +1202,553 @@ async fn charges_utiles(
     tx.rollback().await.expect("rollback");
     charges
 }
+
+// =================================================================================================
+//  Cycle 004 (HEB) — les cinq types d'événements de la première verticale
+// =================================================================================================
+//
+// | Type | Émis par | Ce que la charge utile porte |
+// |---|---|---|
+// | `heb.formule.creee` | `ServiceReferentiel::creer_formule` | famille, `prix_mineur` + `devise` |
+// | `heb.formule.modifiee` | `ServiceReferentiel::modifier_formule` | l'état après |
+// | `heb.categorie.tarif_modifie` | idem, **si le prix a bougé** | l'avant ET l'après |
+// | `heb.occupation.attribuee` | `ServiceOccupation::attribuer` | bornes client et borne d'indisponibilité |
+// | `heb.occupation.liberee` | `ServiceOccupation::liberer` | horodatage et nouvelle borne |
+//
+// **Nommage monétaire réservé (P-10)** : `prix_mineur` entier et `devise` au même niveau. Jamais
+// `prix`, `montant` ni `total` nus — le contrôle statique les refuse.
+
+/// Assemble les deux services du cycle 004 **comme l'application réelle le fait**.
+fn services_hebergement(
+    pool: sqlx::PgPool,
+    tenant_id: Uuid,
+) -> (
+    kaya_hebergement::referentiel::ServiceReferentiel<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+    >,
+    kaya_hebergement::occupation::ServiceOccupation<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+    >,
+) {
+    let annuaire = || {
+        kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+            pool.clone(),
+            tenant_id,
+        )
+    };
+    let modules =
+        || kaya_etablissements::modules::PgRegistreModules::nouveau(pool.clone(), tenant_id);
+
+    (
+        kaya_hebergement::referentiel::ServiceReferentiel::nouveau(
+            pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            annuaire(),
+            modules(),
+        ),
+        kaya_hebergement::occupation::ServiceOccupation::nouveau(
+            pool.clone(),
+            tenant_id,
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            annuaire(),
+            modules(),
+        ),
+    )
+}
+
+async fn activer_hebergement_pour(pool: &sqlx::PgPool, jeu: commun::JeuTenant) {
+    kaya_etablissements::modules::ServiceModules::nouveau(
+        pool.clone(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+    )
+    .basculer(
+        jeu.tenant_id,
+        jeu.etablissement_id,
+        "HEBERGEMENT",
+        kaya_etablissements::modules::BasculerService {
+            id: Uuid::now_v7(),
+            actif: true,
+        },
+    )
+    .await
+    .expect("activation de l'hébergement");
+}
+
+/// La charge utile d'un événement, pour vérifier son **nommage monétaire**.
+async fn charge_utile(
+    pool_owner: &sqlx::PgPool,
+    tenant_id: Uuid,
+    agregat_id: Uuid,
+    type_evenement: &str,
+) -> serde_json::Value {
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+    let payload: serde_json::Value = sqlx::query_scalar(
+        r#"
+        SELECT payload
+        FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1 AND type_evenement = $2
+        ORDER BY sequence_etablissement DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(agregat_id)
+    .bind(type_evenement)
+    .fetch_one(&mut *tx)
+    .await
+    .unwrap_or_else(|e| panic!("aucun événement « {type_evenement} » pour {agregat_id} : {e}"));
+    tx.rollback().await.expect("rollback");
+    payload
+}
+
+/// **`heb.formule.creee` — un événement, et un seul malgré trois envois.**
+#[tokio::test]
+async fn p05_heb_creation_de_formule_un_seul_evenement_malgre_le_rejeu() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 HEB formule").await;
+    let pool = commun::pool_app().await;
+    activer_hebergement_pour(&pool, jeu).await;
+
+    let (referentiel, _) = services_hebergement(pool.clone(), jeu.tenant_id);
+
+    let categorie_id = Uuid::now_v7();
+    referentiel
+        .creer_categorie(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_id,
+                etablissement_id: jeu.etablissement_id,
+                nom: "Standard".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: Vec::new(),
+            },
+        )
+        .await
+        .expect("catégorie");
+
+    // **Une catégorie n'émet AUCUN événement** — elle n'a d'effet ni monétaire, ni fiscal, ni sur
+    // la disponibilité. Le vérifier ici évite qu'on en ajoute un « par symétrie ».
+    assert!(
+        types_evenements(&pool_owner, jeu.tenant_id, categorie_id)
+            .await
+            .is_empty(),
+        "la création d'un type de chambre ne doit émettre aucun événement"
+    );
+
+    let formule_id = Uuid::now_v7();
+    let demande = || kaya_hebergement::referentiel::CreerFormule {
+        id: formule_id,
+        etablissement_id: jeu.etablissement_id,
+        categorie_id,
+        famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+        prix_mineur: 12_500,
+        duree_min_minutes: None,
+        duree_max_minutes: None,
+        heure_arrivee_standard: Some("14:00".to_owned()),
+        heure_depart_standard: Some("12:00".to_owned()),
+        jours_autorises: None,
+        assujettie_taxe_nuitee: true,
+        regle_conversion_taxe: Some(
+            kaya_hebergement::referentiel::RegleConversionTaxe::UneNuiteeParOccupation,
+        ),
+        prix_heure_supplementaire_mineur: None,
+        paliers: Vec::new(),
+        plages: Vec::new(),
+    };
+
+    for _ in 0..3 {
+        referentiel
+            .creer_formule(jeu.tenant_id, demande())
+            .await
+            .expect("création ou rejeu");
+    }
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, formule_id).await;
+    assert_eq!(
+        types,
+        vec!["heb.formule.creee"],
+        "trois envois du même identifiant doivent laisser UN événement : le grand livre porte les \
+         transitions d'état, pas les tentatives réseau du terminal"
+    );
+
+    // **P-10 — nommage monétaire réservé** : `prix_mineur` entier, `devise` au même niveau.
+    let payload = charge_utile(&pool_owner, jeu.tenant_id, formule_id, "heb.formule.creee").await;
+    assert!(
+        payload.get("prix_mineur").and_then(|v| v.as_i64()).is_some(),
+        "la charge utile doit porter `prix_mineur` ENTIER : {payload}"
+    );
+    assert!(
+        payload.get("devise").and_then(|v| v.as_str()).is_some(),
+        "la charge utile doit porter `devise` au MÊME NIVEAU que le montant : {payload}"
+    );
+    assert!(
+        payload.get("prix").is_none()
+            && payload.get("montant").is_none()
+            && payload.get("total").is_none(),
+        "aucune clé monétaire nue : {payload}"
+    );
+}
+
+/// **`heb.formule.modifiee` toujours, `heb.categorie.tarif_modifie` SEULEMENT si le prix bouge.**
+///
+/// Les deux disent deux choses différentes. Noyer le second dans le premier obligerait un lecteur
+/// du grand livre à comparer deux charges utiles pour savoir si un tarif a changé — et c'est
+/// exactement la question que la reconstitution financière pose.
+#[tokio::test]
+async fn p05_heb_le_tarif_modifie_n_est_emis_que_si_le_prix_bouge() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 HEB tarif").await;
+    let pool = commun::pool_app().await;
+    activer_hebergement_pour(&pool, jeu).await;
+
+    let (referentiel, _) = services_hebergement(pool.clone(), jeu.tenant_id);
+
+    let categorie_id = Uuid::now_v7();
+    referentiel
+        .creer_categorie(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_id,
+                etablissement_id: jeu.etablissement_id,
+                nom: "Classique".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: Vec::new(),
+            },
+        )
+        .await
+        .expect("catégorie");
+
+    let formule_id = Uuid::now_v7();
+    referentiel
+        .creer_formule(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerFormule {
+                id: formule_id,
+                etablissement_id: jeu.etablissement_id,
+                categorie_id,
+                famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                prix_mineur: 15_500,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect("formule");
+
+    let changements = |prix: i64, assujettie: bool| kaya_hebergement::referentiel::ModifierFormule {
+        prix_mineur: prix,
+        duree_min_minutes: None,
+        duree_max_minutes: None,
+        heure_arrivee_standard: None,
+        heure_depart_standard: None,
+        jours_autorises: None,
+        assujettie_taxe_nuitee: assujettie,
+        regle_conversion_taxe: if assujettie {
+            Some(kaya_hebergement::referentiel::RegleConversionTaxe::UneNuiteeParOccupation)
+        } else {
+            None
+        },
+        prix_heure_supplementaire_mineur: None,
+        paliers: Vec::new(),
+        plages: Vec::new(),
+    };
+
+    // 1 · le prix ne bouge pas — l'exploitant active seulement la taxe.
+    referentiel
+        .modifier_formule(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            formule_id,
+            changements(15_500, true),
+        )
+        .await
+        .expect("activation de la taxe");
+
+    let types = types_evenements(&pool_owner, jeu.tenant_id, formule_id).await;
+    assert_eq!(
+        types,
+        vec!["heb.formule.creee", "heb.formule.modifiee"],
+        "activer la taxe sans toucher au prix ne doit PAS émettre `heb.categorie.tarif_modifie`"
+    );
+
+    // 2 · le prix bouge.
+    referentiel
+        .modifier_formule(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            formule_id,
+            changements(17_500, true),
+        )
+        .await
+        .expect("changement de prix");
+
+    let sur_categorie = types_evenements(&pool_owner, jeu.tenant_id, categorie_id).await;
+    assert_eq!(
+        sur_categorie,
+        vec!["heb.categorie.tarif_modifie"],
+        "un changement de prix doit émettre `heb.categorie.tarif_modifie`, sur l'agrégat CATÉGORIE"
+    );
+
+    // La charge utile porte **l'avant ET l'après** — sans quoi la reconstitution financière
+    // devrait rejouer tout l'historique pour connaître le prix précédent.
+    let payload = charge_utile(
+        &pool_owner,
+        jeu.tenant_id,
+        categorie_id,
+        "heb.categorie.tarif_modifie",
+    )
+    .await;
+    assert_eq!(payload["prix_avant_mineur"].as_i64(), Some(15_500));
+    assert_eq!(payload["prix_apres_mineur"].as_i64(), Some(17_500));
+    assert!(payload.get("devise").is_some(), "devise au même niveau : {payload}");
+}
+
+/// **`heb.occupation.attribuee` et `heb.occupation.liberee`** — une transition, un événement.
+#[tokio::test]
+async fn p05_heb_attribution_et_liberation_emettent_chacune_leur_evenement() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 HEB occupation").await;
+    let pool = commun::pool_app().await;
+    activer_hebergement_pour(&pool, jeu).await;
+
+    let (referentiel, occupation) = services_hebergement(pool.clone(), jeu.tenant_id);
+
+    let categorie_id = Uuid::now_v7();
+    referentiel
+        .creer_categorie(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_id,
+                etablissement_id: jeu.etablissement_id,
+                nom: "Standard".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: vec![kaya_hebergement::referentiel::TempsRemiseEnEtat {
+                    famille_formule: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                    duree_minutes: 120,
+                }],
+            },
+        )
+        .await
+        .expect("catégorie");
+
+    let unite_id = Uuid::now_v7();
+    referentiel
+        .creer_unite(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerUnite {
+                id: unite_id,
+                etablissement_id: jeu.etablissement_id,
+                categorie_id,
+                code: "A1".to_owned(),
+                etage: Some(1),
+            },
+        )
+        .await
+        .expect("unité");
+
+    let formule_id = Uuid::now_v7();
+    referentiel
+        .creer_formule(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerFormule {
+                id: formule_id,
+                etablissement_id: jeu.etablissement_id,
+                categorie_id,
+                famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                prix_mineur: 12_500,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect("formule");
+
+    let occupation_id = Uuid::now_v7();
+    let demande = || kaya_hebergement::occupation::DemandeAttribution {
+        id: occupation_id,
+        etablissement_id: jeu.etablissement_id,
+        unite_id,
+        formule_id,
+        debut_client: time::macros::datetime!(2027-05-01 14:00 UTC),
+        fin_client: time::macros::datetime!(2027-05-03 12:00 UTC),
+    };
+
+    // Trois envois — **un seul événement**.
+    for _ in 0..3 {
+        occupation
+            .attribuer(demande())
+            .await
+            .expect("attribution ou rejeu");
+    }
+
+    assert_eq!(
+        types_evenements(&pool_owner, jeu.tenant_id, occupation_id).await,
+        vec!["heb.occupation.attribuee"],
+        "trois attributions du même identifiant doivent laisser UN événement"
+    );
+
+    // La charge utile porte la borne d'indisponibilité — le ménage compris.
+    let payload = charge_utile(
+        &pool_owner,
+        jeu.tenant_id,
+        occupation_id,
+        "heb.occupation.attribuee",
+    )
+    .await;
+    assert_eq!(payload["battement_minutes"].as_i64(), Some(120));
+    assert!(
+        payload.get("indisponible_jusqu_a").is_some(),
+        "un lecteur qui n'a que cette ligne doit savoir jusqu'à quand la chambre est prise : \
+         {payload}"
+    );
+
+    // Libération, puis rejeu — **un seul second événement**.
+    for _ in 0..2 {
+        occupation
+            .liberer(jeu.etablissement_id, occupation_id)
+            .await
+            .expect("libération ou rejeu");
+    }
+
+    assert_eq!(
+        types_evenements(&pool_owner, jeu.tenant_id, occupation_id).await,
+        vec!["heb.occupation.attribuee", "heb.occupation.liberee"],
+        "une libération rejouée ne doit pas produire un second `heb.occupation.liberee`"
+    );
+}
+
+/// **Un refus d'attribution ne laisse ni ligne ni événement.**
+///
+/// La violation d'exclusion empoisonne la transaction ; le service la rejette, et le grand livre
+/// n'en garde aucune trace. Un événement écrit avant l'échec ferait compter au grand livre une
+/// attribution qui n'a jamais eu lieu.
+#[tokio::test]
+async fn p05_heb_une_attribution_refusee_ne_laisse_ni_ligne_ni_evenement() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 HEB refus").await;
+    let pool = commun::pool_app().await;
+    activer_hebergement_pour(&pool, jeu).await;
+
+    let (referentiel, occupation) = services_hebergement(pool.clone(), jeu.tenant_id);
+
+    let categorie_id = Uuid::now_v7();
+    referentiel
+        .creer_categorie(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerCategorie {
+                id: categorie_id,
+                etablissement_id: jeu.etablissement_id,
+                nom: "Standard".to_owned(),
+                capacite_accueil: 2,
+                temps_remise_en_etat: Vec::new(),
+            },
+        )
+        .await
+        .expect("catégorie");
+    let unite_id = Uuid::now_v7();
+    referentiel
+        .creer_unite(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerUnite {
+                id: unite_id,
+                etablissement_id: jeu.etablissement_id,
+                categorie_id,
+                code: "A1".to_owned(),
+                etage: None,
+            },
+        )
+        .await
+        .expect("unité");
+    let formule_id = Uuid::now_v7();
+    referentiel
+        .creer_formule(
+            jeu.tenant_id,
+            kaya_hebergement::referentiel::CreerFormule {
+                id: formule_id,
+                etablissement_id: jeu.etablissement_id,
+                categorie_id,
+                famille: kaya_hebergement::referentiel::FamilleFormule::Nuitee,
+                prix_mineur: 12_500,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect("formule");
+
+    occupation
+        .attribuer(kaya_hebergement::occupation::DemandeAttribution {
+            id: Uuid::now_v7(),
+            etablissement_id: jeu.etablissement_id,
+            unite_id,
+            formule_id,
+            debut_client: time::macros::datetime!(2027-06-01 14:00 UTC),
+            fin_client: time::macros::datetime!(2027-06-05 12:00 UTC),
+        })
+        .await
+        .expect("première attribution");
+
+    let refusee = Uuid::now_v7();
+    let erreur = occupation
+        .attribuer(kaya_hebergement::occupation::DemandeAttribution {
+            id: refusee,
+            etablissement_id: jeu.etablissement_id,
+            unite_id,
+            formule_id,
+            debut_client: time::macros::datetime!(2027-06-02 10:00 UTC),
+            fin_client: time::macros::datetime!(2027-06-03 10:00 UTC),
+        })
+        .await
+        .expect_err("l'attribution chevauchante doit être refusée");
+    assert_eq!(erreur.code(), "unite_deja_occupee");
+
+    assert!(
+        types_evenements(&pool_owner, jeu.tenant_id, refusee)
+            .await
+            .is_empty(),
+        "un refus a laissé un événement au grand livre : la reconstitution compterait une \
+         attribution qui n'a jamais eu lieu"
+    );
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let total: i64 =
+        sqlx::query_scalar(r#"SELECT COUNT(*) FROM hebergement.occupation WHERE unite_id = $1"#)
+            .bind(unite_id)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage");
+    assert_eq!(total, 1, "le refus a laissé une ligne en base");
+}
