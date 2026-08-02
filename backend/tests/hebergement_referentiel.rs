@@ -582,3 +582,340 @@ async fn unite_ne_porte_aucune_colonne_de_statut_d_occupation() {
          à la main. Sa présence est ce qui rend l'absence du premier significative."
     );
 }
+
+// =================================================================================================
+//  8. LE SERVICE — les deux validations que la base ne peut PAS porter
+// =================================================================================================
+//
+// FR-025 et FR-033 disent qu'une formule `PASSAGE` porte au moins un palier et qu'une
+// `DEMI_JOURNEE` porte au moins une plage. Aucune contrainte de table ne l'exprime : la dépendance
+// va de l'enfant au parent, et la ligne parente existe forcément avant ses enfants.
+//
+// Les tests ci-dessous passent par le **service**, donc par le chemin réel, et non par une
+// insertion directe qui contournerait la validation qu'ils vérifient.
+
+use kaya_hebergement::referentiel::{
+    CreerFormule, CreerUnite, ErreurReferentiel, FamilleFormule, ModifierUnite, PalierVue,
+    PlageDemandee, RegleConversionTaxe, ServiceReferentiel,
+};
+
+/// Assemble le service **comme l'application réelle le fait**.
+fn service(
+    pool: sqlx::PgPool,
+    tenant_id: Uuid,
+) -> ServiceReferentiel<
+    kaya_synchronisation::outbox::PgOutboxWriter,
+    kaya_etablissements::etablissement::PgEstablishmentDirectory,
+    kaya_etablissements::modules::PgRegistreModules,
+> {
+    ServiceReferentiel::nouveau(
+        pool.clone(),
+        kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+            pool.clone(),
+            tenant_id,
+        ),
+        kaya_etablissements::modules::PgRegistreModules::nouveau(pool, tenant_id),
+    )
+}
+
+/// Active le module `HEBERGEMENT` — sans lui, tout endpoint du cycle refuse `service_inactif`.
+async fn activer_hebergement(pool: &sqlx::PgPool, jeu: JeuTenant) {
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+    sqlx::query(
+        r#"
+        INSERT INTO etablissements.etablissement_module
+            (id, tenant_id, etablissement_id, module_code, module_implemente)
+        VALUES ($1, $2, $3, 'HEBERGEMENT', true)
+        ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(Uuid::now_v7())
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("activation du module");
+    tx.commit().await.expect("commit");
+}
+
+#[actix_web::test]
+async fn un_passage_sans_palier_est_refuse_par_le_service() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — service barème").await;
+    activer_hebergement(&pool, jeu).await;
+    let categorie = creer_categorie(&pool, jeu, "Standard").await;
+
+    let erreur = service(pool.clone(), jeu.tenant_id)
+        .creer_formule(
+            jeu.tenant_id,
+            CreerFormule {
+                id: Uuid::now_v7(),
+                etablissement_id: jeu.etablissement_id,
+                categorie_id: categorie,
+                famille: FamilleFormule::Passage,
+                prix_mineur: 1_500,
+                duree_min_minutes: Some(60),
+                duree_max_minutes: Some(480),
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: Some(1_200),
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect_err("un passage sans palier doit être refusé");
+
+    assert_eq!(erreur.code(), "bareme_absent");
+}
+
+#[actix_web::test]
+async fn une_demi_journee_sans_plage_est_refusee_par_le_service() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — service plages").await;
+    activer_hebergement(&pool, jeu).await;
+    let categorie = creer_categorie(&pool, jeu, "Salle de réunion").await;
+
+    let erreur = service(pool.clone(), jeu.tenant_id)
+        .creer_formule(
+            jeu.tenant_id,
+            CreerFormule {
+                id: Uuid::now_v7(),
+                etablissement_id: jeu.etablissement_id,
+                categorie_id: categorie,
+                famille: FamilleFormule::DemiJournee,
+                prix_mineur: 6_000,
+                duree_min_minutes: None,
+                duree_max_minutes: None,
+                heure_arrivee_standard: None,
+                heure_depart_standard: None,
+                jours_autorises: None,
+                assujettie_taxe_nuitee: false,
+                regle_conversion_taxe: None,
+                prix_heure_supplementaire_mineur: None,
+                paliers: Vec::new(),
+                plages: Vec::new(),
+            },
+        )
+        .await
+        .expect_err("une demi-journée sans plage doit être refusée");
+
+    assert_eq!(erreur.code(), "plages_absentes");
+}
+
+/// **Le refus normalisé du cycle 002.** Un établissement qui ne fait pas d'hébergement n'a pas
+/// d'offre d'hébergement — et le refus est `service_inactif`, distinct de `etablissement_inconnu` :
+/// l'interface doit proposer d'ajouter le service, pas afficher une erreur.
+#[actix_web::test]
+async fn le_module_inactif_refuse_toute_operation_du_cycle() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — module inactif").await;
+    // **Pas d'activation** : c'est le sujet du test.
+
+    let erreur = service(pool.clone(), jeu.tenant_id)
+        .lister_formules(jeu.tenant_id, jeu.etablissement_id)
+        .await
+        .expect_err("sans module actif, l'offre n'existe pas");
+
+    assert_eq!(erreur.code(), "service_inactif");
+}
+
+/// Un rejeu de création rend `200` et **ne crée rien de plus** — le terminal qui vide sa file.
+#[actix_web::test]
+async fn trois_creations_du_meme_identifiant_produisent_une_seule_formule() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — rejeu formule").await;
+    activer_hebergement(&pool, jeu).await;
+    let categorie = creer_categorie(&pool, jeu, "Standard").await;
+    let svc = service(pool.clone(), jeu.tenant_id);
+    let id = Uuid::now_v7();
+
+    let demande = || CreerFormule {
+        id,
+        etablissement_id: jeu.etablissement_id,
+        categorie_id: categorie,
+        famille: FamilleFormule::Nuitee,
+        prix_mineur: 12_500,
+        duree_min_minutes: None,
+        duree_max_minutes: None,
+        heure_arrivee_standard: Some("14:00".to_owned()),
+        heure_depart_standard: Some("12:00".to_owned()),
+        jours_autorises: None,
+        assujettie_taxe_nuitee: true,
+        regle_conversion_taxe: Some(RegleConversionTaxe::UneNuiteeParOccupation),
+        prix_heure_supplementaire_mineur: None,
+        paliers: Vec::new(),
+        plages: Vec::new(),
+    };
+
+    let (_, premiere) = svc
+        .creer_formule(jeu.tenant_id, demande())
+        .await
+        .expect("première création");
+    let (_, seconde) = svc
+        .creer_formule(jeu.tenant_id, demande())
+        .await
+        .expect("rejeu");
+    let (vue, troisieme) = svc
+        .creer_formule(jeu.tenant_id, demande())
+        .await
+        .expect("second rejeu");
+
+    assert_eq!(premiere, kaya_hebergement::Issue::Creee);
+    assert_eq!(seconde, kaya_hebergement::Issue::DejaPresente);
+    assert_eq!(troisieme, kaya_hebergement::Issue::DejaPresente);
+    assert_eq!(vue.heure_arrivee_standard.as_deref(), Some("14:00"));
+
+    let formules = svc
+        .lister_formules(jeu.tenant_id, jeu.etablissement_id)
+        .await
+        .expect("lecture");
+    assert_eq!(formules.len(), 1, "trois envois, une seule formule");
+}
+
+/// **Une catégorie qui porte des unités ne se supprime pas**, et le refus nomme ce qui l'occupe.
+///
+/// Aucun endpoint ne supprime de catégorie à ce cycle (contrat §1 : neuf opérations, aucune
+/// `DELETE`). Le test constate donc les deux faits qui rendent la suppression sûre le jour où elle
+/// se spécifiera : la clé étrangère la refuse **déjà**, et le service sait dire combien d'unités
+/// l'occupent — de quoi composer « 5 chambres » plutôt que « suppression impossible ».
+#[actix_web::test]
+async fn une_categorie_qui_porte_des_unites_ne_se_supprime_pas() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — catégorie occupée").await;
+    activer_hebergement(&pool, jeu).await;
+    let categorie = creer_categorie(&pool, jeu, "Standard").await;
+    let svc = service(pool.clone(), jeu.tenant_id);
+
+    for code in ["A1", "A2", "A3"] {
+        svc.creer_unite(
+            jeu.tenant_id,
+            CreerUnite {
+                id: Uuid::now_v7(),
+                etablissement_id: jeu.etablissement_id,
+                categorie_id: categorie,
+                code: code.to_owned(),
+                etage: Some(1),
+            },
+        )
+        .await
+        .expect("création de l'unité");
+    }
+
+    let occupantes = svc
+        .unites_de_categorie(jeu.tenant_id, categorie)
+        .await
+        .expect("décompte");
+    assert_eq!(occupantes, 3, "le refus doit pouvoir NOMMER ce qui occupe");
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+    let erreur = sqlx::query("DELETE FROM hebergement.categorie WHERE id = $1")
+        .bind(categorie)
+        .execute(&mut *tx)
+        .await
+        .expect_err("la suppression doit être refusée par la clé étrangère");
+
+    assert!(
+        matches!(&erreur, sqlx::Error::Database(e) if e.constraint().is_some()),
+        "le refus doit venir d'une contrainte nommée : {erreur}"
+    );
+}
+
+/// **La correction d'une unité porte `code` et `etage`, et rien d'autre.**
+///
+/// Ce test vérifie l'effet, pas l'intention : après une correction, la catégorie et le sous-statut
+/// de ménage sont **inchangés**. Un handler qui accepterait un jour ces champs devrait aussi
+/// traverser cette requête, qui ne les écrit pas.
+#[actix_web::test]
+async fn corriger_une_unite_ne_touche_ni_sa_categorie_ni_son_menage() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — correction d'unité").await;
+    activer_hebergement(&pool, jeu).await;
+    let standard = creer_categorie(&pool, jeu, "Standard").await;
+    let svc = service(pool.clone(), jeu.tenant_id);
+
+    let unite_id = Uuid::now_v7();
+    svc.creer_unite(
+        jeu.tenant_id,
+        CreerUnite {
+            id: unite_id,
+            etablissement_id: jeu.etablissement_id,
+            categorie_id: standard,
+            code: "B3".to_owned(),
+            etage: Some(1),
+        },
+    )
+    .await
+    .expect("création");
+
+    let corrigee = svc
+        .modifier_unite(
+            jeu.tenant_id,
+            jeu.etablissement_id,
+            unite_id,
+            ModifierUnite {
+                code: "B03".to_owned(),
+                etage: Some(2),
+            },
+        )
+        .await
+        .expect("correction");
+
+    assert_eq!(corrigee.code, "B03");
+    assert_eq!(corrigee.etage, Some(2));
+    assert_eq!(
+        corrigee.categorie_id, standard,
+        "la catégorie ne change pas : c'est une opération à effet tarifaire et fiscal, qui se \
+         spécifie et ne se glisse pas dans un PUT de correction"
+    );
+    assert_eq!(
+        corrigee.statut_menage,
+        kaya_hebergement::referentiel::StatutMenage::Propre,
+        "le sous-statut de ménage est de classe A et relève de HEB-06"
+    );
+}
+
+/// Un code vide est refusé — **une chambre sans nom ne se retrouve pas au couloir**.
+#[actix_web::test]
+async fn un_code_d_unite_vide_est_refuse() {
+    let pool = pool_owner().await;
+    let jeu = creer_tenant(&pool, "HEB — code vide").await;
+    activer_hebergement(&pool, jeu).await;
+    let categorie = creer_categorie(&pool, jeu, "Standard").await;
+
+    let erreur = service(pool.clone(), jeu.tenant_id)
+        .creer_unite(
+            jeu.tenant_id,
+            CreerUnite {
+                id: Uuid::now_v7(),
+                etablissement_id: jeu.etablissement_id,
+                categorie_id: categorie,
+                code: "   ".to_owned(),
+                etage: None,
+            },
+        )
+        .await
+        .expect_err("un code vide après nettoyage doit être refusé");
+
+    assert_eq!(erreur.code(), "champ_non_modifiable");
+    let _ = ErreurReferentiel::CategorieInconnue; // le type est bien celui du crate
+    let _ = PalierVue {
+        duree_minutes: 60,
+        prix_mineur: 1_500,
+    };
+    let _ = PlageDemandee {
+        heure_debut: "08:00".to_owned(),
+        heure_fin: "12:00".to_owned(),
+        libelle_cle: "hebergement.plages.matin".to_owned(),
+    };
+}

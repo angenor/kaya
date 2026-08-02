@@ -184,6 +184,10 @@ utoipa-actix-web = { workspace = true }
 dotenvy = { workspace = true }
 futures = { workspace = true }
 kaya-fiscalite = { workspace = true }
+# Le cycle 004 fait entrer la première verticale dans le harnais de tests transverses. Une
+# dépendance de DÉVELOPPEMENT : la hiérarchie du principe II contraint le code de production, et
+# `backend/tests/` assemble tout — c'est ce que `architecture.rs` écrit noir sur blanc.
+kaya-hebergement = { workspace = true }
 async-trait = { workspace = true }
 
 # ---------------------------------------------------------------------------------------------

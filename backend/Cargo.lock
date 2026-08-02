@@ -2165,6 +2165,7 @@ dependencies = [
  "kaya-domain",
  "kaya-etablissements",
  "kaya-fiscalite",
+ "kaya-hebergement",
  "kaya-synchronisation",
  "serde",
  "serde_json",
