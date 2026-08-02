@@ -404,3 +404,182 @@ async fn deux_attributions_concurrentes_une_seule_reussit() {
         "{total} occupation(s) sur la même unité — exactement une devait survivre"
     );
 }
+
+// =================================================================================================
+//  La forme des intervalles — quatre cas qui ne se devinent pas
+// =================================================================================================
+
+/// **Le seul contournement possible de la contrainte d'exclusion, et il est fermé.**
+///
+/// `&&` est FAUX dès qu'un intervalle est vide. Une ligne `[14 h, 14 h)` passerait donc
+/// l'exclusion **et** n'empêcherait aucune autre occupation : la chambre apparaîtrait prise dans
+/// la liste et libre à l'attribution.
+#[actix_web::test]
+async fn intervalle_vide_refuse() {
+    let pool = pool_owner().await;
+    let decor = poser_decor(&pool, "HEB — intervalle vide").await;
+
+    let instant = datetime!(2026-08-03 14:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    // `fin_client` doit rester > `debut_client` pour que le refus vienne bien de l'intervalle vide
+    // et non des bornes commerciales : une porte qui échoue pour la mauvaise raison est
+    // indistinguable d'une porte qui fonctionne.
+    let erreur = sqlx::query(
+        r#"
+        INSERT INTO hebergement.occupation
+            (id, tenant_id, etablissement_id, unite_id, formule_id,
+             periode, debut_client, fin_client)
+        VALUES ($1, $2, $3, $4, $5, tstzrange($6, $6, '[)'), $6, $6 + interval '1 hour')
+        "#,
+    )
+    .bind(Uuid::now_v7())
+    .bind(decor.jeu.tenant_id)
+    .bind(decor.jeu.etablissement_id)
+    .bind(decor.unite_id)
+    .bind(decor.formule_id)
+    .bind(instant)
+    .execute(&mut *tx)
+    .await
+    .expect_err("un intervalle vide doit être refusé");
+
+    assert!(
+        matches!(&erreur, sqlx::Error::Database(e)
+            if e.constraint() == Some("occupation_periode_non_vide")
+                || e.constraint() == Some("occupation_bornes_client_coherentes")),
+        "le refus doit venir d'une contrainte de forme d'intervalle : {erreur}"
+    );
+}
+
+/// **La borne de fin est EXCLUE** : deux occupations contiguës coexistent.
+///
+/// Une chambre libérée à midi est attribuable à midi. Avec une borne `[]`, elle ne le serait pas,
+/// et le comportement du produit changerait selon la forme employée par l'appelant — le genre de
+/// divergence qui se découvre en clientèle, un jour de forte occupation.
+#[actix_web::test]
+async fn occupations_contigues_coexistent() {
+    let pool = pool_owner().await;
+    let decor = poser_decor(&pool, "HEB — contiguës").await;
+
+    let matin_debut = datetime!(2026-08-03 08:00 UTC);
+    let midi = datetime!(2026-08-03 12:00 UTC);
+    let soir = datetime!(2026-08-03 18:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    inserer_occupation(&mut tx, &decor, matin_debut, midi, midi)
+        .await
+        .expect("la première occupation doit réussir");
+    inserer_occupation(&mut tx, &decor, midi, soir, soir)
+        .await
+        .expect(
+            "une occupation qui COMMENCE là où la précédente FINIT doit être acceptée : la borne \
+             de fin est exclue",
+        );
+
+    tx.commit().await.expect("commit");
+}
+
+/// **La remise en état bloque la suivante — par la MÊME contrainte que tout chevauchement.**
+///
+/// C'est le point de conception du cycle : la période d'indisponibilité inclut le ménage. Il n'y a
+/// donc pas de « règle du ménage » quelque part dans le code, qu'il faudrait penser à appliquer
+/// sur chaque chemin d'attribution — il y a un intervalle plus long, et la contrainte fait le
+/// reste.
+///
+/// 12 h de fin client + 2 h de ménage → 13 h est refusé, 14 h est accepté.
+#[actix_web::test]
+async fn remise_en_etat_bloque_la_suivante() {
+    let pool = pool_owner().await;
+    let decor = poser_decor(&pool, "HEB — remise en état").await;
+
+    let debut = datetime!(2026-08-03 08:00 UTC);
+    let fin_client = datetime!(2026-08-03 12:00 UTC);
+    let fin_periode = datetime!(2026-08-03 14:00 UTC); // + 2 h de ménage
+    let treize_heures = datetime!(2026-08-03 13:00 UTC);
+    let quatorze_heures = datetime!(2026-08-03 14:00 UTC);
+    let seize_heures = datetime!(2026-08-03 16:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    inserer_occupation(&mut tx, &decor, debut, fin_client, fin_periode)
+        .await
+        .expect("la première occupation doit réussir");
+
+    // 13 h tombe dans le battement de ménage.
+    let erreur = inserer_occupation(&mut tx, &decor, treize_heures, seize_heures, seize_heures)
+        .await
+        .expect_err("13 h tombe dans la remise en état et doit être refusé");
+    assert!(
+        est_violation_exclusion(&erreur, CONTRAINTE_SANS_CHEVAUCHEMENT),
+        "le refus doit venir de la contrainte d'exclusion — et non d'une « règle du ménage » \
+         écrite quelque part dans le code : {erreur}"
+    );
+
+    // La transaction est empoisonnée par l'erreur ; on en rouvre une.
+    let _ = tx.rollback().await;
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    inserer_occupation(&mut tx, &decor, quatorze_heures, seize_heures, seize_heures)
+        .await
+        .expect("14 h est après le battement et doit être accepté");
+
+    tx.commit().await.expect("commit");
+}
+
+/// **Un intervalle qui traverse minuit n'est pas un cas spécial.**
+///
+/// 22 h → 6 h est un passage de nuit ordinaire. Le stocker en `tstzrange` le rend trivial ; une
+/// paire `(date, heure)` aurait imposé un traitement particulier, et ce traitement particulier
+/// aurait été le premier endroit à se tromper.
+#[actix_web::test]
+async fn intervalle_traversant_minuit() {
+    let pool = pool_owner().await;
+    let decor = poser_decor(&pool, "HEB — minuit").await;
+
+    let vingt_deux_heures = datetime!(2026-08-03 22:00 UTC);
+    let six_heures = datetime!(2026-08-04 06:00 UTC);
+    let sept_heures = datetime!(2026-08-04 07:00 UTC);
+    let dix_heures = datetime!(2026-08-04 10:00 UTC);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    inserer_occupation(&mut tx, &decor, vingt_deux_heures, six_heures, six_heures)
+        .await
+        .expect("un passage 22 h → 6 h doit s'insérer sans cas particulier");
+
+    // Et il bloque bien le lendemain matin s'il chevauche.
+    let erreur = inserer_occupation(&mut tx, &decor, datetime!(2026-08-04 05:00 UTC), sept_heures, sept_heures)
+        .await
+        .expect_err("5 h tombe dans le passage de nuit");
+    assert!(
+        est_violation_exclusion(&erreur, CONTRAINTE_SANS_CHEVAUCHEMENT),
+        "le chevauchement de part et d'autre de minuit doit être refusé comme tout autre : {erreur}"
+    );
+
+    let _ = tx.rollback().await;
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    inserer_occupation(&mut tx, &decor, sept_heures, dix_heures, dix_heures)
+        .await
+        .expect("7 h est après la fin du passage de nuit");
+    tx.commit().await.expect("commit");
+}
