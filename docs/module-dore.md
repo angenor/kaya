@@ -776,9 +776,36 @@ Le cycle 001 est le **premier usage de contrainte d'exclusion du produit**, sur
 | Mapping de type sqlx 0.9 | Validé sur `daterange` ; `PgRange<T>` est présent en 0.9.0 |
 | Ordre de pose | Une contrainte d'exclusion ajoutée sur une table **déjà peuplée** échoue sur les données existantes. À poser à la création, comme ici |
 
-**Reste à vérifier avant HEB-02** : le type d'erreur dédié à la violation d'exclusion apporté par
-sqlx `#3918` — c'est l'une des deux raisons du choix de la version, et il n'a pas de cible à ce
-cycle (aucune écriture concurrente sur `exercice_comptable`).
+### ✅ Retour du cycle 004 — la vérification promise est faite
+
+Le cycle 001 laissait un point ouvert : « le type d'erreur dédié à la violation d'exclusion
+apporté par sqlx `#3918` — c'est l'une des deux raisons du choix de la version, et il n'a pas de
+cible à ce cycle ». HEB-02 lui en a donné une, sur `tstzrange` et en concurrence réelle.
+
+| Point | Constat du cycle 004 |
+|---|---|
+| `ErrorKind::ExclusionViolation` | **Existe** en 0.9.0. C'est bien l'apport de `#3918`, et il sert |
+| `DatabaseError::is_exclusion_violation()` | **N'existe pas.** Le trait porte `is_unique_violation()`, `is_foreign_key_violation()` et `is_check_violation()`, et s'arrête là — vérifié dans `sqlx-core` 0.9.0, `src/error.rs` |
+| `PgRange<OffsetDateTime>` ↔ `TSTZ_RANGE` | **Validé**, et exercé sur du code de production (`occupation/repository.rs`) |
+| Concurrence réelle sur `tstzrange` | **Exercée** — deux transactions distinctes, une seule réussit, et le test asserte la **cause** du refus |
+
+**L'apport est donc partiel, et c'est ce qu'il faut savoir avant d'écrire la ligne.** Écrire
+`e.is_exclusion_violation()` par analogie avec les trois autres accesseurs **ne compile pas**, et
+l'erreur se cherche une demi-heure parce qu'on y suspecte une faute de frappe. La forme correcte
+est un `matches!` sur `e.kind()` — `ErrorKind` étant `#[non_exhaustive]`, un `match` exhaustif ne
+compilerait pas davantage, et un `match` avec bras `_` cesserait de signaler l'arrivée d'un genre
+nouveau. `crates/verticales/hebergement/src/erreurs.rs` porte la forme retenue et ses cinq tests.
+
+**Le nom de la contrainte est vérifié en plus du genre.** Une table qui gagnerait une seconde
+contrainte d'exclusion ferait autrement passer ses violations pour des doubles attributions, et
+l'écran afficherait « Cette chambre est déjà prise sur cette période » pour un refus sans rapport.
+
+**Ce que ce retour change pour `docs/versions-gelees.md`, sans que ce document y touche** : le
+**point ouvert de son en-tête** — « le choix de sqlx `0.9.0` doit être confirmé par le spike » —
+peut être retiré, la confirmation étant acquise. Et la note du §2 gagnerait sa **limite** : dire
+que `#3918` apporte « une erreur de violation d'exclusion » est exact et incomplet, puisqu'il
+n'apporte pas l'accesseur. C'est la **revue mensuelle du 2026-08-31** qui tranche ; rien n'est
+modifié ici, un gel ne se corrige pas au fil de l'eau.
 
 ---
 
