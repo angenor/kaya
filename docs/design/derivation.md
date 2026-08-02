@@ -3,19 +3,63 @@
 *Source de vérité de l'héritage visuel des écrans non maquettés. Extrait de `docs/Kaya_Design.md`
 PARTIE V §25 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.3.0** — `G5` Chambres et types de chambre ajouté le 2026-08-02 (cycle HEB), et avec lui
+**une catégorie qui manquait à cette matrice** : les écrans **composés**.
+
+`docs/Kaya_Design.md` §2 porte depuis l'origine une doctrine à **trois** cas — on maquette, on
+dérive, **ou on code directement** —, et son tableau « on code directement si… » en énumère les
+quatre conditions. Cette matrice n'en reflétait que deux : tout écran non maquetté y était
+« dérivé », c'est-à-dire rattaché à un motif dont il hérite. Un écran assemblé **uniquement** à
+partir des seize composants canoniques n'hérite d'aucun motif en particulier — il n'avait donc
+littéralement pas de ligne où s'inscrire, et la porte P-19 l'aurait refusé pour la mauvaise raison.
+
+Le troisième cas est **fermé à la zone de charme** : un écran de comptoir se maquette toujours.
+
 **Version 1.2.0** — `R0` Connexion ajouté le 2026-08-01 (cycle CPT). `A1` À propos ajouté le
 2026-08-01.
 
 ---
 
-## Les 43 écrans du produit
+## Les 44 écrans du produit
 
 | Catégorie | Nombre | Référence |
 |---|---|---|
 | **Écrans maquettés** | **11** codes, **29 fichiers d'états** | `docs/design/html/{code}-{nom}[-{etat}].html` |
 | **Écrans dérivés** | **32** | la matrice ci-dessous |
+| **Écrans composés** | **1** | le tableau « Les écrans composés », ci-dessous |
 
 Codes maquettés : `C4` `F2` `G2` `M4` `P2` `Q1` `R1` `R4` `R7` `S2` `V1`.
+
+---
+
+## Les écrans COMPOSÉS
+
+*Troisième cas de `docs/Kaya_Design.md` §2. Un écran composé n'hérite d'aucun motif : il est
+assemblé **uniquement** à partir des seize composants canoniques de `docs/design/composants.md`.*
+
+**Les quatre conditions doivent être remplies, toutes**, et la vérification s'écrit dans la ligne :
+
+1. liste, formulaire ou fiche suivant un motif déjà posé ;
+2. conception **entièrement** issue de la bibliothèque — vérifiée composant par composant ;
+3. consulté rarement, par un utilisateur formé ;
+4. personne n'a de doute sur ce à quoi il ressemble.
+
+Et une cinquième, qui n'est pas une condition mais une conséquence : **zone de charme uniquement**.
+Un écran de comptoir se maquette toujours — l'utilisateur y est debout, pressé, avec un client en
+face et de l'argent en jeu, et c'est là que le dessin décide de la vitesse.
+
+| Écran | Composants employés | Mention | Vérification |
+|---|---|---|---|
+| `G5` Chambres et types de chambre | **08** ligne de liste · **16** champ de saisie (dont l'état « choix fermé ») · **01 · 02 · 03** actions · **11** état vide illustré · **13** squelette de chargement | **composé** · **à valider à l'atelier terrain** | Une liste et deux formulaires ; couverture par la bibliothèque vérifiée motif par motif ; Adjoua règle son parc à l'ouverture puis y revient à la marge ; zone de charme |
+
+> **Pourquoi le choix du type de chambre emploie le composant 16 et non le 12.** La règle du
+> composant 12 (contrôle segmenté) est explicite : « au-delà de quatre options c'est une liste, pas
+> un segment ». Deloria a **six** types de chambre, salle de réunion comprise, et un segmenté à six
+> options ne tient pas sur 372 px. C'est l'état « choix fermé » du composant 16 qui sert.
+>
+> **La mention « à valider à l'atelier terrain » n'est pas une formalité.** Un écran composé n'a
+> aucune maquette contre laquelle comparer son rendu : le contrôle mécanique — jetons, thème sombre,
+> parcours réel — le couvre, le jugement d'usage non. La mention dit ce qui reste dû.
 
 ---
 
