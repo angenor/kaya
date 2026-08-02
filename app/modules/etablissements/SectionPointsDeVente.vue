@@ -14,6 +14,21 @@
  *
  * **La section entière est absente quand il n'y a aucun point de vente** — c'est le cas de la
  * résidence meublée, et il n'y a rien à lui dire à ce sujet.
+ *
+ * # La liste de définitions n'a plus de `span` intermédiaire
+ *
+ * `dt` et `dd` étaient enfants d'un `span`, ce qui est du HTML invalide : le compilateur de Vue le
+ * signalait **à chaque construction** — « can cause hydration errors ». La classe de mise en page
+ * est passée sur le `div` du `v-for`, qui est un enfant licite de `dl`.
+ *
+ * Trouvé en lançant la porte **P-22**, qui démarre le serveur : l'avertissement sortait dans sa
+ * sortie. Aucun des 440 tests front ne pouvait le voir — ils compilent les composants sans lire
+ * les diagnostics du compilateur.
+ *
+ * **Cette note est ici et non dans le template, et c'est la seconde leçon.** Un commentaire de
+ * template part dans le HTML livré, et la porte P-16 y cherche des chaînes en dur : elle a refusé
+ * la première version de cette explication, écrite entre les deux nœuds. Le cycle 002 avait déjà
+ * rencontré ce cas exact sur un commentaire de gabarit.
  */
 import { computed } from 'vue'
 
@@ -82,20 +97,14 @@ const aDesPointsDeVente = computed(() => props.pointsDeVente.length > 0)
         :key="valeur.cle"
         class="flex w-full flex-col items-start gap-0.75 rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf p-3 text-left shadow-basse"
       >
-        <!-- Le `<span>` qui enveloppait ces deux nœuds a été retiré : `<dt>` et `<dd>` ne peuvent
-             pas être enfants d'un `<span>`, et le compilateur de Vue le signalait à chaque
-             construction — « can cause hydration errors ». La classe de mise en page passe donc
-             sur le `<div>` du `v-for`, qui est un enfant licite de `<dl>`.
-
-             Trouvé en lançant la porte P-22, qui démarre le serveur : l'avertissement sortait dans
-             sa sortie. Aucun des 440 tests front ne pouvait le voir — ils compilent les composants
-             sans lire les diagnostics du compilateur. -->
         <dt class="min-w-0 flex-1 font-titre text-titre-s font-semibold text-ink">
           {{ t(`configuration.${valeur.cle}.libelle`) }}
         </dt>
         <!-- L'origine, en mots d'utilisateur. C'est ce que `origine` obligatoire au résolveur
              rend possible : sans elle, cette ligne n'existerait pas. -->
-        <dd class="text-mini text-ink-3">{{ t(cleOrigine(valeur.origine)) }}</dd>
+        <dd class="text-mini text-ink-3">
+          {{ t(cleOrigine(valeur.origine)) }}
+        </dd>
       </div>
     </dl>
   </section>
