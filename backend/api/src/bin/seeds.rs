@@ -275,6 +275,38 @@ const HEURE_DEPART_STANDARD: Time = time!(12:00);
 const REMISE_EN_ETAT_CHAMBRE: [(&str, i32); 2] = [("NUITEE", 120), ("PASSAGE", 30)];
 const REMISE_EN_ETAT_SALLE_MINUTES: i32 = 60;
 
+// -------------------------------------------------------------------------------------------
+//  HEB — Résidence Test : quatre meublés, MOIS et NUITÉE seulement
+// -------------------------------------------------------------------------------------------
+//
+// **Ce tenant n'est pas un décor de démonstration, c'est une épreuve.** Il éprouve deux promesses
+// que Deloria seule ne peut pas éprouver :
+//
+//   * « Aucune formule n'est réservée à un type d'établissement » (cadrage §5.2). Une résidence
+//     meublée vend au mois **et** à la nuitée ; l'hôtel vend à la nuitée **et** au passage. Si le
+//     code avait quelque part supposé qu'un mensuel appartient aux résidences, ce jeu de données ne
+//     le montrerait pas — mais le premier hôtel qui vend au mois s'en apercevrait en production.
+//   * **Aucun code ne suppose l'existence du passage.** Résidence Test n'a ni formule `PASSAGE`, ni
+//     barème, ni plage. Un chemin de code qui exigerait un barème pour lire une offre échouerait
+//     ici, et nulle part ailleurs.
+//
+// # Les valeurs sont des valeurs de TEST, et la distinction avec Deloria compte
+//
+// Les tarifs de Deloria sont relevés au cadrage §2.1 ; ceux-ci ne le sont pas et ne prétendent pas
+// l'être. Aucun atelier ne viendra les confirmer : ce tenant n'a pas de client.
+
+const CATEGORIE_MEUBLE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000301");
+
+const UNITES_MEUBLE: [(Uuid, &str); 4] = [
+    (uuid!("0198c4a0-0000-7000-8000-000000000311"), "M1"),
+    (uuid!("0198c4a0-0000-7000-8000-000000000312"), "M2"),
+    (uuid!("0198c4a0-0000-7000-8000-000000000313"), "M3"),
+    (uuid!("0198c4a0-0000-7000-8000-000000000314"), "M4"),
+];
+
+const FORMULE_MEUBLE_NUITEE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000321");
+const FORMULE_MEUBLE_MENSUEL: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000322");
+
 /// Les trois valeurs de configuration Deloria, promises par la migration `0023`.
 ///
 /// Le catalogue déclare qu'une clé existe ; **les valeurs viennent d'ici** — une migration n'a pas
@@ -376,6 +408,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     seeder_comptes_deloria(&pool, &mot_de_passe).await?;
     seeder_hebergement_deloria(&pool).await?;
     seeder_parametres_deloria(&pool).await?;
+    seeder_hebergement_residence_test(&pool).await?;
 
     println!("Seeds appliqués. Deux tenants :");
     println!("  Deloria         {TENANT_DELORIA}  (établissement {ETABLISSEMENT_DELORIA})");
@@ -385,6 +418,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!(
         "Parc de Deloria : 17 unités en 5 catégories, plus la salle de réunion (SR1, 6e catégorie)."
+    );
+    println!(
+        "Résidence Test  : 4 meublés, au mois et à la nuitée — aucun passage, aucune plage."
     );
     println!();
     println!("Trois comptes sur Deloria — le mot de passe vient de KAYA_SEEDS_MOT_DE_PASSE :");
@@ -775,14 +811,14 @@ async fn seeder_hebergement_deloria(pool: &PgPool) -> Result<(), Box<dyn std::er
     for (rang, (categorie_id, nom, capacite, prix_nuitee, unites)) in
         CATEGORIES_CHAMBRES.iter().enumerate()
     {
-        inserer_categorie(&mut tx, *categorie_id, nom, *capacite).await?;
+        inserer_categorie(&mut tx, TENANT_DELORIA, ETABLISSEMENT_DELORIA, *categorie_id, nom, *capacite).await?;
 
         for (famille, duree) in REMISE_EN_ETAT_CHAMBRE {
-            inserer_temps_remise_en_etat(&mut tx, *categorie_id, famille, duree).await?;
+            inserer_temps_remise_en_etat(&mut tx, TENANT_DELORIA, *categorie_id, famille, duree).await?;
         }
 
         for (unite_id, code) in *unites {
-            inserer_unite(&mut tx, *unite_id, *categorie_id, code).await?;
+            inserer_unite(&mut tx, TENANT_DELORIA, ETABLISSEMENT_DELORIA, *unite_id, *categorie_id, code).await?;
         }
 
         // La nuitée — **le seul assujettissement du parc**.
@@ -850,15 +886,31 @@ async fn seeder_hebergement_deloria(pool: &PgPool) -> Result<(), Box<dyn std::er
     }
 
     // ── La salle de réunion — une CATÉGORIE, pas une entité nouvelle ────────────────────────
-    inserer_categorie(&mut tx, CATEGORIE_SALLE, "Salle de réunion", 20).await?;
+    inserer_categorie(
+        &mut tx,
+        TENANT_DELORIA,
+        ETABLISSEMENT_DELORIA,
+        CATEGORIE_SALLE,
+        "Salle de réunion",
+        20,
+    )
+    .await?;
     inserer_temps_remise_en_etat(
         &mut tx,
+        TENANT_DELORIA,
         CATEGORIE_SALLE,
         "DEMI_JOURNEE",
         REMISE_EN_ETAT_SALLE_MINUTES,
     )
     .await?;
-    inserer_unite(&mut tx, UNITE_SALLE.0, CATEGORIE_SALLE, UNITE_SALLE.1).await?;
+    inserer_unite(
+        &mut tx,
+        TENANT_DELORIA,
+        ETABLISSEMENT_DELORIA,
+        UNITE_SALLE.0,
+        CATEGORIE_SALLE,
+        UNITE_SALLE.1,
+    ).await?;
 
     sqlx::query!(
         r#"
@@ -912,6 +964,8 @@ async fn seeder_hebergement_deloria(pool: &PgPool) -> Result<(), Box<dyn std::er
 /// contrainte réelle.
 async fn inserer_categorie(
     tx: &mut sqlx::PgTransaction<'_>,
+    tenant_id: Uuid,
+    etablissement_id: Uuid,
     id: Uuid,
     nom: &str,
     capacite_accueil: i16,
@@ -924,8 +978,8 @@ async fn inserer_categorie(
         ON CONFLICT (etablissement_id, nom) DO NOTHING
         "#,
         id,
-        TENANT_DELORIA,
-        ETABLISSEMENT_DELORIA,
+        tenant_id,
+        etablissement_id,
         nom,
         capacite_accueil,
     )
@@ -938,6 +992,8 @@ async fn inserer_categorie(
 /// `NULL` dit « pas d'étage » là où `0` dirait « rez-de-chaussée » — deux faits différents.
 async fn inserer_unite(
     tx: &mut sqlx::PgTransaction<'_>,
+    tenant_id: Uuid,
+    etablissement_id: Uuid,
     id: Uuid,
     categorie_id: Uuid,
     code: &str,
@@ -950,8 +1006,8 @@ async fn inserer_unite(
         ON CONFLICT (etablissement_id, code) DO NOTHING
         "#,
         id,
-        TENANT_DELORIA,
-        ETABLISSEMENT_DELORIA,
+        tenant_id,
+        etablissement_id,
         categorie_id,
         code,
     )
@@ -962,6 +1018,7 @@ async fn inserer_unite(
 
 async fn inserer_temps_remise_en_etat(
     tx: &mut sqlx::PgTransaction<'_>,
+    tenant_id: Uuid,
     categorie_id: Uuid,
     famille_formule: &str,
     duree_minutes: i32,
@@ -976,10 +1033,115 @@ async fn inserer_temps_remise_en_etat(
         categorie_id,
         famille_formule,
         duree_minutes,
-        TENANT_DELORIA,
+        tenant_id,
     )
     .execute(&mut **tx)
     .await?;
+    Ok(())
+}
+
+/// **Résidence Test — quatre meublés, au mois et à la nuitée.**
+///
+/// # Ce que ce jeu de données éprouve, et que Deloria ne peut pas éprouver
+///
+/// 1. **Aucune formule n'est réservée à un type d'établissement** (cadrage §5.2). Une résidence
+///    meublée vend au mois **et** à la nuitée ; l'hôtel vend à la nuitée **et** au passage. Les deux
+///    tenants portent donc des offres disjointes sur les mêmes tables, et un code qui aurait
+///    supposé « le mensuel, c'est pour les résidences » n'a nulle part où se cacher.
+/// 2. **Aucun code ne suppose l'existence du passage.** Ce tenant n'a ni formule `PASSAGE`, ni
+///    barème, ni plage. Un chemin qui exigerait un barème pour lire une offre échouerait ici, et
+///    nulle part ailleurs — ce qui est précisément la définition d'une porte à cible vide qu'on
+///    vient de remplir.
+///
+/// # Deux valeurs absentes, et pourquoi elles le restent
+///
+/// **Le temps de remise en état du mensuel n'est pas déclaré.** Le cadrage §5.4 donne trois défauts
+/// — passage 30 min, nuitée 2 h, demi-journée 1 h — et **aucun pour le mois**. `battement_minutes`
+/// rend `0` quand aucune ligne n'existe, ce qui est visible et corrigible ; une valeur inventée ici
+/// se lirait comme un constat, et le premier meublé loué au mois serait rendu disponible sans
+/// ménage.
+///
+/// **La taxe de nuitée sur un séjour au mois n'est pas tranchée.** `assujettie_taxe_nuitee` est à
+/// `false`, et ce n'est pas une décision fiscale : **B-02** vise le passage et la demi-journée, pas
+/// le mensuel — la question n'est posée nulle part. Ce tenant n'émet aucun document, donc la valeur
+/// n'a aucun effet ; elle est signalée ici pour qu'on ne la prenne pas pour un arbitrage rendu.
+async fn seeder_hebergement_residence_test(
+    pool: &PgPool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut tx = pool.begin().await?;
+    tenant_context::poser_tenant(&mut tx, TENANT_RESIDENCE_TEST).await?;
+
+    inserer_categorie(
+        &mut tx,
+        TENANT_RESIDENCE_TEST,
+        ETABLISSEMENT_RESIDENCE_TEST,
+        CATEGORIE_MEUBLE,
+        "Meublé deux pièces",
+        4,
+    )
+    .await?;
+
+    inserer_temps_remise_en_etat(&mut tx, TENANT_RESIDENCE_TEST, CATEGORIE_MEUBLE, "NUITEE", 120)
+        .await?;
+
+    for (unite_id, code) in UNITES_MEUBLE {
+        inserer_unite(
+            &mut tx,
+            TENANT_RESIDENCE_TEST,
+            ETABLISSEMENT_RESIDENCE_TEST,
+            unite_id,
+            CATEGORIE_MEUBLE,
+            code,
+        )
+        .await?;
+    }
+
+    // La nuitée — **assujettie comme celle de Deloria**. La formule est la même chose des deux
+    // côtés ; c'est l'établissement qui diffère, jamais la règle.
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.formule
+            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,
+             heure_arrivee_standard, heure_depart_standard,
+             assujettie_taxe_nuitee, regle_conversion_taxe)
+        VALUES ($1, $2, $3, $4, 'NUITEE', 18000, $5, $6, true, 'une_nuitee_par_occupation')
+        ON CONFLICT (categorie_id, famille) DO NOTHING
+        "#,
+        FORMULE_MEUBLE_NUITEE,
+        TENANT_RESIDENCE_TEST,
+        ETABLISSEMENT_RESIDENCE_TEST,
+        CATEGORIE_MEUBLE,
+        HEURE_ARRIVEE_STANDARD,
+        HEURE_DEPART_STANDARD,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // Le mensuel. `duree_min_minutes` reste **nul** : « un mois » ne se convertit pas en minutes
+    // sans choisir sa longueur, et 28, 30 ou 31 jours ne sont pas la même contrainte. Le poser à
+    // 43 200 refuserait un mois de février.
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.formule
+            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,
+             assujettie_taxe_nuitee)
+        VALUES ($1, $2, $3, $4, 'MENSUEL', 250000, false)
+        ON CONFLICT (categorie_id, famille) DO NOTHING
+        "#,
+        FORMULE_MEUBLE_MENSUEL,
+        TENANT_RESIDENCE_TEST,
+        ETABLISSEMENT_RESIDENCE_TEST,
+        CATEGORIE_MEUBLE,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    tracing::info!(
+        tenant = %TENANT_RESIDENCE_TEST,
+        unites = UNITES_MEUBLE.len(),
+        "Résidence Test seedée — quatre meublés, mois et nuitée, AUCUN passage"
+    );
     Ok(())
 }
 

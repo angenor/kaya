@@ -52,7 +52,7 @@ async fn trois_executions_produisent_le_meme_etat_final() {
         etats[0]
     );
 
-    let noms: Vec<&str> = etats[0].iter().map(|(_, nom, _)| nom.as_str()).collect();
+    let noms: Vec<&str> = etats[0].iter().map(|(_, nom, ..)| nom.as_str()).collect();
     assert!(noms.contains(&"Deloria"), "tenant Deloria absent");
     assert!(
         noms.contains(&"Résidence Test"),
@@ -121,10 +121,14 @@ fn executer_seeds(passage: u32) {
     );
 }
 
-/// État seedé : les tenants et leur nombre d'établissements.
+/// État seedé : les tenants, leur nombre d'établissements, **et leur parc**.
+///
+/// Le parc est entré dans l'état comparé au cycle 004. Sans lui, les trois exécutions auraient pu
+/// dupliquer 17 unités sans que rien ne le dise : le décompte des établissements, lui, serait resté
+/// à 1.
 ///
 /// Trié, pour que la comparaison ne dépende pas de l'ordre de lecture.
-async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64)> {
+async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64, i64, i64)> {
     let mut etat = Vec::new();
 
     for tenant_id in [TENANT_DELORIA, TENANT_RESIDENCE_TEST] {
@@ -154,7 +158,18 @@ async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64)> {
         .await
         .expect("comptage des établissements");
 
-        etat.push((tenant_id, ligne.nom, etablissements));
+        let unites: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM hebergement.unite"#)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage des unités");
+
+        let formules: i64 =
+            sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM hebergement.formule"#)
+                .fetch_one(&mut *tx)
+                .await
+                .expect("comptage des formules");
+
+        etat.push((tenant_id, ligne.nom, etablissements, unites, formules));
         tx.rollback().await.expect("rollback");
     }
 
@@ -417,6 +432,223 @@ async fn adjoua_porte_les_trois_roles_et_personne_n_est_admin_editeur() {
          n'appartient à aucun tenant : le seeder par commodité donnerait au pilote un accès qu'il \
          ne doit pas avoir."
     );
+
+    tx.rollback().await.expect("rollback");
+}
+
+// =================================================================================================
+//  Cycle 004 — le parc des deux tenants, et l'offre disjointe qui l'éprouve
+// =================================================================================================
+
+/// **17 unités en 5 catégories, plus la salle de réunion — et la salle est une CATÉGORIE.**
+///
+/// Le décompte est asserté par catégorie et non globalement : `17` se retrouve de plusieurs
+/// manières, et une répartition fausse passerait un total juste. La ligne qui compte le plus est la
+/// dernière — la salle de réunion apparaît comme une sixième catégorie à une unité, jamais comme
+/// une entité d'un autre genre.
+#[tokio::test]
+async fn deloria_porte_dix_sept_unites_et_la_salle_en_sixieme_categorie() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let parc: Vec<(String, i64)> = sqlx::query_as(
+        r#"
+        SELECT c.nom, COUNT(u.id)
+        FROM hebergement.categorie c
+        LEFT JOIN hebergement.unite u ON u.categorie_id = c.id
+        WHERE c.etablissement_id = $1
+        GROUP BY c.nom
+        ORDER BY c.nom
+        "#,
+    )
+    .bind(ETABLISSEMENT_DELORIA)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture du parc");
+
+    assert_eq!(
+        parc,
+        vec![
+            ("Classique".to_owned(), 5),
+            ("Classique supérieure".to_owned(), 4),
+            ("Salle de réunion".to_owned(), 1),
+            ("Standard".to_owned(), 3),
+            ("Supérieure A".to_owned(), 2),
+            ("Supérieure B".to_owned(), 3),
+        ],
+        "la répartition du cadrage §2.1 doit être seedée à la ligne près — et la salle de réunion \
+         doit être une CATÉGORIE, jamais une entité nouvelle"
+    );
+
+    let chambres: i64 = parc
+        .iter()
+        .filter(|(nom, _)| nom != "Salle de réunion")
+        .map(|(_, n)| n)
+        .sum();
+    assert_eq!(chambres, 17, "17 unités louables, plus la salle");
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// **La nuitée est assujettie, le passage et la demi-journée ne le sont pas.**
+///
+/// Ce n'est pas une règle fiscale — le crate stocke ces deux colonnes et ne les interprète jamais
+/// (P-12) — c'est le **paramétrage du pilote**, et c'est ce qui doit être vérifiable : une nuitée
+/// seedée non assujettie ferait disparaître la taxe communale du jeu de démonstration sans qu'aucun
+/// test ne bronche.
+///
+/// La règle est `une_nuitee_par_occupation` : un séjour de trois nuits vaut 500 F, pas 3 × 500.
+#[tokio::test]
+async fn seule_la_nuitee_est_assujettie_a_la_taxe_de_nuitee() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let familles: Vec<(String, bool, Option<String>, i64)> = sqlx::query_as(
+        r#"
+        SELECT famille, bool_and(assujettie_taxe_nuitee), max(regle_conversion_taxe), COUNT(*)
+        FROM hebergement.formule
+        WHERE etablissement_id = $1
+        GROUP BY famille
+        ORDER BY famille
+        "#,
+    )
+    .bind(ETABLISSEMENT_DELORIA)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des formules");
+
+    assert_eq!(
+        familles,
+        vec![
+            (
+                "DEMI_JOURNEE".to_owned(),
+                false,
+                None,
+                1
+            ),
+            (
+                "NUITEE".to_owned(),
+                true,
+                Some("une_nuitee_par_occupation".to_owned()),
+                5
+            ),
+            ("PASSAGE".to_owned(), false, None, 5),
+        ],
+        "seule la NUITÉE est assujettie, avec `une_nuitee_par_occupation` — trois nuits valent \
+         500 F, pas 3 × 500. Le passage et la demi-journée ne le sont pas : constat d'exploitation \
+         du pilote, et B-02 tranchera la valeur par défaut légale, jamais l'existence du paramètre."
+    );
+
+    // Le barème du cadrage §5.3, palier par palier, sur chacune des cinq catégories.
+    let paliers: Vec<(i32, i64, i64)> = sqlx::query_as(
+        r#"
+        SELECT p.duree_minutes, p.prix_mineur, COUNT(*)
+        FROM hebergement.bareme_palier p
+        JOIN hebergement.formule f ON f.id = p.formule_id
+        WHERE f.etablissement_id = $1
+        GROUP BY p.duree_minutes, p.prix_mineur
+        ORDER BY p.duree_minutes
+        "#,
+    )
+    .bind(ETABLISSEMENT_DELORIA)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des paliers");
+
+    assert_eq!(
+        paliers,
+        vec![
+            (60, 1_500, 5),
+            (120, 2_800, 5),
+            (180, 4_000, 5),
+            (240, 5_000, 5)
+        ],
+        "le barème du cadrage §5.3 — provisoire jusqu'à B-07 — doit être seedé sur les cinq \
+         catégories de chambres"
+    );
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// **Résidence Test : quatre meublés, MOIS et NUITÉE — et AUCUN passage.**
+///
+/// C'est le test qui donne sa raison d'être au second tenant. Deux promesses y sont éprouvées, et
+/// aucune des deux ne l'est par Deloria seule :
+///
+/// * **aucune formule n'est réservée à un type d'établissement** — les deux tenants portent des
+///   offres disjointes sur les mêmes tables ;
+/// * **aucun code ne suppose l'existence du passage** — ni formule, ni barème, ni plage ici. Un
+///   chemin qui exigerait un barème pour lire une offre échouerait à cet endroit, et nulle part
+///   ailleurs.
+#[tokio::test]
+async fn residence_test_vend_au_mois_et_a_la_nuitee_sans_aucun_passage() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_RESIDENCE_TEST)
+        .await
+        .expect("pose du tenant");
+
+    let unites: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM hebergement.unite WHERE etablissement_id = $1")
+            .bind(ETABLISSEMENT_RESIDENCE_TEST)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage des unités");
+    assert_eq!(unites, 4, "Résidence Test porte quatre meublés");
+
+    let familles: Vec<String> = sqlx::query_scalar(
+        "SELECT famille FROM hebergement.formule WHERE etablissement_id = $1 ORDER BY famille",
+    )
+    .bind(ETABLISSEMENT_RESIDENCE_TEST)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des formules");
+
+    assert_eq!(
+        familles,
+        vec!["MENSUEL".to_owned(), "NUITEE".to_owned()],
+        "mois et nuitée SEULEMENT. Le mensuel sur une résidence et le passage sur un hôtel sont \
+         deux offres disjointes portées par les mêmes tables : c'est ce qui rend vérifiable \
+         qu'aucune formule n'est réservée à un type d'établissement (cadrage §5.2)."
+    );
+
+    for (table, requete) in [
+        (
+            "bareme_palier",
+            r#"SELECT COUNT(*) FROM hebergement.bareme_palier p
+               JOIN hebergement.formule f ON f.id = p.formule_id
+               WHERE f.etablissement_id = $1"#,
+        ),
+        (
+            "plage_demi_journee",
+            r#"SELECT COUNT(*) FROM hebergement.plage_demi_journee pl
+               JOIN hebergement.formule f ON f.id = pl.formule_id
+               WHERE f.etablissement_id = $1"#,
+        ),
+    ] {
+        let compte: i64 = sqlx::query_scalar(requete)
+            .bind(ETABLISSEMENT_RESIDENCE_TEST)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage");
+        assert_eq!(
+            compte, 0,
+            "Résidence Test porte {compte} ligne(s) dans `{table}` alors qu'elle ne vend ni \
+             passage ni demi-journée. C'est cette absence qui éprouve qu'aucun code ne les suppose."
+        );
+    }
 
     tx.rollback().await.expect("rollback");
 }
