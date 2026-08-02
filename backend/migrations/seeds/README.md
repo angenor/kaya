@@ -39,9 +39,27 @@ c'est-à-dire jusqu'au moment où la corriger coûterait une refonte.
 peuplent des tables qui n'existent pas encore. Elles sont écrites ci-dessous pour que chaque cycle
 sache ce qu'il doit ajouter, plutôt que de laisser FR-062 partiellement satisfaite en silence.
 
-### Cycle HEB — 17 unités louables
+### ✅ Cycle HEB — livré au cycle 004
 
-Répartition du cadrage §2.1, à seeder sur l'établissement Deloria.
+Le parc de Deloria est seedé : **17 unités en 5 catégories**, plus la **salle de réunion** —
+sixième catégorie, jamais une entité nouvelle. Onze formules : la nuitée et le passage sur chacune
+des cinq catégories de chambres, la demi-journée sur la salle. Vingt paliers de barème, deux
+plages, onze temps de remise en état, et les **trois valeurs de configuration** que la migration
+`0023` avait promises aux seeds (14 h, 12 h, seuil de bascule 480 min).
+
+| Ce que le cadrage donne | Ce qu'il ne donne pas |
+|---|---|
+| Les cinq tarifs de nuitée, le tarif de la salle, le barème de passage, les temps de remise en état, les plages | La **capacité d'accueil** par catégorie, le **plan d'étage**, et le prix d'une **plage** de demi-journée |
+
+Ce qui n'est pas relevé est seedé **uniforme ou nul**, jamais varié : une valeur uniforme signale
+qu'elle n'a pas été constatée, là où une variation inventée se lirait comme un fait.
+
+> ⚠️ **Le barème de passage et le prix de la demi-journée sont provisoires.** **B-07** — relevé des
+> formules et barèmes réellement pratiqués, à l'atelier terrain — n'est pas tranchée, et le cadrage
+> §5.3 écrit lui-même que ces valeurs « sont à confirmer à l'atelier initial ». Le tarif de la salle
+> y est donné **par jour** quand le produit la vend **par plage** : la valeur seedée reprend le
+> nombre du cadrage sans le transformer, une division par deux poserait une règle de tarification
+> que personne n'a énoncée.
 
 ### Cycle PDV — catalogue
 
