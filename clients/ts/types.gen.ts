@@ -282,6 +282,108 @@ export interface paths {
         patch: operations["etablissements_modifier"];
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hebergement_lister_categories"];
+        put?: never;
+        post: operations["hebergement_creer_categorie"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/categories/{categorie_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["hebergement_modifier_categorie"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/formules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hebergement_lister_formules"];
+        put?: never;
+        post: operations["hebergement_creer_formule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/formules/{formule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * C'est là que l'exploitant active la taxe quand sa commune l'impose, et qu'il choisit entre
+         *     « Une seule taxe pour tout le séjour » et « Une taxe par nuit ».
+         * @description **Aucune règle fiscale n'est appliquée ici** : le champ est stocké, jamais interprété. La règle
+         *     qui le consommera vivra dans `JurisdictionAdapter` (`socle/fiscalite`), en T3 — porte P-12.
+         */
+        put: operations["hebergement_modifier_formule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/unites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hebergement_lister_unites"];
+        put?: never;
+        post: operations["hebergement_creer_unite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/unites/{unite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["hebergement_modifier_unite"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/notes": {
         parameters: {
             query?: never;
@@ -839,6 +941,26 @@ export interface components {
             /** @description `SIMPLE` seul au MVP. */
             profil_code: string;
         };
+        /**
+         * @description Un type de chambre, tel que l'API le rend.
+         *
+         *     Terme utilisateur : **« type de chambre »** — jamais « catégorie d'unité », qui colle deux mots
+         *     techniques dont l'un est déjà écarté du lexique.
+         */
+        CategorieVue: {
+            /** Format: int32 */
+            capacite_accueil: number;
+            /** Format: uuid */
+            etablissement_id: string;
+            /** Format: uuid */
+            id: string;
+            nom: string;
+            /**
+             * @description Les battements déclarés, par famille. Vide tant qu'aucun n'a été réglé — auquel cas le
+             *     service applique **zéro**, et le dit.
+             */
+            temps_remise_en_etat: components["schemas"]["TempsRemiseEnEtat"][];
+        };
         /** @description Un champ résolu, avec son origine. */
         ChampResolu: {
             /** @description `TENANT` ou `ETABLISSEMENT`. */
@@ -919,6 +1041,19 @@ export interface components {
             /** @description Ce qui a été refusé, quand il y a quelque chose à nommer. */
             valeur?: string | null;
         };
+        /** @description Création d'un type de chambre. */
+        CreerCategorieRequete: {
+            /** Format: int32 */
+            capacite_accueil: number;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** — c'est lui qui rend le rejeu inoffensif.
+             */
+            id: string;
+            nom: string;
+            /** @description Les battements de remise en état, par famille de formule. **Remplacés en bloc.** */
+            temps_remise_en_etat?: components["schemas"]["TempsRemiseEnEtat"][];
+        };
         /**
          * @description Corps de création d'un compte.
          *
@@ -970,6 +1105,29 @@ export interface components {
             ncc?: string | null;
             nom: string;
         };
+        /** @description Création d'une formule, **avec ses enfants**. */
+        CreerFormuleRequete: {
+            assujettie_taxe_nuitee: boolean;
+            /** Format: uuid */
+            categorie_id: string;
+            /** Format: int32 */
+            duree_max_minutes?: number | null;
+            /** Format: int32 */
+            duree_min_minutes?: number | null;
+            famille: components["schemas"]["FamilleFormule"];
+            heure_arrivee_standard?: string | null;
+            heure_depart_standard?: string | null;
+            /** Format: uuid */
+            id: string;
+            jours_autorises?: number[] | null;
+            paliers?: components["schemas"]["PalierRequete"][];
+            plages?: components["schemas"]["PlageRequete"][];
+            /** Format: int64 */
+            prix_heure_supplementaire_mineur?: number | null;
+            /** Format: int64 */
+            prix_mineur: number;
+            regle_conversion_taxe?: null | components["schemas"]["RegleConversionTaxe"];
+        };
         /** @description Corps de création d'une note. */
         CreerNoteRequete: {
             /**
@@ -1018,6 +1176,16 @@ export interface components {
             /** @description Le service doit être **activé** sur l'établissement — sinon `422 module_non_actif`. */
             module_code: string;
             nom: string;
+        };
+        /** @description Création d'une chambre. */
+        CreerUniteRequete: {
+            /** Format: uuid */
+            categorie_id: string;
+            code: string;
+            /** Format: int32 */
+            etage?: number | null;
+            /** Format: uuid */
+            id: string;
         };
         /** @description Corps de déclaration de capacité. */
         DeclarerCapaciteRequete: {
@@ -1178,6 +1346,48 @@ export interface components {
              */
             version: string;
         };
+        /**
+         * @description Les **quatre** façons de louer une unité. Toute autre valeur est refusée explicitement
+         *     (FR-022), jamais ignorée.
+         * @enum {string}
+         */
+        FamilleFormule: "NUITEE" | "PASSAGE" | "DEMI_JOURNEE" | "MENSUEL";
+        /** @description Une formule, telle que l'écran `G2` la lit. */
+        FormuleVue: {
+            assujettie_taxe_nuitee: boolean;
+            /** Format: uuid */
+            categorie_id: string;
+            /**
+             * @description ISO 4217, **au même niveau que le montant**, toujours. Lue de l'établissement par
+             *     `EstablishmentDirectory`, jamais d'une constante : le produit sert deux devises.
+             */
+            devise: string;
+            /** Format: int32 */
+            duree_max_minutes?: number | null;
+            /** Format: int32 */
+            duree_min_minutes?: number | null;
+            famille: components["schemas"]["FamilleFormule"];
+            /** @description Format `HH:MM`, heure murale locale. */
+            heure_arrivee_standard?: string | null;
+            heure_depart_standard?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** @description 1 à 7 ; **absent = tous les jours**. */
+            jours_autorises?: number[] | null;
+            /** @description Les paliers, **triés par durée croissante**. Vide hors `PASSAGE`. */
+            paliers: components["schemas"]["PalierVue"][];
+            /** @description Les plages, **triées par heure de début**. Vide hors `DEMI_JOURNEE`. */
+            plages: components["schemas"]["PlageVue"][];
+            /** Format: int64 */
+            prix_heure_supplementaire_mineur?: number | null;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (P-10). Pour `PASSAGE`, c'est le premier palier — « à partir de
+             *     1 500 F l'heure ».
+             */
+            prix_mineur: number;
+            regle_conversion_taxe?: null | components["schemas"]["RegleConversionTaxe"];
+        };
         /** @description La clé d'objet d'un logo téléversé. */
         LogoReponse: {
             /**
@@ -1197,6 +1407,13 @@ export interface components {
              */
             avertissement?: string | null;
         };
+        /** @description Modification d'un type de chambre — **remplacement complet**, jamais un correctif partiel. */
+        ModifierCategorieRequete: {
+            /** Format: int32 */
+            capacite_accueil: number;
+            nom: string;
+            temps_remise_en_etat?: components["schemas"]["TempsRemiseEnEtat"][];
+        };
         /** @description Corps de modification — **tout champ absent est laissé tel quel**. */
         ModifierEtablissementRequete: {
             adresse?: string | null;
@@ -1208,6 +1425,31 @@ export interface components {
             fuseau_horaire?: string | null;
             ncc?: string | null;
             nom?: string | null;
+        };
+        /**
+         * @description Modification d'une formule — **c'est ici que l'exploitant règle la taxe**.
+         *
+         *     `famille` et `categorie_id` n'y figurent pas : changer la famille d'une formule reviendrait à
+         *     transformer une nuitée en passage en gardant son identifiant, et le montant dû sur un séjour en
+         *     cours changerait sous les pieds de l'exploitant.
+         */
+        ModifierFormuleRequete: {
+            /** @description Le drapeau que l'exploitant active quand sa commune impose la taxe de séjour. */
+            assujettie_taxe_nuitee: boolean;
+            /** Format: int32 */
+            duree_max_minutes?: number | null;
+            /** Format: int32 */
+            duree_min_minutes?: number | null;
+            heure_arrivee_standard?: string | null;
+            heure_depart_standard?: string | null;
+            jours_autorises?: number[] | null;
+            paliers?: components["schemas"]["PalierRequete"][];
+            plages?: components["schemas"]["PlageRequete"][];
+            /** Format: int64 */
+            prix_heure_supplementaire_mineur?: number | null;
+            /** Format: int64 */
+            prix_mineur: number;
+            regle_conversion_taxe?: null | components["schemas"]["RegleConversionTaxe"];
         };
         /** @description Corps de modification — **remplacement complet**. */
         ModifierPersonneRequete: {
@@ -1224,6 +1466,18 @@ export interface components {
             /** Format: uuid */
             caisse_id?: string | null;
             nom?: string | null;
+        };
+        /**
+         * @description **Correction d'une chambre — deux champs, et pas un de plus.**
+         *
+         *     Tout autre champ présent dans le corps est **capté** par `autres` et **refusé** avec son nom.
+         *     Le laisser passer en silence ferait croire à l'appelant que sa modification a été prise ; le
+         *     refuser sans le nommer l'obligerait à deviner lequel des siens pose problème.
+         */
+        ModifierUniteRequete: {
+            code: string;
+            /** Format: int32 */
+            etage?: number | null;
         };
         /**
          * @description Ce que `session_moi` rend — **le contexte tel que le serveur le voit**.
@@ -1319,6 +1573,26 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        /** @description Un palier de barème, tel que le client l'envoie. */
+        PalierRequete: {
+            /** Format: int32 */
+            duree_minutes: number;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (P-10). La devise vient de l'établissement, jamais du corps.
+             */
+            prix_mineur: number;
+        };
+        /** @description Un palier du barème de passage. */
+        PalierVue: {
+            /** Format: int32 */
+            duree_minutes: number;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (P-10). La devise est portée par la formule, au même niveau.
+             */
+            prix_mineur: number;
+        };
         /**
          * @description Une personne telle qu'elle est en base.
          *
@@ -1350,6 +1624,26 @@ export interface components {
              */
             telephone?: string | null;
         };
+        /** @description Une plage de demi-journée, telle que le client l'envoie. Heures **murales locales** `HH:MM`. */
+        PlageRequete: {
+            heure_debut: string;
+            heure_fin: string;
+            /** @description **Clé i18n, jamais une phrase.** */
+            libelle_cle: string;
+        };
+        /** @description Une plage fixe de demi-journée. */
+        PlageVue: {
+            /**
+             * @description Heure **murale locale**, au format `HH:MM`. La conversion en instant se fait au serveur,
+             *     avec le fuseau de l'établissement — jamais côté client.
+             */
+            heure_debut: string;
+            heure_fin: string;
+            /** Format: uuid */
+            id: string;
+            /** @description **Clé i18n, jamais une phrase.** */
+            libelle_cle: string;
+        };
         /** @description Un point de vente, tel que l'API le rend. */
         PointDeVenteVue: {
             actif: boolean;
@@ -1379,6 +1673,20 @@ export interface components {
             etablissement_id?: string | null;
             rafraichissement: string;
         };
+        /**
+         * @description Comment la taxe de nuitée se compte sur une occupation de plusieurs nuits.
+         *
+         *     ⛔ **L'axe « par client » n'est pas résolu.** `UneNuiteeParOccupation` réduit trois nuits à une ;
+         *     elle ne dit **rien** de trois personnes, alors que la taxe est due « par nuitée **et par
+         *     client** » (cadrage §9.6) et que les accompagnants comptent (SEJ-02). Le consommateur — FIS-03,
+         *     en T3 — devra trancher cet axe explicitement, jamais par défaut : un multiplicateur posé à
+         *     l'aveugle se retrouverait sur des factures et dans un état de reversement communal.
+         *
+         *     C'est aussi ce qui rend les deux libellés du lexique employables aujourd'hui : « Une seule taxe
+         *     pour tout le séjour » et « Une taxe par nuit » ne disent rien des personnes.
+         * @enum {string}
+         */
+        RegleConversionTaxe: "aucune" | "une_nuitee_par_occupation" | "au_prorata" | "seuil_horaire";
         /** @description Corps de remplacement des tables — **une liste vide fait un comptoir**. */
         RemplacerTablesRequete: {
             tables: components["schemas"]["TableRequete"][];
@@ -1474,6 +1782,15 @@ export interface components {
             elements: components["schemas"]["SessionVue"][];
         };
         /**
+         * @description L'état de propreté d'une unité. **Classe A** — dernier-écrit-gagne, seul cas du produit.
+         *
+         *     Aucun endpoint de ce cycle ne l'écrit : c'est HEB-06 (P1, hors périmètre). Le type existe
+         *     parce que la consultation de disponibilité le rend, et qu'un `String` y laisserait passer
+         *     n'importe quoi.
+         * @enum {string}
+         */
+        StatutMenage: "a_nettoyer" | "propre" | "maintenance";
+        /**
          * @description État global du service.
          * @enum {string}
          */
@@ -1491,6 +1808,15 @@ export interface components {
             /** @description « 12 », « Terrasse 3 » — tel que le personnel le dit. */
             libelle: string;
         };
+        /** @description Un battement de remise en état, pour une famille de formule. */
+        TempsRemiseEnEtat: {
+            /**
+             * Format: int32
+             * @description **Zéro est une valeur, pas une absence** — une salle qu'on n'aère pas entre deux réunions.
+             */
+            duree_minutes: number;
+            famille_formule: components["schemas"]["FamilleFormule"];
+        };
         /**
          * @description Les dix familles d'actions tracées au registre (CPT-04).
          *
@@ -1500,6 +1826,21 @@ export interface components {
          * @enum {string}
          */
         TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite";
+        /** @description Une chambre, un logement, une salle. */
+        UniteVue: {
+            /** Format: uuid */
+            categorie_id: string;
+            code: string;
+            /** Format: int32 */
+            etage?: number | null;
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description **Classe A, non modifiable à ce cycle** (HEB-06). Rendu parce que la consultation de
+             *     disponibilité en a besoin.
+             */
+            statut_menage: components["schemas"]["StatutMenage"];
+        };
         /** @description Une valeur résolue, telle que l'API la rend. */
         ValeurVue: {
             cle: string;
@@ -2410,6 +2751,630 @@ export interface operations {
                 };
             };
             /** @description Règle métier — classement incohérent, devise figée */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_lister_categories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Types de chambre de l'établissement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorieVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_creer_categorie: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerCategorieRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà créé (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorieVue"];
+                };
+            };
+            /** @description Type de chambre créé */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorieVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Refus métier */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_modifier_categorie: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Identifiant du type de chambre */
+                categorie_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierCategorieRequete"];
+            };
+        };
+        responses: {
+            /** @description Type de chambre modifié */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorieVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Type de chambre inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Refus métier */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_lister_formules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Formules, avec leurs paliers et leurs plages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormuleVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_creer_formule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerFormuleRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà créée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormuleVue"];
+                };
+            };
+            /** @description Formule créée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormuleVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Type de chambre inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Barème ou plages absents, famille inconnue */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_modifier_formule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Identifiant de la formule */
+                formule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierFormuleRequete"];
+            };
+        };
+        responses: {
+            /** @description Formule modifiée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormuleVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Formule inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Barème ou plages absents, règle fiscale incohérente */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_lister_unites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chambres de l'établissement */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniteVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_creer_unite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerUniteRequete"];
+            };
+        };
+        responses: {
+            /** @description Déjà créée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniteVue"];
+                };
+            };
+            /** @description Chambre créée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Type de chambre inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Refus métier */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    hebergement_modifier_unite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de l'établissement */
+                etablissement_id: string;
+                /** @description Identifiant de la chambre */
+                unite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierUniteRequete"];
+            };
+        };
+        responses: {
+            /** @description Chambre corrigée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UniteVue"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Chambre inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Service hébergement non actif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Champ non modifiable par cette opération */
             422: {
                 headers: {
                     [name: string]: unknown;

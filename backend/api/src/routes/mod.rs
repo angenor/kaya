@@ -15,6 +15,7 @@ pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
 pub mod etablissements;
+pub mod hebergement_referentiel;
 pub mod journal_audit;
 pub mod notes;
 pub mod personnes;
@@ -122,6 +123,37 @@ pub fn configurer(config: &mut ServiceConfig) {
     // Registre des actions — CPT-04. **Une seule opération, en lecture** : aucun point d'entrée
     // d'écriture (research R-17). Une entrée voyage toujours avec l'opération qu'elle trace.
     config.service(scope("/api/v1/journal-audit").service(journal_audit::lister));
+
+    // Hébergement — HEB-01, HEB-03, HEB-04, HEB-05. **Du plus spécifique au plus général**,
+    // sans quoi `.../hebergement/categories` accepterait le préfixe et rendrait `404` pour la
+    // modification — sans erreur de compilation, et avec un contrat OpenAPI parfaitement exact.
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/categories/{categorie_id}")
+            .service(hebergement_referentiel::modifier_categorie),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/categories")
+            .service(hebergement_referentiel::lister_categories)
+            .service(hebergement_referentiel::creer_categorie),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/unites/{unite_id}")
+            .service(hebergement_referentiel::modifier_unite),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/unites")
+            .service(hebergement_referentiel::lister_unites)
+            .service(hebergement_referentiel::creer_unite),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/formules/{formule_id}")
+            .service(hebergement_referentiel::modifier_formule),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/formules")
+            .service(hebergement_referentiel::lister_formules)
+            .service(hebergement_referentiel::creer_formule),
+    );
 
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/notes")

@@ -35,6 +35,9 @@ kaya-comptes = { workspace = true }
 kaya-etablissements = { workspace = true }
 kaya-synchronisation = { workspace = true }
 kaya-fiscalite = { workspace = true }
+# **La première verticale.** `backend/api/` est la famille « assemblage » : le seul endroit du
+# produit qui a le droit de connaître à la fois le socle et les verticales (principe II).
+kaya-hebergement = { workspace = true }
 
 actix-web = { workspace = true }
 actix-cors = { workspace = true }

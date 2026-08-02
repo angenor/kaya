@@ -233,6 +233,37 @@ impl EtatApplication {
         )
     }
 
+    /// Service du référentiel d'hébergement — HEB-01, HEB-03, HEB-04, HEB-05.
+    ///
+    /// # Il prend un `tenant_id`, et c'est la même raison qu'à `service_roles`
+    ///
+    /// Il détient un `EstablishmentDirectory` et un `RegistreModules`, deux traits dont le tenant
+    /// est porté par **l'instance** et non par les signatures — décision du cycle 002, prise pour
+    /// qu'un consommateur qui demande « l'établissement 42 » n'ait pas à connaître le contexte
+    /// d'authentification. Le prix est ici : le service se construit par requête.
+    ///
+    /// C'est aussi le premier service d'une **verticale** assemblé ici. `backend/api/` est la
+    /// famille « assemblage », seul endroit du produit qui a le droit de connaître à la fois le
+    /// socle et les verticales (principe II) — et c'est bien ce qui rend l'injection visible.
+    pub fn service_hebergement(
+        &self,
+        tenant_id: uuid::Uuid,
+    ) -> kaya_hebergement::referentiel::ServiceReferentiel<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+    > {
+        kaya_hebergement::referentiel::ServiceReferentiel::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+                self.pool.clone(),
+                tenant_id,
+            ),
+            kaya_etablissements::modules::PgRegistreModules::nouveau(self.pool.clone(), tenant_id),
+        )
+    }
+
     /// Service des points de vente — ETB-03.
     pub fn service_points_de_vente(
         &self,

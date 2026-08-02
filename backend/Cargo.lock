@@ -2135,6 +2135,7 @@ dependencies = [
  "kaya-domain",
  "kaya-etablissements",
  "kaya-fiscalite",
+ "kaya-hebergement",
  "kaya-synchronisation",
  "redis",
  "sentry",
