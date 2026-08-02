@@ -4,7 +4,7 @@
 Référencé par le principe VI de `.specify/memory/constitution.md` et par le point 5 de la
 Definition of Done (`docs/user-stories-v1.md` §0.4).*
 
-**Version 1.1.0 — 2026-08-01**
+**Version 1.2.0 — 2026-08-02**
 
 ---
 
@@ -259,12 +259,27 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 
 | Entité ou opération | Classe | Branche | Réf. |
 |---|---|---|---|
-| `categorie` — nom, capacité, temps de remise en état par formule | **C** | C2 — référentiel | HEB-01, §11.3 |
+| `categorie` — nom, capacité d'accueil, temps de remise en état par formule | **C** | C2 — référentiel | HEB-01, §11.3 |
+| `temps_remise_en_etat` — durée par catégorie **et par formule** | **C** | C2 — sur le régime de sa catégorie | HEB-01, §11.3 |
 | `unite` (spécialisation de `ressource_reservable`) — code, étage | **C** | C2 — référentiel | HEB-01, §11.3 |
 | `formule` — type, contraintes, `assujettie_taxe_nuitee`, `regle_conversion_taxe` | **C** | C2 — référentiel fiscal | HEB-03, §11.3 |
 | `bareme_palier` — paliers de passage, heure supplémentaire | **C** | C2 — référentiel tarifaire | HEB-04, §11.3 |
 | `calendrier_tarifaire` — date d'effet, date de fin | **C** | C2 — référentiel tarifaire | HEB-07 |
-| Plages de demi-journée | **C** | C2 — référentiel | HEB-05 |
+| Plages de demi-journée — table `plage_demi_journee` | **C** | C2 — référentiel | HEB-05 |
+
+> **`prestation_incluse` n'est PAS redéclarée ici** bien que sa table naisse à ce cycle : elle
+> figure déjà au **§10** des provisions, avec sa classe **C** et sa branche C2. La redéclarer lui
+> donnerait deux entrées, donc un jour deux classes — c'est le raisonnement exact qui a écarté
+> `employe` du §5.2 au cycle 003.
+>
+> **`temps_remise_en_etat` est une table, pas un attribut.** Le registre le mentionnait depuis le
+> 2026-07-30 comme attribut de `categorie` (« temps de remise en état par formule ») ; il varie par
+> catégorie **et** par formule, ce qu'une colonne ne porte pas. Devenu table, il se déclare pour
+> lui-même — précédent exact de `profil_stock` au cycle 002. Sa classe est celle de sa catégorie :
+> une durée de ménage ne se modifie pas hors ligne, elle se lit.
+>
+> **`plage_demi_journee` porte le nom que la ligne « Plages de demi-journée » n'avait pas.** La
+> ligne est honorée, pas réécrite : la classe et la branche restent celles du 2026-07-30.
 
 ### 7.2 Occupation et disponibilité
 
@@ -489,6 +504,7 @@ l'entité, pas d'un lot de rattrapage.
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.2.0 | 2026-08-02 | **Le §7 devient effectif** — les entités du cycle 004 (HEB) qu'il déclarait d'avance depuis le 2026-07-30 reçoivent leurs tables. Comme au cycle 003, les lignes existantes sont **honorées, pas réécrites** : `categorie`, `unite`, `formule`, `bareme_palier` et `occupation` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe. **Deux lignes ajoutées au §7.1**, correspondant à deux tables que le registre ne nommait pas : `temps_remise_en_etat` (**C**, branche C2, sur le régime de sa catégorie — le registre le mentionnait comme *attribut* de `categorie`, « temps de remise en état par formule » ; il varie par catégorie **et** par formule, ce qu'une colonne ne porte pas, et devenu table il se déclare pour lui-même, précédent exact de `profil_stock` au cycle 002) et `plage_demi_journee` (la ligne « Plages de demi-journée » existait **sans nom de table** — elle est honorée, le nom précisé). **`prestation_incluse` n'a PAS été redéclarée** au §7.1 bien que sa table naisse ici : elle figure déjà au §10 des provisions, et la redéclarer lui donnerait deux entrées donc un jour deux classes — raisonnement identique à celui qui a écarté `employe` du §5.2 au cycle précédent. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `hebergement` : **sans cet ajout, les huit tables du cycle échappaient entièrement au balayage**, exactement le trou trouvé sur le schéma `comptes` au cycle 003. |
 | 1.1.0 | 2026-08-01 | **Le §5.2 devient effectif** — les neuf entités qu'il déclarait d'avance depuis le 2026-07-30 sont implémentées par le cycle 003 (CPT). Ses lignes existantes sont **honorées, pas réécrites** : `personne`, `compte`, `compte_role`, `role`, `permission`, `appareil_enrole` et `journal_audit` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe — c'était tout l'objet de les écrire d'avance. **Trois lignes ajoutées**, correspondant à trois tables que le registre ne nommait pas : `methode_authentification` (référentiel global, **C**, branche C2, sur le régime de `module_activite`), `role_permission` (jointure de référentiel, rattachée à la ligne de `role` et `permission` plutôt que déclarée seule — elle n'a pas de cycle de vie propre) — `employe`, lui, était **déjà** déclaré au §10 des provisions et n'a pas été redéclaré : une entité qui figure à deux endroits finit par y porter deux classes. Consigné aussi : **les sessions ne figurent pas à ce registre**, étant éphémères reconstructibles — écrit pour qu'une relecture n'y voie pas un oubli. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `comptes` et compte les tables inspectées face au total attendu : une porte dont la cible est vide passe toujours. |
 | 1.0.0 | 2026-07-30 | Création. Classement initial de toutes les entités des modules TRX, ETB, CPT, HEB, SEJ, RSV, PDV, QRC, CAI, FIS, SYN, IMP, STK, DIR, ADM, MET, plus les provisions du cadrage §14. Dérivé de `docs/cadrage-v1.md` §11 et `docs/user-stories-v1.md` §0.7. Trois décisions ouvertes consignées (O-01, O-02, O-03). |
 | 1.0.2 | 2026-07-31 | **`profil_stock` et `parametre_catalogue` ajoutées au §5.1, classe C** — les deux référentiels globaux que le cycle 002 crée et que le registre ne nommait pas. `profil_stock` n'existait qu'en tant que colonne dans la ligne de `module_capacite` ; devenue table (research.md R-03 : ouvrir un profil est une écriture de configuration, pas une migration), elle doit s'y déclarer pour elle-même. **Ajout d'une ligne de portée générale : la LECTURE EN CACHE de tout référentiel est de classe A, avec fraîcheur affichée**, quand son écriture reste C. Le registre classe des opérations, pas des tables — sans cette distinction écrite, un cycle ultérieur aurait conclu qu'un référentiel de classe C ne se lit pas hors ligne, ce qui rendrait le produit inutilisable dès la première coupure. Le mécanisme de cache relève de SYN-01/02 et d'ETB-06 ; seule la classe est arrêtée ici. |

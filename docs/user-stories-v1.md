@@ -718,16 +718,18 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Temps de remise en état — passage | 30 min | HEB-02 |
 | Temps de remise en état — nuitée | 2 h | HEB-02 |
 | Temps de remise en état — demi-journée | 1 h | HEB-02 |
-| Heure d'arrivée / départ standard (nuitée) | 14h / 12h | HEB-03 |
+| Heure d'arrivée standard (`heure_arrivee_standard`) | 14 h — clé du catalogue, portée la plus basse **ETABLISSEMENT** | HEB-03 |
+| Heure de départ standard (`heure_depart_standard`) | 12 h — clé du catalogue, portée la plus basse **ETABLISSEMENT** | HEB-03 |
 | Barème passage | 1 h : 1 500 · 2 h : 2 800 · 3 h : 4 000 · 4 h : 5 000 · h. suppl. : +1 200 | HEB-04 |
-| Durée max de passage avant bascule en nuitée | 8 h | HEB-04 |
+| Durée max de passage avant bascule en nuitée (`seuil_bascule_nuitee_minutes`) | 480 min (8 h) — clé du catalogue, portée la plus basse **ETABLISSEMENT** | HEB-04 |
 | Plages de demi-journée | 8h–12h et 13h–16h | HEB-05 |
 | Expiration d'une réservation provisoire | 24 h | RSV-01 |
 | Politique d'annulation — délai franc | 48 h | RSV-03 |
 | Taux de TVA | 18 % | FIS-03 |
 | Taxe communale de nuitée | 500 FCFA (non classé) | FIS-03 |
-| Taxe de nuitée sur passage | **À trancher (B-02)** | FIS-03 |
-| Taxe de nuitée sur demi-journée | **À trancher (B-02)** | FIS-03 |
+| Taxe de nuitée sur passage | **Non assujetti** — tranché au terrain le 2026-08-02 ; le drapeau reste éditable | FIS-03 |
+| Taxe de nuitée sur demi-journée | **Non assujettie** — tranché au terrain le 2026-08-02 ; le drapeau reste éditable | FIS-03 |
+| Règle de conversion, formule nuitée | `une_nuitee_par_occupation` — 500 F pour un séjour de 3 nuits, pratique attestée. **La dimension « par client » n'est PAS tranchée** (B-02) | FIS-03 |
 | Taxe dév. touristique | 2,5 % | FIS-03 |
 | Seuil d'alerte stickers FNE | J-7 et J-2 | FIS-07 |
 | Rétention pièces d'identité | 90 jours | TRX-06 |
@@ -753,6 +755,23 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Palier d'abonnement 3 | > 50 unités → 1 000 FCFA/unité | ADM-03 |
 | Tarif au compteur | 1 000 FCFA/unité | ADM-03 |
 | Délai de grâce avant suspension pour impayé | 15 jours | ADM-04 |
+
+### Note — quatre valeurs HEB de ce tableau ne sont PAS des clés du catalogue, et c'est délibéré
+
+Le cycle 004 pose **trois** clés au catalogue `etablissements.parametre_catalogue` :
+`heure_arrivee_standard`, `heure_depart_standard` et `seuil_bascule_nuitee_minutes`. Les quatre
+autres lignes HEB ci-dessus sont des **référentiels en table**, pas des scalaires d'établissement,
+et les y verser produirait un paramètre qui ne saurait pas dire de quoi il parle :
+
+| Ligne du tableau | Où elle vit réellement | Pourquoi pas au catalogue |
+|---|---|---|
+| Temps de remise en état — passage / nuitée / demi-journée | `hebergement.temps_remise_en_etat` | Il varie par **catégorie** *et* par **formule**. Une clé scalaire d'établissement ne porte ni l'une ni l'autre — et la valeur « 30 min » n'a de sens que rapportée à une catégorie |
+| Barème passage | `hebergement.bareme_palier` | Une suite de couples (durée, prix), classée référentiel tarifaire au registre §7.1 |
+| Plages de demi-journée | `hebergement.plage_demi_journee` | Deux plages horaires par formule, classées référentiel au registre §7.1 |
+
+Elles restent inscrites ici — le tableau est le **récapitulatif des paramètres d'exploitation**,
+pas l'inventaire du catalogue —, avec leurs valeurs par défaut Deloria que les seeds honorent en
+les posant sur les catégories et les formules.
 
 ### Note — les trois seuils de connexion sont inscrits, ils ne sont pas encore paramétrables
 

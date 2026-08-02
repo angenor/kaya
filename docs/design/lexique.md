@@ -3,6 +3,15 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.4.0** — le vocabulaire du cycle HEB : la **formule**, le **type de chambre**, les cinq
+refus du moteur de disponibilité, et le choix fiscal que l'exploitant fait à l'écran. Le mot
+« formule » était déjà sur la maquette `G2` — « Vos formules », « Ajouter une formule » — et absent
+d'ici : il est inscrit avant d'être codé. Six mots sont écartés nommément — « unité louable »,
+« catégorie d'unité », « occupation », « intervalle », « palier » et « exclusion » —, et l'entrée
+la plus délicate du cycle est celle du choix fiscal : **ses deux formulations ne disent rien des
+personnes**, ce qui est précisément ce qui les rend employables alors que l'axe « par client » de
+la taxe de séjour n'est pas tranché (B-10 du cadrage, échéance avant le cycle SEJ).
+
 **Version 1.3.0** — deux entrées pour le geste qui manquait au produit : **quitter son poste**.
 `fermerSession()` existait depuis le cycle CPT sans aucun appelant — il n'y avait, littéralement,
 aucun moyen de sortir de sa session. Le mot retenu n'est pas « se déconnecter » : sur un terminal
@@ -76,6 +85,17 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | `permission_absente` (403) | **Ne devrait jamais s'afficher** : sans le droit, l'action est **absente** de l'écran (FR-026). La phrase existe pour l'appel direct : « **Cette action ne vous est pas accessible.** » |
 | Refus hors ligne d'une opération de classe C | Réemploi exact de la formulation d'ETB-02 : « **Cette action nécessite internet.** » / *This action requires an internet connection.* — annoncée **avant** la saisie, jamais après un échec |
 | `methode_non_implementee` (422) | « **Ce compte se connecte autrement.** » — `OTP_SMS` est au référentiel et n'est pas servi ; jamais « méthode non implémentée » |
+| `formule` | « **Formule** » / *Rate plan* — ce qu'on vend sur un type de chambre : la nuitée, le passage, la demi-journée, le mois. Le mot est sur la maquette `G2` (« Vos formules », « Ajouter une formule ») et manquait ici. Jamais « tarif », qui ne désigne que le prix, ni « produit » ni « offre », qui sont les mots du catalogue |
+| `categorie` (d'unité louable) | « **Type de chambre** » / *Room type* — « type de logement » en résidence, « type de salle » pour la réunion, selon le même contexte que l'entrée « Unité louable ». **Jamais « catégorie d'unité »**, qui est le nom de la table : il colle deux mots techniques dont l'un — « unité » — est déjà écarté ci-dessus |
+| `occupation`, `intervalle`, `palier`, contrainte d'`exclusion` | **N'apparaît jamais.** Ce sont les mots de la table, de la période, du barème et de la garantie de base. L'utilisateur voit « chambre prise », « du … au … », « à partir de 4 h » et « déjà prise sur cette période » |
+| `unite_deja_occupee` (409) | « **Cette chambre est déjà prise sur cette période.** » / *This room is already taken for this period.* — jamais « conflit », « chevauchement » ni « violation de contrainte », qui nomment la mécanique. Le refus vient de la base ; ce que l'utilisateur en lit est un fait d'exploitation |
+| `formule_hors_categorie` (422) | « **Cette formule ne s'applique pas à cette chambre.** » / *This rate plan does not apply to this room.* |
+| `plage_non_fractionnable` (422) | « **Une demi-journée se loue en entier : 8 h – 12 h ou 13 h – 16 h.** » / *A half-day is booked in full: 8 a.m. – 12 p.m. or 1 p.m. – 4 p.m.* — les deux plages sont **celles de l'établissement**, jamais écrites en dur : la phrase les reçoit. Jamais « non fractionnable », qui est le mot du code |
+| `intervalle_invalide` (422) | « **La fin doit être après le début.** » / *The end must be after the start.* |
+| `duree_hors_contrainte` (422) | « **Cette formule se loue de 1 h à 8 h.** » / *This rate plan is booked from 1 to 8 hours.* — les deux bornes viennent de la formule, jamais d'une constante |
+| `formule.assujettie_taxe_nuitee` | « **Taxe de séjour comprise dans le prix** » quand elle vaut vrai, « **Pas de taxe de séjour sur cette formule** » sinon — les deux mentions exactes de la maquette `G2`. Jamais « assujettie », qui est le mot du formulaire fiscal |
+| `regle_conversion_taxe = une_nuitee_par_occupation` | « **Une seule taxe pour tout le séjour** » / *One tax for the whole stay* — **formulation validée au terrain le 2026-08-02**. Ni « conversion », ni « règle », ni le nom de l'énumération n'atteignent l'interface |
+| `regle_conversion_taxe = au_prorata` | « **Une taxe par nuit** » / *One tax per night* — même validation. ⛔ **Ces deux formulations ne disent rien des personnes**, et c'est ce qui les rend employables aujourd'hui : la taxe est due « par nuitée **et par client** » (cadrage §9.6), l'axe des personnes n'est pas tranché (B-10), et une phrase qui l'évoquerait préjugerait de l'arbitrage. Elles tranchent l'axe des nuits, rien d'autre |
 
 **Deux termes fiscaux conservés tels quels — règle 2 ci-dessous.** `classement` (« non classé »,
 « résidence meublée », le nombre d'étoiles) et **« numéro de compte contribuable (NCC) »** gardent
@@ -111,4 +131,4 @@ et de la porte **P-16** de la constitution.
 
 - `docs/design/derivation.md` — de quel motif maquetté hérite chaque écran non maquetté
 - `docs/Kaya_Design.md` §5 « Les neuf règles » — dont la règle 6, « zéro jargon »
-- `docs/design/composants.md` — les 14 composants canoniques
+- `docs/design/composants.md` — les composants canoniques (seize au 2026-08-02)
