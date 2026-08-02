@@ -44,18 +44,29 @@ const REGISTRE: &str = include_str!("../../docs/registre-classes-offline.md");
 /// test `les_entites_du_cycle_003_sont_declarees` les nommait une par une — ce qui vérifie que
 /// celles-là sont déclarées, jamais qu'aucune autre ne manque. C'est exactement la différence
 /// entre une liste et une porte.
+/// **`hebergement` est ajouté par le cycle 004, et son absence aurait été le même trou.** Les huit
+/// tables de la première verticale échapperaient entièrement au balayage — exactement ce que le
+/// cycle 003 a trouvé sur `comptes`. La liste est le périmètre de la porte : ce qui n'y est pas
+/// n'est pas inspecté, et rien ne le dit.
 const SCHEMAS_APPLICATIFS: &[&str] = &[
     "etablissements",
     "synchronisation",
     "fiscalite",
     "comptes",
+    "hebergement",
 ];
 
-/// Nombre de tables attendu dans les quatre schémas — **le décompte, pas seulement la liste**.
+/// Nombre de tables attendu dans les cinq schémas — **le décompte, pas seulement la liste**.
 ///
-/// 16 au cycle 002, plus les 10 de ce cycle. Une porte dont la cible se vide passe toujours au
-/// vert : ce nombre est ce qui distingue « tout est déclaré » de « il n'y avait rien à inspecter ».
-const TABLES_ATTENDUES: usize = 26;
+/// 16 au cycle 002, 26 après le cycle 003, **34** à la fin du cycle 004. Une porte dont la cible
+/// se vide passe toujours au vert : ce nombre est ce qui distingue « tout est déclaré » de « il
+/// n'y avait rien à inspecter ».
+///
+/// **Il suit les tables réellement créées, migration par migration**, et non la cible du cycle :
+/// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34.
+/// L'écrire d'avance rendrait la porte rouge entre deux migrations pour une raison qui n'est pas
+/// un défaut, et on prendrait l'habitude de la lire rouge.
+const TABLES_ATTENDUES: usize = 32;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///
@@ -308,6 +319,45 @@ fn les_entites_du_cycle_003_sont_declarees() {
             declarees.contains(entite),
             "« {entite} » n'est pas déclarée à docs/registre-classes-offline.md alors que le \
              cycle 003 la crée.\n\
+             La déclaration se fait dans le MÊME changement que la migration (principe VI), avec \
+             une entrée au journal §13."
+        );
+    }
+}
+
+/// Les huit entités du cycle 004 (HEB) sont déclarées.
+///
+/// # Le §7 avait été écrit d'AVANCE, comme le §5.2
+///
+/// Six d'entre elles figuraient au registre depuis le 2026-07-30, avant qu'aucune table n'existe.
+/// Le cycle qui les implémente **honore** un classement décidé à froid, au lieu de le décider à
+/// chaud, au milieu d'une migration, en cherchant surtout à ce que la porte passe.
+///
+/// `temps_remise_en_etat` et `plage_demi_journee` sont les deux ajouts réels du cycle : le
+/// registre mentionnait le premier comme *attribut* de `categorie`, et nommait le second sans
+/// nom de table.
+///
+/// **`prestation_incluse` est vérifiée ici alors qu'elle est déclarée au §10**, pas au §7.1 : la
+/// redéclarer lui donnerait deux entrées, donc un jour deux classes. Le test ne s'intéresse qu'à
+/// sa présence quelque part au registre — c'est exactement ce que la porte principale vérifie.
+#[test]
+fn les_entites_du_cycle_004_sont_declarees() {
+    let declarees = entites_declarees();
+
+    for entite in [
+        "categorie",
+        "temps_remise_en_etat", // AJOUTÉE par ce cycle — était un attribut, devient une table
+        "unite",
+        "formule",
+        "bareme_palier",
+        "plage_demi_journee", // AJOUTÉE par ce cycle — la ligne existait sans nom de table
+        "occupation",
+        "prestation_incluse", // déclarée au §10 des provisions, pas au §7.1
+    ] {
+        assert!(
+            declarees.contains(entite),
+            "« {entite} » n'est pas déclarée à docs/registre-classes-offline.md alors que le \
+             cycle 004 la crée.\n\
              La déclaration se fait dans le MÊME changement que la migration (principe VI), avec \
              une entrée au journal §13."
         );
