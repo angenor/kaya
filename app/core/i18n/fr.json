@@ -23,6 +23,10 @@
       "journal": {
         "libelle": "Registre des actions",
         "description": "Qui a fait quoi, sur quoi, et quand"
+      },
+      "hebergement_offre": {
+        "libelle": "Vos formules",
+        "description": "Les façons de louer vos chambres, leurs prix et leur taxe."
       }
     }
   },
@@ -284,6 +288,105 @@
     "modification": {
       "fine": "Modifiée : l'espace fine insécable des montants y a été ajoutée, car elle n'y était pas dessinée.",
       "sous_reglage": "Réduite aux icônes réellement employées, pour ne pas faire télécharger les autres."
+    }
+  },
+  "hebergement": {
+    "familles": {
+      "NUITEE": "Nuitée",
+      "PASSAGE": "Passage",
+      "DEMI_JOURNEE": "Demi-journée",
+      "MENSUEL": "Au mois"
+    },
+    "offre": {
+      "surtitre": "Réglages de l'établissement",
+      "titre": "Vos formules",
+      "sous_titre": "{nombre} façon(s) de louer une chambre. Touchez-en une pour voir son prix et sa taxe.",
+      "chargement": "Chargement de votre offre…",
+      "chargement_impossible": "Impossible d'afficher votre offre. Réessayez dans un instant.",
+      "prix_NUITEE": "{montant} la nuit",
+      "prix_DEMI_JOURNEE": "{montant} la demi-journée",
+      "prix_MENSUEL": "{montant} le mois",
+      "prix_a_partir_de": "à partir de {montant} l'heure",
+      "taxe_comprise": "Taxe de séjour comprise dans le prix",
+      "taxe_absente": "Pas de taxe de séjour sur cette formule",
+      "taxe_une_par_sejour": "Une seule taxe pour tout le séjour",
+      "taxe_une_par_nuit": "Une taxe par nuit",
+      "passage_absent": "Le passage à l'heure n'est pas proposé ici. Les chambres se louent au mois ou à la nuit.",
+      "ajouter_passage": "Ajouter le passage ici",
+      "ajouter_formule": "Ajouter une formule",
+      "vide_titre": "Aucune formule pour l'instant",
+      "vide_aide": "Ajoutez une première façon de louer vos chambres.",
+      "champ_prix": "Prix",
+      "champ_prix_aide": "En francs, sans centime.",
+      "champ_taxe": "Taxe de séjour comprise dans le prix",
+      "champ_regle": "Comment compter la taxe",
+      "enregistrer": "Enregistrer",
+      "annuler": "Annuler",
+      "enregistrement": "Enregistrement en cours…",
+      "erreur": {
+        "prix_entier": "Indiquez un montant en francs, sans centime ni espace."
+      },
+      "refus": {
+        "reseau": "Modifier une formule demande une connexion. Réessayez dès que le réseau revient.",
+        "permission": "Vous n'avez pas le droit de modifier les tarifs de cet établissement.",
+        "formule_inconnue": "Cette formule est introuvable.",
+        "categorie_inconnue": "Ce type de chambre est introuvable.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "service_inactif": "L'hébergement n'est pas encore proposé dans cet établissement.",
+        "bareme_absent": "Un passage a besoin d'au moins un tarif horaire.",
+        "plages_absentes": "Une demi-journée a besoin d'au moins une plage horaire.",
+        "famille_inconnue": "Cette façon de louer n'existe pas.",
+        "regle_conversion_inconnue": "Cette façon de compter la taxe n'existe pas.",
+        "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
+      }
+    },
+    "chambres": {
+      "titre": "Vos chambres",
+      "surtitre": "Réglages de l'établissement",
+      "sous_titre": "{nombre} chambre(s), rangées par type.",
+      "chargement": "Chargement de vos chambres…",
+      "chargement_impossible": "Impossible d'afficher vos chambres. Réessayez dans un instant.",
+      "etage": "Étage {numero}",
+      "sans_etage": "Rez-de-chaussée",
+      "vide_titre": "Aucune chambre dans ce type",
+      "vide_aide": "Ajoutez-en une pour commencer.",
+      "ajouter_unite": "Ajouter une chambre",
+      "ajouter_categorie": "Ajouter un type de chambre",
+      "modifier_unite": "Corriger",
+      "enregistrement": "Enregistrement en cours…",
+      "champ_code": "Numéro de la chambre",
+      "champ_code_aide": "Ce que le client lit sur sa clé — « A1 », « B3 ».",
+      "champ_etage": "Étage",
+      "champ_etage_aide": "Laissez vide si la chambre est au rez-de-chaussée.",
+      "champ_type": "Type de chambre",
+      "champ_nom_type": "Nom du type",
+      "champ_capacite": "Nombre de personnes",
+      "enregistrer": "Enregistrer",
+      "annuler": "Annuler",
+      "erreur": {
+        "code_obligatoire": "Indiquez le numéro de la chambre.",
+        "etage_entier": "Indiquez un numéro d'étage, sans lettre.",
+        "capacite_positive": "Indiquez au moins une personne."
+      },
+      "refus": {
+        "reseau": "Modifier vos chambres demande une connexion. Réessayez dès que le réseau revient.",
+        "permission": "Vous n'avez pas le droit de modifier les chambres de cet établissement.",
+        "unite_inconnue": "Cette chambre est introuvable.",
+        "categorie_inconnue": "Ce type de chambre est introuvable.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "service_inactif": "L'hébergement n'est pas encore proposé dans cet établissement.",
+        "champ_non_modifiable": "Ce réglage se modifie ailleurs.",
+        "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
+      }
+    },
+    "disponibilite": {
+      "refus": {
+        "unite_deja_occupee": "Cette chambre est déjà prise sur cette période.",
+        "formule_hors_categorie": "Cette formule ne s'applique pas à cette chambre.",
+        "plage_non_fractionnable": "Une demi-journée se loue en entier : {plages}.",
+        "intervalle_invalide": "La fin doit être après le début.",
+        "duree_hors_contrainte": "Cette formule se loue de {min} à {max}."
+      }
     }
   }
 }

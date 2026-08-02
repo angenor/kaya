@@ -81,6 +81,21 @@ export const CATALOGUE_TUILES: readonly Tuile[] = [
     permission: 'cpt.compte.lire',
     route: '/comptes',
   },
+  // ── Cycle 004 — la PREMIÈRE tuile rattachée à un module d'activité ──────────────────────
+  //
+  // `moduleRequis` existait depuis le cycle 003, filtré et testé, mais **aucune tuile ne le
+  // portait** : son mécanisme était vérifié sur une cible fictive. C'est la première qui l'exerce
+  // pour de vrai — un établissement qui ne fait pas d'hébergement n'a pas de tuile « Vos
+  // formules », et elle est ABSENTE, jamais grisée (principe VII).
+  {
+    code: 'hebergement-offre',
+    libelleCle: 'accueil.tuiles.hebergement_offre.libelle',
+    descriptionCle: 'accueil.tuiles.hebergement_offre.description',
+    icone: 'ph-bed',
+    permission: 'heb.offre.lire',
+    route: '/hebergement',
+    moduleRequis: 'HEBERGEMENT',
+  },
   {
     code: 'journal-audit',
     libelleCle: 'accueil.tuiles.journal.libelle',

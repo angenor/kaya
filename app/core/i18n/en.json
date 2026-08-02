@@ -23,6 +23,10 @@
       "journal": {
         "libelle": "Activity log",
         "description": "Who did what, on what, and when"
+      },
+      "hebergement_offre": {
+        "libelle": "Your rate plans",
+        "description": "How your rooms are let, their prices and their tax."
       }
     }
   },
@@ -284,6 +288,105 @@
     "modification": {
       "fine": "Modified: the narrow no-break space used in amounts was added, because the typeface did not draw it.",
       "sous_reglage": "Reduced to the icons actually used, so the others are never downloaded."
+    }
+  },
+  "hebergement": {
+    "familles": {
+      "NUITEE": "Per night",
+      "PASSAGE": "Hourly",
+      "DEMI_JOURNEE": "Half-day",
+      "MENSUEL": "Monthly"
+    },
+    "offre": {
+      "surtitre": "Establishment settings",
+      "titre": "Your rate plans",
+      "sous_titre": "{nombre} way(s) to let a room. Tap one to see its price and tax.",
+      "chargement": "Loading your rate plans…",
+      "chargement_impossible": "Your rate plans could not be shown. Try again in a moment.",
+      "prix_NUITEE": "{montant} per night",
+      "prix_DEMI_JOURNEE": "{montant} per half-day",
+      "prix_MENSUEL": "{montant} per month",
+      "prix_a_partir_de": "from {montant} per hour",
+      "taxe_comprise": "Tourist tax included in the price",
+      "taxe_absente": "No tourist tax on this rate plan",
+      "taxe_une_par_sejour": "One tax for the whole stay",
+      "taxe_une_par_nuit": "One tax per night",
+      "passage_absent": "Hourly stays are not offered here. Rooms are let per night or per month.",
+      "ajouter_passage": "Add hourly stays here",
+      "ajouter_formule": "Add a rate plan",
+      "vide_titre": "No rate plan yet",
+      "vide_aide": "Add a first way to let your rooms.",
+      "champ_prix": "Price",
+      "champ_prix_aide": "In francs, no cents.",
+      "champ_taxe": "Tourist tax included in the price",
+      "champ_regle": "How to count the tax",
+      "enregistrer": "Save",
+      "annuler": "Cancel",
+      "enregistrement": "Saving…",
+      "erreur": {
+        "prix_entier": "Enter an amount in francs, with no cents and no spaces."
+      },
+      "refus": {
+        "reseau": "Changing a rate plan requires a connection. Try again when the network is back.",
+        "permission": "You are not allowed to change this establishment's prices.",
+        "formule_inconnue": "This rate plan cannot be found.",
+        "categorie_inconnue": "This room type cannot be found.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "service_inactif": "Accommodation is not offered in this establishment yet.",
+        "bareme_absent": "An hourly plan needs at least one hourly price.",
+        "plages_absentes": "A half-day plan needs at least one time slot.",
+        "famille_inconnue": "This way of letting does not exist.",
+        "regle_conversion_inconnue": "This way of counting the tax does not exist.",
+        "inattendue": "The operation did not complete. Try again in a moment."
+      }
+    },
+    "chambres": {
+      "titre": "Your rooms",
+      "surtitre": "Establishment settings",
+      "sous_titre": "{nombre} room(s), grouped by type.",
+      "chargement": "Loading your rooms…",
+      "chargement_impossible": "Your rooms could not be shown. Try again in a moment.",
+      "etage": "Floor {numero}",
+      "sans_etage": "Ground floor",
+      "vide_titre": "No room in this type",
+      "vide_aide": "Add one to get started.",
+      "ajouter_unite": "Add a room",
+      "ajouter_categorie": "Add a room type",
+      "modifier_unite": "Correct",
+      "enregistrement": "Saving…",
+      "champ_code": "Room number",
+      "champ_code_aide": "What the guest reads on their key — “A1”, “B3”.",
+      "champ_etage": "Floor",
+      "champ_etage_aide": "Leave empty if the room is on the ground floor.",
+      "champ_type": "Room type",
+      "champ_nom_type": "Type name",
+      "champ_capacite": "Number of people",
+      "enregistrer": "Save",
+      "annuler": "Cancel",
+      "erreur": {
+        "code_obligatoire": "Enter the room number.",
+        "etage_entier": "Enter a floor number, with no letters.",
+        "capacite_positive": "Enter at least one person."
+      },
+      "refus": {
+        "reseau": "Changing your rooms requires a connection. Try again when the network is back.",
+        "permission": "You are not allowed to change this establishment's rooms.",
+        "unite_inconnue": "This room cannot be found.",
+        "categorie_inconnue": "This room type cannot be found.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "service_inactif": "Accommodation is not offered in this establishment yet.",
+        "champ_non_modifiable": "This setting is changed elsewhere.",
+        "inattendue": "The operation did not complete. Try again in a moment."
+      }
+    },
+    "disponibilite": {
+      "refus": {
+        "unite_deja_occupee": "This room is already taken for this period.",
+        "formule_hors_categorie": "This rate plan does not apply to this room.",
+        "plage_non_fractionnable": "A half-day is booked in full: {plages}.",
+        "intervalle_invalide": "The end must be after the start.",
+        "duree_hors_contrainte": "This rate plan is booked from {min} to {max}."
+      }
     }
   }
 }

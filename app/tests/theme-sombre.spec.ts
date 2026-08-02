@@ -61,6 +61,10 @@ const REPERTOIRES_INSPECTES = [
   'modules/comptes',
   'modules/audit',
   'modules/accueil',
+  // Cycle 004 — la première verticale. Ses deux écrans portent des jetons de couleur comme les
+  // autres, et l'un d'eux — `G5` — est **composé** : il n'a pas de maquette contre laquelle
+  // comparer un rendu, donc le contrôle mécanique des jetons y compte davantage encore.
+  'modules/hebergement',
   'core/design-system',
   'pages',
 ] as const
@@ -113,6 +117,10 @@ function composantsG1(): { nom: string, contenu: string }[] {
  *    bordure au survol — la maquette le fait, et le premier écran qui la reprend l'a fait tomber.
  *    Un `[…]` entre crochets est une valeur arbitraire de Tailwind : elle nomme des propriétés
  *    CSS, jamais des jetons de couleur.
+ * 6. **Les STYLES de bordure.** `border-dashed` nomme un trait discontinu, pas une couleur —
+ *    `solid`, `dotted` et `double` sont dans le même cas. Relevé au cycle 004, sur l'encart « le
+ *    passage n'est pas proposé ici » de `G2`, premier composant du produit à employer un trait
+ *    discontinu. La maquette le fait ; le premier écran qui la reprend a fait tomber la porte.
  *
  * Une extraction qui produit des faux positifs est une porte qu'on désactive dans la semaine.
  *
@@ -136,7 +144,7 @@ function jetonsDeCouleur(contenu: string): Set<string> {
 
   /** Corps de texte, graisses, arrondis, directions de dégradé — tout ce qui n'est pas une couleur. */
   const NON_COULEURS
-    = /^(etiquette|mini|corps|action|lead|titre|chiffre|montant|recette|total|annonce|affiche|left|right|center|semibold|bold|medium|normal|xs|sm|base|lg|xl|pleine|transparent|current|inherit|linear|radial|conic|none)/
+    = /^(etiquette|mini|corps|action|lead|titre|chiffre|montant|recette|total|annonce|affiche|left|right|center|semibold|bold|medium|normal|xs|sm|base|lg|xl|pleine|transparent|current|inherit|linear|radial|conic|none|solid|dashed|dotted|double|hidden)/
 
   for (const capture of contenu.matchAll(motif)) {
     const jeton = capture[1]
@@ -203,12 +211,15 @@ describe('G1 — mode clair et mode sombre', () => {
     const noms = composantsG1().map(c => c.nom).sort()
 
     expect(noms).toEqual([
+      // ── Cycle 004 — la première verticale ──────────────────────────────────────────────
+      'CarteFormule.vue', // le motif central de `G2`
       'ChampSaisie.vue',
       // ── Cycle 003 — les quatre écrans ──────────────────────────────────────────────────
       'EcranAccueil.vue', // `R1`
       'EcranComptes.vue', // `G3`
       'EcranEtablissement.vue',
       'EcranJournalAudit.vue', // `G4`
+      'EcranOffre.vue', // `G2` — écran maquetté, deux états
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
       // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
@@ -228,6 +239,7 @@ describe('G1 — mode clair et mode sombre', () => {
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`
       'etablissement.vue', // `G1`
+      'hebergement.vue', // `G2`
       'index.vue', // `R1`
       'journal-audit.vue', // `G4`
     ])

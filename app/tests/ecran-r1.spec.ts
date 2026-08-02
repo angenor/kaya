@@ -179,17 +179,29 @@ describe('l’état vide est EXPLICITE', () => {
 
 describe('le catalogue ne promet que des écrans qui existent — principe X', () => {
   it('chaque tuile ouvre une route livrée par ce cycle ou le précédent', () => {
-    const routes = new Set(['/etablissement', '/comptes', '/journal-audit'])
+    const routes = new Set(['/etablissement', '/comptes', '/journal-audit', '/hebergement'])
 
     for (const tuile of CATALOGUE_TUILES) {
       expect(routes, `« ${tuile.code} » ouvre une route non livrée`).toContain(tuile.route)
     }
   })
 
-  it('aucune tuile n’exige de module d’activité à ce cycle', () => {
-    // Le mécanisme existe et est testé ci-dessous ; aucune tuile ne l'emploie, exactement comme
-    // les dix-sept permissions de `0016` ont toutes un `module_code` à `NULL`.
-    expect(CATALOGUE_TUILES.every(tuile => tuile.moduleRequis === undefined)).toBe(true)
+  it('la PREMIÈRE tuile rattachée à un module d’activité — et son mécanisme cesse d’être fictif', () => {
+    // Le cycle 003 écrivait ici « aucune tuile n'exige de module d'activité à ce cycle » : le
+    // mécanisme existait, filtré et testé, mais sur une cible **fabriquée par le test lui-même**.
+    // Le cycle 004 lui donne sa première cible réelle, exactement comme il donne à
+    // `permission.module_code` ses cinq premières valeurs non nulles.
+    const rattachees = CATALOGUE_TUILES.filter(tuile => tuile.moduleRequis !== undefined)
+
+    expect(rattachees.map(t => t.code)).toEqual(['hebergement-offre'])
+    expect(rattachees[0]!.moduleRequis).toBe('HEBERGEMENT')
+
+    // Et les autres restent transverses : une tuile qui exigerait un module par recopie
+    // disparaîtrait des établissements qui ne l'ont pas — un maquis n'a pas d'hébergement, et il
+    // doit garder ses réglages.
+    expect(
+      CATALOGUE_TUILES.filter(t => t.moduleRequis === undefined).map(t => t.code),
+    ).toEqual(['etablissement', 'comptes', 'journal-audit'])
   })
 
   it('le filtre par module fonctionne quand même — il ne se déclare pas', () => {

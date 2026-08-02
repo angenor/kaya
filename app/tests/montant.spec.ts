@@ -219,7 +219,23 @@ describe('une seule fonction porte la règle', () => {
       const relatif = relative(RACINE, fichier)
       if (relatif === MODULE_UNIQUE) continue
 
-      const contenu = readFileSync(fichier, 'utf8')
+      const brut = readFileSync(fichier, 'utf8')
+
+      // **Les commentaires sont retirés avant l'inspection**, et c'est le même raisonnement que
+      // `backend/tests/architecture.rs` applique à P-12 : ce que la porte interdit est un
+      // *appel*, pas une *mention*. Un composant qui documente pourquoi il n'emploie pas
+      // `Intl.NumberFormat` fait exactement ce qu'on lui demande — le faire échouer apprendrait à
+      // ne plus écrire la raison, ce qui est le contraire du but.
+      //
+      // Le retrait est volontairement grossier — lignes `//`, `*` de bloc — et c'est suffisant :
+      // un appel réel ne se cache pas derrière un préfixe de commentaire sans cesser de compiler.
+      const contenu = brut
+        .split('\n')
+        .filter((ligne) => {
+          const nu = ligne.trimStart()
+          return !nu.startsWith('//') && !nu.startsWith('*') && !nu.startsWith('/*')
+        })
+        .join('\n')
 
       // Le caractère lui-même, sous ses deux écritures. Le laisser passer suffirait à recréer un
       // second formateur : il n'y a pas d'autre raison d'écrire U+202F dans un composant.

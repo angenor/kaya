@@ -45,19 +45,45 @@ import en from '../core/i18n/en.json'
 import fr from '../core/i18n/fr.json'
 
 const RACINE = process.cwd()
-const MIGRATION = join(RACINE, '../backend/migrations/0016_roles_permissions.sql')
+
+/**
+ * **Le répertoire des migrations, pas un fichier.**
+ *
+ * Ce test lisait `0016_roles_permissions.sql` seul. Il suffisait tant que ce fichier portait
+ * toutes les permissions du produit ; le cycle 004 en ajoute cinq dans `0022`, et le message
+ * d'échec disait pourtant « ne figurent dans aucune migration » — au pluriel, pour un test qui
+ * n'en lisait qu'une.
+ *
+ * Le périmètre est donc le **répertoire**. Une permission ajoutée dans une migration future entre
+ * dans le référentiel sans qu'on ait à revenir ici : c'est ce qui distingue une porte d'une liste.
+ */
+const MIGRATIONS = join(RACINE, '../backend/migrations')
 
 /** Les arbres réellement balayés. Déclarés, et leur non-vacuité est vérifiée. */
 const ARBRES = ['core', 'modules', 'pages']
 
-/** Nomenclature `<module>.<objet>.<action>` — celle de la migration `0016`. */
+/** Nomenclature `<module>.<objet>.<action>` — celle des migrations `0016` et `0022`. */
 const FORME_PERMISSION = /'((?:etb|cpt|pdv|heb|cai|stk|fis)\.[a-z_]+\.[a-z_]+)'/g
 
-/** Les dix-sept codes du référentiel, lus de la migration qui les insère. */
+/**
+ * Les codes du référentiel, lus de **toutes** les migrations qui les insèrent.
+ *
+ * Le motif accepte les deux formes réelles : `module_code` à `NULL` (cycle 003) et `module_code`
+ * renseigné entre apostrophes (cycle 004, les premières permissions rattachées à un module).
+ */
 function referentiel(): Set<string> {
-  const sql = readFileSync(MIGRATION, 'utf8')
-  const codes = [...sql.matchAll(/\('((?:etb|cpt)\.[a-z_]+\.[a-z_]+)',\s+NULL,/g)].map(m => m[1]!)
-  return new Set(codes)
+  const codes = new Set<string>()
+  for (const fichier of readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql')).sort()) {
+    const sql = readFileSync(join(MIGRATIONS, fichier), 'utf8')
+    if (!sql.includes('INSERT INTO comptes.permission')) {
+      continue
+    }
+    const motif = /\('((?:etb|cpt|pdv|heb|cai|stk|fis)\.[a-z_]+\.[a-z_]+)',\s+(?:NULL|'[A-Z_]+')/g
+    for (const trouve of sql.matchAll(motif)) {
+      codes.add(trouve[1]!)
+    }
+  }
+  return codes
 }
 
 /** Tous les fichiers source d'un arbre. */
@@ -79,15 +105,17 @@ function fichiers(relatif: string): string[] {
 }
 
 describe('le référentiel est lisible et non vide', () => {
-  it('la migration 0016 porte bien les dix-sept permissions', () => {
+  it('les migrations portent bien les vingt-deux permissions', () => {
     // Une porte dont la cible est vide passe toujours : si l'extraction cassait — migration
     // renommée, format d'`INSERT` changé —, toutes les assertions suivantes deviendraient
     // vacuellement vraies. Celle-ci l'empêche.
     const codes = referentiel()
 
-    expect(codes.size).toBe(17)
+    // 17 au cycle 003, **22 depuis le cycle 004** — les cinq premières rattachées à un module.
+    expect(codes.size).toBe(22)
     expect(codes).toContain('cpt.role.attribuer')
     expect(codes).toContain('etb.service.basculer')
+    expect(codes).toContain('heb.unite.attribuer')
   })
 })
 
