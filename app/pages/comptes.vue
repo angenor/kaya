@@ -77,21 +77,23 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EcranComptes
-    v-if="donnees && contexte"
-    :comptes="donnees.comptes"
-    :referentiel-roles="donnees.referentielRoles"
-    :contexte="contexte"
-    :etablissement-id="etablissementId"
-    :permissions="permissions"
-    @comptes-changes="remplacerComptes"
-  />
-  <main
-    v-else
-    class="flex min-h-screen items-center justify-center bg-bg p-6"
-  >
-    <p class="font-texte text-corps text-ink-2">
-      {{ erreur ?? t('comptes.chargement') }}
-    </p>
-  </main>
+  <div class="flex flex-1 flex-col">
+    <EcranComptes
+      v-if="donnees && contexte"
+      :comptes="donnees.comptes"
+      :referentiel-roles="donnees.referentielRoles"
+      :contexte="contexte"
+      :etablissement-id="etablissementId"
+      :permissions="permissions"
+      @comptes-changes="remplacerComptes"
+    />
+    <div
+      v-else
+      class="flex flex-1 items-center justify-center p-6"
+    >
+      <p class="font-texte text-corps text-ink-2">
+        {{ erreur ?? t('comptes.chargement') }}
+      </p>
+    </div>
+  </div>
 </template>

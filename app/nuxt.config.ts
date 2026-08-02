@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 
 import { ROUTE_STYLEGUIDE, styleguideMonte, VARIABLE_STYLEGUIDE } from './core/design-system/montage'
+import { CLE_STOCKAGE } from './core/theme'
 
 // Application unique Kaya — Nuxt 4, mode SPA sous Tauri v2.
 //
@@ -71,9 +72,32 @@ export default defineNuxtConfig({
   // Mode sombre : la classe `.dark` sur `<html>`, consommée par le `@custom-variant dark` de
   // `theme.css`. **Jamais une seconde palette** (principe XII) — les noms de tokens sont
   // identiques en clair et en sombre, seules les valeurs changent sous `.dark`.
+  //
+  // Le script en ligne ci-dessous pose la classe **avant le premier pixel**, et c'est le seul
+  // endroit qui le peut. En SPA (`ssr: false`), la coquille est peinte avec
+  // `body { background-color: var(--color-bg) }` dès l'analyse du CSS, donc AVANT que le moindre
+  // module JavaScript ne s'exécute : `plugins/01.theme.client.ts` arrive après, et un utilisateur
+  // en mode sombre verrait un éclair blanc à chaque ouverture. Un scintillement à chaque
+  // démarrage est pire que pas de mode sombre — on le remarque, et on ne peut rien en faire.
+  //
+  // **En ligne, jamais un fichier d'hôte externe** : la porte P-21 refuse toute ressource
+  // distante, et celle-ci n'en est pas une. Le `try/catch` couvre le mode navigation privée de
+  // Safari, où `localStorage` lève à la lecture.
+  //
+  // La clé vient de `core/theme` — `CLE_STOCKAGE`, importée en haut de ce fichier — et non d'un
+  // littéral : c'est le seul lecteur du produit qui ne peut pas importer le module, il ne doit pas
+  // pour autant en recopier la valeur.
   app: {
     head: {
       htmlAttrs: { lang: 'fr' },
+      script: [{
+        tagPosition: 'head',
+        tagPriority: 'critical',
+        innerHTML:
+          `try{var m=localStorage.getItem(${JSON.stringify(CLE_STOCKAGE)});`
+          + `if(m==='sombre'||(!m&&matchMedia('(prefers-color-scheme: dark)').matches))`
+          + `document.documentElement.classList.add('dark')}catch(e){}`,
+      }],
     },
   },
 

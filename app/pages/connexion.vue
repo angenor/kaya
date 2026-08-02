@@ -150,7 +150,7 @@ async function seConnecter(): Promise<void> {
 </script>
 
 <template>
-  <main class="flex min-h-screen items-center justify-center bg-bg p-6">
+  <div class="flex flex-1 items-center justify-center p-6">
     <div class="w-full max-w-96">
       <header class="mb-6 flex flex-col gap-1">
         <p class="text-etiquette uppercase text-ink-3">
@@ -240,5 +240,5 @@ async function seConnecter(): Promise<void> {
         {{ t('connexion.sans_persistance') }}
       </p>
     </div>
-  </main>
+  </div>
 </template>

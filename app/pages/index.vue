@@ -13,23 +13,25 @@
  * Écrire son contenu dans la page ferait entrer le catalogue de tuiles et ses dépendances dans le
  * fragment de la route racine, que **tout le monde** télécharge.
  *
- * # Aucune session ⇒ la connexion, pas un écran vide
+ * # Aucune session ⇒ la connexion, pas un écran vide — et c'est le MIDDLEWARE qui s'en charge
  *
  * `R0` est l'écran par lequel tout le monde entre. Y renvoyer plutôt que d'afficher un accueil
  * sans tuiles évite de confondre « personne n'est connecté » et « ce compte n'a aucun droit », qui
  * se ressemblent à l'écran et n'ont rien à voir.
+ *
+ * Cette page portait la reprise de session **pour elle seule**, et les cinq autres routes ne
+ * l'avaient pas. Elle vit désormais dans `middleware/01.session.global.ts`, qui s'exécute avant
+ * chaque navigation. La rappeler ici serait une seconde source de la même règle, donc une
+ * divergence en attente : quand le middleware a laissé passer, la session existe.
  */
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
-import { reprendreSession, sessionCourante } from '~/core/auth'
-import { useEtatReseau } from '~/core/platform/reseau'
+import { sessionCourante } from '~/core/auth'
 import type { Permissions } from '~/core/rbac'
 
 const EcranAccueil = defineAsyncComponent(() => import('~/modules/accueil/EcranAccueil.vue'))
 
 const { t } = useI18n()
-const config = useRuntimeConfig()
-const reseau = useEtatReseau()
 
 const pret = ref(false)
 const session = ref(sessionCourante())
@@ -56,35 +58,30 @@ const modulesActifs = computed<readonly string[]>(() => [])
  */
 const nomAffichage = computed(() => t('accueil.utilisateur'))
 
-onMounted(async () => {
-  // Reprise silencieuse : le jeton de rafraîchissement survit au rechargement, et redemander le
-  // mot de passe à chaque ouverture d'onglet le ferait écrire sur un papier au comptoir.
-  if (!session.value) {
-    await reprendreSession(config.public.apiBaseUrl, reseau.value)
-    session.value = sessionCourante()
-  }
-
-  if (!session.value) {
-    await navigateTo('/connexion')
-    return
-  }
+onMounted(() => {
+  // Le middleware global a déjà repris la session — ou redirigé vers `R0`. Arriver ici sans
+  // session est impossible ; la garde du template le vérifie quand même, parce qu'une invariante
+  // qu'on affirme sans la relire finit par être fausse.
+  session.value = sessionCourante()
   pret.value = true
 })
 </script>
 
 <template>
-  <EcranAccueil
-    v-if="pret && session"
-    :nom-affichage="nomAffichage"
-    :permissions="permissions"
-    :modules-actifs="modulesActifs"
-  />
-  <main
-    v-else
-    class="flex min-h-screen items-center justify-center bg-bg p-6"
-  >
-    <p class="font-texte text-corps text-ink-2">
-      {{ t('accueil.chargement') }}
-    </p>
-  </main>
+  <div class="flex flex-1 flex-col">
+    <EcranAccueil
+      v-if="pret && session"
+      :nom-affichage="nomAffichage"
+      :permissions="permissions"
+      :modules-actifs="modulesActifs"
+    />
+    <div
+      v-else
+      class="flex flex-1 items-center justify-center p-6"
+    >
+      <p class="font-texte text-corps text-ink-2">
+        {{ t('accueil.chargement') }}
+      </p>
+    </div>
+  </div>
 </template>

@@ -62,18 +62,20 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EcranJournalAudit
-    v-if="page && contexte"
-    :page="page"
-    :contexte="contexte"
-    :etablissement-id="etablissementId"
-  />
-  <main
-    v-else
-    class="flex min-h-screen items-center justify-center bg-bg p-6"
-  >
-    <p class="font-texte text-corps text-ink-2">
-      {{ erreur ?? t('journal.chargement') }}
-    </p>
-  </main>
+  <div class="flex flex-1 flex-col">
+    <EcranJournalAudit
+      v-if="page && contexte"
+      :page="page"
+      :contexte="contexte"
+      :etablissement-id="etablissementId"
+    />
+    <div
+      v-else
+      class="flex flex-1 items-center justify-center p-6"
+    >
+      <p class="font-texte text-corps text-ink-2">
+        {{ erreur ?? t('journal.chargement') }}
+      </p>
+    </div>
+  </div>
 </template>

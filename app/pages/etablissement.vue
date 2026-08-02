@@ -65,6 +65,27 @@ const contexte = computed<ContexteAppel | null>(() => contexteAppel(config.publi
 const permissions = computed<Permissions>(() => sessionCourante()?.permissions ?? [])
 
 /**
+ * **L'établissement à afficher — la SESSION d'abord, pas la configuration.**
+ *
+ * Cette valeur se lisait `route.query.etablissement ?? config.public.etablissementId`, en sautant
+ * la session. Or `etablissementId` de la configuration vaut `''` depuis que CPT-01 a retiré les
+ * valeurs d'identité du `runtimeConfig` : la tuile de l'accueil, qui pointe `/etablissement` sans
+ * paramètre, produisait `GET /api/v1/etablissements/` — un **404**, et l'écran « Impossible
+ * d'afficher votre établissement » sur un établissement parfaitement lisible.
+ *
+ * `G1` était donc inatteignable depuis l'accueil, exactement comme `G3` et `G4`, et pour une
+ * raison différente. C'est la porte **P-22** qui l'a trouvé : aucun test ne l'avait vu, parce
+ * qu'aucun n'ouvrait la page par le chemin qu'un utilisateur emprunte.
+ *
+ * L'ordre retenu est celui des deux autres écrans — `comptes.vue`, `journal-audit.vue` — et il
+ * n'était dépareillé qu'ici. La `query` reste **en tête** : c'est elle qui permettra à ETB-06 de
+ * pointer un autre établissement que l'actif.
+ */
+const etablissementId = computed(() => String(
+  route.query.etablissement ?? sessionCourante()?.etablissementId ?? config.public.etablissementId,
+))
+
+/**
  * Remplace la liste des services après une écriture, **sans rechargement de page**.
  *
  * La nouvelle liste vient du serveur, relue par la section qui a écrit — jamais reconstruite à la
@@ -90,10 +111,7 @@ onMounted(async () => {
   const { chargerEcran } = await import('~/modules/etablissements/donnees')
   try {
     // Le contexte porte le jeton d'accès — `backend/api/src/contexte.rs`, refondu par CPT-01.
-    donnees.value = await chargerEcran(
-      contexte.value,
-      String(route.query.etablissement ?? config.public.etablissementId),
-    )
+    donnees.value = await chargerEcran(contexte.value, etablissementId.value)
   }
   catch {
     // Aucun détail technique à l'écran : l'utilisateur ne peut rien en faire, et le message
@@ -104,23 +122,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EcranEtablissement
-    v-if="donnees && contexte"
-    :etablissement="donnees.etablissement"
-    :services="donnees.services"
-    :referentiel-modules="donnees.referentielModules"
-    :points-de-vente="donnees.pointsDeVente"
-    :configuration="donnees.configuration"
-    :contexte="contexte"
-    :permissions="permissions"
-    @services-changes="remplacerServices"
-  />
-  <main
-    v-else
-    class="flex min-h-screen items-center justify-center bg-bg p-6"
-  >
-    <p class="font-texte text-corps text-ink-2">
-      {{ erreur ?? t('etablissement.chargement') }}
-    </p>
-  </main>
+  <div class="flex flex-1 flex-col">
+    <EcranEtablissement
+      v-if="donnees && contexte"
+      :etablissement="donnees.etablissement"
+      :services="donnees.services"
+      :referentiel-modules="donnees.referentielModules"
+      :points-de-vente="donnees.pointsDeVente"
+      :configuration="donnees.configuration"
+      :contexte="contexte"
+      :permissions="permissions"
+      @services-changes="remplacerServices"
+    />
+    <div
+      v-else
+      class="flex flex-1 items-center justify-center p-6"
+    >
+      <p class="font-texte text-corps text-ink-2">
+        {{ erreur ?? t('etablissement.chargement') }}
+      </p>
+    </div>
+  </div>
 </template>

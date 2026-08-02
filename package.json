@@ -22,10 +22,13 @@
     "porte:p19": "bash scripts/ci/maquettes-non-copiees.sh",
     "porte:p20": "bash scripts/ci/versions-epinglees.sh",
     "porte:p21": "bash scripts/ci/aucune-ressource-externe.sh",
-    "porte:p21b": "bash scripts/ci/ressources-embarquees.sh"
+    "porte:p21b": "bash scripts/ci/ressources-embarquees.sh",
+    "porte:p22": "bash scripts/ci/parcours-reel.sh",
+    "porte:p22:negatif": "bash scripts/ci/parcours-reel.sh --negatif"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
     "eslint": "10.8.0",
     "eslint-plugin-vue": "10.10.0",
     "typescript": "5.9.3",

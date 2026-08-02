@@ -13,6 +13,13 @@ debug/
 node_modules/
 dist/
 .output/
+
+# Artefacts de la porte P-22 (Playwright). `test-results/` porte des captures, des traces et un
+# état de session avec un jeton de rafraîchissement VALIDE : le commiter serait commiter une
+# session. `playwright-report/` est le rapport HTML, régénéré à chaque exécution.
+test-results/
+playwright-report/
+.playwright-artifacts-*/
 .nuxt/
 .nitro/
 .cache/

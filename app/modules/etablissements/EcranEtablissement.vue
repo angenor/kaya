@@ -72,7 +72,7 @@ const resume = computed(() =>
 </script>
 
 <template>
-  <main class="min-h-screen bg-bg font-texte text-ink">
+  <section class="flex flex-1 flex-col font-texte text-ink">
     <!-- Sélecteur d'établissement, repris de G2. Il n'OUVRE rien à ce cycle : le sélecteur de
          contexte est ETB-06, hors périmètre. Le chevron de G2 est donc absent — un chevron qui
          n'ouvre rien est une promesse non tenue. -->
@@ -113,5 +113,5 @@ const resume = computed(() =>
            `docs/design/derivation.md`, et « un écran absent des deux NE SE CODE PAS ». -->
       <SectionMentions />
     </div>
-  </main>
+  </section>
 </template>

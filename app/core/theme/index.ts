@@ -24,7 +24,17 @@
 
 export type ModeTheme = 'clair' | 'sombre' | 'systeme'
 
-const CLE_STOCKAGE = 'kaya.theme'
+/**
+ * Clé de stockage du mode retenu.
+ *
+ * **Exportée parce qu'un second lecteur existe, et qu'il ne peut pas importer ce module** : le
+ * script en ligne de `nuxt.config.ts` s'exécute dans le `<head>`, avant le moindre module
+ * JavaScript. Sans lui, la page se peint en clair puis bascule — un scintillement pire que pas de
+ * mode sombre du tout. Ce script est le seul autre endroit qui connaisse cette clé, et il la
+ * connaît **par cette constante**, pas par une chaîne recopiée : deux littéraux `'kaya.theme'`
+ * finiraient par en désigner deux.
+ */
+export const CLE_STOCKAGE = 'kaya.theme'
 
 /** Mode choisi par l'utilisateur, ou `systeme` par défaut. */
 export function modeChoisi(): ModeTheme {

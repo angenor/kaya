@@ -128,7 +128,7 @@ const OPTIONS_SERVICE = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg font-texte text-corps text-ink">
+  <div class="flex flex-1 flex-col font-texte text-corps text-ink">
     <!-- ══ En-tête et sommaire ══════════════════════════════════════════════════════════════ -->
     <header class="sticky top-0 z-10 border-b border-line bg-surf/95 backdrop-blur">
       <div class="mx-auto flex max-w-7xl flex-col gap-3 px-8 py-5">
@@ -157,7 +157,7 @@ const OPTIONS_SERVICE = [
       </div>
     </header>
 
-    <main class="mx-auto flex max-w-7xl flex-col gap-12 px-8 py-10">
+    <section class="mx-auto flex max-w-7xl flex-col gap-12 px-8 py-10">
       <!-- ══ MONTANTS ══════════════════════════════════════════════════════════════════════ -->
       <section
         id="montants"
@@ -1467,6 +1467,6 @@ const OPTIONS_SERVICE = [
           </div>
         </VitrineTheme>
       </section>
-    </main>
+    </section>
   </div>
 </template>

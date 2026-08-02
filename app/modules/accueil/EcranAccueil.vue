@@ -49,7 +49,7 @@ const initiale = computed(() => props.nomAffichage.trim().charAt(0).toUpperCase(
 </script>
 
 <template>
-  <main class="flex min-h-screen flex-col bg-bg">
+  <section class="flex flex-1 flex-col">
     <header class="flex h-16 items-center gap-3.5 border-b border-line bg-surf px-5">
       <span class="inline-flex size-9 shrink-0 items-center justify-center rounded-pleine bg-prim-soft font-titre text-corps font-semibold text-prim">
         {{ initiale }}
@@ -123,5 +123,5 @@ const initiale = computed(() => props.nomAffichage.trim().charAt(0).toUpperCase(
         </li>
       </ul>
     </div>
-  </main>
+  </section>
 </template>

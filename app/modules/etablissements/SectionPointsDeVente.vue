@@ -80,16 +80,22 @@ const aDesPointsDeVente = computed(() => props.pointsDeVente.length > 0)
       <div
         v-for="valeur in configuration"
         :key="valeur.cle"
-        class="flex w-full items-center gap-3 rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf p-3 shadow-basse"
+        class="flex w-full flex-col items-start gap-0.75 rounded-l-xs rounded-r-xl border border-line border-l-4 border-l-line-2 bg-surf p-3 text-left shadow-basse"
       >
-        <span class="flex min-w-0 flex-1 flex-col items-start gap-0.75 text-left">
-          <dt class="font-titre text-titre-s font-semibold text-ink">
-            {{ t(`configuration.${valeur.cle}.libelle`) }}
-          </dt>
-          <!-- L'origine, en mots d'utilisateur. C'est ce que `origine` obligatoire au résolveur
-               rend possible : sans elle, cette ligne n'existerait pas. -->
-          <dd class="text-mini text-ink-3">{{ t(cleOrigine(valeur.origine)) }}</dd>
-        </span>
+        <!-- Le `<span>` qui enveloppait ces deux nœuds a été retiré : `<dt>` et `<dd>` ne peuvent
+             pas être enfants d'un `<span>`, et le compilateur de Vue le signalait à chaque
+             construction — « can cause hydration errors ». La classe de mise en page passe donc
+             sur le `<div>` du `v-for`, qui est un enfant licite de `<dl>`.
+
+             Trouvé en lançant la porte P-22, qui démarre le serveur : l'avertissement sortait dans
+             sa sortie. Aucun des 440 tests front ne pouvait le voir — ils compilent les composants
+             sans lire les diagnostics du compilateur. -->
+        <dt class="min-w-0 flex-1 font-titre text-titre-s font-semibold text-ink">
+          {{ t(`configuration.${valeur.cle}.libelle`) }}
+        </dt>
+        <!-- L'origine, en mots d'utilisateur. C'est ce que `origine` obligatoire au résolveur
+             rend possible : sans elle, cette ligne n'existerait pas. -->
+        <dd class="text-mini text-ink-3">{{ t(cleOrigine(valeur.origine)) }}</dd>
       </div>
     </dl>
   </section>

@@ -1,21 +1,31 @@
 <script setup lang="ts">
-// Coquille de l'application unique.
+// **Le point de montage de l'application.**
 //
-// **Ce cycle ne produit aucun écran, et c'est une décision vérifiée, pas une omission** : les
-// onze codes d'écran maquettés de `docs/design/html/` sont C4, F2, G2, M4, P2, Q1, R1, R4, R7,
-// S2 et V1 — aucun ne couvre les notes d'établissement — et la matrice de dérivation
-// `docs/design/derivation.md` n'a aucune ligne pour cet écran. « Un écran qui n'hérite d'aucun
-// motif ne se code pas » (principe XII).
+// Ce fichier a longtemps porté un commentaire du cycle 001 — « ce cycle ne produit aucun écran » —
+// resté là deux cycles après que ce fut faux. Il portait aussi, et c'est plus grave, la totalité
+// de l'amorçage de l'application : rien. Ni plugin, ni middleware, ni layout. Chaque page
+// amorçait pour elle-même ce qu'elle avait pensé à amorcer, et cinq sur six avaient oublié la
+// reprise de session.
 //
-// La couche écran du module doré est donc reportée au cycle ETB, qui dispose d'écrans réellement
-// maquettés (G2, M4). Voir `docs/module-dore.md`, section « La septième couche, et pourquoi elle
-// manque ».
+// L'amorçage vit désormais aux trois endroits que Nuxt prévoit pour lui, et il n'y a plus rien à
+// faire ici qu'à les monter :
+//
+//   plugins/01.theme.client.ts       le thème, avant le premier rendu
+//   middleware/01.session.global.ts  la reprise de session, avant chaque navigation
+//   layouts/default.vue              la coquille : une racine stable, un seul `<main>`
+//
+// **`<NuxtLayout>` n'est PAS la racine, et ce `<div>` n'est pas décoratif.** NuxtLayout rend son
+// `<slot>` enveloppé dans un `<Transition>` ; le poser en racine reproduit la famille de défauts
+// que `layouts/default.vue` documente — un nœud dont le `parentNode` est nul au moment de la
+// transition. Le `<div>` l'enveloppe et lui donne un parent qui ne bouge pas.
 const { t } = useI18n()
 </script>
 
 <template>
   <div class="min-h-screen bg-surf text-ink">
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
     <p class="sr-only">
       {{ t('app.coquille') }}
     </p>
