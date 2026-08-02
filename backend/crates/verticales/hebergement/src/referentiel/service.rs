@@ -609,3 +609,59 @@ mod tests {
         }
     }
 }
+
+// =================================================================================================
+//  L'implémenteur de ParametrageFiscalHebergement — LA FRONTIÈRE DU PRINCIPE V
+// =================================================================================================
+
+/// Rend le paramétrage fiscal d'une formule. **Aucun calcul, jamais un montant.**
+///
+/// Un type à part plutôt qu'une méthode de plus sur [`ServiceReferentiel`] : le trait est destiné
+/// à `JurisdictionAdapter` (`socle/fiscalite`, T3), et lui donner accès au service entier lui
+/// donnerait aussi la création de formules. Un consommateur reçoit ce dont il a besoin, pas ce qui
+/// se trouvait à portée.
+pub struct ParametrageFiscalPostgres {
+    pool: PgPool,
+    tenant_id: Uuid,
+}
+
+impl ParametrageFiscalPostgres {
+    pub fn nouveau(pool: PgPool, tenant_id: Uuid) -> Self {
+        Self { pool, tenant_id }
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::traits::ParametrageFiscalHebergement for ParametrageFiscalPostgres {
+    async fn parametrage(
+        &self,
+        formule_id: Uuid,
+    ) -> Result<crate::traits::ParametrageFiscal, ErreurReferentiel> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let ligne = sqlx::query!(
+            r#"
+            SELECT assujettie_taxe_nuitee, regle_conversion_taxe
+            FROM hebergement.formule
+            WHERE id = $1
+            "#,
+            formule_id
+        )
+        .fetch_optional(&mut *tx)
+        .await?;
+
+        tx.rollback().await?;
+
+        let ligne = ligne.ok_or(ErreurReferentiel::FormuleInconnue)?;
+        let regle = match ligne.regle_conversion_taxe.as_deref() {
+            None => None,
+            Some(code) => Some(super::modele::RegleConversionTaxe::depuis_code(code)?),
+        };
+
+        Ok(crate::traits::ParametrageFiscal {
+            assujettie_taxe_nuitee: ligne.assujettie_taxe_nuitee,
+            regle_conversion: regle,
+        })
+    }
+}
