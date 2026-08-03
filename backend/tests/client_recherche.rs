@@ -480,3 +480,60 @@ async fn peupler_le_jeu_de_mesure(pool: &sqlx::PgPool, jeu: JeuTenant) {
         .await
         .expect("analyse de la table");
 }
+
+// =================================================================================================
+//  ★ SC-014 — la fiche client ne dépend d'AUCUN module d'activité
+// =================================================================================================
+
+/// ★ **Un établissement SANS module hébergement cherche et crée des fiches clientes.**
+///
+/// ⚠️ **Les sept tests ci-dessus n'activent aucun module — mais aucun ne le DIT.** Un test qui
+/// se trouve ne pas activer de module prouve la même chose qu'un test qui l'asserte, jusqu'au jour
+/// où quelqu'un ajoute une activation « pour faire comme les autres » : la propriété disparaît
+/// alors sans que rien ne rougisse.
+///
+/// # Ce que cette propriété protège, et quand elle comptera
+///
+/// La fiche client est du **tenant**, pas d'un module (FR-002), et ses deux permissions sont
+/// **transversales** (`module_code = NULL`, migration `0030`). Un **maquis** ou un **bar seul** en
+/// aura besoin dès **SEJ-05** — la vente à un client extérieur, sans hébergement.
+///
+/// Si la fiche client acquérait une dépendance à `HEBERGEMENT`, ce jour-là il faudrait soit créer
+/// une seconde permission de client, soit **activer un module d'hébergement dans un maquis** pour
+/// lire une fiche. Les deux sont absurdes, et le second passerait probablement.
+#[actix_web::test]
+async fn la_fiche_client_fonctionne_sans_aucun_module_d_activite() {
+    let owner = pool_owner().await;
+    let jeu = commun::creer_tenant(&owner, "SEJ — maquis sans hébergement").await;
+
+    // ── Aucun module n'est activé, et c'est ASSERTÉ ──────────────────────────────────────────
+    let modules: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM etablissements.etablissement_module WHERE etablissement_id = $1",
+    )
+    .bind(jeu.etablissement_id)
+    .fetch_one(&owner)
+    .await
+    .expect("comptage des modules");
+    assert_eq!(
+        modules, 0,
+        "ce test EXIGE un établissement sans module : avec un module actif, il ne prouverait plus          l'indépendance qu'il mesure"
+    );
+
+    let connexion = compte_connecte(&owner, jeu, "Yao", &[(ROLE, Some(jeu.etablissement_id))]).await;
+    let application = monter_application!(pool_app().await);
+
+    creer_fiche!(
+        application,
+        connexion.bearer,
+        json!({ "id": Uuid::now_v7(), "nom": "Gbagbo", "telephone": "+2250707998877" })
+    );
+
+    let resultat = rechercher!(application, connexion.bearer, "gbagbo");
+    assert_eq!(
+        noms_de_la_liste(&resultat),
+        vec!["Gbagbo".to_owned()],
+        "★ la fiche client doit fonctionner sans AUCUN module d'activité. Un maquis ou un bar seul \
+         en aura besoin dès SEJ-05 : si elle acquérait une dépendance à HEBERGEMENT, il faudrait \
+         activer un module d'hébergement dans un maquis pour lire une fiche."
+    );
+}
