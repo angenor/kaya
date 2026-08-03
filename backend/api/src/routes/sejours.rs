@@ -39,6 +39,7 @@ use crate::securite;
 /// Permissions du contrat, nommées une fois.
 const PERM_LIRE: &str = "heb.sejour.lire";
 const PERM_OUVRIR: &str = "heb.sejour.ouvrir";
+const PERM_CLORE: &str = "heb.sejour.clore";
 /// Permission **transversale** de la fiche client — l'historique en exige **deux**.
 const PERM_CLIENT_LIRE: &str = "sej.client.lire";
 
@@ -419,6 +420,63 @@ pub async fn retirer_accompagnant(
         .map_err(en_reponse)?;
 
     Ok(HttpResponse::Ok().json(accompagnant))
+}
+
+// =================================================================================================
+//  ★ 15 · POST .../sejours/{sejour_id}/depart — le départ
+// =================================================================================================
+
+/// Clôt un séjour — **une transaction, six étapes**.
+///
+/// # ⚠️ Le corps de requête ne porte AUCUN instant
+///
+/// **L'instant du départ est celui du serveur** (porte P-23). Le laisser fournir par le client
+/// permettrait d'**antidater une nuit** depuis un terminal dont on aurait reculé l'horloge — et
+/// la fraude serait indétectable après coup, l'horodatage étant celui qu'on aurait donné.
+///
+/// # ⚠️ Le corps de RÉPONSE rend `nuitees_assujetties: null` et `montant_mineur: null`
+///
+/// Et c'est **visible dans le contrat**. Les rendre à **zéro** laisserait croire que la taxe est
+/// nulle ; les rendre **absents**, qu'elle n'existe pas. `null` dit ce qui est vrai : **le montant
+/// n'est pas encore déterminé, il viendra de FIS-03** (tranche T3).
+///
+/// # La note se clôt ARRÊTÉE ET NON RÉGLÉE
+///
+/// L'encaissement est **CAI, tranche T2**. L'écran le dit en toutes lettres plutôt que de laisser
+/// croire à un paiement — une note arrêtée n'est pas une note payée, et les confondre produirait
+/// une caisse fausse.
+#[utoipa::path(
+    operation_id = "sejour_clore",
+    tag = "sejours",
+    params(
+        ("etablissement_id" = Uuid, Path, description = "Établissement"),
+        ("sejour_id" = Uuid, Path, description = "Séjour"),
+    ),
+    responses(
+        (status = 200, description = "Séjour clos — la note complète, les ajustements, le constat FIGÉ (montant de taxe à null)", body = SejourOuvert),
+        (status = 401, description = "Non authentifié"),
+        (status = 403, description = "Permission absente", body = CorpsErreur),
+        (status = 404, description = "Séjour inconnu", body = CorpsErreur),
+        (status = 409, description = "sejour_deja_clos", body = CorpsErreur),
+    ),
+    security(("bearer" = []))
+)]
+#[post("")]
+pub async fn clore(
+    etat: web::Data<EtatApplication>,
+    contexte: ContexteAppel,
+    chemin: web::Path<(Uuid, Uuid)>,
+) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_CLORE)?;
+    let (etablissement_id, sejour_id) = chemin.into_inner();
+
+    let sejour = etat
+        .service_sejour(contexte.tenant_id)
+        .clore(etablissement_id, sejour_id, contexte.compte_id)
+        .await
+        .map_err(en_reponse)?;
+
+    Ok(HttpResponse::Ok().json(sejour))
 }
 
 // =================================================================================================

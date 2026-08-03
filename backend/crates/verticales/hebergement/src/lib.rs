@@ -43,6 +43,7 @@
 //! | [`sejour`] | ★ **Le cœur du cycle 006** — arrivée, départ, prolongation, changement de chambre |
 //! | [`note`] | La note du séjour et ses lignes — **sous-ensemble hébergement seul** |
 //! | [`police`] | La fiche de police et sa numérotation continue **par établissement** |
+//! | [`taxe`] | Le **constat** figé au départ — des faits et un paramétrage recopié, **aucun montant** |
 
 #![forbid(unsafe_code)]
 
@@ -51,6 +52,7 @@ pub mod note;
 pub mod occupation;
 pub mod police;
 pub mod sejour;
+pub mod taxe;
 pub mod referentiel;
 pub mod tarification;
 pub mod traits;

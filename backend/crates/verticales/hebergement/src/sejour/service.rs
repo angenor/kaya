@@ -47,7 +47,9 @@ use crate::erreurs::{ErreurSejour, est_interblocage};
 use crate::note::{NouvelleLigne, repository as note_repo};
 use crate::occupation::{DemandeAttribution, service::ServiceOccupation};
 use crate::police::repository as police_repo;
+use crate::taxe::{ConstatAEcrire, nuits_calendaires, repository as taxe_repo};
 use crate::referentiel::FamilleFormule;
+use crate::traits::ParametrageFiscalHebergement;
 use crate::{Issue, MODULE_HEBERGEMENT};
 
 /// Nom de l'agrégat au grand livre.
@@ -59,6 +61,7 @@ pub const AGREGAT_ACCOMPAGNANT: &str = "hebergement.accompagnant";
 pub const TYPE_SEJOUR_OUVERT: &str = "heb.sejour.ouvert";
 pub const TYPE_FICHE_POLICE_GENEREE: &str = "heb.fiche_police.generee";
 pub const TYPE_ACCOMPAGNANT_AJOUTE: &str = "sej.accompagnant.ajoute";
+pub const TYPE_SEJOUR_CLOS: &str = "heb.sejour.clos";
 
 /// Version du format des charges utiles.
 pub const VERSION_SCHEMA_SEJOUR: i16 = 1;
@@ -109,6 +112,10 @@ const ESSAIS_MAX: u8 = 4;
 /// chaîne échapperait entièrement au contrôle des littéraux.
 const LIBELLE_HEBERGEMENT: &str = "hebergement.note.ligne.hebergement";
 
+/// Clés i18n des lignes d'**ajustement** — une par motif, jamais une chaîne composée.
+const LIBELLE_REBASCULE: &str = "hebergement.note.ligne.rebascule_palier";
+const LIBELLE_DEPART_ANTICIPE: &str = "hebergement.note.ligne.depart_anticipe";
+
 /// Service du séjour.
 ///
 /// # Pourquoi il porte tant de collaborateurs
@@ -121,12 +128,13 @@ const LIBELLE_HEBERGEMENT: &str = "hebergement.note.ligne.hebergement";
 /// | `annuaire_clients` | Une jointure `hebergement × comptes` (porte P-04) |
 /// | `annuaire` · `modules` | Un maquis qui ouvrirait un séjour sans module hébergement |
 /// | `outbox` | Un événement écrit hors de la transaction (porte P-05) |
-pub struct ServiceSejour<E, A, R, C>
+pub struct ServiceSejour<E, A, R, C, J>
 where
     E: OutboxWriter + Clone,
     A: EstablishmentDirectory + Clone,
     R: RegistreModules + Clone,
     C: AnnuaireClients,
+    J: kaya_comptes::audit::JournalAudit,
 {
     pool: PgPool,
     tenant_id: Uuid,
@@ -135,14 +143,26 @@ where
     modules: R,
     annuaire_clients: C,
     occupation: ServiceOccupation<E, A, R>,
+    /// ★ **Le moteur du cycle 004, consommé et jamais réimplémenté.**
+    ///
+    /// Recalculer le barème ici produirait une **seconde implémentation**, et les deux
+    /// divergeraient au premier changement de règle — sans que rien ne le signale, puisque toutes
+    /// deux continueraient de rendre un nombre.
+    tarification: crate::tarification::ServiceTarification<A, R, J>,
+    /// ★ **LA FRONTIÈRE DU PRINCIPE V.**
+    ///
+    /// Il rend un **paramétrage**, jamais un montant. Le départ le lit **une seule fois** pour le
+    /// **recopier** dans le constat. **Recopier n'est pas interpréter.**
+    parametrage_fiscal: crate::referentiel::service::ParametrageFiscalPostgres,
 }
 
-impl<E, A, R, C> ServiceSejour<E, A, R, C>
+impl<E, A, R, C, J> ServiceSejour<E, A, R, C, J>
 where
     E: OutboxWriter + Clone,
     A: EstablishmentDirectory + Clone,
     R: RegistreModules + Clone,
     C: AnnuaireClients,
+    J: kaya_comptes::audit::JournalAudit,
 {
     pub fn nouveau(
         pool: PgPool,
@@ -151,6 +171,7 @@ where
         annuaire: A,
         modules: R,
         annuaire_clients: C,
+        journal: J,
     ) -> Self {
         let occupation = ServiceOccupation::nouveau(
             pool.clone(),
@@ -159,6 +180,15 @@ where
             annuaire.clone(),
             modules.clone(),
         );
+        let tarification = crate::tarification::ServiceTarification::nouveau(
+            pool.clone(),
+            tenant_id,
+            annuaire.clone(),
+            modules.clone(),
+            journal,
+        );
+        let parametrage_fiscal =
+            crate::referentiel::service::ParametrageFiscalPostgres::nouveau(pool.clone(), tenant_id);
         Self {
             pool,
             tenant_id,
@@ -167,6 +197,8 @@ where
             modules,
             annuaire_clients,
             occupation,
+            tarification,
+            parametrage_fiscal,
         }
     }
 
@@ -618,6 +650,266 @@ where
     }
 
     // =============================================================================================
+    //  ★ CLORE — une transaction, six étapes
+    // =============================================================================================
+
+    /// Clôt un séjour : durée réelle, ajustement, **constat figé**, note arrêtée, unité libérée.
+    ///
+    /// # Les six étapes, et l'ordre n'est pas décoratif
+    ///
+    /// 1. **la durée réelle**, depuis `now()` de la base et l'instant d'autorité d'ouverture —
+    ///    jamais l'horloge d'un terminal (porte P-23) ;
+    /// 2. la décision du **`MoteurTarification` du cycle 004**, rebascule de palier comprise —
+    ///    **rien n'est réimplémenté** ;
+    /// 3. si la durée réelle diffère du prévu, `INSERT` d'une **ligne d'ajustement** portant son
+    ///    motif — **jamais un `UPDATE`** de la ligne initiale, ce que le privilège rend d'ailleurs
+    ///    impossible ;
+    /// 4. `INSERT` du **constat de taxe** — les faits **et** le paramétrage recopié ;
+    /// 5. arrêt de la note, clôture du séjour, libération de l'occupation **à l'instant réel** ;
+    /// 6. l'événement `heb.sejour.clos`, **dans la transaction**.
+    ///
+    /// # ★ Pourquoi le constat vient AVANT la clôture du séjour
+    ///
+    /// L'étape 4 lit le **nombre de personnes**, dérivé des accompagnants non retirés. La faire
+    /// après l'étape 5 ne changerait rien aujourd'hui — mais le jour où la clôture toucherait aux
+    /// accompagnants, le constat porterait un nombre postérieur au séjour qu'il décrit. L'ordre
+    /// rend la dépendance visible.
+    ///
+    /// # ⚠️ AUCUNE clôture automatique n'existe (FR-068)
+    ///
+    /// Un séjour dont la période prévue est dépassée reste `en_cours`, et **aucun worker ne le
+    /// clôt**. Une clôture d'office produirait une facturation **sans témoin** : personne n'aurait
+    /// vu le client partir, et le montant serait pourtant arrêté.
+    #[tracing::instrument(skip(self), fields(sejour.id = %sejour_id, tenant.id = %self.tenant_id))]
+    pub async fn clore(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        auteur_compte_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let etablissement = self
+            .annuaire
+            .etablissement(etablissement_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+            .ok_or(ErreurSejour::EtablissementInconnu)?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .clore_dans(&mut tx, etablissement_id, sejour_id, auteur_compte_id, &etablissement)
+            .await;
+
+        match resultat {
+            Ok(valeur) => {
+                tx.commit().await?;
+                Ok(valeur)
+            }
+            Err(erreur) => {
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    async fn clore_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        _auteur_compte_id: Uuid,
+        etablissement: &kaya_etablissements::Etablissement,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourDejaClos);
+        }
+
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        // ── 1 · LA DURÉE RÉELLE — depuis `now()` de la BASE ───────────────────────────────────
+        //
+        // ⚠️ **Jamais l'horloge d'un terminal** (porte P-23). Le laisser fournir par le client
+        // permettrait d'antidater une nuit — et `sejour_depart.rs` éprouve le comportement en
+        // rejouant le même départ avec une horloge décalée de ±1 h.
+        let instant_reel = repository::maintenant(tx).await?;
+
+        // L'occupation active du séjour — celle qui porte la période à régulariser.
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        // ── 2 · LA DÉCISION DU MOTEUR — rien n'est réimplémenté ───────────────────────────────
+        //
+        // Le `MoteurTarification` du cycle 004 décide, rebascule de palier comprise. Recalculer
+        // ici produirait une **seconde implémentation du barème**, et les deux divergeraient au
+        // premier changement de règle — sans que rien ne le signale, puisque les deux
+        // continueraient de rendre un nombre.
+        let decision = self
+            .tarification
+            .calculer(etablissement_id, occupation_id, _auteur_compte_id)
+            .await?;
+
+        // ── 3 · L'AJUSTEMENT — une LIGNE NOUVELLE, jamais un UPDATE ───────────────────────────
+        //
+        // Le privilège rend d'ailleurs l'`UPDATE` impossible sur `ligne_sejour`. Ce qui a été
+        // vendu reste écrit, ce qui l'a corrigé aussi : c'est ce qui rend l'histoire de la note
+        // relisible devant un client qui conteste.
+        let deja_facture: i64 = note.lignes.iter().map(|l| l.montant_mineur).sum();
+        let difference = decision.montant_du_mineur - deja_facture;
+
+        if difference != 0 {
+            // Deux motifs possibles, et ils ne se confondent pas : une **rebascule** est un
+            // dépassement de palier, un **départ anticipé** rend du temps. Le signe les distingue.
+            let (motif, libelle) = if difference > 0 {
+                ("rebascule_palier", LIBELLE_REBASCULE)
+            } else {
+                ("depart_anticipe", LIBELLE_DEPART_ANTICIPE)
+            };
+
+            note_repo::ajouter_ligne(
+                tx,
+                self.tenant_id,
+                note.id,
+                &NouvelleLigne {
+                    id: identifiant_ligne(sejour_id, 1),
+                    occupation_id: Some(occupation_id),
+                    nature: "ajustement",
+                    motif: Some(motif),
+                    libelle_cle: libelle.to_owned(),
+                    quantite: Decimal::ONE,
+                    prix_unitaire_mineur: difference,
+                    // **PEUT ÊTRE NÉGATIF** — un départ anticipé rembourse. Le type `Rebascule` du
+                    // cycle 004 le dit déjà, et aucun `CHECK` ne l'interdit en base.
+                    montant_mineur: difference,
+                    devise: note.devise.clone(),
+                    periode_debut: Some(occupation.debut_client),
+                    periode_fin: Some(instant_reel),
+                },
+            )
+            .await?;
+        }
+
+        // ── 4 · LE CONSTAT — des FAITS et un paramétrage RECOPIÉ, aucun montant ───────────────
+        //
+        // ★ **C'est la frontière du principe V.** `nuits_calendaires` rend **trois** pour trois
+        // nuits ; décider lesquelles sont assujetties est une règle fiscale qui ne vit que dans
+        // `JurisdictionAdapter` (porte P-12). `nuitees_assujetties` et `montant_mineur` restent
+        // **posées et vides**.
+        let parametrage = self
+            .parametrage_fiscal
+            .parametrage(occupation.formule_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?;
+
+        let personnes = repository::nombre_personnes(tx, sejour_id).await?;
+
+        taxe_repo::figer(
+            tx,
+            self.tenant_id,
+            &ConstatAEcrire {
+                id: identifiant_constat(sejour_id),
+                etablissement_id,
+                sejour_id,
+                nuits_constatees: nuits_calendaires(occupation.debut_client, instant_reel),
+                nombre_personnes: personnes,
+                periode_debut: occupation.debut_client,
+                periode_fin: instant_reel,
+                // ═══ RECOPIÉ, jamais référencé ═══
+                //
+                // Une formule éditée demain, un classement changé, une commune redécoupée ne
+                // doivent RIEN changer à ce séjour clos aujourd'hui (FR-063, SC-007).
+                formule_id: occupation.formule_id,
+                famille_formule: decision.formule_appliquee.code().to_owned(),
+                assujettie_taxe_nuitee: parametrage.assujettie_taxe_nuitee,
+                regle_conversion_taxe: parametrage
+                    .regle_conversion
+                    .map(|r| r.code().to_owned()),
+                // Le CODE du classement — `ETOILES`, `NON_CLASSE`, `RESIDENCE_MEUBLEE`. Le
+                // nombre d'étoiles n'entre pas au constat : il est porté par le classement de
+                // l'établissement, que FIS-03 relira si sa règle en dépend.
+                classement_etablissement: etablissement.classement.code().to_owned(),
+                commune: etablissement.commune.clone(),
+            },
+        )
+        .await?;
+
+        // ── 5 · ARRÊT DE LA NOTE, CLÔTURE, LIBÉRATION ────────────────────────────────────────
+        note_repo::arreter(tx, note.id).await?;
+        repository::clore(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourDejaClos)?;
+
+        // L'unité est libérée **à l'instant réel**, et le temps de remise en état court **à
+        // partir de là** — jamais depuis l'heure initialement prévue. Un client parti à 10 h
+        // laisse une chambre nettoyable à 10 h 30, pas à 12 h 30.
+        self.occupation
+            .liberer(etablissement_id, occupation_id)
+            .await?;
+
+        // ── 6 · L'ÉVÉNEMENT — dans la transaction ────────────────────────────────────────────
+        //
+        // ⚠️ **Charge utile complète** : le total, toutes les lignes, les ajustements et le
+        // constat. L'opération se reconstitue **sans consulter aucune autre table** (TRX-02) —
+        // le grand livre est rétroactif, et les tables qu'une projection relirait auront changé.
+        let vue = self.composer_ouvert(tx, sejour_id, occupation).await?;
+        let constat = taxe_repo::lire(tx, sejour_id).await?;
+
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_CLOS,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "clos_le": instant_reel.to_string(),
+                "duree_reelle_minutes": decision.duree_reelle_minutes,
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "lignes": vue.note.lignes.iter().map(|l| json!({
+                    "ligne_id": l.id,
+                    "nature": l.nature,
+                    "motif": l.motif,
+                    "libelle_cle": l.libelle_cle,
+                    "quantite": l.quantite,
+                    "prix_unitaire_mineur": l.prix_unitaire_mineur,
+                    "montant_mineur": l.montant_mineur,
+                    "devise": l.devise,
+                })).collect::<Vec<_>>(),
+                "constat_taxe": constat.as_ref().map(|c| json!({
+                    "nuits_constatees": c.nuits_constatees,
+                    "nombre_personnes": c.nombre_personnes,
+                    "assujettie_taxe_nuitee": c.assujettie_taxe_nuitee,
+                    "regle_conversion_taxe": c.regle_conversion_taxe,
+                    "classement_etablissement": c.classement_etablissement,
+                    "commune": c.commune,
+                    "fige_le": c.fige_le.to_string(),
+                    // ⚠️ **`null`, et c'est visible dans le contrat.** Zéro laisserait croire que
+                    // la taxe est nulle ; absent, qu'elle n'existe pas. `null` dit ce qui est
+                    // vrai : le montant n'est pas encore déterminé, il viendra de FIS-03.
+                    "nuitees_assujetties": c.nuitees_assujetties,
+                    "montant_mineur": c.montant_mineur,
+                })),
+            }),
+        )
+        .await?;
+
+        Ok(vue)
+    }
+
+    // =============================================================================================
     //  Lectures
     // =============================================================================================
 
@@ -1023,6 +1315,7 @@ const DISCRIMINANT_NOTE: u8 = 0x02;
 const DISCRIMINANT_LIGNE: u8 = 0x03;
 const DISCRIMINANT_FICHE: u8 = 0x04;
 const DISCRIMINANT_RECONCILIATION: u8 = 0x05;
+const DISCRIMINANT_CONSTAT: u8 = 0x06;
 
 /// Dérive un identifiant depuis celui du séjour, un discriminant de famille et un rang.
 ///
@@ -1059,6 +1352,10 @@ fn identifiant_reconciliation(accompagnant_id: Uuid) -> Uuid {
     deriver(accompagnant_id, DISCRIMINANT_RECONCILIATION, 0)
 }
 
+fn identifiant_constat(sejour_id: Uuid) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_CONSTAT, 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1089,6 +1386,7 @@ mod tests {
             identifiant_ligne(sejour, 0),
             identifiant_fiche(sejour),
             identifiant_reconciliation(sejour),
+            identifiant_constat(sejour),
         ];
         let mut uniques = derives.to_vec();
         uniques.sort();

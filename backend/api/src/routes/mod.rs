@@ -171,6 +171,10 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(sejours::lire_fiche_police),
     );
     config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart")
+            .service(sejours::clore),
+    );
+    config.service(
         scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client")
             .service(sejours::rattacher_client),
     );

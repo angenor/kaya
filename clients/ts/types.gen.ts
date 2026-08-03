@@ -780,6 +780,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clôt un séjour — **une transaction, six étapes**.
+         * @description # ⚠️ Le corps de requête ne porte AUCUN instant
+         *
+         *     **L'instant du départ est celui du serveur** (porte P-23). Le laisser fournir par le client
+         *     permettrait d'**antidater une nuit** depuis un terminal dont on aurait reculé l'horloge — et
+         *     la fraude serait indétectable après coup, l'horodatage étant celui qu'on aurait donné.
+         *
+         *     # ⚠️ Le corps de RÉPONSE rend `nuitees_assujetties: null` et `montant_mineur: null`
+         *
+         *     Et c'est **visible dans le contrat**. Les rendre à **zéro** laisserait croire que la taxe est
+         *     nulle ; les rendre **absents**, qu'elle n'existe pas. `null` dit ce qui est vrai : **le montant
+         *     n'est pas encore déterminé, il viendra de FIS-03** (tranche T3).
+         *
+         *     # La note se clôt ARRÊTÉE ET NON RÉGLÉE
+         *
+         *     L'encaissement est **CAI, tranche T2**. L'écran le dit en toutes lettres plutôt que de laisser
+         *     croire à un paiement — une note arrêtée n'est pas une note payée, et les confondre produirait
+         *     une caisse fausse.
+         */
+        post: operations["sejour_clore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/fiche-police": {
         parameters: {
             query?: never;
@@ -5567,6 +5603,65 @@ export interface operations {
             };
             /** @description Séjour ou client inconnus */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_clore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Séjour clos — la note complète, les ajustements, le constat FIGÉ (montant de taxe à null) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description sejour_deja_clos */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

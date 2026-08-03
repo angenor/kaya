@@ -330,6 +330,7 @@ impl EtatApplication {
         kaya_etablissements::etablissement::PgEstablishmentDirectory,
         kaya_etablissements::modules::PgRegistreModules,
         kaya_comptes::PgAnnuaireClients,
+        kaya_comptes::audit::JournalAuditPostgres,
     > {
         kaya_hebergement::sejour::ServiceSejour::nouveau(
             self.pool.clone(),
@@ -341,6 +342,10 @@ impl EtatApplication {
             ),
             kaya_etablissements::modules::PgRegistreModules::nouveau(self.pool.clone(), tenant_id),
             kaya_comptes::PgAnnuaireClients::nouveau(self.pool.clone()),
+            // Le registre des actions : la **rebascule de palier** s'y trace, et c'est « ce que
+            // le propriétaire achète » (cadrage §8.3) — l'écart exact que le cahier papier ne lui
+            // montrait pas.
+            kaya_comptes::audit::JournalAuditPostgres,
         )
     }
 
