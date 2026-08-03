@@ -169,29 +169,33 @@ valeurs, on réimplémente. Seule exception : `docs/design/theme.css`, copié te
 
 ## Note de fin de cycle 006 (SEJ) — ce qui a été codé, et ce qui ne l'a pas été
 
-**Deux écrans du cycle sont livrés : `R4` Le passage et `R3` Arrivée.** `R4` est maquetté, dans
-ses cinq états (`docs/design/html/R4-passage.html` et ses quatre variantes). Il est en **zone de vitesse** et ne
-se compose jamais : `docs/Kaya_Design.md` §1 est formel, et `R4` porte une intention dessinée
+**Trois écrans du cycle sont livrés : `R4` Le passage, `R3` Arrivée et `R7` La note et le
+départ.** `R4` est maquetté, dans ses cinq états (`docs/design/html/R4-passage.html` et ses quatre
+variantes). Il est en **zone de vitesse** et ne se compose jamais : `docs/Kaya_Design.md` §1 est formel, et `R4` porte une intention dessinée
 qu'un assemblage ne retrouverait pas — les tailles de la durée et de l'heure de fin, la place du
 prix sur le bouton.
 
 `R3` est **dérivé** de `R4` — *« parcours long : plus de champs, même grammaire »* — et sa ligne
 ci-dessus est passée à **« CODÉ »** dans le même changement que le fichier, jamais avant.
 
-**Deux écrans du périmètre restent à coder**, et leur ligne ci-dessus reste **« inscrit »** :
+`R7` est **maquetté**, et le codage a obligé à trancher ce que la maquette montre et que le
+produit ne sert pas encore : **quatre sections de note sur cinq**, et **trois éléments de son
+volet droit**. Les sections manquantes sont rendues **en creux, nommées** ; les trois éléments
+sont **retirés**. Et le retrait du troisième — le sous-titre « compte final, encaissement,
+facture » — oblige l'écran à dire ce qui se passe vraiment : la note se ferme **arrêtée et non
+réglée**. Sans cette phrase, l'écran laisserait croire au paiement, et le trou se découvrirait au
+comptage de caisse, sans qu'on sache à quel séjour il se rattache.
+
+**Un écran du périmètre reste à coder**, et sa ligne ci-dessus reste **« inscrit »** :
 
 | Écran | État | Ce qui manque |
 |---|---|---|
-| `R7` La note et le départ | **maquetté**, non codé | L'écran de départ ; son API est livrée et testée |
 | `R5` Fiche client et recherche | **inscrit**, non codé | La liste et la fiche — dérivent de `R7` |
 
-⚠️ **Ces deux lignes ne passent PAS à « codé », et c'est le point.** `derivation.md` est
+⚠️ **Cette ligne ne passe PAS à « codé », et c'est le point.** `derivation.md` est
 **opposable** : la porte P-19 s'en sert pour autoriser un écran sans maquette. Inscrire « codé »
 sur un écran qui n'existe pas ferait mentir le seul document qui dise ce qui a le droit d'être
 codé — et le mensonge serait invisible, puisque rien ne relit un tableau de dérivation contre le
 système de fichiers.
 
-**Leur API est livrée, testée et au contrat** : les dix-sept opérations du cycle sont servies, et
-`R7` a même la particularité d'avoir son moteur complet — départ, prolongation, changement
-d'unité, constat de taxe figé — sans son écran. C'est un état inhabituel et il vaut d'être nommé :
-le cycle a livré **le fond avant la forme**, ce qui est l'inverse de l'ordre habituel du produit.
+**Son API est livrée, testée et au contrat** : les dix-sept opérations du cycle sont servies.

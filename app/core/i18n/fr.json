@@ -415,6 +415,15 @@
         "intervalle_invalide": "La fin doit être après le début.",
         "duree_hors_contrainte": "Cette formule se loue de {min} à {max}."
       }
+    },
+    "note": {
+      "ligne": {
+        "hebergement": "Hébergement",
+        "rebascule_palier": "Changement de palier",
+        "depart_anticipe": "Départ anticipé",
+        "prolongation": "Prolongation",
+        "changement_unite": "Changement de chambre"
+      }
     }
   },
   "sync": {
@@ -538,6 +547,63 @@
         "total_personnes": "{n} personne(s) au total, vous compris le titulaire.",
         "capacite_depassee": "Cette chambre est prévue pour {n} personne(s). Vous pouvez continuer."
       }
+    },
+    "note": {
+      "titre": "La note de la chambre",
+      "chambre_et_client": "Chambre {chambre} · {client}",
+      "client_sans_fiche": "Client sans fiche",
+      "sous_titre": "Arrivée {arrivee} · départ {depart} · {personnes} personne(s)",
+      "du_au": "du {debut} au {fin}",
+      "section": {
+        "hebergement": "Hébergement",
+        "restaurant": "Restaurant",
+        "bar": "Bar",
+        "autres_frais": "Autres frais",
+        "taxes": "Taxes"
+      },
+      "section_a_venir": "Aucune consommation ne peut encore être portée sur cette note : les points de vente ne sont pas ouverts sur cet appareil.",
+      "taxes_a_venir": "Les taxes ne sont pas encore calculées sur cette note. Les éléments du calcul sont enregistrés au départ du client.",
+      "sous_total_hebergement": "Sous-total hébergement",
+      "total_provisoire": "Total provisoire",
+      "total_provisoire_aide": "Le séjour est en cours : ce montant peut encore changer, et les taxes ne sont pas comprises.",
+      "total_arrete": "Total arrêté",
+      "total_arrete_aide": "Ce montant ne bouge plus. Les taxes ne sont pas comprises.",
+      "motif": {
+        "rebascule_palier": "La durée dépasse le palier : le tarif a changé.",
+        "depart_anticipe": "Départ avant l'heure prévue.",
+        "prolongation": "Nuit ou heure ajoutée.",
+        "changement_unite": "Changement de chambre."
+      }
+    },
+    "depart": {
+      "chargement": "Chargement des séjours…",
+      "chargement_impossible": "Les séjours n'ont pas pu être chargés.",
+      "en_cours": "Séjours en cours",
+      "aucun_sejour": "Aucun séjour en cours dans cet établissement.",
+      "choisir_un_sejour": "Choisissez un séjour pour voir sa note.",
+      "personnes_et_fin": "{n} personne(s) · fin prévue {heure}",
+      "note_illisible": "Cette note n'a pas pu être lue. Réessayez dans un instant.",
+      "fiche_police": "Fiche de police",
+      "fiche_numero": "n° {numero}",
+      "fiche_complete": "Identité enregistrée",
+      "fiche_incomplete": "Identité à compléter",
+      "faire_partir": "Faire partir le client",
+      "ce_que_fait_le_depart": "Le départ arrête la note et libère la chambre. Aucun paiement n'est enregistré et aucune facture n'est produite.",
+      "c_est_fait": "Le client est parti",
+      "note_non_reglee": "La note est arrêtée et n'est pas réglée. Encaissez le montant hors de l'application, puis notez-le sur votre cahier de caisse.",
+      "hors_ligne": "Sans connexion, un client ne peut pas partir. Reconnectez-vous pour arrêter cette note.",
+      "refus": {
+        "sejour_deja_clos": "Ce séjour est déjà terminé.",
+        "sejour_inconnu": "Ce séjour est introuvable.",
+        "service_inactif": "L'hébergement n'est pas proposé par cet établissement.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "permission": "Cette action ne vous est pas accessible.",
+        "reseau": "Cette action nécessite internet.",
+        "inattendue": "Ce départ a été refusé. Réessayez dans un instant."
+      }
     }
+  },
+  "documents": {
+    "mention_non_fiscale": "Document non fiscal — ne tient pas lieu de facture"
   }
 }

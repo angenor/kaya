@@ -106,9 +106,17 @@ export interface AccompagnantSaisi {
   prenoms?: string
 }
 
-/** Ce dont l'écran `R7` a besoin. */
+/**
+ * Ce dont l'écran `R7` a besoin **au montage**.
+ *
+ * `codesUnites` associe l'identifiant d'une chambre au code que l'exploitant lit sur la clé —
+ * `B3`, `204`. ⚠️ **Il vient de l'état des unités, jamais d'une jointure côté serveur** : le
+ * séjour porte `unite_id`, et lui faire porter le code obligerait à le recopier dans
+ * `hebergement.sejour`, où il se figerait au premier renommage de chambre.
+ */
 export interface DonneesDepart {
   sejours: SejourVue[]
+  codesUnites: Record<string, string>
 }
 
 /**
@@ -183,12 +191,12 @@ export async function rechargerEtatDesUnites(
   return reponse.data
 }
 
-/** Charge les séjours en cours d'un établissement — écran `R7`. */
+/** Charge les séjours en cours d'un établissement — la liste seule, après une écriture. */
 export async function chargerSejours(
   contexte: ContexteAppel,
   etablissementId: string,
   enCoursSeulement = true,
-): Promise<DonneesDepart> {
+): Promise<SejourVue[]> {
   const client = clientKaya(contexte.baseUrl)
   const reponse = await client.GET(
     '/api/v1/etablissements/{etablissement_id}/sejours',
@@ -204,7 +212,55 @@ export async function chargerSejours(
   if (reponse.error || !reponse.data) {
     throw new Error(`séjours illisibles pour ${etablissementId}`)
   }
-  return { sejours: reponse.data }
+  return reponse.data
+}
+
+/**
+ * Charge l'écran de départ — **deux appels, en parallèle**.
+ *
+ * Les séjours en cours et les codes de chambre ne dépendent pas l'un de l'autre, et le réseau
+ * d'Abengourou fait payer chaque aller-retour séquentiel.
+ */
+export async function chargerDepart(
+  contexte: ContexteAppel,
+  etablissementId: string,
+): Promise<DonneesDepart> {
+  const [sejours, etat] = await Promise.all([
+    chargerSejours(contexte, etablissementId),
+    rechargerEtatDesUnites(contexte, etablissementId),
+  ])
+
+  return {
+    sejours,
+    codesUnites: Object.fromEntries(etat.unites.map((u) => [u.unite_id, u.code])),
+  }
+}
+
+/**
+ * Charge **un** séjour complet — le séjour, l'occupation, la note et ses lignes, la fiche de
+ * police.
+ *
+ * Un seul appel rend les quatre : la note d'un séjour n'a aucun sens sans son séjour, et les
+ * demander séparément afficherait un instant une note sans en-tête.
+ */
+export async function chargerSejour(
+  contexte: ContexteAppel,
+  etablissementId: string,
+  sejourId: string,
+): Promise<SejourOuvert> {
+  const client = clientKaya(contexte.baseUrl)
+  const reponse = await client.GET(
+    '/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}',
+    {
+      params: { path: { etablissement_id: etablissementId, sejour_id: sejourId } },
+      headers: enTetesAuth(contexte),
+    },
+  )
+
+  if (reponse.error || !reponse.data) {
+    throw new Error(`séjour ${sejourId} illisible`)
+  }
+  return reponse.data
 }
 
 /**

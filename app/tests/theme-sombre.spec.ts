@@ -230,6 +230,8 @@ describe('G1 — mode clair et mode sombre', () => {
       'EcranArrivee.vue', // `R3` — le parcours long, même grammaire
       'EcranChambres.vue', // `G5` — écran COMPOSÉ, sans maquette
       'EcranComptes.vue', // `G3`
+      // ── Cycle 006 — le départ, écran MAQUETTÉ (`R7-note-depart.html`) ──────────────────
+      'EcranDepart.vue',
       'EcranEtablissement.vue',
       'EcranJournalAudit.vue', // `G4`
       // ── Cycle 005 — l'écran composé de la note interne, premier passager de la file ────
@@ -241,6 +243,9 @@ describe('G1 — mode clair et mode sombre', () => {
       'GrilleUnites.vue', // `R4` — l'attribution d'un seul tap
       'ListeAccompagnants.vue', // `R3` — un nom suffit par accompagnant
       'ListeUnites.vue',
+      // `R7` — la note. Elle porte l'ocre des en-têtes de section et la mention obligatoire :
+      // trois tons distincts sur un document, donc un endroit où une seconde palette se glisserait.
+      'NoteSejour.vue',
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
       // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
@@ -265,6 +270,7 @@ describe('G1 — mode clair et mode sombre', () => {
       'chambres.vue', // `G5`
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`
+      'depart.vue', // `R7`
       'etablissement.vue', // `G1`
       'hebergement.vue', // `G2`
       'index.vue', // `R1`

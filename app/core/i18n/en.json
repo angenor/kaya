@@ -415,6 +415,15 @@
         "intervalle_invalide": "The end must be after the start.",
         "duree_hors_contrainte": "This rate plan is booked from {min} to {max}."
       }
+    },
+    "note": {
+      "ligne": {
+        "hebergement": "Accommodation",
+        "rebascule_palier": "Tier change",
+        "depart_anticipe": "Early departure",
+        "prolongation": "Extension",
+        "changement_unite": "Room change"
+      }
     }
   },
   "sync": {
@@ -538,6 +547,63 @@
         "total_personnes": "{n} person(s) in total, including the main guest.",
         "capacite_depassee": "This room is intended for {n} person(s). You can continue."
       }
+    },
+    "note": {
+      "titre": "The room bill",
+      "chambre_et_client": "Room {chambre} · {client}",
+      "client_sans_fiche": "Guest without a record",
+      "sous_titre": "Arrival {arrivee} · departure {depart} · {personnes} person(s)",
+      "du_au": "from {debut} to {fin}",
+      "section": {
+        "hebergement": "Accommodation",
+        "restaurant": "Restaurant",
+        "bar": "Bar",
+        "autres_frais": "Other charges",
+        "taxes": "Taxes"
+      },
+      "section_a_venir": "No consumption can be added to this bill yet: points of sale are not open on this device.",
+      "taxes_a_venir": "Taxes are not yet computed on this bill. The elements of the calculation are recorded when the guest leaves.",
+      "sous_total_hebergement": "Accommodation subtotal",
+      "total_provisoire": "Provisional total",
+      "total_provisoire_aide": "The stay is ongoing: this amount can still change, and taxes are not included.",
+      "total_arrete": "Final total",
+      "total_arrete_aide": "This amount will not change. Taxes are not included.",
+      "motif": {
+        "rebascule_palier": "The duration exceeds the tier: the rate changed.",
+        "depart_anticipe": "Departure before the expected time.",
+        "prolongation": "Night or hour added.",
+        "changement_unite": "Room change."
+      }
+    },
+    "depart": {
+      "chargement": "Loading stays…",
+      "chargement_impossible": "Stays could not be loaded.",
+      "en_cours": "Ongoing stays",
+      "aucun_sejour": "No ongoing stay in this establishment.",
+      "choisir_un_sejour": "Choose a stay to see its bill.",
+      "personnes_et_fin": "{n} person(s) · expected end {heure}",
+      "note_illisible": "This bill could not be read. Try again in a moment.",
+      "fiche_police": "Police record",
+      "fiche_numero": "no. {numero}",
+      "fiche_complete": "Identity recorded",
+      "fiche_incomplete": "Identity to be completed",
+      "faire_partir": "Check the guest out",
+      "ce_que_fait_le_depart": "Departure closes the bill and frees the room. No payment is recorded and no invoice is produced.",
+      "c_est_fait": "The guest has left",
+      "note_non_reglee": "The bill is closed and unpaid. Collect the amount outside the application, then write it in your cash book.",
+      "hors_ligne": "Without a connection, a guest cannot be checked out. Reconnect to close this bill.",
+      "refus": {
+        "sejour_deja_clos": "This stay is already over.",
+        "sejour_inconnu": "This stay cannot be found.",
+        "service_inactif": "Accommodation is not offered by this establishment.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "permission": "This action is not available to you.",
+        "reseau": "This action requires the internet.",
+        "inattendue": "This departure was refused. Try again in a moment."
+      }
     }
+  },
+  "documents": {
+    "mention_non_fiscale": "Non-fiscal document — does not serve as an invoice"
   }
 }
