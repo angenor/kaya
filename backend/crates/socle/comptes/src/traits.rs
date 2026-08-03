@@ -279,6 +279,133 @@ impl AnnuaireComptes for ControleAccesPostgres {
     }
 }
 
+// =================================================================================================
+//  AnnuaireClients — exposé à `verticales/hebergement`, cycle 006
+// =================================================================================================
+
+/// Échec de lecture de l'annuaire des clients.
+///
+/// **Aucune variante ne distingue « client inconnu » de « client d'un autre tenant »** : les deux
+/// rendent une absence, et les distinguer donnerait de quoi savoir qu'un identifiant existe
+/// ailleurs. Même raisonnement qu'[`ErreurAcces`].
+#[derive(Debug, thiserror::Error)]
+pub enum ErreurAnnuaireClients {
+    #[error("lecture de l'annuaire des clients impossible : {0}")]
+    Base(#[from] sqlx::Error),
+
+    #[error("contexte de tenant : {0}")]
+    ContexteTenant(#[from] kaya_etablissements::tenant_context::ErreurContexteTenant),
+}
+
+/// L'annuaire des clients, tel qu'une **verticale** le lit — **jamais par jointure**.
+///
+/// # Ce que ce trait empêche, et pourquoi il n'a aucun garde-fou naturel
+///
+/// Un séjour affiche toujours le nom de son client. C'est la jointure
+/// `hebergement.sejour × comptes.personne` que tout le monde écrirait — et P-04 l'attraperait,
+/// mais **après coup**, une fois l'écran écrit.
+///
+/// *Une alternative qui existe se prend ; une alternative à construire se contourne.* C'est le
+/// raisonnement d'`EstablishmentDirectory`, posé au cycle 001, et il vaut ici avec un appelant
+/// réel en plus — le service de séjour, sur trois chemins : la liste des séjours en cours (`R7`),
+/// la fiche d'un séjour, et la reconnaissance d'un client au passage (`R4`, « M. Bakayoko —
+/// 7ᵉ passage »).
+///
+/// # ⚠️ Le sens INVERSE est interdit, et il est plus dangereux
+///
+/// **`socle/comptes` ne lit JAMAIS `hebergement.sejour`.** L'historique des séjours d'un client
+/// (`GET /clients/{id}/sejours`) paraît appartenir au client ; il est servi **depuis le crate
+/// `hebergement`**. Autrement, ce serait deux violations d'un coup — jointure inter-schémas
+/// (**P-04**) *et* arête `socle/ → verticales/` (**P-03**).
+#[async_trait::async_trait]
+pub trait AnnuaireClients: Send + Sync {
+    /// Les résumés de plusieurs clients, **en une requête**.
+    ///
+    /// ⚠️ **`resumes(&[Uuid])`, jamais `resume(Uuid)`.** Une signature unitaire produirait N+1
+    /// requêtes sur la liste des séjours en cours — et c'est le détail qui décide si l'écran de
+    /// départ s'ouvre en 200 ms ou en deux secondes. La forme par lot n'est pas une optimisation
+    /// prématurée : elle est **la seule qui ne se dégrade pas** quand la liste grandit.
+    ///
+    /// Les identifiants inconnus sont **absents** de la réponse, jamais rendus en `None` : un
+    /// séjour dont le client a été purgé (TRX-06) reste lisible, **sans nom**. Rendre une entrée
+    /// vide obligerait chaque appelant à distinguer « purgé » de « jamais rattaché », deux cas
+    /// qu'aucun écran ne présente différemment.
+    async fn resumes(
+        &self,
+        tenant_id: Uuid,
+        ids: &[Uuid],
+    ) -> Result<Vec<crate::client::ClientResume>, ErreurAnnuaireClients>;
+
+    /// Le client existe et appartient au tenant courant.
+    ///
+    /// Appelé par l'ouverture d'un séjour pour refuser un `client_id` **inventé**. La politique de
+    /// sécurité empêcherait déjà la lecture d'un client d'un autre tenant, mais un refus explicite
+    /// vaut mieux qu'une ligne orpheline qu'aucune contrainte ne peut interdire — la clé étrangère
+    /// étant impossible entre deux schémas (principe II).
+    async fn existe(&self, tenant_id: Uuid, id: Uuid) -> Result<bool, ErreurAnnuaireClients>;
+}
+
+/// Implémentation PostgreSQL de [`AnnuaireClients`].
+///
+/// ⚠️ **Elle ne déchiffre aucun numéro de pièce et n'en journalise donc aucun accès.**
+/// `ClientResume` porte `piece_enregistree`, un booléen — ce dont la fiche de police a besoin
+/// **sans lire la pièce** (FR-047). Laisser le numéro traverser vers une verticale multiplierait
+/// les endroits où la rétention de 90 jours de TRX-06 devra le purger.
+#[derive(Debug, Clone)]
+pub struct PgAnnuaireClients {
+    pool: PgPool,
+}
+
+impl PgAnnuaireClients {
+    pub fn nouveau(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait::async_trait]
+impl AnnuaireClients for PgAnnuaireClients {
+    async fn resumes(
+        &self,
+        tenant_id: Uuid,
+        ids: &[Uuid],
+    ) -> Result<Vec<crate::client::ClientResume>, ErreurAnnuaireClients> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut tx = self.pool.begin().await?;
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id).await?;
+        let liste = crate::client::repository::resumes(&mut tx, ids)
+            .await
+            .map_err(en_erreur_annuaire)?;
+        tx.rollback().await?;
+        Ok(liste)
+    }
+
+    async fn existe(&self, tenant_id: Uuid, id: Uuid) -> Result<bool, ErreurAnnuaireClients> {
+        let mut tx = self.pool.begin().await?;
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id).await?;
+        let trouve = crate::client::repository::existe(&mut tx, id)
+            .await
+            .map_err(en_erreur_annuaire)?;
+        tx.rollback().await?;
+        Ok(trouve)
+    }
+}
+
+/// Réduit une [`crate::client::ErreurClient`] aux deux causes que l'annuaire peut rencontrer.
+///
+/// Les autres variantes — validation, coffre, registre — ne sont pas atteignables depuis une
+/// lecture par lot : les faire remonter dans le type de l'annuaire donnerait à une verticale de
+/// quoi connaître les refus de validation du socle.
+fn en_erreur_annuaire(erreur: crate::client::ErreurClient) -> ErreurAnnuaireClients {
+    match erreur {
+        crate::client::ErreurClient::Base(e) => ErreurAnnuaireClients::Base(e),
+        crate::client::ErreurClient::ContexteTenant(e) => ErreurAnnuaireClients::ContexteTenant(e),
+        autre => ErreurAnnuaireClients::Base(sqlx::Error::Protocol(autre.to_string())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

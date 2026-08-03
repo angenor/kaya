@@ -44,6 +44,152 @@ pub fn est_violation_exclusion(erreur: &sqlx::Error, contrainte: &str) -> bool {
             && e.constraint() == Some(contrainte))
 }
 
+// =================================================================================================
+//  Les refus du séjour — cycle 006
+// =================================================================================================
+
+/// Le type de refus du parcours de séjour.
+///
+/// # Chaque variante porte un CODE STABLE, et c'est le contrat avec l'écran
+///
+/// L'interface branche sa clé i18n sur le **code**, jamais sur le message de diagnostic — qui
+/// nomme des tables et parle anglais technique (règle du cycle 002). Les six refus du cycle sont
+/// au lexique v1.6.0 **avant** d'être codés.
+///
+/// # ⚠️ Deux `409` qui ne se confondent pas
+///
+/// - [`ErreurSejour::UniteDejaOccupee`] — une **période demandée** chevauche une occupation. Vient
+///   de la contrainte d'exclusion, jamais d'une vérification préalable.
+/// - [`ErreurSejour::UniteCibleOccupee`] — la **période restante** d'un séjour en cours ne peut
+///   pas être servie par l'unité visée, au changement de chambre.
+///
+/// Les distinguer n'est pas cosmétique : Adjoua explique la première au client qui arrive, la
+/// seconde au client déjà installé. Une phrase unique la ferait paraître incompétente dans un des
+/// deux cas.
+#[derive(Debug, thiserror::Error)]
+pub enum ErreurSejour {
+    /// Le séjour est déjà terminé. Terme utilisateur : « Ce séjour est déjà terminé. »
+    #[error("sejour_deja_clos")]
+    SejourDejaClos,
+
+    /// Prolongation d'un séjour clos. **Distinct du précédent, et la phrase l'est aussi** :
+    /// « On ne prolonge pas un séjour terminé. » — elle dit la RÈGLE, pas l'état, ce qui évite
+    /// qu'Adjoua cherche comment « rouvrir » le séjour.
+    #[error("sejour_clos")]
+    SejourClos,
+
+    /// ★ **Le refus qui NOMME son conflit** (FR-070).
+    ///
+    /// Il porte l'unité, l'instant de début de l'occupation suivante, et les unités alternatives
+    /// libres sur l'intervalle étendu. Un message générique est un **défaut** : c'est la
+    /// différence entre un refus qu'Adjoua peut expliquer au client et un refus qu'elle
+    /// contournera.
+    #[error("conflit_occupation_suivante")]
+    ConflitOccupationSuivante,
+
+    /// L'unité visée par un changement de chambre n'est pas libre sur la période restante.
+    #[error("unite_cible_occupee")]
+    UniteCibleOccupee,
+
+    /// Le franchissement de `seuil_bascule_nuitee_minutes` **doit être confirmé avant** (FR-073).
+    ///
+    /// Le corps porte le montant résultant, et la requête se rejoue avec `bascule_acceptee: true`.
+    /// Annoncer un changement de tarif **après** l'avoir appliqué serait le contraire de ce que le
+    /// cadrage §8.3 vend au propriétaire.
+    #[error("bascule_formule_non_confirmee")]
+    BasculeFormuleNonConfirmee,
+
+    #[error("sejour_inconnu")]
+    SejourInconnu,
+
+    #[error("note_inconnue")]
+    NoteInconnue,
+
+    #[error("accompagnant_inconnu")]
+    AccompagnantInconnu,
+
+    #[error("client_inconnu")]
+    ClientInconnu,
+
+    #[error("etablissement_inconnu")]
+    EtablissementInconnu,
+
+    #[error("service_inactif")]
+    ServiceInactif,
+
+    /// Un refus venu du moteur de disponibilité ou de tarification du cycle 004.
+    ///
+    /// **Réemployé, jamais réécrit.** `est_violation_exclusion` traduit la violation d'exclusion
+    /// une seule fois dans le produit ; la recopier ici produirait, le jour d'un renommage de
+    /// contrainte, un `500` au lieu d'un `409` sur le chemin le plus important du produit.
+    #[error(transparent)]
+    Attribution(#[from] crate::occupation::ErreurAttribution),
+
+    #[error("erreur de base : {0}")]
+    Base(#[from] sqlx::Error),
+
+    #[error("écriture au grand livre : {0}")]
+    Outbox(#[from] kaya_synchronisation::ErreurOutbox),
+
+    #[error("contexte de tenant : {0}")]
+    ContexteTenant(#[from] kaya_etablissements::tenant_context::ErreurContexteTenant),
+
+    #[error("annuaire des clients : {0}")]
+    Annuaire(String),
+
+    #[error("registre des actions : {0}")]
+    Audit(String),
+}
+
+impl ErreurSejour {
+    /// Le **code stable** rendu dans `CorpsErreur`, sur lequel l'interface branche sa clé i18n.
+    ///
+    /// Il ne change jamais, même si le message change. Les six premiers sont au lexique v1.6.0.
+    pub fn code(&self) -> &'static str {
+        match self {
+            ErreurSejour::SejourDejaClos => "sejour_deja_clos",
+            ErreurSejour::SejourClos => "sejour_clos",
+            ErreurSejour::ConflitOccupationSuivante => "conflit_occupation_suivante",
+            ErreurSejour::UniteCibleOccupee => "unite_cible_occupee",
+            ErreurSejour::BasculeFormuleNonConfirmee => "bascule_formule_non_confirmee",
+            ErreurSejour::SejourInconnu => "sejour_inconnu",
+            ErreurSejour::NoteInconnue => "note_inconnue",
+            ErreurSejour::AccompagnantInconnu => "accompagnant_inconnu",
+            ErreurSejour::ClientInconnu => "client_inconnu",
+            ErreurSejour::EtablissementInconnu => "etablissement_inconnu",
+            ErreurSejour::ServiceInactif => "service_inactif",
+            // Le refus du cycle 004 garde **son** code : le retraduire ici en donnerait deux pour
+            // le même fait, et l'écran en connaîtrait un des deux.
+            ErreurSejour::Attribution(e) => match e {
+                crate::occupation::ErreurAttribution::UniteDejaOccupee => "unite_deja_occupee",
+                crate::occupation::ErreurAttribution::FormuleHorsCategorie => {
+                    "formule_hors_categorie"
+                }
+                crate::occupation::ErreurAttribution::PlageNonFractionnable => {
+                    "plage_non_fractionnable"
+                }
+                crate::occupation::ErreurAttribution::IntervalleInvalide => "intervalle_invalide",
+                crate::occupation::ErreurAttribution::DureeHorsContrainte => {
+                    "duree_hors_contrainte"
+                }
+                crate::occupation::ErreurAttribution::UniteInconnue => "unite_inconnue",
+                crate::occupation::ErreurAttribution::FormuleInconnue => "formule_inconnue",
+                crate::occupation::ErreurAttribution::OccupationInconnue => "occupation_inconnue",
+                crate::occupation::ErreurAttribution::ServiceInactif => "service_inactif",
+                crate::occupation::ErreurAttribution::EtablissementInconnu => {
+                    "etablissement_inconnu"
+                }
+                _ => "erreur_interne",
+            },
+            ErreurSejour::Base(_)
+            | ErreurSejour::Outbox(_)
+            | ErreurSejour::ContexteTenant(_)
+            | ErreurSejour::Annuaire(_)
+            | ErreurSejour::Audit(_) => "erreur_interne",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

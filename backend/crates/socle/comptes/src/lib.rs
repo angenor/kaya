@@ -24,5 +24,6 @@ pub mod traits;
 pub mod preuve_cryptographique;
 
 pub use traits::{
-    AccessController, AnnuaireComptes, CompteResume, ControleAccesPostgres, ErreurAcces,
+    AccessController, AnnuaireClients, AnnuaireComptes, CompteResume, ControleAccesPostgres,
+    ErreurAcces, ErreurAnnuaireClients, PgAnnuaireClients,
 };
