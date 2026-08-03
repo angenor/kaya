@@ -238,7 +238,8 @@
       "rebascule_palier_passage": "Passage au tarif supérieur",
       "forcage_disponibilite": "Attribution forcée",
       "derive_horloge_constatee": "L'heure d'un appareil est fausse",
-      "inconnu": "Action non reconnue"
+      "inconnu": "Action non reconnue",
+      "consultation_piece_identite": "Consultation d'une pièce d'identité"
     }
   },
   "services": {
@@ -455,5 +456,51 @@
     "champ_vide": "Écrivez la note avant de l’ajouter.",
     "champ_trop_long": "La note ne peut pas dépasser {max} caractères.",
     "en_attente_envoi": "Enregistrée sur cet appareil, en attente d'envoi."
+  },
+  "sejours": {
+    "passage": {
+      "chargement": "Chargement des chambres…",
+      "chargement_impossible": "Les chambres n'ont pas pu être chargées.",
+      "combien_de_temps": "Combien de temps ?",
+      "prix_sur_le_bouton": "Le prix est sur le bouton. Touchez la grille pour choisir la chambre.",
+      "duree_heures": "{n} h",
+      "duree_heures_minutes": "{h} h {m}",
+      "jusqu_a": "jusqu'à {heure}",
+      "hors_ligne_tarifs": "Sans connexion, les tarifs affichés datent de la dernière mise à jour.",
+      "piece_apres_la_cle": "Pièce d'identité : après la clé, pas avant",
+      "piece_a_completer": "Vous pouvez donner la chambre tout de suite. La fiche restera à compléter.",
+      "c_est_fait": "C'est fait",
+      "a_redire_au_client": "À redire au client",
+      "fiche_a_completer": "Fiche de police n° {numero} — identité à compléter.",
+      "client_suivant": "Client suivant",
+      "enieme_passage": "{n}ᵉ passage",
+      "ce_n_est_pas_lui": "Ce n'est pas lui",
+      "complet": "Toutes les chambres sont prises ({n} occupées).",
+      "se_libere_a": "se libère à {heure}",
+      "refus": {
+        "unite_deja_occupee": "Cette chambre est déjà prise sur cette période.",
+        "service_inactif": "L'hébergement n'est pas proposé par cet établissement.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "client_inconnu": "Cette fiche client est introuvable.",
+        "formule_hors_categorie": "Cette formule ne s'applique pas à cette chambre.",
+        "plage_non_fractionnable": "Une demi-journée se loue en entier.",
+        "intervalle_invalide": "La fin doit être après le début.",
+        "duree_hors_contrainte": "Cette durée n'est pas proposée par cette formule.",
+        "permission": "Cette action ne vous est pas accessible.",
+        "reseau": "Cette action nécessite internet.",
+        "inattendue": "Cette saisie a été refusée. Réessayez dans un instant."
+      }
+    },
+    "grille": {
+      "les_chambres": "Les chambres",
+      "un_tap": "Un tap pour changer. Rien d'autre à faire.",
+      "libre": "Libre",
+      "occupee": "Occupée · {heure}",
+      "legende_occupee": "Occupée",
+      "remise_en_etat": "Disponible à {heure}",
+      "a_nettoyer": "À nettoyer",
+      "en_cours": "Enregistrement en cours",
+      "hors_ligne_attribution": "Sans connexion, une chambre ne peut pas être attribuée. Reconnectez-vous pour enregistrer ce passage."
+    }
   }
 }

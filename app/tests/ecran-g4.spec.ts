@@ -201,7 +201,9 @@ describe('les noms techniques n’atteignent jamais l’écran', () => {
     const couvertureComplete: CouvertureComplete = true
 
     expect(couvertureComplete).toBe(true)
-    expect(TYPES_ACTION).toHaveLength(11)
+    // Onze au cycle 005, **douze depuis le cycle 006** : `consultation_piece_identite`
+    // (SEJ-01) est la première famille qui trace une LECTURE et non une modification.
+    expect(TYPES_ACTION).toHaveLength(12)
   })
 })
 

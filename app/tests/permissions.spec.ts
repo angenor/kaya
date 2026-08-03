@@ -78,7 +78,10 @@ function referentiel(): Set<string> {
     if (!sql.includes('INSERT INTO comptes.permission')) {
       continue
     }
-    const motif = /\('((?:etb|cpt|pdv|heb|cai|stk|fis)\.[a-z_]+\.[a-z_]+)',\s+(?:NULL|'[A-Z_]+')/g
+    // ⚠️ **`sej` entre ici au cycle 006, et l'oubli aurait été SILENCIEUX** : le motif ne
+    // reconnaît que les préfixes énumérés, et deux permissions non reconnues auraient fait
+    // échouer le seul décompte — sans dire lequel des deux manquait.
+    const motif = /\('((?:etb|cpt|pdv|heb|sej|cai|stk|fis)\.[a-z_]+\.[a-z_]+)',\s+(?:NULL|'[A-Z_]+')/g
     for (const trouve of sql.matchAll(motif)) {
       codes.add(trouve[1]!)
     }
@@ -105,17 +108,26 @@ function fichiers(relatif: string): string[] {
 }
 
 describe('le référentiel est lisible et non vide', () => {
-  it('les migrations portent bien les vingt-deux permissions', () => {
+  it('les migrations portent bien les vingt-neuf permissions', () => {
     // Une porte dont la cible est vide passe toujours : si l'extraction cassait — migration
     // renommée, format d'`INSERT` changé —, toutes les assertions suivantes deviendraient
     // vacuellement vraies. Celle-ci l'empêche.
     const codes = referentiel()
 
-    // 17 au cycle 003, **22 depuis le cycle 004** — les cinq premières rattachées à un module.
-    expect(codes.size).toBe(22)
+    // 17 au cycle 003, **22 depuis le cycle 004** — les cinq premières rattachées à un module —,
+    // et **29 depuis le cycle 006** : les sept du séjour, dont DEUX transversales.
+    //
+    // ⚠️ **`sej.client.lire` et `sej.client.gerer` portent `module_code = NULL`**, et ce n'est pas
+    // un oubli : la fiche client ne dépend d'aucun module d'activité. Un maquis ou un bar seul en
+    // aura besoin dès SEJ-05, sans module hébergement — les rattacher à `HEBERGEMENT` obligerait
+    // ce jour-là soit à créer une seconde permission de client, soit à activer un module
+    // d'hébergement dans un maquis pour lire une fiche.
+    expect(codes.size).toBe(29)
     expect(codes).toContain('cpt.role.attribuer')
     expect(codes).toContain('etb.service.basculer')
     expect(codes).toContain('heb.unite.attribuer')
+    expect(codes).toContain('sej.client.gerer')
+    expect(codes).toContain('heb.sejour.ouvrir')
   })
 })
 
