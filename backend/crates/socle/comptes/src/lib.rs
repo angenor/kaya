@@ -15,6 +15,7 @@
 
 pub mod audit;
 pub mod authentification;
+pub mod client;
 pub mod compte;
 pub mod personne;
 pub mod roles;

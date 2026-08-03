@@ -5,6 +5,9 @@ Créé par le cycle 003 (CPT), story **CPT-04**.*
 
 **Version 1.2.0** — 2026-08-02. **Onze** familles, **4 branchées**, 7 dues.
 
+> **La douzième est `consultation_piece_identite`**, ajoutée par le cycle 006 (SEJ-01) : la
+> première qui trace une **lecture** et non une modification. Voir sa section dédiée.
+>
 > **La onzième est `derive_horloge_constatee`**, ajoutée par le cycle 005 (SYN-04). Elle ne trace
 > pas un geste d'utilisateur mais un **constat d'exploitation** : l'heure d'un terminal s'écarte de
 > celle du serveur au-delà du seuil paramétré. C'est la première famille de cette nature, et le §
@@ -47,7 +50,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 
 ---
 
-## Les onze familles
+## Les douze familles
 
 | # | Code | Ce que ça trace | État | Story qui la doit |
 |---|---|---|---|---|
@@ -61,7 +64,8 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
 | 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **branché** | **HEB-04 — cycle 004** |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
-| 11 | `derive_horloge_constatee` | L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil | **branché** | **SYN-04 — ce cycle** |
+| 11 | `derive_horloge_constatee` | L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil | **branché** | **SYN-04 — cycle 005** |
+| 12 | `consultation_piece_identite` | ★ La **consultation** d'un numéro de pièce d'identité | **branché** | **SEJ-01 — ce cycle** |
 
 **Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document a été écrit
 **avant** la première migration, donc avant que `changement_role` et `suppression` aient un chemin.
@@ -95,9 +99,43 @@ lui promet, et c'est aussi la raison pour laquelle elle rencontrera de la résis
 > travail ; c'est la fréquence à laquelle on l'interroge qui a manqué. `cargo test --workspace`
 > avant chaque commit de fin de phase est le remède, et non une porte de plus.
 
-**Quatre sur onze sont branchées à la clôture du cycle 005**, et les sept autres restent dues aux
+**Cinq sur douze sont branchées à la clôture du cycle 006**, et les sept autres restent dues aux
 tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
 chaque étape.
+
+### ★ `consultation_piece_identite` — la première famille qui trace une LECTURE
+
+**Elle naît « branchée », avec son chemin de code**, dans le cycle qui la crée. Une famille
+déclarée « branchée » sans chemin de code ferait échouer le harnais ; une famille branchée non
+déclarée l'échouerait aussi. Les deux sens sont vérifiés par `backend/tests/audit_taxonomie.rs`.
+
+| | |
+|---|---|
+| Ce qui la déclenche | Toute lecture d'une fiche client dont le numéro de pièce est **déchiffré** — `client_lire`, et le rattachement à une fiche de police |
+| Où | `backend/crates/socle/comptes/src/client/service.rs` |
+| Cible | `personne` — la personne **consultée**, jamais l'auteur |
+| Contexte écrit | `{ motif }` — **aucune clé monétaire**, et surtout **jamais la valeur lue** |
+| Ce qu'elle ne fait **jamais** | Refuser la lecture. Le journal surveille, il n'autorise pas — l'autorisation est `sej.client.lire` |
+
+> ⚠️ **Le contexte ne porte JAMAIS le numéro consulté.** Recopier le numéro dans un registre
+> **immuable et à rétention illimitée** (P-05b) créerait exactement la fuite que ce journal existe
+> pour surveiller, et rendrait inapplicable la rétention de 90 jours de TRX-06 sur la copie : la
+> donnée serait purgée d'un côté et conservée pour toujours de l'autre.
+
+> **Pourquoi une famille nouvelle plutôt qu'une existante.** Aucune des onze ne couvre une
+> consultation : `suppression` trace une mise hors service, `changement_role` une attribution —
+> **toutes tracent un geste qui modifie**. Une lecture n'en est pas un, et la ranger sous une
+> famille existante rendrait le registre illisible au propriétaire, qui est son public.
+
+### `forcage_disponibilite` — reste « due », et le dire vaut mieux que la laisser ambiguë
+
+La famille n° 10 décrit *« l'attribution d'une unité que le système déclarait indisponible »*.
+**Le cycle 006 ne livre aucun forçage** : un changement d'unité vers une chambre occupée est
+**refusé**, avec le conflit nommé (FR-080), et la prolongation qui bute sur une occupation
+suivante l'est aussi. La ligne reste donc « due ».
+
+C'est écrit ici parce que le cycle 006 est celui où l'on s'attendrait à la voir passer : il touche
+l'attribution d'unités de bout en bout. Ne rien dire laisserait croire à un oubli.
 
 ### `derive_horloge_constatee` — la première famille qui ne trace aucun geste
 

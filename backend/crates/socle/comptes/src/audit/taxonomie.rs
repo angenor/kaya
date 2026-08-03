@@ -14,7 +14,7 @@
 //!
 //! # Le harnais, et ce qu'il vérifie dans les deux sens
 //!
-//! `docs/taxonomie-audit.md` déclare **onze** familles, chacune avec son état — `branché` ou
+//! `docs/taxonomie-audit.md` déclare **douze** familles, chacune avec son état — `branché` ou
 //! `dû` —
 //! et la story qui la doit. `backend/tests/audit_taxonomie.rs` compare :
 //!
@@ -35,7 +35,7 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-/// Les **onze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04.
+/// Les **douze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04, une de SEJ-01.
 ///
 /// L'ordre des variantes suit celui de `docs/taxonomie-audit.md`, qui suit lui-même celui de
 /// CPT-04. Il n'a aucune portée fonctionnelle — il rend seulement la comparaison des deux listes
@@ -82,6 +82,28 @@ pub enum TypeActionAudit {
     /// fois par épisode**, non une fois par écriture : deux cents saisies pendant un service
     /// produiraient deux cents entrées identiques, et un registre illisible n'est plus lu.
     DeriveHorlogeConstatee,
+
+    /// ★ **La consultation d'un numéro de pièce d'identité.** SEJ-01, FR-012, cadrage §12.1.
+    ///
+    /// # Pourquoi une famille NOUVELLE plutôt qu'une existante
+    ///
+    /// FR-012 exige un **journal d'accès** à la pièce d'identité (principe IX). Aucune des onze
+    /// familles ci-dessus ne couvre une **consultation** : `Suppression` trace une mise hors
+    /// service, `ChangementRole` une attribution — **toutes tracent un geste qui MODIFIE**. Une
+    /// lecture de donnée sensible n'en est pas un, et la ranger sous une famille existante
+    /// rendrait le registre illisible au propriétaire, qui est son public.
+    ///
+    /// C'est la **deuxième** famille qui ne trace aucune modification, après
+    /// [`TypeActionAudit::DeriveHorlogeConstatee`] — et la première qui trace une **lecture**.
+    ///
+    /// # ⚠️ Le contexte ne porte JAMAIS la valeur lue
+    ///
+    /// Journaliser l'accès à un numéro de pièce en recopiant le numéro dans le registre des
+    /// actions — qui est **immuable et à rétention illimitée** (P-05b) — créerait exactement la
+    /// fuite que ce journal existe pour surveiller, et la rétention de 90 jours de TRX-06
+    /// deviendrait inapplicable sur la copie. Le contexte porte la personne consultée, l'auteur
+    /// et l'instant d'autorité. Rien d'autre.
+    ConsultationPieceIdentite,
 }
 
 impl TypeActionAudit {
@@ -104,6 +126,7 @@ impl TypeActionAudit {
             TypeActionAudit::RebasculePalierPassage => "rebascule_palier_passage",
             TypeActionAudit::ForcageDisponibilite => "forcage_disponibilite",
             TypeActionAudit::DeriveHorlogeConstatee => "derive_horloge_constatee",
+            TypeActionAudit::ConsultationPieceIdentite => "consultation_piece_identite",
         }
     }
 
@@ -119,8 +142,8 @@ impl TypeActionAudit {
             .find(|t| t.code() == code)
     }
 
-    /// Les onze, dans l'ordre du document. Employé par le filtre de `G4` et par le harnais.
-    pub const TOUS: [TypeActionAudit; 11] = [
+    /// Les **douze**, dans l'ordre du document. Employé par le filtre de `G4` et par le harnais.
+    pub const TOUS: [TypeActionAudit; 12] = [
         TypeActionAudit::Remise,
         TypeActionAudit::AnnulationLigneEnvoyee,
         TypeActionAudit::Avoir,
@@ -132,6 +155,7 @@ impl TypeActionAudit {
         TypeActionAudit::RebasculePalierPassage,
         TypeActionAudit::ForcageDisponibilite,
         TypeActionAudit::DeriveHorlogeConstatee,
+        TypeActionAudit::ConsultationPieceIdentite,
     ];
 }
 

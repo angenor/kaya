@@ -140,6 +140,35 @@ tracing-subscriber = { version = "=0.3.23", features = ["env-filter", "json"] }
 jsonwebtoken = { version = "=11.0.0", default-features = false, features = ["rust_crypto"] }
 argon2 = { version = "=0.5.3" }
 
+# --- ⚠️ LA SEULE DÉPENDANCE NOUVELLE DU CYCLE 006, ET ELLE EST ASSUMÉE ---------------------------
+#
+# `plan.md` du cycle 006 annonce « aucune dépendance nouvelle ». **Cette phrase est antérieure à la
+# tâche T018a**, ajoutée après la conception : le plan écrivait que le numéro de pièce d'identité
+# est « protégé au repos et son accès journalisé, DÈS ce cycle — la donnée naît ici », et **aucune
+# tâche ne le faisait**. C'était le seul défaut critique du découpage.
+#
+# Le chiffrement au repos ne s'écrit pas à la main. Trois voies ont été examinées :
+#
+#   1. `pgcrypto` — écartée : c'est une extension PostgreSQL nouvelle, que le plan exclut aussi, et
+#      la clé voyagerait dans le texte des requêtes, donc dans `pg_stat_statements` et les journaux
+#      de la base. Chiffrer au repos en publiant la clé dans les journaux n'est pas chiffrer ;
+#   2. `ring` — déjà présent au `Cargo.lock` (transitif de `rustls`, via `sqlx/tls-rustls-ring`),
+#      donc à coût nul en chaîne d'approvisionnement. **Écartée quand même** : le raisonnement
+#      écrit vingt lignes plus haut, qui a choisi `rust_crypto` contre `aws_lc_rs`, vaut mot pour
+#      mot ici — C et assembleur, chaîne `cmake`/`nasm`, et « une chaîne de construction C de plus
+#      est une panne de plus chez un client sans administrateur » (mode B, cadrage §10.1) ;
+#   3. `aes-gcm` — **retenue**. RustCrypto, Rust pur, même écosystème qu'`argon2`, donc les trois
+#      raisons du bloc ci-dessus s'appliquent à l'identique. Se construit à l'identique sur
+#      `darwin/arm64` et `linux/amd64`, ce qui est exactement le risque que le gel §4.2 surveille.
+#
+# **La clé par tenant est dérivée avec `argon2`**, déjà présent : aucune dépendance de dérivation
+# n'est ajoutée. Voir `crates/socle/comptes/src/client/coffre.rs`.
+#
+# Version vérifiée sur https://crates.io/api/v1/crates/aes-gcm le 2026-08-03 (`max_stable_version`
+# = 0.11.0), **jamais proposée de mémoire**. À porter au gel §3.1 à la revue mensuelle du
+# 2026-08-31 — c'est la seule entrée que cette revue aura à trancher du fait de ce cycle.
+aes-gcm = { version = "=0.11.0" }
+
 # --- Extensions du gel introduites par ce cycle (voir docs/module-dore.md § « Écarts au gel ») ---
 # Vérifiées sur https://crates.io/api/v1/crates/<nom> le 2026-07-30, à porter au gel §3.1 à la
 # revue mensuelle du 2026-08-31.
