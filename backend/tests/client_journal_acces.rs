@@ -237,3 +237,87 @@ async fn traces(
     tx.rollback().await.expect("rollback");
     lignes
 }
+
+// =================================================================================================
+//  ★ LES PRÉFÉRENCES SORTENT PAR LA LECTURE DE FICHE — et rien d'autre ne les rend
+// =================================================================================================
+
+/// ★ **Une préférence enregistrée ressort par `GET /clients/{id}`.**
+///
+/// # Ce que ce test empêche, et qui a déjà coûté deux cycles au projet
+///
+/// `ServiceClient::preferences` existait, testé au service, **et n'était appelé de nulle part** :
+/// aucune route ne le montait. C'est mot pour mot le défaut du cycle 003 — *« une unité écrite
+/// n'est ni testée ni branchée par défaut »* : `initialiserTheme()` a vécu deux cycles exportée,
+/// documentée « à appeler au démarrage », et appelée nulle part.
+///
+/// Un test posé sur le **service** aurait été vert tout du long. Celui-ci porte sur la **réponse
+/// HTTP**, seule surface que l'écran `R5` consomme.
+///
+/// # Et les champs de la fiche restent au premier niveau
+///
+/// La seconde assertion vaut la première : les préférences se sont ajoutées **sans déplacer** le
+/// reste. Un `#[serde(flatten)]` oublié aurait enveloppé `nom` et `telephone` sous une clé
+/// `fiche`, cassant chaque appelant existant — et le contrat OpenAPI aurait été parfaitement
+/// exact sur la nouvelle forme.
+#[actix_web::test]
+async fn une_preference_enregistree_ressort_par_la_lecture_de_la_fiche() {
+    let owner = pool_owner().await;
+    let jeu = creer_tenant(&owner, "SEJ — préférences lues").await;
+    let cx =
+        commun::compte_connecte(&owner, jeu, "Yao", &[(ROLE, Some(jeu.etablissement_id))]).await;
+    let app = monter_application!(pool_app().await);
+
+    let client_id = Uuid::now_v7();
+    let requete = actix_web::test::TestRequest::post()
+        .uri("/api/v1/clients")
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "id": client_id, "nom": "Bakayoko" }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(reponse.status(), 201, "la fiche doit être créée");
+
+    for texte in ["chambre calme, étage bas", "allergique aux arachides"] {
+        let requete = actix_web::test::TestRequest::post()
+            .uri(&format!("/api/v1/clients/{client_id}/preferences"))
+            .insert_header(("authorization", cx.bearer.clone()))
+            .set_json(serde_json::json!({ "id": Uuid::now_v7(), "texte": texte }))
+            .to_request();
+        let reponse = actix_web::test::call_service(&app, requete).await;
+        assert!(
+            reponse.status().is_success(),
+            "la préférence « {texte} » doit être enregistrée"
+        );
+    }
+
+    let requete = actix_web::test::TestRequest::get()
+        .uri(&format!("/api/v1/clients/{client_id}"))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    let fiche: serde_json::Value =
+        actix_web::test::read_body_json(actix_web::test::call_service(&app, requete).await).await;
+
+    // 1 · les préférences sont là, **de la plus récente à la plus ancienne**
+    let preferences = fiche["preferences"]
+        .as_array()
+        .expect("la lecture d'une fiche doit rendre ses préférences : sans elles, l'écran R5 les \
+                 affiche vides et l'exploitant croit n'en avoir jamais saisi");
+    assert_eq!(preferences.len(), 2, "fiche : {fiche}");
+    assert_eq!(
+        preferences[0]["texte"], "allergique aux arachides",
+        "l'ordre est du plus récent au plus ancien : c'est la dernière consigne qui compte au \
+         comptoir"
+    );
+
+    // 2 · ★ les champs de la fiche n'ont PAS bougé
+    assert_eq!(
+        fiche["nom"], "Bakayoko",
+        "les champs de la fiche doivent rester au PREMIER niveau. Un `flatten` oublié les aurait \
+         enveloppés sous une clé `fiche`, cassant chaque appelant existant — avec un contrat \
+         OpenAPI parfaitement exact sur la nouvelle forme. Corps : {fiche}"
+    );
+    assert!(
+        fiche["id"].is_string() && fiche["cree_le"].is_string(),
+        "corps : {fiche}"
+    );
+}

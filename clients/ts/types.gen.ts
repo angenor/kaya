@@ -135,6 +135,17 @@ export interface paths {
          *     La trace n'est écrite que si un numéro est réellement déchiffré : lire une fiche sans pièce
          *     n'est pas un accès à une pièce, et tracer toutes les lectures noierait les vraies consultations
          *     sous des entrées vides.
+         *
+         *     # ★ Les préférences voyagent AVEC la fiche, et non par une dix-huitième opération
+         *
+         *     L'écran `R5` affiche l'identité, les coordonnées **et** les préférences dans le même volet ;
+         *     les demander séparément afficherait un instant une fiche sans ses préférences, et coûterait un
+         *     aller-retour de plus sur un réseau qui les fait payer.
+         *
+         *     ⚠️ **`ServiceClient::preferences` existait, testé, et n'était appelé de nulle part.** C'est
+         *     exactement le défaut que le cycle 003 a payé cher — *« une unité écrite n'est ni testée ni
+         *     branchée par défaut »* : `initialiserTheme()` a vécu deux cycles exportée, documentée « à
+         *     appeler au démarrage », et appelée nulle part. Ce chemin-ci est le sien.
          */
         get: operations["client_lire"];
         put?: never;
@@ -2082,6 +2093,66 @@ export interface components {
             telephone?: string | null;
             type_piece?: string | null;
         };
+        /**
+         * @description La fiche **et ses préférences**, rendues ensemble.
+         *
+         *     ★ **`#[serde(flatten)]`, et c'est ce qui garde le contrat compatible.** Les champs de la fiche
+         *     restent au premier niveau — `nom`, `telephone`, `numero_piece` — exactement là où ils étaient
+         *     avant que les préférences ne s'y ajoutent. Les envelopper sous une clé `fiche` aurait été plus
+         *     « propre » et aurait cassé chaque appelant existant pour un gain nul.
+         */
+        FicheClientDetail: {
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur**.
+             */
+            cree_le: string;
+            /**
+             * Format: date
+             * @description Les deux attributs que CPT n'a aucune raison de connaître — ils vivent sur `client`.
+             */
+            date_naissance?: string | null;
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — ordre d'affichage local. **Jamais un critère de calcul** (porte P-23).
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description L'identifiant **est** celui de la personne : une personne est cliente ou ne l'est pas.
+             */
+            id: string;
+            /** Format: date-time */
+            modifie_le: string;
+            nationalite?: string | null;
+            nom: string;
+            /**
+             * @description **Déchiffré à la lecture, et cette lecture est journalisée.** Absent quand aucune pièce
+             *     n'est enregistrée — jamais une chaîne vide, qui laisserait croire à une pièce sans numéro.
+             */
+            numero_piece?: string | null;
+            /**
+             * Format: date-time
+             * @description Instant de **capture** de la pièce (FR-013) — ce sur quoi la rétention de TRX-06
+             *     s'appuiera, sans migration.
+             */
+            piece_capturee_le?: string | null;
+            prenoms?: string | null;
+            /**
+             * @description E.164. **Aucune contrainte de format national** : l'indicatif par défaut est un paramètre
+             *     d'établissement (`indicatif_telephonique_defaut`), jamais une règle de code.
+             */
+            telephone?: string | null;
+            type_piece?: string | null;
+        } & {
+            /**
+             * @description De la plus récente à la plus ancienne. **Append-only** : une préférence ne se modifie ni ne
+             *     s'efface — « allergique aux arachides » raturé et réécrit ne laisse aucune trace de qui a
+             *     raturé.
+             */
+            preferences: components["schemas"]["Preference"][];
+        };
         /** @description La fiche de police d'un séjour. */
         FichePolice: {
             /**
@@ -3253,13 +3324,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description La fiche, numéro de pièce compris — consultation journalisée */
+            /** @description La fiche et ses préférences, numéro de pièce compris — consultation journalisée */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FicheClient"];
+                    "application/json": components["schemas"]["FicheClientDetail"];
                 };
             };
             /** @description Non authentifié */

@@ -91,7 +91,7 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 | `R0` Connexion | `G2` | Formulaire minimal ; états d'erreur et vides de `S3` |
 | `R2` Vue du jour | `R1` + composant 14 | Grille d'unités au lieu de tuiles |
 | `R3` Arrivée — **terme du lexique v1.6.0, « check-in » est écarté** ; route `/arrivee` | `R4` | Parcours long : plus de champs, même grammaire. **CODÉ** — cycle 006, `app/modules/sejours/EcranArrivee.vue` |
-| `R5` Fiche client et recherche — route `/clients` | `R7` | Liste + fiche, pas de total. **Toujours INSCRIT, non codé** — voir la note de fin de cycle 006 |
+| `R5` Fiche client et recherche — route `/clients` | `R7` | Liste + fiche, pas de total. **CODÉ** — cycle 006, `app/modules/sejours/EcranClients.vue` |
 | `R6` Note temps réel | `R7` | Sans l'action finale |
 | `P1` Plan de salle | `R2` | Tables au lieu d'unités |
 | `P3` Addition et division | `R7` | Le fractionnement est le seul motif neuf — **à valider dans `R7`** |
@@ -169,14 +169,17 @@ valeurs, on réimplémente. Seule exception : `docs/design/theme.css`, copié te
 
 ## Note de fin de cycle 006 (SEJ) — ce qui a été codé, et ce qui ne l'a pas été
 
-**Trois écrans du cycle sont livrés : `R4` Le passage, `R3` Arrivée et `R7` La note et le
-départ.** `R4` est maquetté, dans ses cinq états (`docs/design/html/R4-passage.html` et ses quatre
-variantes). Il est en **zone de vitesse** et ne se compose jamais : `docs/Kaya_Design.md` §1 est formel, et `R4` porte une intention dessinée
-qu'un assemblage ne retrouverait pas — les tailles de la durée et de l'heure de fin, la place du
-prix sur le bouton.
+**Les quatre écrans du cycle sont livrés : `R4` Le passage, `R3` Arrivée, `R7` La note et le
+départ, `R5` Fiche client et recherche.**
 
-`R3` est **dérivé** de `R4` — *« parcours long : plus de champs, même grammaire »* — et sa ligne
-ci-dessus est passée à **« CODÉ »** dans le même changement que le fichier, jamais avant.
+`R4` est maquetté, dans ses cinq états (`docs/design/html/R4-passage.html` et ses quatre
+variantes). Il est en **zone de vitesse** et ne se compose jamais : `docs/Kaya_Design.md` §1 est
+formel, et `R4` porte une intention dessinée qu'un assemblage ne retrouverait pas — les tailles de
+la durée et de l'heure de fin, la place du prix sur le bouton.
+
+`R3` est **dérivé** de `R4` — *« parcours long : plus de champs, même grammaire »*. Les champs
+s'ajoutent sans que l'écran devienne un formulaire : le dernier geste reste le **tap sur la
+chambre**, et il n'existe aucun bouton de soumission.
 
 `R7` est **maquetté**, et le codage a obligé à trancher ce que la maquette montre et que le
 produit ne sert pas encore : **quatre sections de note sur cinq**, et **trois éléments de son
@@ -186,16 +189,19 @@ facture » — oblige l'écran à dire ce qui se passe vraiment : la note se fer
 réglée**. Sans cette phrase, l'écran laisserait croire au paiement, et le trou se découvrirait au
 comptage de caisse, sans qu'on sache à quel séjour il se rattache.
 
-**Un écran du périmètre reste à coder**, et sa ligne ci-dessus reste **« inscrit »** :
+`R5` est **dérivé** de `R7` — *« liste + fiche, pas de total »* — et l'absence du bloc de total
+est le point qui se paierait si on l'oubliait : additionner les séjours d'un client afficherait un
+chiffre qui **ressemble à un solde**, et l'exploitant y chercherait ce que le client doit, que ce
+cycle ne calcule pas.
 
-| Écran | État | Ce qui manque |
-|---|---|---|
-| `R5` Fiche client et recherche | **inscrit**, non codé | La liste et la fiche — dérivent de `R7` |
+⚠️ **Les quatre lignes ci-dessus sont passées à « CODÉ » dans le même changement que leur fichier,
+jamais avant.** `derivation.md` est **opposable** : la porte P-19 s'en sert pour autoriser un écran
+sans maquette. Y inscrire « codé » sur un écran qui n'existe pas ferait mentir le seul document qui
+dise ce qui a le droit d'être codé — et le mensonge serait invisible, puisque rien ne relit un
+tableau de dérivation contre le système de fichiers.
 
-⚠️ **Cette ligne ne passe PAS à « codé », et c'est le point.** `derivation.md` est
-**opposable** : la porte P-19 s'en sert pour autoriser un écran sans maquette. Inscrire « codé »
-sur un écran qui n'existe pas ferait mentir le seul document qui dise ce qui a le droit d'être
-codé — et le mensonge serait invisible, puisque rien ne relit un tableau de dérivation contre le
-système de fichiers.
-
-**Son API est livrée, testée et au contrat** : les dix-sept opérations du cycle sont servies.
+**Ce que le codage de `R5` a trouvé, et qui n'était pas une décision d'écran :**
+`ServiceClient::preferences` existait, testé au service, et **n'était monté par aucune route** —
+mot pour mot le défaut du cycle 003, *« une unité écrite n'est ni testée ni branchée par défaut »*.
+Les préférences voyagent désormais avec la fiche (`GET /clients/{id}`), et un test posé sur la
+**réponse HTTP** — jamais sur le service — l'éprouve.

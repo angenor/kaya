@@ -601,6 +601,31 @@
         "reseau": "This action requires the internet.",
         "inattendue": "This departure was refused. Try again in a moment."
       }
+    },
+    "fiche": {
+      "telephone": "Phone",
+      "email": "Email",
+      "nationalite": "Nationality",
+      "sans_coordonnees": "No contact details recorded.",
+      "piece_enregistree": "Identity document recorded on {date}.",
+      "piece_absente": "No identity document recorded.",
+      "preferences": "Preferences",
+      "sans_preference": "No preference recorded.",
+      "historique": "Stays",
+      "personnes": "{n} person(s)",
+      "sans_sejour": "No stay recorded for this guest."
+    },
+    "clients": {
+      "chercher": "Search for a guest",
+      "chercher_aide": "A name, a phone number or an ID number — the same field serves all three.",
+      "chercher_invite": "Bakayoko, 07 07 12 34 56…",
+      "creer": "New record",
+      "aucun_resultat": "No record matches this search.",
+      "resultats_tronques": "More records match. Narrow the search to see them.",
+      "recherche_impossible": "The search did not complete. Try again in a moment.",
+      "hors_ligne": "Without a connection, guest records cannot be consulted.",
+      "fiche_illisible": "This record could not be read. Try again in a moment.",
+      "choisir_une_fiche": "Search for a guest to see their record."
     }
   },
   "documents": {

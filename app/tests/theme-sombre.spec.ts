@@ -229,6 +229,7 @@ describe('G1 — mode clair et mode sombre', () => {
       // ── Cycle 006 — l'arrivée, écran DÉRIVÉ de `R4` ────────────────────────────────────
       'EcranArrivee.vue', // `R3` — le parcours long, même grammaire
       'EcranChambres.vue', // `G5` — écran COMPOSÉ, sans maquette
+      'EcranClients.vue', // `R5` — dérivé de `R7` : liste + fiche, sans le bloc de total
       'EcranComptes.vue', // `G3`
       // ── Cycle 006 — le départ, écran MAQUETTÉ (`R7-note-depart.html`) ──────────────────
       'EcranDepart.vue',
@@ -238,6 +239,8 @@ describe('G1 — mode clair et mode sombre', () => {
       'EcranNotes.vue',
       'EcranOffre.vue', // `G2` — écran maquetté, deux états
       'EcranPassage.vue', // `R4` — écran MAQUETTÉ, cinq états, zone de vitesse
+      // `R5` — la fiche. Elle ne dépend d'AUCUN module d'activité : la fiche est du tenant.
+      'FicheClient.vue',
       'FormulaireCategorie.vue',
       'FormulaireUnite.vue',
       'GrilleUnites.vue', // `R4` — l'attribution d'un seul tap
@@ -268,6 +271,7 @@ describe('G1 — mode clair et mode sombre', () => {
       // pas — celui où un texte illisible en mode sombre coûte le plus cher.
       'arrivee.vue', // `R3` — jamais « /check-in » : le mot est écarté du lexique
       'chambres.vue', // `G5`
+      'clients.vue', // `R5` — disponible sans module hébergement
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`
       'depart.vue', // `R7`

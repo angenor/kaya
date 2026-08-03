@@ -55,6 +55,16 @@ export type ClientResume = components['schemas']['ClientResume']
 export type ResultatRecherche = components['schemas']['ResultatRecherche']
 
 /**
+ * La fiche complète **et ses préférences** — ce que rend `GET /clients/{id}`.
+ *
+ * ⚠️ **C'est le seul type du produit qui porte un numéro de pièce d'identité**, et sa lecture est
+ * journalisée côté serveur (FR-012, famille `consultation_piece_identite`). L'écran l'affiche
+ * seulement sur demande : le rendre d'office ferait tracer une consultation à chaque ouverture de
+ * fiche et noierait les vraies sous des entrées que personne n'a voulues.
+ */
+export type FicheClientDetail = components['schemas']['FicheClientDetail']
+
+/**
  * Un palier de passage, **prêt à afficher** : sa durée, son prix, et son heure de fin.
  *
  * ★ **L'heure de fin est calculée ici, jamais par le serveur.** C'est ce que la maquette `R4`
@@ -283,6 +293,29 @@ export async function chercherClients(
 
   if (reponse.error || !reponse.data) {
     throw new Error('recherche de fiches clientes impossible')
+  }
+  return reponse.data
+}
+
+/**
+ * Lit une fiche complète — **identité, coordonnées et préférences**.
+ *
+ * ⚠️ **Cet appel journalise une consultation de pièce d'identité côté serveur** dès que la fiche
+ * en porte une (FR-012). Il ne se fait donc **jamais en rafale** — pas sur une liste de résultats,
+ * pas au survol : une fiche s'ouvre parce que quelqu'un l'a demandée.
+ */
+export async function lireFicheClient(
+  contexte: ContexteAppel,
+  clientId: string,
+): Promise<FicheClientDetail> {
+  const client = clientKaya(contexte.baseUrl)
+  const reponse = await client.GET('/api/v1/clients/{client_id}', {
+    params: { path: { client_id: clientId } },
+    headers: enTetesAuth(contexte),
+  })
+
+  if (reponse.error || !reponse.data) {
+    throw new Error(`fiche ${clientId} illisible`)
   }
   return reponse.data
 }

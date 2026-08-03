@@ -601,6 +601,31 @@
         "reseau": "Cette action nécessite internet.",
         "inattendue": "Ce départ a été refusé. Réessayez dans un instant."
       }
+    },
+    "fiche": {
+      "telephone": "Téléphone",
+      "email": "Courriel",
+      "nationalite": "Nationalité",
+      "sans_coordonnees": "Aucune coordonnée enregistrée.",
+      "piece_enregistree": "Pièce d'identité enregistrée le {date}.",
+      "piece_absente": "Aucune pièce d'identité enregistrée.",
+      "preferences": "Préférences",
+      "sans_preference": "Aucune préférence notée.",
+      "historique": "Séjours",
+      "personnes": "{n} personne(s)",
+      "sans_sejour": "Aucun séjour enregistré pour ce client."
+    },
+    "clients": {
+      "chercher": "Chercher un client",
+      "chercher_aide": "Un nom, un numéro de téléphone ou un numéro de pièce — la même entrée sert les trois.",
+      "chercher_invite": "Bakayoko, 07 07 12 34 56…",
+      "creer": "Nouvelle fiche",
+      "aucun_resultat": "Aucune fiche ne correspond à cette recherche.",
+      "resultats_tronques": "D'autres fiches correspondent. Précisez la recherche pour les voir.",
+      "recherche_impossible": "La recherche n'a pas abouti. Réessayez dans un instant.",
+      "hors_ligne": "Sans connexion, les fiches clients ne peuvent pas être consultées.",
+      "fiche_illisible": "Cette fiche n'a pas pu être lue. Réessayez dans un instant.",
+      "choisir_une_fiche": "Cherchez un client pour voir sa fiche."
     }
   },
   "documents": {

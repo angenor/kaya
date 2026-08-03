@@ -57,6 +57,27 @@ const CLE_INDICATIF: &str = "indicatif_telephonique_defaut";
 const INDICATIF_ABSENT: &str = "";
 
 // =================================================================================================
+//  Corps de réponse
+// =================================================================================================
+
+/// La fiche **et ses préférences**, rendues ensemble.
+///
+/// ★ **`#[serde(flatten)]`, et c'est ce qui garde le contrat compatible.** Les champs de la fiche
+/// restent au premier niveau — `nom`, `telephone`, `numero_piece` — exactement là où ils étaient
+/// avant que les préférences ne s'y ajoutent. Les envelopper sous une clé `fiche` aurait été plus
+/// « propre » et aurait cassé chaque appelant existant pour un gain nul.
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct FicheClientDetail {
+    #[serde(flatten)]
+    #[schema(inline)]
+    pub fiche: FicheClient,
+    /// De la plus récente à la plus ancienne. **Append-only** : une préférence ne se modifie ni ne
+    /// s'efface — « allergique aux arachides » raturé et réécrit ne laisse aucune trace de qui a
+    /// raturé.
+    pub preferences: Vec<Preference>,
+}
+
+// =================================================================================================
 //  Corps de requête
 // =================================================================================================
 
@@ -273,12 +294,23 @@ pub async fn creer(
 /// La trace n'est écrite que si un numéro est réellement déchiffré : lire une fiche sans pièce
 /// n'est pas un accès à une pièce, et tracer toutes les lectures noierait les vraies consultations
 /// sous des entrées vides.
+///
+/// # ★ Les préférences voyagent AVEC la fiche, et non par une dix-huitième opération
+///
+/// L'écran `R5` affiche l'identité, les coordonnées **et** les préférences dans le même volet ;
+/// les demander séparément afficherait un instant une fiche sans ses préférences, et coûterait un
+/// aller-retour de plus sur un réseau qui les fait payer.
+///
+/// ⚠️ **`ServiceClient::preferences` existait, testé, et n'était appelé de nulle part.** C'est
+/// exactement le défaut que le cycle 003 a payé cher — *« une unité écrite n'est ni testée ni
+/// branchée par défaut »* : `initialiserTheme()` a vécu deux cycles exportée, documentée « à
+/// appeler au démarrage », et appelée nulle part. Ce chemin-ci est le sien.
 #[utoipa::path(
     operation_id = "client_lire",
     tag = "clients",
     params(("client_id" = Uuid, Path, description = "Identifiant de la fiche")),
     responses(
-        (status = 200, description = "La fiche, numéro de pièce compris — consultation journalisée", body = FicheClient),
+        (status = 200, description = "La fiche et ses préférences, numéro de pièce compris — consultation journalisée", body = FicheClientDetail),
         (status = 401, description = "Non authentifié"),
         (status = 403, description = "Permission absente", body = CorpsErreur),
         (status = 404, description = "Fiche inconnue", body = CorpsErreur),
@@ -292,14 +324,23 @@ pub async fn lire(
     chemin: web::Path<Uuid>,
 ) -> Result<HttpResponse, actix_web::Error> {
     securite::exiger(&contexte, PERM_LIRE)?;
+    let client_id = chemin.into_inner();
+    let service = etat.service_client();
 
-    let fiche = etat
-        .service_client()
-        .lire(contexte.tenant_id, contexte.compte_id, chemin.into_inner())
+    let fiche = service
+        .lire(contexte.tenant_id, contexte.compte_id, client_id)
         .await
         .map_err(en_reponse)?;
 
-    Ok(HttpResponse::Ok().json(fiche))
+    // La lecture des préférences suit celle de la fiche, jamais l'inverse : sur une fiche
+    // inconnue, le `404` doit venir de la fiche — une liste de préférences vide serait un `200`
+    // sur un client qui n'existe pas.
+    let preferences = service
+        .preferences(contexte.tenant_id, client_id)
+        .await
+        .map_err(en_reponse)?;
+
+    Ok(HttpResponse::Ok().json(FicheClientDetail { fiche, preferences }))
 }
 
 // =================================================================================================

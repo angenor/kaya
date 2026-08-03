@@ -294,9 +294,9 @@ libérée.
 total »*. **Ouvrir `R7-note-depart.html` et la respecter.** Cet écran suit `R7` parce qu'il en
 hérite : livré avant, il inventerait le motif puis divergerait.
 
-- [ ] T065 [US2] [P] Écrire `app/modules/sejours/FicheClient.vue` : identité, coordonnées, préférences, et **l'historique des séjours** de tous les établissements du tenant, du plus récent au plus ancien. Colonne de droite du motif `R7`, **sans le bloc de total**.
-- [ ] T066 [US2] Écrire `app/modules/sejours/EcranClients.vue` : la recherche qui **réduit la liste pendant la frappe**, les trois formes servies par la même entrée, l'indication de troncature. Action de création **absente** sans `sej.client.gerer` — jamais grisée, la vérification portant sur le **HTML rendu** et non sur un attribut `disabled`. `derivation.md` est mis à jour : `R5` passe d'« inscrit » à **« codé »**.
-- [ ] T067 [US2] Créer `app/pages/clients.vue` — route `/clients`, racine unique, i18n `fr`/`en`, **clair ET sombre**. Cette entrée reste **disponible sans module hébergement** : la fiche client ne dépend d'aucun module d'activité.
+- [X] T065 [US2] [P] Écrire `app/modules/sejours/FicheClient.vue` : identité, coordonnées, préférences, et **l'historique des séjours** de tous les établissements du tenant, du plus récent au plus ancien. Colonne de droite du motif `R7`, **sans le bloc de total**.
+- [X] T066 [US2] Écrire `app/modules/sejours/EcranClients.vue` : la recherche qui **réduit la liste pendant la frappe**, les trois formes servies par la même entrée, l'indication de troncature. Action de création **absente** sans `sej.client.gerer` — jamais grisée, la vérification portant sur le **HTML rendu** et non sur un attribut `disabled`. `derivation.md` est mis à jour : `R5` passe d'« inscrit » à **« codé »**.
+- [X] T067 [US2] Créer `app/pages/clients.vue` — route `/clients`, racine unique, i18n `fr`/`en`, **clair ET sombre**. Cette entrée reste **disponible sans module hébergement** : la fiche client ne dépend d'aucun module d'activité.
 
 ---
 
