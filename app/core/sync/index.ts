@@ -129,13 +129,46 @@ export class FileLocale {
   }
 
   /**
+   * La dernière écriture au stockage — **chaînée, jamais concurrente**.
+   *
+   * Deux `enregistrer` lancés en parallèle chiffrent chacun leur instantané de la file et écrivent
+   * dans l'ordre où ils finissent, qui n'est pas celui où ils sont partis. La dernière écriture
+   * gagnerait alors la course avec l'état le plus ancien — une entrée saisie disparaîtrait, sans
+   * erreur et sans trace. Le chaînage est ce qui l'empêche.
+   */
+  private ecritureEnCours: Promise<void> = Promise.resolve()
+
+  /**
    * Écrit l'état courant au stockage. **Volontairement sans `await` chez l'appelant.**
    *
-   * Une saisie ne doit pas attendre le disque. Les échecs sont absorbés par le stockage lui-même
-   * (voir `stockagePersistantMoteur`), qui ne lève jamais.
+   * Une saisie ne doit pas attendre le disque (FR-002 : « acceptée, sans message d'erreur »). Les
+   * échecs sont absorbés par le stockage lui-même, qui ne lève jamais.
    */
   private persister(): void {
-    void this.magasin?.enregistrer(this.entrees)
+    const magasin = this.magasin
+    if (!magasin) {
+      return
+    }
+    const instantane = [...this.entrees]
+    this.ecritureEnCours = this.ecritureEnCours.then(() => magasin.enregistrer(instantane))
+  }
+
+  /**
+   * Attend que tout ce qui a été enfilé soit **réellement rangé**.
+   *
+   * # Pourquoi cette fonction existe, et ce qu'elle n'est pas
+   *
+   * Ce n'est **pas** un moyen de rendre `enfiler` synchrone au disque : la saisie doit rester
+   * immédiate, et l'appeler dans un écran annulerait exactement ce que le sans-`await` achète.
+   *
+   * Elle sert deux appelants légitimes, et deux seulement : les **tests**, qui doivent constater
+   * une persistance plutôt que l'espérer après un délai arbitraire — un `setTimeout(0)` suffit
+   * quand la machine est libre et échoue sous charge, ce qui donne un test instable, c'est-à-dire
+   * un test qu'on finit par ignorer ; et un futur point de **sortie propre** de l'application, qui
+   * voudra s'assurer que rien n'attend en mémoire avant de rendre la main.
+   */
+  async aJour(): Promise<void> {
+    await this.ecritureEnCours
   }
 
   /**

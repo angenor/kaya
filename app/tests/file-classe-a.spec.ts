@@ -11,6 +11,9 @@
  *   qui n'est pas de classe A.
  */
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -87,6 +90,81 @@ describe('file locale — classe A seulement', () => {
     })
 
     expect(file.enAttente).toBe(1)
+  })
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════
+  //  Les DEUX champs du cycle 005 — le compilateur les exige, et c'est le point
+  // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+  it('une entrée SANS contexte ne compile pas', () => {
+    const file = new FileLocale()
+
+    // @ts-expect-error — `contexte` est OBLIGATOIRE depuis le cycle 005.
+    //
+    // Le défaut qu'il empêche est silencieux : Aminata saisit quatre commandes hors ligne, change
+    // d'établissement actif, le réseau revient. Sans ce champ, les quatre partent sur le mauvais
+    // établissement — rien n'échoue, le serveur accepte, et la faute ne se voit qu'à la clôture,
+    // quand le chiffre d'affaires de l'un manque et que celui de l'autre est faux.
+    //
+    // Si cette ligne cessait d'être une erreur, `@ts-expect-error` en deviendrait une lui-même,
+    // et ce test échouerait. C'est la mécanique de P-13 côté type.
+    file.enfiler({
+      id: '0198c4a0-0000-7000-8000-000000000104',
+      type: 'note_etablissement.creee',
+      horodatageClient: HORODATAGE,
+      charge: marquerClasseA({ texte: 'sans contexte' }, 'A4 — jeu d’essai'),
+      tentatives: 0,
+    })
+
+    expect(file.enAttente).toBe(1)
+  })
+
+  it('une entrée SANS compteur de tentatives ne compile pas', () => {
+    const file = new FileLocale()
+
+    // @ts-expect-error — `tentatives` est OBLIGATOIRE depuis le cycle 005. Il alimente
+    // l'intervalle croissant de réessai et le diagnostic de `S1` : « cette écriture a été tentée
+    // sept fois » est une information portable au support, là où « en attente » ne dit rien.
+    file.enfiler({
+      id: '0198c4a0-0000-7000-8000-000000000105',
+      type: 'note_etablissement.creee',
+      horodatageClient: HORODATAGE,
+      charge: marquerClasseA({ texte: 'sans tentatives' }, 'A4 — jeu d’essai'),
+      contexte: CONTEXTE_TEST,
+    })
+
+    expect(file.enAttente).toBe(1)
+  })
+
+  it('la file ne porte TOUJOURS aucun champ de jeton — l’absence est ce qui l’empêche', () => {
+    const file = new FileLocale()
+
+    file.enfiler({
+      id: '0198c4a0-0000-7000-8000-000000000106',
+      type: 'note_etablissement.creee',
+      horodatageClient: HORODATAGE,
+      charge: marquerClasseA({ texte: 'aucun jeton' }, 'A4 — jeu d’essai'),
+      contexte: CONTEXTE_TEST,
+      tentatives: 0,
+      // @ts-expect-error — il n'y a AUCUN champ où ranger un jeton, et c'est délibéré : un jeton
+      // mis en file serait périmé au retour (soixante minutes de jeton contre quatre-vingt-dix de
+      // coupure), et le ranger prolongerait la durée de vie d'un secret sur un terminal qu'on peut
+      // perdre. Le compilateur refuse la propriété excédentaire — c'est l'absence de champ qui
+      // l'empêche, pas une discipline.
+      acces: 'Bearer jeton-qui-ne-doit-pas-exister',
+    })
+
+    // Le versant statique : l'interface elle-même ne déclare aucun champ de secret. Le contrôle
+    // ci-dessus refuse la propriété au type ; celui-ci refuse qu'on l'ajoute à l'interface.
+    const source = readFileSync(join(process.cwd(), 'core/sync/classes.ts'), 'utf8')
+    const interfaceEntree = source.match(/export interface EntreeFile<[\s\S]*?\n\}/)?.[0] ?? ''
+    expect(interfaceEntree, 'l’interface EntreeFile est introuvable').not.toBe('')
+    for (const secret of ['acces', 'bearer', 'jeton', 'token', 'rafraichissement']) {
+      expect(
+        interfaceEntree.toLowerCase().includes(`${secret}:`),
+        `« ${secret} » est devenu un champ d’EntreeFile : un secret entre en file.`,
+      ).toBe(false)
+    }
   })
 })
 

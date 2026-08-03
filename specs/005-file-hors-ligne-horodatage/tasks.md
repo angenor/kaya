@@ -155,7 +155,7 @@ action B/C/D annonce son indisponibilité avant la saisie, aucune n'est mise en 
 - [ ] T041 [US2] Faire **rapporter** à `tests-e2e/hors-ligne.spec.ts` le nombre d'opérations B/C/D couvertes face au total du contrat, et échouer en **nommant** l'opération non couverte (exigence 2)
 - [ ] T042 [US2] Déclarer en tête de `hors-ligne.spec.ts` la **limite assumée** : la porte vérifie qu'une annonce apparaît, **jamais que sa formulation est la bonne** — la justesse du libellé relève du lexique et de P-16, et les confondre donnerait une porte qui ment
 - [ ] T043 [US2] Vérifier dans `tests-e2e/hors-ligne.spec.ts` que le balayage **n'écrit rien** (exigence 3) : seuls les écrans sont ouverts ; le seul geste d'écriture du parcours est la note interne, sur un tenant de test
-- [ ] T044 [US2] Étendre `app/tests/file-classe-a.spec.ts` — les `@ts-expect-error` couvrent le contexte et les tentatives nouveaux ; un enfilement d'opération non marquée **ne compile toujours pas**
+- [x] T044 [US2] Étendre `app/tests/file-classe-a.spec.ts` — les `@ts-expect-error` couvrent le contexte et les tentatives nouveaux ; un enfilement d'opération non marquée **ne compile toujours pas**
 
 **Point de contrôle US2** : P-13 est vérifiée sur ses deux versants, avec une cible comptée.
 

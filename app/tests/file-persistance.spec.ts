@@ -57,7 +57,7 @@ describe('la file survit à l’extinction', () => {
 
     // La persistance part sans être attendue — une saisie ne doit pas attendre le disque. On la
     // laisse aboutir avant de rouvrir, ce que le rechargement d'une page fait naturellement.
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     // **Réouverture complète** : une instance neuve, comme après une extinction. C'est le cas
     // fréquent — le terminal de comptoir s'éteint le soir — et c'est celui qu'on manque.
@@ -85,7 +85,7 @@ describe('la file survit à l’extinction', () => {
         },
       }),
     )
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     const rouverte = await FileLocale.ouvrir(adaptateurCourant())
     expect(rouverte.lister()[0]?.contexte.etablissementId).toBe(
@@ -97,11 +97,11 @@ describe('la file survit à l’extinction', () => {
     const file = await FileLocale.ouvrir(adaptateurCourant())
     const entree = entreeDeTest()
     file.enfiler(entree)
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
     expect(cryptogramme()).not.toBeNull()
 
     file.retirer(entree.id)
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     // Garder un bloc qui chiffre `[]` laisserait croire, à l'inspection du stockage, qu'il reste
     // quelque chose à envoyer.
@@ -113,7 +113,7 @@ describe('la charge est ILLISIBLE dans le stockage', () => {
   it('le texte d’une note n’apparaît nulle part en clair', async () => {
     const file = await FileLocale.ouvrir(adaptateurCourant())
     file.enfiler(entreeDeTest({ texte: 'Le groupe électrogène a démarré à 19 h 40.' }))
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     const contenuEntier = clesKaya()
       .map(cle => localStorage.getItem(cle) ?? '')
@@ -132,7 +132,7 @@ describe('la charge est ILLISIBLE dans le stockage', () => {
   it('sans la CLÉ, le cryptogramme ne rend rien', async () => {
     const file = await FileLocale.ouvrir(adaptateurCourant())
     file.enfiler(entreeDeTest({ texte: 'saisie confidentielle' }))
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     const bloc = cryptogramme()
     expect(bloc, 'aucun cryptogramme rangé — le test ne prouverait rien').not.toBeNull()

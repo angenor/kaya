@@ -245,7 +245,7 @@ describe('l’ordre rafraîchir-avant-vider tient sur une file ROUVERTE', () => 
 
     const avant = await File.ouvrir(adaptateurCourant())
     troisNotes().forEach(entree => avant.enfiler(entree))
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await avant.aJour()
 
     await rangerRafraichissement('rafraichissement-de-la-veille')
     serveurRafraichissement(200, corpsSession('rafraichissement-du-matin'))
@@ -273,7 +273,7 @@ describe('l’ordre rafraîchir-avant-vider tient sur une file ROUVERTE', () => 
 
     const file = await File.ouvrir(adaptateurCourant())
     troisNotes().forEach(entree => file.enfiler(entree))
-    await new Promise(resoudre => setTimeout(resoudre, 0))
+    await file.aJour()
 
     await rangerRafraichissement('rafraichissement-mort')
     serveurRafraichissement(401, { code: 'session_invalide', message: 'x' })
