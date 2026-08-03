@@ -344,7 +344,24 @@ Le mode dégradé ne produit **jamais** un document ressemblant à une facture n
 
 ### 9.6 Taxe communale de nuitée
 
-Par nuitée et par client : sans étoile 500 · 1★ 1 000 · 2★ 1 500 · 3★ et plus 2 000 · résidence meublée district d'Abidjan 1 000 · hors Abidjan variable selon la collectivité.
+**Par nuitée et par séjour** — jamais par personne : sans étoile 500 · 1★ 1 000 · 2★ 1 500 · 3★ et plus 2 000 · résidence meublée district d'Abidjan 1 000 · hors Abidjan variable selon la collectivité.
+
+> **⚠️ Cette ligne disait « par nuitée et par client » jusqu'au 2026-08-03.** L'arbitrage terrain de
+> cette date, qui **clôt la décision B-10** (annexe B), a tranché : la taxe est due **par nuitée et
+> par séjour**, le nombre de personnes ne la multiplie pas. Un couple en chambre double paie une
+> taxe, pas deux.
+>
+> **Ce que la correction change, et ce qu'elle ne change pas.** Elle ne touche que l'**axe des
+> personnes**. L'axe des **nuits** — combien de nuitées un passage ou une demi-journée produit —
+> reste celui du §5.5 : le drapeau `assujettie_taxe_nuitee` et la règle de conversion de la formule,
+> décision **B-02**, toujours ouverte. Les deux axes se confondaient dans l'ancienne formulation,
+> et c'est ce qui rendait B-10 difficile à lire.
+>
+> **La question de l'exonération tombe avec elle.** B-10 demandait s'il manquait une colonne de
+> motif d'exonération par personne. La taxe n'étant plus assise sur les personnes, il n'y a rien à
+> exonérer personne par personne : **aucune colonne n'est due**, et `hebergement.accompagnant` n'en
+> porte pas. Le nombre de personnes reste enregistré au constat de taxe (`nombre_personnes`) à
+> titre **indicatif** — il documente le séjour, il n'entre dans aucun calcul.
 
 **Ligne distincte obligatoire sur la facture**, séparée du HT et de la TVA. Reversement au trésorier municipal **au plus tard le 15 du mois suivant l'encaissement**.
 
@@ -774,7 +791,7 @@ Instrumentation dès le premier cycle : tous les indicateurs sont calculés depu
 | B-07 | Barèmes de passage réels du pilote (seeds) | S3 (atelier terrain) |
 | B-08 | Politique de support : horaires, canaux, SLA par formule | S14 |
 | B-09 | Second pays cible et calendrier de l'adaptateur de juridiction | S30 |
-| **B-10** | **Exonération de taxe de nuitée par personne** — un enfant en bas âge, un résident, un séjour au-delà d'un seuil sont-ils taxés ? Le corpus n'en porte aucune trace : §9.6 et FIS-03 disent « par nuitée et par client, accompagnants inclus », sans exception. **Si l'exonération existe, il manque une colonne de motif — nullable, jamais un booléen, qui ne justifierait rien devant le trésorier municipal.** La fenêtre où l'ajout coûte zéro est le cycle SEJ, qui crée `accompagnant` — pas HEB | **avant le cycle SEJ**, à l'atelier terrain |
+| ~~**B-10**~~ | ✅ **CLOSE le 2026-08-03**, à l'atelier terrain, **avant** la migration `0034` du cycle SEJ. **La taxe de nuitée est due par nuitée et par SÉJOUR, jamais par personne.** La question posée était celle de l'**exonération par personne** — un enfant en bas âge, un résident, un séjour au-delà d'un seuil — et elle **tombe avec l'arbitrage** : la taxe n'étant pas assise sur les personnes, il n'y a rien à exonérer personne par personne. **Aucune colonne de motif n'est due**, et `hebergement.accompagnant` n'en porte pas. Le nombre de personnes est enregistré au constat (`nombre_personnes`) à titre **indicatif** : il documente le séjour, il n'entre dans aucun calcul. ⚠️ **À ne pas confondre avec B-02**, toujours ouverte : celle-ci porte sur l'axe des **nuits** — combien de nuitées un passage ou une demi-journée produit —, que B-10 ne touche pas. Les deux axes se confondaient dans l'ancienne rédaction du §9.6, et c'est ce qui rendait cette ligne difficile à lire. Sources amendées dans le même changement : `cadrage-v1.md` §9.6, `user-stories-v1.md` FIS-03, FIS-08 et son récapitulatif des paramètres | **CLOSE — 2026-08-03** |
 
 ## Annexe C — Glossaire
 

@@ -3,6 +3,27 @@
 *Source de vérité du vocabulaire visible par l'utilisateur. Extrait de `docs/Kaya_Design.md` §6
 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.6.0** — le vocabulaire du cycle SEJ : le **séjour**, l'**arrivée**, le **départ**, le
+**client**, l'**accompagnant**, la **fiche de police**, la **note arrêtée**, et les **six refus**
+que le cycle produit. Ajoutée le 2026-08-03, **avant le code**.
+
+Trois points méritent d'être lus plutôt que survolés :
+
+- **Six mots sont écartés nommément** — « check-in », « check-out », « occupation », « constat »,
+  « assiette » et « figeage ». Les deux premiers sont de l'anglais de métier que le personnel de
+  Deloria n'emploie pas ; les quatre autres sont les mots de la table, de la ligne de code et du
+  formulaire fiscal. **Aucun n'atteint l'interface, et aucun n'atteint une route** : les quatre
+  routes du cycle sont `/passage`, `/arrivee`, `/clients` et `/depart`. C'est la leçon `S1` du
+  cycle SYN appliquée avant d'avoir à la réapprendre — *le nom du fichier de page décide de la
+  route, et une URL est visible*.
+- **« Fiche de police » est conservé tel quel**, et c'est une décision, pas un oubli. Le terme est
+  celui de l'usage ivoirien : c'est ce que l'exploitant lit sur ses propres registres et ce que la
+  gendarmerie lui demande. Le reformuler le rendrait méconnaissable — même raisonnement que
+  « classement » et « NCC », règle 2 ci-dessous.
+- **Deux formulations partent à l'atelier terrain et le disent.** La bascule de formule annonce un
+  changement de tarif **avant** confirmation ; l'écriture orpheline décrit une situation qu'aucun
+  exploitant n'a encore vue. Les deux sont marquées ⚠️ dans le tableau.
+
 **Version 1.5.1** — complément des cinq entrées ci-dessous, trouvé à l'analyse de cohérence du
 cycle SYN, le 2026-08-02. Trois manques, chacun réel :
 
@@ -115,7 +136,22 @@ Le produit manipule des concepts fiscaux et techniques réels. L'utilisateur ne 
 | `duree_hors_contrainte` (422) | « **Cette formule se loue de 1 h à 8 h.** » / *This rate plan is booked from 1 to 8 hours.* — les deux bornes viennent de la formule, jamais d'une constante |
 | `formule.assujettie_taxe_nuitee` | « **Taxe de séjour comprise dans le prix** » quand elle vaut vrai, « **Pas de taxe de séjour sur cette formule** » sinon — les deux mentions exactes de la maquette `G2`. Jamais « assujettie », qui est le mot du formulaire fiscal |
 | `regle_conversion_taxe = une_nuitee_par_occupation` | « **Une seule taxe pour tout le séjour** » / *One tax for the whole stay* — **formulation validée au terrain le 2026-08-02**. Ni « conversion », ni « règle », ni le nom de l'énumération n'atteignent l'interface |
-| `regle_conversion_taxe = au_prorata` | « **Une taxe par nuit** » / *One tax per night* — même validation. ⛔ **Ces deux formulations ne disent rien des personnes**, et c'est ce qui les rend employables aujourd'hui : la taxe est due « par nuitée **et par client** » (cadrage §9.6), l'axe des personnes n'est pas tranché (B-10), et une phrase qui l'évoquerait préjugerait de l'arbitrage. Elles tranchent l'axe des nuits, rien d'autre |
+| `regle_conversion_taxe = au_prorata` | « **Une taxe par nuit** » / *One tax per night* — même validation. ⛔ **Ces deux formulations ne disent rien des personnes**, et c'est ce qui les rend employables aujourd'hui : la taxe est due **par nuitée et par séjour** (cadrage §9.6, décision **B-10** close le 2026-08-03). Elles tranchent l'axe des nuits, rien d'autre — et c'est encore vrai après B-10, qui tranche l'axe des personnes sans toucher à celui des nuits |
+| `sejour` | « **Séjour** » / *Stay* — le passage d'un client dans l'établissement, de l'arrivée au départ, **quelle qu'en soit la durée** : deux heures de passage sont un séjour autant que trois nuits. Jamais « dossier », qui évoque un classeur, ni « réservation », qui suppose un engagement pris d'avance |
+| check-in (le mot **est écarté**) | « **Arrivée** » / *Arrival* — le geste de recevoir le client et de lui donner la clé. ⛔ **« Check-in » n'atteint ni l'interface ni une route** : c'est de l'anglais de métier hôtelier que le personnel de Deloria n'emploie pas. Les routes sont `/arrivee` pour le parcours long et `/passage` pour le court |
+| check-out (le mot **est écarté**) | « **Départ** » / *Departure* — le geste de rendre la chambre et d'arrêter la note. ⛔ Même motif, même conséquence : la route est `/depart` |
+| `client` | « **Client** » / *Guest* — la personne qui séjourne. Distinct de « personne » (l'identité civile, qui couvre aussi le personnel) : un client est une personne **qualifiée cliente**. C'est ce qui fait que chercher « Kouamé » à la réception ne montre jamais la femme de ménage. La route est `/clients` |
+| `accompagnant` | « **Accompagnant** » / *Additional guest* — une personne qui séjourne **avec** le client, sans fiche à elle. Un nom suffit à l'ajouter : demander une pièce par accompagnant coûterait la cible des 60 secondes de l'arrivée. Jamais « occupant » ni « co-client » |
+| `fiche_police` | « **Fiche de police** » / *Police registration form* — **le terme de l'usage ivoirien est conservé**, comme « classement » et « NCC » : c'est ce que l'exploitant lit sur ses propres registres et ce que la gendarmerie lui demande. Le reformuler le rendrait méconnaissable. Elle porte, comme la note, la mention « Document non fiscal — ne tient pas lieu de facture » |
+| Fiche de police sans identité rattachée (`complete = false`) | « **Identité à compléter** » / *Identity to be completed* — la fiche **existe et est numérotée**, elle n'est pas encore complète. Jamais « incomplète » seul, qui sonne comme un défaut de saisie là où c'est le parcours normal du passage : la pièce vient **après** la clé |
+| `note_sejour` en statut `arretee` | « **La note est arrêtée : plus rien ne peut s'y ajouter** » / *The bill is closed: nothing more can be added to it* — chaîne exacte de la maquette `R7`. Jamais « clôturée », « figée » ni « verrouillée », qui sont les mots de la ligne de code |
+| `taxe_sejour_constat`, `constat`, `assiette`, `figeage` | **N'apparaît jamais.** Ce sont les mots de la table, du formulaire fiscal et de la ligne de code. L'utilisateur voit « Taxe de séjour (mairie) » sur la note, et rien du mécanisme qui la fixe au départ |
+| `sejour_deja_clos` (409) | « **Ce séjour est déjà terminé.** » / *This stay has already ended.* — au départ d'un séjour clos. Jamais « déjà clos », qui est le mot du statut |
+| `sejour_clos` (409, à la prolongation) | « **On ne prolonge pas un séjour terminé.** » / *A stay that has ended cannot be extended.* — la phrase dit **la règle**, pas l'état : c'est ce qui évite qu'Adjoua cherche comment « rouvrir » le séjour |
+| `conflit_occupation_suivante` (409) | « **Cette chambre est réservée à partir de {heure}.** » / *This room is booked from {time}.* — **suivie des chambres libres de la même catégorie**. ⛔ Un message générique est un défaut (FR-070) : c'est la différence entre un refus qu'Adjoua peut expliquer au client et un refus qu'elle contournera. L'heure vient de l'occupation suivante, jamais d'une constante |
+| `unite_cible_occupee` (409) | « **Cette chambre n'est pas libre sur la période restante.** » / *This room is not free for the remaining period.* — au changement de chambre. Distincte de `unite_deja_occupee` ci-dessus, qui porte sur une **période demandée** ; celle-ci porte sur **ce qui reste du séjour en cours** |
+| `bascule_formule_non_confirmee` (422) | ⚠️ **À valider à l'atelier terrain** — « **Au-delà de {n} h, le tarif passe à la nuitée.** » / *Beyond {n} hours, the rate changes to the nightly rate.* suivie du montant résultant et de la confirmation à donner. La phrase **annonce un changement de tarif avant qu'il ne s'applique** : c'est sa raison d'être (FR-073) et c'est ce qui la rend délicate à formuler — trop sèche, elle ressemble à un refus ; trop douce, elle passe inaperçue. Le seuil `{n}` vient de la formule, jamais d'une constante |
+| Écriture arrivée après le départ (`202`, réconciliation) | ⚠️ **À valider à l'atelier terrain** — « **Cette information est arrivée après le départ du client.** » / *This information arrived after the guest checked out.* suivie de « **Le gérant décidera de la suite.** » / *The manager will decide what to do next.* — **la seconde phrase est obligatoire** : sans elle, Adjoua ne sait pas si son geste a compté. ⛔ Ni « rejeté » (ce serait faux, l'information est conservée), ni « enregistré » (ce serait faux aussi, elle n'est pas sur le séjour), et **jamais « file de réconciliation »**, qui est le nom de la table. Formulation délicate parce qu'elle décrit une situation **qu'aucun exploitant n'a encore vue** |
 
 **Deux termes fiscaux conservés tels quels — règle 2 ci-dessous.** `classement` (« non classé »,
 « résidence meublée », le nombre d'étoiles) et **« numéro de compte contribuable (NCC) »** gardent

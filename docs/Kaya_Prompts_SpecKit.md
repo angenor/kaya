@@ -710,7 +710,7 @@ sous-statut ménage est librement modifiable. La salle de réunion est une unit�
 louable d'une catégorie dédiée, PAS une entité nouvelle.
 ```
 
-### Cycle 5 — SYN(en cours)
+### Cycle 5 — SYN
 
 ```
 /speckit-specify
@@ -746,7 +746,7 @@ de test réutilisables par tous les cycles suivants. Chaque module qui crée une
 entité les instanciera.
 ```
 
-### Cycle 6 — SEJ (partie 1 — T1)
+### Cycle 6 — SEJ (partie 1 — T1)(en cours)
 
 ```
 /speckit-specify
