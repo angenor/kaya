@@ -189,6 +189,7 @@ kaya-fiscalite = { workspace = true }
 # `backend/tests/` assemble tout — c'est ce que `architecture.rs` écrit noir sur blanc.
 kaya-hebergement = { workspace = true }
 async-trait = { workspace = true }
+redis = { workspace = true }
 
 # ---------------------------------------------------------------------------------------------
 #  Profils

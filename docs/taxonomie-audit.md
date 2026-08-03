@@ -3,14 +3,16 @@
 *Source de vérité des types d'action tracés au journal d'audit (`comptes.journal_audit`).
 Créé par le cycle 003 (CPT), story **CPT-04**.*
 
-**Version 1.2.0** — 2026-08-02. **Onze** familles, 3 branchées, 8 dues.
+**Version 1.2.0** — 2026-08-02. **Onze** familles, **4 branchées**, 7 dues.
 
 > **La onzième est `derive_horloge_constatee`**, ajoutée par le cycle 005 (SYN-04). Elle ne trace
 > pas un geste d'utilisateur mais un **constat d'exploitation** : l'heure d'un terminal s'écarte de
 > celle du serveur au-delà du seuil paramétré. C'est la première famille de cette nature, et le §
 > « Ce que la taxonomie n'est pas » dit pourquoi elle a quand même sa place ici plutôt qu'au grand
-> livre. Elle est déclarée **due** tant que le service ne l'écrit pas ; son passage à « branché »
-> se fait dans le changement qui la branche, comme les trois autres avant elle.
+> livre. Elle a été déclarée **due** le temps d'un commit, puis **branchée** dans celui qui l'écrit
+> — `api/src/derive.rs`, câblé sur le service de note par la couche API. Les deux temps ne sont pas
+> une formalité : c'est `audit_taxonomie.rs` qui les impose, en faisant échouer le build dès qu'un
+> type déclaré « dû » acquiert un chemin d'écriture.
 
 ---
 
@@ -59,7 +61,7 @@ build aussi : sans quoi il suffirait de tout déclarer branché pour rendre le h
 | 8 | `ecart_caisse` | Un écart constaté au comptage de fin de shift | **dû** | CAI-04 — tranche T2 |
 | 9 | `rebascule_palier_passage` | Le passage automatique au palier tarifaire supérieur | **branché** | **HEB-04 — cycle 004** |
 | 10 | `forcage_disponibilite` | L'attribution d'une unité que le système déclarait indisponible | **dû** | HEB — tranche T1 |
-| 11 | `derive_horloge_constatee` | L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil | **dû** | **SYN-04 — ce cycle** |
+| 11 | `derive_horloge_constatee` | L'heure d'un terminal s'écarte de celle du serveur au-delà du seuil | **branché** | **SYN-04 — ce cycle** |
 
 **Deux d'entre elles sont dues par ce cycle même**, et c'est délibéré : ce document a été écrit
 **avant** la première migration, donc avant que `changement_role` et `suppression` aient un chemin.
@@ -93,7 +95,7 @@ lui promet, et c'est aussi la raison pour laquelle elle rencontrera de la résis
 > travail ; c'est la fréquence à laquelle on l'interroge qui a manqué. `cargo test --workspace`
 > avant chaque commit de fin de phase est le remède, et non une porte de plus.
 
-**Trois sur onze sont branchées à l'ouverture du cycle 005**, et les huit autres restent dues aux
+**Quatre sur onze sont branchées à la clôture du cycle 005**, et les sept autres restent dues aux
 tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
 chaque étape.
 

@@ -40,7 +40,7 @@ l'écran.
 
 ---
 
-## Les six couches
+## Les huit couches
 
 | # | Couche | Fichier |
 |---|---|---|
@@ -227,6 +227,41 @@ Jamais sur `horodatage_client` : trier sur l'horloge d'un terminal ferait remont
 d'un appareil mal réglé. L'ordre secondaire n'est pas décoratif — deux notes créées dans la même
 transaction partagent `now()`, et sans départage la pagination sauterait ou répéterait des lignes.
 L'UUID v7 étant ordonné dans le temps, il départage dans le bon sens.
+
+### ⚠️ **`cree_le` FAIT AUTORITÉ. `horodatage_client` ne porte AUCUNE règle.**
+
+*Nommé ici au cycle 005, et gardé par la porte **P-23** depuis la constitution 1.8.0. Aucune
+colonne n'a été renommée : ce n'est pas le nom qui manquait, c'est l'interdiction vérifiée
+d'employer l'autre.*
+
+| Colonne | Ce qu'elle est | Ce qui peut s'y appuyer |
+|---|---|---|
+| `cree_le` | L'**horodatage d'autorité serveur**, posé par `DEFAULT now()` | **Tout** — durées, taxes, clôtures, tri, pagination |
+| `horodatage_client` | L'instant tel que le **terminal** l'a perçu. **Indicatif** | **Rien**, hors trois exemptions limitativement énumérées |
+
+Les trois exemptions sont celles de la constitution, à la lettre : **ordre d'affichage local ·
+détection de dérive d'horloge · rendu de l'instant tel que le terminal l'a perçu**. La liste est
+**close**.
+
+**Ce qu'on lirait mal, et qui a demandé d'être écrit** : la couche de persistance qui *écrit* la
+colonne n'est pas une exemption, et n'a pas à en être une — *écrire une valeur n'est pas s'appuyer
+dessus*. Un `INSERT … horodatage_client` ne calcule rien, ne compare rien, ne décide rien. La porte
+distingue donc par ce que le code **fait** de la colonne, pas par l'endroit où il se trouve :
+`backend/tests/horodatage_autorite.rs` cherche trois formes — arithmétique d'instants, tri ou
+filtrage SQL, affectation vers un champ d'autorité — et laisse passer la lecture, l'écriture et la
+sérialisation.
+
+**Le motif est daté et chiffré.** Le cadrage §11.4 : « un téléphone d'entrée de gamme dérive et le
+personnel change l'heure », et « le passage aggrave la sensibilité à l'horloge » puisqu'il se
+facture à l'heure. Une durée de passage calculée sur l'horloge d'un terminal est une facture
+fausse ; une clôture qui s'y appuie est fausse au franc près.
+
+**Le pendant du refus est le constat.** La dérive est **signalée, jamais opposée** (FR-036) : une
+serveuse dont le téléphone retarde de dix minutes doit pouvoir saisir, et elle ne peut rien y
+faire. `socle/synchronisation/src/derive.rs` porte la fonction pure — sur la **valeur absolue** de
+l'écart, une horloge en avance étant aussi fausse qu'une horloge en retard — et la couche API la
+câble sur le registre des actions, débrayée **par épisode** : deux cents saisies pendant un service
+ne produisent qu'une entrée.
 
 ---
 

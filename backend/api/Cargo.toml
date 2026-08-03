@@ -54,6 +54,7 @@ utoipa = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
 utoipa-actix-web = { workspace = true }
 redis = { workspace = true }
+async-trait = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 sentry = { workspace = true }
 dotenvy = { workspace = true }

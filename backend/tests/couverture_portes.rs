@@ -700,6 +700,8 @@ const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
 /// s'exerce.
 const AUDIT_CLASSE_A: &str = include_str!("audit_classe_a.rs");
 const HEBERGEMENT_TARIFICATION: &str = include_str!("hebergement_tarification.rs");
+/// Le cycle 005 (SYN-04) — la dérive d'horloge, exercée par le chemin réel d'écriture d'une note.
+const DERIVE_HORLOGE: &str = include_str!("derive_horloge.rs");
 
 /// **Les fichiers de tests qui exercent le registre des actions, nommés un par un.**
 ///
@@ -720,6 +722,7 @@ const HEBERGEMENT_TARIFICATION: &str = include_str!("hebergement_tarification.rs
 const TESTS_QUI_EXERCENT_L_AUDIT: &[(&str, &str)] = &[
     ("audit_classe_a.rs", AUDIT_CLASSE_A),
     ("hebergement_tarification.rs", HEBERGEMENT_TARIFICATION),
+    ("derive_horloge.rs", DERIVE_HORLOGE),
 ];
 
 /// Nombre de familles au document, repris de `audit_taxonomie.rs`.

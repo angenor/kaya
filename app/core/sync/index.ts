@@ -62,6 +62,12 @@ export {
   type EtatSynchronisation,
 } from './etat'
 export { uuidV7 } from './uuid-v7'
+export {
+  avertissementHorloge,
+  comparerAHorodatageAutorite,
+  oublierAvertissementHorloge,
+  type AvertissementHorloge,
+} from './horloge'
 
 /** État du réseau, affiché en permanence (principe VI). */
 export type EtatReseau = 'connecte' | 'degrade' | 'hors_ligne'

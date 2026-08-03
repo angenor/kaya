@@ -12,6 +12,8 @@
 pub mod application;
 pub mod contexte;
 pub mod db;
+/// **SYN-04** — le câblage du constat de dérive d'horloge sur le registre des actions.
+pub mod derive;
 pub mod observabilite;
 pub mod openapi;
 pub mod routes;

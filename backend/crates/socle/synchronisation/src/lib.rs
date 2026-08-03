@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 
 pub mod consommateurs;
+pub mod derive;
 pub mod outbox;
 pub mod worker;
 

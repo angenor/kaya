@@ -17,6 +17,7 @@ use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use kaya_synchronisation::derive::{OrigineDerive, SignalDerive, SignalMuet};
 use kaya_synchronisation::{EvenementAEcrire, OutboxWriter};
 
 use super::modele::{CreerNote, ErreurNote, Issue, NoteEtablissement};
@@ -44,14 +45,35 @@ pub const AGREGAT_NOTE: &str = "note_etablissement";
 pub const TEXTE_MAX: usize = 2000;
 
 /// Service des notes internes.
-pub struct ServiceNote<E: OutboxWriter> {
+pub struct ServiceNote<E: OutboxWriter, S: SignalDerive = SignalMuet> {
     pool: PgPool,
     outbox: E,
+    /// Le canal de constat de dérive d'horloge — SYN-04.
+    ///
+    /// **Il vaut `SignalMuet` par défaut**, et c'est délibéré : un montage sans registre des
+    /// actions — le nœud de site, par exemple — doit pouvoir servir des notes sans que chaque
+    /// appelant traite un `Option`.
+    signal: S,
 }
 
-impl<E: OutboxWriter> ServiceNote<E> {
+impl<E: OutboxWriter> ServiceNote<E, SignalMuet> {
     pub fn nouveau(pool: PgPool, outbox: E) -> Self {
-        Self { pool, outbox }
+        Self {
+            pool,
+            outbox,
+            signal: SignalMuet,
+        }
+    }
+}
+
+impl<E: OutboxWriter, S: SignalDerive> ServiceNote<E, S> {
+    /// Le même service, **avec le constat de dérive branché** (SYN-04).
+    pub fn avec_signal_derive(pool: PgPool, outbox: E, signal: S) -> Self {
+        Self {
+            pool,
+            outbox,
+            signal,
+        }
     }
 
     /// Crée une note **et** son événement, dans une seule transaction.
@@ -118,6 +140,44 @@ impl<E: OutboxWriter> ServiceNote<E> {
         }
 
         tx.commit().await?;
+
+        // ─── SYN-04 · LE CONSTAT DE DÉRIVE — après le commit, et jamais avant ──────────────────
+        //
+        // **Trois propriétés, chacune contre une faute précise.**
+        //
+        // 1. **Après le commit.** Un constat de dérive n'est pas une transition d'état — c'est un
+        //    constat d'exploitation, qui va au registre des actions et non au grand livre. L'écrire
+        //    dans la transaction lierait le sort de la note à celui de l'audit, alors qu'on veut
+        //    exactement l'inverse.
+        //
+        // 2. **L'écriture est déjà ACCEPTÉE** (FR-036). La dérive n'est jamais un motif de refus :
+        //    une serveuse dont le téléphone retarde de dix minutes doit pouvoir saisir. Le type le
+        //    dit — `constater_et_signaler` ne rend rien, il n'y a rien à propager.
+        //
+        // 3. **`cree_le` est l'horodatage d'AUTORITÉ**, celui que la base a posé. Comparer à
+        //    `OffsetDateTime::now_utc()` ferait décider l'horloge du processus applicatif, qui
+        //    n'est pas la même machine que la base — et la porte P-23 refuse ce genre de raccourci.
+        //
+        // **Aucun champ de réponse nouveau** : le client déduit sa propre dérive de l'horodatage
+        // d'autorité que la réponse porte déjà.
+        if let Some(horodatage_client) = note.horodatage_client {
+            let origine = OrigineDerive {
+                tenant_id,
+                compte_id: enregistree.auteur_compte_id,
+                // L'appareil n'est pas identifiable tant que l'enrôlement (CPT-05) n'existe pas.
+                // Le débrayage retombe alors sur `(tenant, compte)`, plus large et suffisant.
+                appareil_id: None,
+            };
+            self.signal
+                .constater_et_signaler(
+                    origine,
+                    enregistree.etablissement_id,
+                    horodatage_client,
+                    enregistree.cree_le,
+                )
+                .await;
+        }
+
         Ok((enregistree, issue))
     }
 

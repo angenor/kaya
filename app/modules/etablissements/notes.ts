@@ -39,6 +39,7 @@ import type { components } from '@kaya/client'
 import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import {
+  comparerAHorodatageAutorite,
   marquerClasseA,
   uuidV7,
   type ContexteEcriture,
@@ -117,7 +118,7 @@ export async function envoyerNote(
   const client = clientKaya(contexte.baseUrl)
 
   try {
-    const { response } = await client.POST(
+    const { data, response } = await client.POST(
       '/api/v1/etablissements/{etablissement_id}/notes',
       {
         params: { path: { etablissement_id: entree.contexte.etablissementId } },
@@ -129,6 +130,14 @@ export async function envoyerNote(
         },
       },
     )
+
+    // **L'horodatage d'AUTORITÉ, comparé à l'horloge locale.** Aucun endpoint d'heure serveur
+    // n'existe et il n'en faut pas : chaque réponse de création porte déjà `cree_le`. Un endpoint
+    // dédié mesurerait l'aller-retour réseau autant que l'écart d'horloge, et sur une 3G
+    // d'Abengourou l'aller-retour est la plus grande des deux valeurs.
+    if (data?.cree_le) {
+      comparerAHorodatageAutorite(data.cree_le)
+    }
 
     return {
       // **`200` acquitte autant que `201`** — c'est un rejeu réussi, pas un conflit. Une file qui

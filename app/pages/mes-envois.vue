@@ -43,6 +43,7 @@ import { computed, ref } from 'vue'
 
 import TemoinSynchronisation from '~/core/design-system/TemoinSynchronisation.vue'
 import {
+  avertissementHorloge,
   cleMotifRefus,
   fileCourante,
   signalerChangement,
@@ -52,6 +53,16 @@ import {
 const { t } = useI18n()
 
 const etat = useEtatSynchronisation()
+
+/**
+ * L'heure de l'appareil, quand elle est fausse.
+ *
+ * **Le mot « dérive » n'apparaît pas**, et aucune valeur technique non plus : ni secondes, ni
+ * horodatage, ni seuil. L'utilisateur lit une phrase, dans le sens qui le concerne — et la seconde,
+ * celle qui le rassure, est **obligatoire** (lexique 1.5.1) : un avertissement qui inquiète sur ce
+ * qui va bien est pire que pas d'avertissement.
+ */
+const horloge = avertissementHorloge()
 
 /** Une relecture forcée après un geste — la file n'est pas réactive, l'état l'est. */
 const revision = ref(0)
@@ -99,6 +110,23 @@ function relancer(id: string): void {
       <!-- Le témoin lui-même, en tête : l'écran est son développement, il commence donc par ce
            qu'il développe. -->
       <TemoinSynchronisation />
+
+      <!-- COMPOSANT 07 · BANDEAU — l'heure de l'appareil, si elle est fausse. Contrefort, fond
+           `-soft`, texte `-fort`. Deux phrases : celle qui alerte, et celle qui rassure. -->
+      <div
+        v-if="horloge"
+        class="flex items-start gap-2.5 rounded-r-lg border-l-4 border-l-alerte bg-alerte-soft p-3 font-texte text-mini text-alerte-fort"
+        role="status"
+      >
+        <i
+          class="ph ph-clock-countdown mt-0.5 shrink-0 text-corps text-alerte"
+          aria-hidden="true"
+        />
+        <span class="flex flex-col gap-1">
+          <span>{{ t(horloge.cle, { n: horloge.minutes }) }}</span>
+          <span>{{ t('sync.horloge.rassurance') }}</span>
+        </span>
+      </div>
     </div>
 
     <!-- ─────────────────────────────────────────────────────────────────────────────────────

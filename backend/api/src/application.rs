@@ -30,6 +30,12 @@ pub struct EtatApplication {
     pub limite: kaya_comptes::session::LimiteTentatives,
     /// Clé de signature des jetons, lue de l'environnement au démarrage (principe IX).
     pub cle_jwt: Vec<u8>,
+    /// Client Redis — **l'éphémère reconstructible seulement** (principe II).
+    ///
+    /// Deux usages à ce jour : la liste de révocation des sessions, et le débrayage par épisode du
+    /// constat de dérive (SYN-04). Le second est le cas d'école de ce que Redis a le droit de
+    /// porter : **perdre la clé produit une entrée d'audit de plus, jamais une donnée manquante**.
+    pub redis: redis::Client,
 }
 
 impl EtatApplication {
@@ -54,6 +60,8 @@ impl EtatApplication {
             limite: kaya_comptes::session::LimiteTentatives::nouveau(&url_redis)
                 .map_err(|e| format!("compteur de tentatives injoignable : {e}"))?,
             cle_jwt: crate::secrets::cle_jwt().map_err(|e| e.to_string())?,
+            redis: redis::Client::open(url_redis.as_str())
+                .map_err(|e| format!("client Redis injoignable : {e}"))?,
         })
     }
 
@@ -74,6 +82,26 @@ impl EtatApplication {
         )
     }
 
+    /// **Le signal de dérive d'horloge — SYN-04.**
+    ///
+    /// Assemblé ici parce que c'est le seul endroit qui connaît les trois pièces : le résolveur de
+    /// configuration (`etablissements`), le registre des actions (`comptes`) et Redis. Le crate de
+    /// la dérive, lui, est le plus bas de la hiérarchie et n'en connaît aucune — voir
+    /// `api/src/derive.rs`.
+    pub fn signal_derive(
+        &self,
+    ) -> crate::derive::SignalDeriveApplicatif<
+        kaya_comptes::audit::JournalAuditPostgres,
+        kaya_etablissements::configuration::PgResolveurConfiguration,
+    > {
+        crate::derive::SignalDeriveApplicatif::nouveau(
+            self.pool.clone(),
+            kaya_comptes::audit::JournalAuditPostgres,
+            kaya_etablissements::configuration::PgResolveurConfiguration::nouveau(self.pool.clone()),
+            self.redis.clone(),
+        )
+    }
+
     /// Construit le service des notes.
     ///
     /// Le service est **assemblé à la demande** plutôt que conservé dans l'état : il ne détient
@@ -82,10 +110,20 @@ impl EtatApplication {
     /// savoir par où passent les événements.
     pub fn service_note(
         &self,
-    ) -> kaya_etablissements::note::ServiceNote<kaya_synchronisation::outbox::PgOutboxWriter> {
-        kaya_etablissements::note::ServiceNote::nouveau(
+    ) -> kaya_etablissements::note::ServiceNote<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        crate::derive::SignalDeriveApplicatif<
+            kaya_comptes::audit::JournalAuditPostgres,
+            kaya_etablissements::configuration::PgResolveurConfiguration,
+        >,
+    > {
+        // **Le signal de dérive entre ici** (SYN-04), et c'est le seul changement du service de
+        // note à ce cycle : la note reste le premier passager de la file, et son écriture est
+        // toujours acceptée — la dérive est constatée, jamais opposée (FR-036).
+        kaya_etablissements::note::ServiceNote::avec_signal_derive(
             self.pool.clone(),
             kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            self.signal_derive(),
         )
     }
 
