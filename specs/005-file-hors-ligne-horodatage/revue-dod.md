@@ -282,6 +282,11 @@ Corrigé en retirant la directive : l'étape hérite de `TARGETPLATFORM` et comp
 réelle. Le coût est une compilation sous émulation sur un poste arm64 — lent, et c'est le prix
 d'une image qui démarre. **En CI, cela ne coûte rien.**
 
+**Vérifié, et pas seulement corrigé.** L'image reconstruite porte `e_machine = 0x3E`, soit 62,
+soit **x86-64**. Elle démarre : les chaînes cryptographiques s'exercent (`argon2=ok
+jsonwebtoken=ok`), puis le binaire s'arrête sur l'absence de `KAYA_JWT_CLE` — ce qui est le
+comportement attendu du principe IX, aucun secret n'étant dans le binaire. 48,9 Mo.
+
 La compilation croisée (cible `x86_64-unknown-linux-gnu` et éditeur de liens croisé) rendrait les
 deux rapides. Elle demande d'ajouter une chaîne d'outils au gel : **aucune story ne la porte
 aujourd'hui**, et c'est écrit ici plutôt que fait au passage.

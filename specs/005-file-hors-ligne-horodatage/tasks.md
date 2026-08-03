@@ -215,7 +215,7 @@ comportement inchangé et **sans perte de couverture**. Quickstart §6.
 - [x] T066 Reprendre la **double passe `sqlx prepare`** et les deux contrôles après toutes les modifications de requêtes, `touch` compris
 - [x] T067 Régénérer le client TypeScript dans `app/core/api/` (`pnpm generer:client`) et vérifier que **le diff est vide** — le contrat ne change pas, et c'est ce contrôle qui le prouve
 - [x] T068 Vérifier dans `app/tests/amorcage.spec.ts` les **deux preuves dues** pour chaque fonction d'amorçage (exigence 6) : `brancherFile` et `surRetourPremierPlan` ont un test qui les exerce **et** un test qui vérifie qu'elles sont appelées dans le parcours réel
-- [ ] T069 Construire l'image de production `docker buildx build --platform linux/amd64 -f infra/Dockerfile.api` — le poste est `arm64`, jamais de copie d'un binaire local
+- [x] T069 Construire l'image de production `docker buildx build --platform linux/amd64 -f infra/Dockerfile.api` — le poste est `arm64`, jamais de copie d'un binaire local
 - [x] T070 **Revue Definition of Done** (`docs/user-stories-v1.md` §0.4) — les dix points, un par un, avec la preuve de chacun. Écrire `specs/005-file-hors-ligne-horodatage/revue-dod.md` sur le modèle du cycle 004, **y compris les points pris en défaut**
 
 ---
