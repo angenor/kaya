@@ -36,6 +36,13 @@ pub struct EtatApplication {
     /// constat de dérive (SYN-04). Le second est le cas d'école de ce que Redis a le droit de
     /// porter : **perdre la clé produit une entrée d'audit de plus, jamais une donnée manquante**.
     pub redis: redis::Client,
+    /// **Le coffre par tenant** — chiffrement au repos du numéro de pièce d'identité (FR-012).
+    ///
+    /// Porté par l'état, et **partagé par `Arc`**, parce qu'il met en cache une clé dérivée par
+    /// tenant. Le construire à chaque requête viderait ce cache, et l'écran de recherche paierait
+    /// une dérivation Argon2 par résultat — la cible des 300 ms serait perdue pour une raison
+    /// sans rapport avec la recherche.
+    pub coffre: std::sync::Arc<kaya_comptes::client::CoffreTenant>,
 }
 
 impl EtatApplication {
@@ -62,6 +69,18 @@ impl EtatApplication {
             cle_jwt: crate::secrets::cle_jwt().map_err(|e| e.to_string())?,
             redis: redis::Client::open(url_redis.as_str())
                 .map_err(|e| format!("client Redis injoignable : {e}"))?,
+            // **Échouer au démarrage, jamais à la première requête** — le patron de `secrets.rs`.
+            // Découvrir la clé manquante au moment où Yao enregistre une pièce d'identité serait
+            // la découvrir devant un client.
+            coffre: std::sync::Arc::new(
+                kaya_comptes::client::CoffreTenant::depuis_environnement().map_err(|e| {
+                    format!(
+                        "coffre du numéro de pièce d'identité indisponible : {e}. Depuis SEJ-01, \
+                         la pièce d'identité est chiffrée au repos (FR-012, cadrage §12.1) : sans \
+                         cette clé, aucune fiche client ne peut être créée ni lue."
+                    )
+                })?,
+            ),
         })
     }
 
@@ -233,6 +252,26 @@ impl EtatApplication {
         kaya_comptes::personne::ServicePersonne::nouveau(
             self.pool.clone(),
             kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+        )
+    }
+
+    /// Service de la fiche client — SEJ-01.
+    ///
+    /// Il reçoit **trois** collaborateurs et pas deux : l'outbox pour les événements, le registre
+    /// des actions pour la consultation du numéro de pièce, et le coffre pour le chiffrement. Le
+    /// registre n'est pas un ornement — c'est ce qui rend le journal d'accès de FR-012 exhaustif
+    /// sans discipline d'appelant : le seul chemin qui déchiffre est celui qui trace.
+    pub fn service_client(
+        &self,
+    ) -> kaya_comptes::client::ServiceClient<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_comptes::audit::JournalAuditPostgres,
+    > {
+        kaya_comptes::client::ServiceClient::nouveau(
+            self.pool.clone(),
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_comptes::audit::JournalAuditPostgres,
+            std::sync::Arc::clone(&self.coffre),
         )
     }
 

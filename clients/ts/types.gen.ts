@@ -76,6 +76,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cherche des fiches clientes — **trois formes, une entrée**.
+         * @description La forme est déduite de la saisie : que des chiffres → téléphone ; alphanumérique compact avec
+         *     au moins un chiffre → numéro de pièce ; sinon → nom. Une saisie ambiguë interroge **les trois**
+         *     et fusionne.
+         *
+         *     **Seules des personnes qualifiées clientes sont rendues** : le personnel n'y apparaît jamais
+         *     (FR-004).
+         *
+         *     `tronque` dit qu'il y avait plus de résultats que la limite — une liste silencieusement coupée
+         *     est un mensonge sur un écran de comptoir : Yao conclurait que la fiche n'existe pas et en
+         *     créerait une seconde.
+         */
+        get: operations["client_rechercher"];
+        put?: never;
+        /**
+         * Crée une fiche client.
+         * @description **`200` sur rejeu, jamais `409`** : un terminal qui vide sa file après une coupure ne doit pas
+         *     voir d'erreur pour une écriture déjà acceptée. Le corps rendu est la ligne **telle qu'elle est
+         *     en base** — le serveur fait foi en conflit.
+         *
+         *     ⚠️ **Classe C** : refusée immédiatement et explicitement hors ligne, jamais mise en file
+         *     (porte P-13). Décision O-01, option (a), tranchée le 2026-08-03 — un client jamais vu exige le
+         *     réseau (FR-011).
+         *
+         *     ⚠️ **`numero_piece` n'est pas rendu par cette opération**, bien qu'il vienne d'être fourni :
+         *     l'appelant le connaît déjà. Le rendre produirait une entrée au registre des actions pour une
+         *     consultation qui n'en est pas une, et un registre bruyant n'est plus lu.
+         */
+        post: operations["client_creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clients/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lit une fiche complète.
+         * @description ★ **C'est le seul point d'entrée du produit qui rend un numéro de pièce d'identité en clair**,
+         *     et il **journalise la consultation** au registre des actions (FR-012, principe IX) —
+         *     famille `consultation_piece_identite`, dans la **même transaction** que la lecture.
+         *
+         *     La trace n'est écrite que si un numéro est réellement déchiffré : lire une fiche sans pièce
+         *     n'est pas un accès à une pièce, et tracer toutes les lectures noierait les vraies consultations
+         *     sous des entrées vides.
+         */
+        get: operations["client_lire"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Modifie une fiche — **remplacement complet des champs modifiables**. */
+        patch: operations["client_modifier"];
+        trace?: never;
+    };
+    "/api/v1/clients/{client_id}/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enregistre une préférence — **append-only**.
+         * @description La préférence courante est **la ligne la plus récente**, jamais une colonne mise à jour. Une
+         *     correction est une ligne nouvelle : c'est ce qui rend le rejeu inoffensif et le désordre
+         *     commutatif, les deux propriétés que `tester_classe_a!` vérifie.
+         *
+         *     **Rejeu triple → un enregistrement, et aucun second événement outbox.**
+         */
+        post: operations["client_preference_enregistrer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/comptes": {
         parameters: {
             query?: never;
@@ -1075,6 +1169,24 @@ export interface components {
             mot_de_passe_actuel?: string | null;
             nouveau_mot_de_passe: string;
         };
+        /**
+         * @description Ce qu'une liste de résultats montre — **et rien de plus**.
+         *
+         *     ⚠️ **Aucun numéro de pièce d'identité.** Voir le commentaire de tête. `piece_enregistree` dit
+         *     qu'une pièce est là ; il ne dit pas laquelle.
+         */
+        ClientResume: {
+            /** Format: uuid */
+            id: string;
+            nom: string;
+            /**
+             * @description Vrai quand une pièce est enregistrée — ce que la fiche de police doit savoir **sans lire
+             *     la pièce elle-même** (FR-047).
+             */
+            piece_enregistree: boolean;
+            prenoms?: string | null;
+            telephone?: string | null;
+        };
         /** @description Le compte connecté, tel que la réponse le rend. */
         CompteConnecteVue: {
             /** Format: uuid */
@@ -1146,6 +1258,34 @@ export interface components {
             nom: string;
             /** @description Les battements de remise en état, par famille de formule. **Remplacés en bloc.** */
             temps_remise_en_etat?: components["schemas"]["TempsRemiseEnEtat"][];
+        };
+        /** @description Corps de création d'une fiche. */
+        CreerClientRequete: {
+            /** Format: date */
+            date_naissance?: string | null;
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — **jamais employé par une règle métier** (porte P-23).
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** (FR-086) : c'est lui qui rend le rejeu inoffensif —
+             *     `201`, puis `200`, `200`.
+             */
+            id: string;
+            nationalite?: string | null;
+            nom: string;
+            /**
+             * @description ⚠️ **Chiffré au repos dès réception** (FR-012). Il n'est **jamais** rendu par cette
+             *     opération ni par la recherche, et n'entre **jamais** dans l'outbox.
+             */
+            numero_piece?: string | null;
+            prenoms?: string | null;
+            /** @description E.164, ou national — l'indicatif de l'établissement complète la saisie. */
+            telephone?: string | null;
+            type_piece?: string | null;
         };
         /**
          * @description Corps de création d'un compte.
@@ -1483,6 +1623,59 @@ export interface components {
          * @enum {string}
          */
         FamilleFormule: "NUITEE" | "PASSAGE" | "DEMI_JOURNEE" | "MENSUEL";
+        /**
+         * @description La fiche complète d'un client — identité civile **et** qualification.
+         *
+         *     ⚠️ **`numero_piece` est en clair dans ce type et chiffré en base.** Le repository déchiffre à
+         *     la lecture et **journalise la consultation** au registre des actions (FR-012). Toute
+         *     construction de ce type depuis la base passe donc par un chemin qui trace ; c'est ce qui rend
+         *     le journal d'accès exhaustif sans discipline d'appelant.
+         */
+        FicheClient: {
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur**.
+             */
+            cree_le: string;
+            /**
+             * Format: date
+             * @description Les deux attributs que CPT n'a aucune raison de connaître — ils vivent sur `client`.
+             */
+            date_naissance?: string | null;
+            email?: string | null;
+            /**
+             * Format: date-time
+             * @description Indicatif — ordre d'affichage local. **Jamais un critère de calcul** (porte P-23).
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description L'identifiant **est** celui de la personne : une personne est cliente ou ne l'est pas.
+             */
+            id: string;
+            /** Format: date-time */
+            modifie_le: string;
+            nationalite?: string | null;
+            nom: string;
+            /**
+             * @description **Déchiffré à la lecture, et cette lecture est journalisée.** Absent quand aucune pièce
+             *     n'est enregistrée — jamais une chaîne vide, qui laisserait croire à une pièce sans numéro.
+             */
+            numero_piece?: string | null;
+            /**
+             * Format: date-time
+             * @description Instant de **capture** de la pièce (FR-013) — ce sur quoi la rétention de TRX-06
+             *     s'appuiera, sans migration.
+             */
+            piece_capturee_le?: string | null;
+            prenoms?: string | null;
+            /**
+             * @description E.164. **Aucune contrainte de format national** : l'indicatif par défaut est un paramètre
+             *     d'établissement (`indicatif_telephonique_defaut`), jamais une règle de code.
+             */
+            telephone?: string | null;
+            type_piece?: string | null;
+        };
         /** @description Une formule, telle que l'écran `G2` la lit. */
         FormuleVue: {
             assujettie_taxe_nuitee: boolean;
@@ -1553,6 +1746,26 @@ export interface components {
             capacite_accueil: number;
             nom: string;
             temps_remise_en_etat?: components["schemas"]["TempsRemiseEnEtat"][];
+        };
+        /**
+         * @description Corps de modification — **remplacement complet des champs modifiables**.
+         *
+         *     Le verbe est `PATCH` au contrat, la sémantique est celle d'un remplacement : une fusion champ
+         *     par champ rendrait impossible d'effacer un numéro de téléphone, l'absence du champ et sa mise à
+         *     `null` étant indistinguables après désérialisation.
+         */
+        ModifierClientRequete: {
+            /** Format: date */
+            date_naissance?: string | null;
+            email?: string | null;
+            /** Format: date-time */
+            horodatage_client?: string | null;
+            nationalite?: string | null;
+            nom: string;
+            numero_piece?: string | null;
+            prenoms?: string | null;
+            telephone?: string | null;
+            type_piece?: string | null;
         };
         /** @description Corps de modification — **tout champ absent est laissé tel quel**. */
         ModifierEtablissementRequete: {
@@ -1837,6 +2050,37 @@ export interface components {
              */
             tables: components["schemas"]["TableVue"][];
         };
+        /** @description Une préférence, telle qu'elle est en base. */
+        Preference: {
+            /**
+             * Format: date-time
+             * @description **AUTORITÉ** — c'est lui qui ordonne, donc lui qui décide laquelle est courante.
+             */
+            cree_le: string;
+            /** Format: date-time */
+            horodatage_client?: string | null;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            personne_id: string;
+            texte: string;
+        };
+        /** @description Corps d'enregistrement d'une préférence — **classe A, append-only**. */
+        PreferenceRequete: {
+            /**
+             * Format: date-time
+             * @description Accepté et **indicatif** ; ne porte **aucune règle** (porte P-23). L'ordre des préférences
+             *     vient de `cree_le`, l'horodatage d'autorité.
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 généré par le client. Rejeu triple → un enregistrement, **et aucun second
+             *     événement outbox**.
+             */
+            id: string;
+            texte: string;
+        };
         /** @description Corps de rafraîchissement. */
         RafraichirRequete: {
             /** Format: uuid */
@@ -1875,6 +2119,17 @@ export interface components {
         /** @description Corps de remplacement des tables — **une liste vide fait un comptoir**. */
         RemplacerTablesRequete: {
             tables: components["schemas"]["TableRequete"][];
+        };
+        /**
+         * @description Le résultat d'une recherche.
+         *
+         *     `tronque` dit qu'il y avait **plus** de résultats que la limite. Une liste silencieusement
+         *     coupée est un mensonge sur un écran de comptoir : Yao conclurait que la fiche n'existe pas et
+         *     en créerait une seconde.
+         */
+        ResultatRecherche: {
+            clients: components["schemas"]["ClientResume"][];
+            tronque: boolean;
         };
         /** @description Un rôle porté par un compte sur un établissement. */
         RolePorte: {
@@ -2008,14 +2263,14 @@ export interface components {
             famille_formule: components["schemas"]["FamilleFormule"];
         };
         /**
-         * @description Les **onze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04.
+         * @description Les **douze** familles d'actions tracées au registre — dix de CPT-04, une de SYN-04, une de SEJ-01.
          *
          *     L'ordre des variantes suit celui de `docs/taxonomie-audit.md`, qui suit lui-même celui de
          *     CPT-04. Il n'a aucune portée fonctionnelle — il rend seulement la comparaison des deux listes
          *     lisible à l'œil.
          * @enum {string}
          */
-        TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite" | "derive_horloge_constatee";
+        TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite" | "derive_horloge_constatee" | "consultation_piece_identite";
         /** @description Une unité attribuable, telle que la consultation de disponibilité la rend. */
         UniteDisponible: {
             code: string;
@@ -2252,6 +2507,288 @@ export interface operations {
             };
             /** @description Logo trop volumineux — le message donne la limite */
             413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_rechercher: {
+        parameters: {
+            query?: {
+                /**
+                 * @description La saisie brute de l'opérateur. **Une seule entrée pour trois formes** : le serveur déduit
+                 *     s'il s'agit d'un nom, d'un téléphone ou d'un numéro de pièce. Au comptoir, l'opérateur ne
+                 *     choisit pas un mode.
+                 */
+                recherche?: string;
+                /** @description Nombre maximal de résultats. Ramené au plafond du service quand il le dépasse. */
+                limite?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Les fiches trouvées, et l'indication de troncature */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResultatRecherche"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_creer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreerClientRequete"];
+            };
+        };
+        responses: {
+            /** @description Fiche déjà créée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FicheClient"];
+                };
+            };
+            /** @description Fiche créée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FicheClient"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description nom_vide, telephone_invalide, nationalite_invalide */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La fiche, numéro de pièce compris — consultation journalisée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FicheClient"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Fiche inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_modifier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifierClientRequete"];
+            };
+        };
+        responses: {
+            /** @description Fiche modifiée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FicheClient"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Fiche inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description nom_vide, telephone_invalide, nationalite_invalide */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_preference_enregistrer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Identifiant de la fiche */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenceRequete"];
+            };
+        };
+        responses: {
+            /** @description Préférence déjà enregistrée (rejeu idempotent) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+            /** @description Préférence enregistrée */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Fiche inconnue */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description preference_invalide */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

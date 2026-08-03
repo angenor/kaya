@@ -11,6 +11,7 @@
 //! chaque handler porte son propre attribut de routage.
 
 pub mod branding;
+pub mod clients;
 pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
@@ -120,6 +121,30 @@ pub fn configurer(config: &mut ServiceConfig) {
         scope("/api/v1/comptes")
             .service(comptes::creer)
             .service(comptes::lister),
+    );
+
+    // Fiches clients — SEJ-01. **Aucun `etablissement_id`** : la fiche est du TENANT (FR-002).
+    // Du plus spécifique au plus général, sans quoi `/api/v1/clients` accepterait le préfixe et
+    // rendrait `404` pour les préférences — sans erreur de compilation, et avec un contrat
+    // OpenAPI parfaitement exact.
+    //
+    // ⚠️ **`/clients/{id}/sejours` n'est PAS ici** : l'historique est monté avec les séjours, sur
+    // le crate `hebergement`. Si `socle/comptes` lisait `hebergement.sejour`, ce serait une
+    // jointure inter-schémas (P-04) ET une arête `socle/ → verticales/` (P-03). Le chemin HTTP
+    // cache ce découpage à l'appelant : le contrat est une façade, pas une carte des crates.
+    config.service(
+        scope("/api/v1/clients/{client_id}/preferences")
+            .service(clients::enregistrer_preference),
+    );
+    config.service(
+        scope("/api/v1/clients/{client_id}")
+            .service(clients::lire)
+            .service(clients::modifier),
+    );
+    config.service(
+        scope("/api/v1/clients")
+            .service(clients::rechercher)
+            .service(clients::creer),
     );
 
     // Registre des actions — CPT-04. **Une seule opération, en lecture** : aucun point d'entrée

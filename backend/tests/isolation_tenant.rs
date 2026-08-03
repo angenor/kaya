@@ -155,6 +155,25 @@ const COUVERTURE: &[(&str, Regime)] = &[
     // `journal_audit` porte un `tenant_id` et sa politique. **Une seule opération, en lecture** :
     // aucun point d'entrée d'écriture n'existe, et c'est une décision (research R-17).
     ("/api/v1/journal-audit", Regime::Isole),
+    // ── Cycle 006 — fiches clients (SEJ-01) ────────────────────────────────────────────────
+    //
+    // Les trois chemins sont **isolés**, sans exception. `comptes.client` et
+    // `comptes.preference_personne` portent un `tenant_id` et leur politique `isolation_tenant`,
+    // `WITH CHECK` compris ; la recherche joint `personne` et `client`, toutes deux isolées.
+    //
+    // ⚠️ **`/api/v1/clients` n'a PAS d'`etablissement_id`, et cela n'en fait pas un chemin
+    // global.** La fiche est du **tenant** (FR-002) — un client de Deloria enregistré à l'accueil
+    // est le même au restaurant. L'absence d'établissement dans le chemin dit la portée de la
+    // donnée, pas l'absence d'isolation : c'est exactement la confusion que `Regime::SansTenant`
+    // désignerait à tort.
+    //
+    // La donnée en jeu est la plus sensible du produit : un concurrent qui lirait le fichier
+    // clients d'un autre exploitant aurait sa clientèle entière — et, la pièce d'identité étant
+    // chiffrée **par tenant**, un cryptogramme volé resterait illisible chez lui. Les deux
+    // barrières sont indépendantes, et c'est délibéré.
+    ("/api/v1/clients", Regime::Isole),
+    ("/api/v1/clients/{client_id}", Regime::Isole),
+    ("/api/v1/clients/{client_id}/preferences", Regime::Isole),
     // ── Cycle 004 — référentiel d'hébergement (HEB-01, HEB-03, HEB-04, HEB-05) ─────────────
     //
     // Les six chemins sont **isolés**, sans exception. Les six tables du schéma `hebergement`

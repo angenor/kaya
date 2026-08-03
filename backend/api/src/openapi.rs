@@ -25,6 +25,7 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         (name = "comptes", description = "Personnes, comptes et rôles cumulables — les permissions sont l'UNION des rôles portés."),
         (name = "session", description = "Connexion, rafraîchissement et déconnexion à distance. Les deux seules opérations publiques du produit sont ici."),
         (name = "journal-audit", description = "Registre des actions — lecture filtrée seulement. Aucun point d'entrée d'écriture, par décision."),
+        (name = "clients", description = "Fiches clients — du TENANT, jamais d'un établissement (FR-002). La recherche sert trois formes par une seule entrée : nom, téléphone, numéro de pièce. Le numéro de pièce d'identité est chiffré au repos et sa consultation journalisée au registre des actions."),
         (name = "hebergement", description = "Types de chambre, chambres, formules de location et moteur de disponibilité. La double attribution est rendue impossible par une contrainte d'exclusion PostgreSQL, jamais par un verrou applicatif."),
     ),
     modifiers(&SecuriteBearer),

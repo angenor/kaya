@@ -118,6 +118,12 @@ const SOURCES_DE_TESTS: &[(&str, &str)] = &[
     ),
     ("seeds_rejouables.rs", include_str!("seeds_rejouables.rs")),
     ("audit_immuabilite.rs", include_str!("audit_immuabilite.rs")),
+    // ── Cycle 006 (SEJ) ────────────────────────────────────────────────────────────────────
+    (
+        "client_classes_offline.rs",
+        include_str!("client_classes_offline.rs"),
+    ),
+    ("client_recherche.rs", include_str!("client_recherche.rs")),
     (
         "outbox_immuabilite.rs",
         include_str!("outbox_immuabilite.rs"),
