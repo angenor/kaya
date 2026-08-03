@@ -35,6 +35,7 @@
 import type { PlatformAdapter } from '~/core/platform'
 
 import { estTypeClasseA, type EntreeFile, type OperationClasseA } from './classes'
+import { signalerChangement } from './etat'
 import { ouvrirMagasin, type MagasinFile } from './persistance'
 import { type EntreeQuarantaine } from './quarantaine'
 
@@ -151,6 +152,18 @@ export class FileLocale {
    * échecs sont absorbés par le stockage lui-même, qui ne lève jamais.
    */
   private persister(): void {
+    // **Toute mutation de la file notifie le témoin**, et c'est ici que ça doit se faire.
+    //
+    // Le laisser à l'appelant a été essayé, et le balayage hors ligne l'a pris en défaut : une
+    // note saisie pendant une coupure entrait bien en file, et le témoin continuait d'afficher
+    // « Hors connexion » sans le nombre. L'utilisateur voyait donc sa saisie disparaître de
+    // l'indicateur censé lui dire que son travail est en sécurité — c'est-à-dire le contraire de
+    // ce que le composant 10 existe pour faire.
+    //
+    // Cinq points de mutation (enfiler, retirer, quarantaine, relance, tentative) passent tous par
+    // ici : un seul signal, impossible à oublier.
+    signalerChangement()
+
     const magasin = this.magasin
     if (!magasin) {
       return

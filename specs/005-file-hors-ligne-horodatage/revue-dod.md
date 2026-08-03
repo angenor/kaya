@@ -169,25 +169,35 @@ Ce cycle n'imprime rien.
 *La partie de la revue qui compte. Un point coché est une information ; un point pris en défaut en
 est une meilleure.*
 
-### 1 · Le balayage e2e hors ligne n'a pas été exécuté jusqu'au bout — **écrit, non exercé**
+### 1 · Le balayage e2e est passé au vert — mais il a d'abord passé au vert POUR RIEN
 
-`tests-e2e/hors-ligne.spec.ts` est écrit, et son premier contrôle — le périmètre croisé entre le
-contrat, les types de classe A et les routes — **passe** : 32 opérations d'écriture au contrat, le
-décompte est rapporté.
+`tests-e2e/hors-ligne.spec.ts` **passe, dix cas sur dix, sur chromium et webkit**. Ce qui mérite
+d'être écrit est ce qui s'est passé avant.
 
-**Les neuf cas de balayage en direct n'ont pas pu être exercés**, et la cause est
-environnementale, pas un défaut du produit : le limiteur de tentatives plafonne à **dix connexions
-par identifiant sur une fenêtre glissante de cinq minutes, réussies comprises**. Playwright
-**redémarre son worker après chaque échec** et rejoue le `beforeAll`, donc une connexion de plus à
-chaque fois — la première défaillance en produit neuf autres, et le refus est **indiscernable d'un
-mot de passe faux** (FR-012), ce qui rend le diagnostic long.
+**Sa première version était verte sur neuf cas, et elle ne gardait rien.** Le jeton d'accès vit en
+mémoire et meurt avec la page ; un rechargement oblige `reprendreSession()` à rejouer le jeton de
+rafraîchissement, ce qui **exige le réseau**. Hors ligne, chaque `page.goto` renvoyait donc sur
+`/connexion` — et les neuf cas inspectaient neuf fois l'écran de connexion. Le `<main>` existait,
+aucune erreur de console, aucune écriture en file : tout était vert.
 
-C'est exactement ce que `playwright.config.ts` documente déjà pour P-22 : « quatre passages
-rapprochés de la porte butent sur le seuil ». Le cycle l'a rencontré, et il faut le dire.
+C'est **exactement** le mode de défaillance que le § « Couverture des portes » nomme, rencontré
+sur la porte écrite pour le fermer. Il a été trouvé parce que le dixième cas — le versant positif,
+la saisie de classe A — échouait, lui : il cherchait un champ qui n'était pas là.
 
-**Ce que cela laisse non vérifié**, précisément : qu'une opération de classe B, C ou D annonce son
-indisponibilité **avant la saisie**, en navigateur réel, réseau coupé. Le versant *type* de P-13,
-lui, est vérifié (`file-classe-a.spec.ts`, quatre `@ts-expect-error`).
+Deux corrections, et la seconde est la leçon :
+
+1. **Navigation par le routeur, sans rechargement.** C'est le chemin réel d'un utilisateur qui perd
+   le réseau *en cours de service* : son application est ouverte, sa session est vivante.
+2. **Un contrôle d'anti-régression** : chaque cas vérifie désormais que l'URL n'est **pas**
+   `/connexion`. Sans lui, la même défaillance reviendrait sans que rien ne le dise.
+
+Trois autres écueils ont été rencontrés et sont documentés dans le fichier : la coupure ne doit
+porter que sur l'API (`setOffline` couperait aussi le serveur de pages, que Tauri sert localement),
+l'événement `offline` doit être émis (le témoin s'y abonne pour que son passage soit instantané),
+et le limiteur de tentatives punit les exécutions rapprochées — une seule connexion par exécution
+désormais.
+
+**Un défaut réel du produit en est sorti**, et c'est le point 4 de la liste ci-dessous.
 
 ### 2 · Le décompte d'assertions de T055 n'a pas été *comparé* — il a été rendu sans objet
 
@@ -270,7 +280,7 @@ levée demanderait une base dédiée aux tests, ce qu'aucune story ne porte aujo
 | P-10 | ✓ | 28 migrations, 122 fichiers Rust, JSONB compris |
 | P-11 | ✓ | installée à vide, assertion de non-régression |
 | P-12 | ✓ | `architecture.rs` — chemins composés depuis le manifeste |
-| P-13 | **partielle** | versant type ✓ ; versant écran **écrit, non exercé** (voir non-conformité 1) |
+| P-13 | ✓ | versant type (4 `@ts-expect-error`) **et** versant écran (10 cas e2e × 2 moteurs) |
 | P-14 | ✓ | macros du §0.7 + `outillage_classes.rs` |
 | P-15 | ✓ | pont natif confiné, 93 fichiers analysés sur trois arbres |
 | P-16 | ✓ | 311 clés à parité |
@@ -287,7 +297,7 @@ levée demanderait une base dédiée aux tests, ce qu'aucune story ne porte aujo
 
 ## Les défauts trouvés par le cycle, et corrigés
 
-Cinq, dont trois qu'aucune relecture n'aurait vus.
+Six, dont quatre qu'aucune relecture n'aurait vus.
 
 1. **`note_etablissement.creee` émis depuis quatre cycles sans être déclaré** — trouvé par
    l'élargissement du périmètre de P-05. Le produit émettait 28 types, la porte en comptait 27, et
@@ -298,10 +308,16 @@ Cinq, dont trois qu'aucune relecture n'aurait vus.
 3. **Un `401` de rafraîchissement détruisait la file persistée.** La purge totale emportait la clé
    de chiffrement : les écritures non parties devenaient illisibles **y compris après une
    reconnexion réussie** — exactement ce que la règle 2 de `vidage.ts` interdit, en pire.
-4. **Une course de persistance.** Deux écritures concurrentes chiffraient chacune leur instantané
+4. **Le témoin ne comptait pas une saisie hors ligne.** La note entrait bien en file, et
+   l'indicateur continuait d'afficher « Hors connexion » sans le nombre : l'utilisateur voyait sa
+   saisie disparaître de l'indicateur censé lui dire que son travail est en sécurité — le contraire
+   de ce que le composant 10 existe pour faire. Le signal est désormais émis par la file elle-même,
+   à chaque mutation ; les cinq points de mutation y passent tous, et l'oubli devient impossible.
+   **Trouvé par le balayage e2e**, qu'aucun test de composant n'aurait remplacé.
+5. **Une course de persistance.** Deux écritures concurrentes chiffraient chacune leur instantané
    et écrivaient dans l'ordre où elles finissaient : une entrée saisie pouvait disparaître sans
    erreur ni trace.
-5. **Le `CHECK` d'égalité de conditions laissait passer un corollaire isolé.** La forme écrite au
+6. **Le `CHECK` d'égalité de conditions laissait passer un corollaire isolé.** La forme écrite au
    modèle de données acceptait une issue posée sur un constat encore ouvert — trouvé par le test
    qui l'exerce, avant que la migration ne soit figée.
 

@@ -229,6 +229,79 @@ test.beforeEach(() => {
   erreurs = []
 })
 
+/**
+ * **Coupe le réseau vers l'API — et vers elle seule.**
+ *
+ * # Pourquoi `contexte.setOffline(true)` serait FAUX ici, et le dire vaut mieux que de le subir
+ *
+ * `setOffline` coupe **tout** le réseau du navigateur, serveur de pages compris. En développement,
+ * Nuxt sert l'application par HTTP sur `localhost:3000` : la coupure totale rend donc l'application
+ * elle-même inaccessible, et le test mesure « la page ne se charge pas » au lieu de « l'écran
+ * annonce l'indisponibilité ».
+ *
+ * **La cible ne se comporte pas ainsi.** Tauri sert l'application depuis un protocole local ; ce
+ * qui tombe, sur un terminal de comptoir à Abengourou, est la liaison **vers le serveur**. L'écran
+ * s'ouvre, et c'est précisément parce qu'il s'ouvre qu'il doit annoncer ce qui est indisponible.
+ *
+ * La simulation reproduit donc l'état réel, sur deux plans :
+ *
+ * 1. **les appels d'API échouent** — interceptés et avortés, comme derrière un réseau tombé ;
+ * 2. **`navigator.onLine` rend `false`** — c'est ce que la plateforme rapporte, et c'est la
+ *    première source qu'`etatReseauNavigateur()` consulte.
+ *
+ * Les deux sont nécessaires : le premier seul laisserait le témoin dire « connexion faible » au
+ * lieu de « hors connexion » ; le second seul laisserait les appels aboutir.
+ */
+async function couperLeReseauVersLApi(): Promise<void> {
+  await contexte.route(`${API}/**`, route => route.abort('internetdisconnected'))
+  // Posé sur la page **courante**, sans rechargement — voir la note sur la navigation interne
+  // ci-dessous : un `reload()` perdrait la session, et le balayage mesurerait autre chose.
+  //
+  // **L'événement `offline` est émis, et ce n'est pas une commodité de test** : c'est ce qu'un
+  // navigateur fait quand le réseau tombe, et c'est le signal auquel le témoin (composant 10)
+  // s'abonne pour que son passage hors ligne soit **instantané**. Poser la propriété sans émettre
+  // l'événement laisserait le témoin sur son dernier état connu — et vérifierait qu'il ment.
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    window.dispatchEvent(new Event('offline'))
+  })
+}
+
+/**
+ * **Navigue SANS recharger — et c'est ce qui rend ce balayage probant.**
+ *
+ * # Le piège que ce détail évite, et il a failli rendre la porte muette
+ *
+ * Le jeton d'accès vit **en mémoire** et meurt avec la page (`core/auth/session.ts`, décision du
+ * cycle 003 : l'écrire dans le stockage doublerait la surface d'attaque pour gagner une heure). Un
+ * rechargement oblige donc `reprendreSession()` à rejouer le jeton de rafraîchissement — ce qui
+ * **exige le réseau**.
+ *
+ * Conséquence : hors ligne, tout `page.goto` renvoie sur `/connexion`. Une première version de ce
+ * fichier l'ignorait, et ses neuf cas **passaient au vert en inspectant neuf fois l'écran de
+ * connexion** — le `<main>` existe, aucune erreur de console, aucune écriture en file. La porte
+ * était verte et ne gardait rien.
+ *
+ * La navigation par le routeur, sans rechargement, est le chemin réel d'un utilisateur qui perd le
+ * réseau **en cours de service** : son application est ouverte, sa session est vivante, et il
+ * continue de naviguer. C'est exactement la situation que FR-005b décrit.
+ *
+ * (Que le rechargement hors ligne renvoie sur `/connexion` est une propriété réelle du produit,
+ * pas un défaut : sans réseau, aucune session ne peut être reprise. Elle est hors du périmètre de
+ * cette porte, et documentée ici pour qu'on ne la redécouvre pas.)
+ */
+async function naviguerSansRecharger(chemin: string): Promise<void> {
+  await page.evaluate((cible) => {
+    history.pushState({}, '', cible)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    // La coupure est réaffirmée après chaque navigation : le témoin est remonté avec la page, et
+    // il lit l'état au montage.
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    window.dispatchEvent(new Event('offline'))
+  }, chemin)
+  await page.waitForLoadState('domcontentloaded')
+}
+
 // =================================================================================================
 //  Exigence 2 — la cible n'est pas vide, et son décompte est RAPPORTÉ
 // =================================================================================================
@@ -273,23 +346,25 @@ test.describe('réseau coupé — chaque écran d’écriture annonce, aucun n�
 
   test.beforeAll(async ({ browser }: { browser: Browser }) => {
     await ouvrirSession(browser)
-
-    // **La coupure est réelle**, au niveau du contexte du navigateur : toute requête sortante
-    // échoue, comme derrière un réseau tombé. Simuler `navigator.onLine` seul ne prouverait rien —
-    // c'est exactement l'état qu'`etatReseauNavigateur()` ne suffit pas à décrire.
-    await contexte.setOffline(true)
+    await couperLeReseauVersLApi()
   })
 
   test.afterAll(async () => {
-    await contexte?.setOffline(false)
     await contexte?.close()
   })
 
   for (const ecran of ECRANS) {
     test(`${ecran.chemin} · s’ouvre hors ligne sans rien mettre en file`, async () => {
-      await page.goto(ecran.chemin)
-      // `networkidle` n'arrive jamais hors ligne sur certains écrans : on attend le DOM.
-      await page.waitForLoadState('domcontentloaded')
+      await naviguerSansRecharger(ecran.chemin)
+
+      // 0 · **La session tient toujours.** Sans ce contrôle, le balayage inspecterait l'écran de
+      //     connexion neuf fois de suite et passerait au vert sans rien garder — c'est ce qui est
+      //     arrivé à la première version de ce fichier.
+      await expect(
+        page,
+        `${ecran.chemin} — la navigation a renvoyé sur /connexion : la session a été perdue, et le `
+        + 'balayage inspecterait l’écran de connexion au lieu de l’écran annoncé.',
+      ).not.toHaveURL(/\/connexion/)
 
       // 1 · **L'écran s'ouvre.** Un écran qui refuserait de se monter hors ligne serait pire
       //     qu'un écran qui annonce : l'utilisateur ne saurait même pas ce qui est indisponible.
@@ -325,17 +400,18 @@ test.describe('réseau coupé — chaque écran d’écriture annonce, aucun n�
     // Sans ce contrôle, un produit qui refuserait **tout** hors ligne passerait la porte au vert.
     // C'est le versant positif que le § « Couverture des portes » exige, et il est ici le seul
     // geste d'écriture du fichier (T043).
-    await page.goto('/notes')
-    await page.waitForLoadState('domcontentloaded')
+    await naviguerSansRecharger('/notes')
 
+    // L'écran est chargé paresseusement : on attend le champ plutôt que de supposer qu'il est là.
     const champ = page.getByLabel(/texte de la note/i)
+    await champ.waitFor({ state: 'visible', timeout: 15_000 })
     await champ.fill('Coupure de réseau — saisie de contrôle FR-005b.')
-    await page.getByRole('button', { name: /^ajouter$/i }).click()
+    await page.getByRole('button', { name: /ajouter/i }).first().click()
 
     // Le témoin passe à `n+1` — c'est ce que « acceptée » veut dire pour une classe A. Aucun
-    // message d'erreur, aucune confirmation demandée.
+    // message d'erreur, aucune confirmation demandée, aucun grisé.
     const temoin = page.locator('[data-etat]').first()
-    await expect(temoin).toContainText(/1/)
+    await expect(temoin).toContainText(/1/, { timeout: 10_000 })
 
     // Et la file est bien persistée, chiffrée : la clé existe, et le texte n'y est pas lisible.
     const cryptogramme = await page.evaluate(() => localStorage.getItem('kaya.sync.file'))
