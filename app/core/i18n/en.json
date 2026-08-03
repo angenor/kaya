@@ -41,10 +41,10 @@
     "action_creer": "Add an internal note"
   },
   "reseau": {
-    "connecte": "Connected",
-    "degrade": "Degraded network",
-    "hors_ligne": "Offline",
-    "en_attente": "{n} item pending | {n} items pending"
+    "connecte": "Saved",
+    "degrade": "Weak connection",
+    "hors_ligne": "No connection",
+    "en_attente": "Pending send ({n}) | Pending send ({n})"
   },
   "capacite": {
     "indisponible": "This action is not available on this device.",
@@ -405,5 +405,45 @@
         "duree_hors_contrainte": "This rate plan is booked from {min} to {max}."
       }
     }
+  },
+  "sync": {
+    "titre": "My uploads",
+    "sous_titre": "What has not been sent yet, and what was refused.",
+    "en_attente_titre": "Pending send",
+    "en_attente_vide": "Everything has been sent. Nothing is waiting.",
+    "tentatives": "Tried {n} time | Tried {n} times",
+    "saisie_le": "Entered at {heure}",
+    "quarantaine": {
+      "titre": "Refused entries",
+      "vide": "No refused entries.",
+      "relancer": "Send this entry again",
+      "refusee_le": "Refused at {heure}",
+      "motif": {
+        "validation": "This entry was refused: it does not match what the server expects. Correct it and enter it again.",
+        "permission_refusee": "This entry was refused: you are not allowed to record it. Ask the person in charge.",
+        "introuvable": "This entry was refused: what it refers to no longer exists.",
+        "conflit": "This entry was refused: it conflicts with what is already recorded.",
+        "etablissement_inconnu": "This entry was refused: the establishment it belongs to cannot be found.",
+        "inconnu": "This entry was refused by the server. Enter it again, or report it if it is refused a second time."
+      }
+    },
+    "horloge": {
+      "retard": "This device's clock is {n} minutes behind.",
+      "avance": "This device's clock is {n} minutes ahead.",
+      "rassurance": "Durations and amounts are still calculated from the server's time."
+    }
+  },
+  "notes": {
+    "titre": "Internal notes",
+    "sous_titre": "What the team leaves for the next shift.",
+    "vide": "No notes yet. The first one will say what the next shift needs to know.",
+    "chargement": "Loading notes…",
+    "chargement_impossible": "Notes cannot be displayed right now.",
+    "acces_refuse": "You do not have access to this establishment's internal notes.",
+    "ajouter": "Add",
+    "ajout_en_cours": "Adding…",
+    "champ_vide": "Write the note before adding it.",
+    "champ_trop_long": "A note cannot exceed {max} characters.",
+    "en_attente_envoi": "Saved on this device, pending send."
   }
 }

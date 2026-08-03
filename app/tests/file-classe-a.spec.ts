@@ -21,6 +21,7 @@ import {
   operationRealisable,
   TYPES_CLASSE_A,
 } from '../core/sync'
+import { CONTEXTE_TEST } from './commun/classes'
 
 const HORODATAGE = '2026-07-31T09:00:00.000Z'
 
@@ -36,6 +37,10 @@ describe('file locale — classe A seulement', () => {
         { texte: 'Le groupe électrogène a démarré à 19 h 40.' },
         'A4 — append-only, commutative, sans effet monétaire',
       ),
+      // Les deux champs du cycle 005. `contexte` est FIGÉ à la saisie — changer d'établissement
+      // actif pendant une coupure ne réattribue jamais une écriture déjà enfilée.
+      contexte: CONTEXTE_TEST,
+      tentatives: 0,
     })
 
     expect(file.enAttente).toBe(1)
@@ -52,6 +57,8 @@ describe('file locale — classe A seulement', () => {
         type: 'encaissement.enregistre',
         horodatageClient: HORODATAGE,
         charge: marquerClasseA({ montant_mineur: 15500 }, 'justification abusive'),
+        contexte: CONTEXTE_TEST,
+        tentatives: 0,
       })
 
     expect(enfiler).toThrow(OperationRefusee)
@@ -75,6 +82,8 @@ describe('file locale — classe A seulement', () => {
       // C'est LA garantie de la porte P-13 : si cette ligne cessait d'être une erreur,
       // `@ts-expect-error` deviendrait lui-même une erreur, et le test échouerait.
       charge: { texte: 'charge brute, sans marque' },
+      contexte: CONTEXTE_TEST,
+      tentatives: 0,
     })
 
     expect(file.enAttente).toBe(1)
@@ -247,6 +256,8 @@ describe('P-13 — le cycle 003 n’ajoute aucun type de classe A', () => {
           type,
           horodatageClient: HORODATAGE,
           charge: marquerClasseA({}, 'marque abusive — le test la provoque'),
+          contexte: CONTEXTE_TEST,
+          tentatives: 0,
         }),
       ).toThrow(OperationRefusee)
       refusees += 1

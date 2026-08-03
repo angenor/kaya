@@ -71,13 +71,21 @@ interface Amorcage {
 }
 
 /**
- * **Les points d'entrée d'amorçage du produit.** Liste fermée, douze entrées.
+ * **Les points d'entrée d'amorçage du produit.** Liste fermée, quinze entrées.
  *
- * *Deux mouvements au lot de déconnexion :* `fermerSession` passe de **due** à **branchée** — le
- * bouton « passer la main » du pied de coquille l'appelle —, et `ecrituresEnAttente` entre
- * branchée dès sa naissance, avec `brancherFile` qui reste due par SYN-01. C'est exactement le
- * mouvement que ce harnais existe pour rendre visible : un mécanisme n'entre pas en service en
- * silence, et celui qui n'y est pas encore le dit.
+ *Quatre bascules au cycle 005, et c'est le lot le plus lourd depuis la création de ce harnais.*
+ * `FileLocale`, `marquerClasseA`, `viderFile` et `brancherFile` passent de **dues** à
+ * **branchées** : la file hors-ligne entre en service. Trois entrées nouvelles les accompagnent —
+ * `brancherEnvoi`, `useEtatSynchronisation` et `surRetourPremierPlan`.
+ *
+ * **Le harnais a fait son travail exactement comme prévu.** Le premier appelant de `brancherFile`
+ * a fait échouer ce fichier, et il a fallu venir ici : c'est la seule chose qui distingue un
+ * mécanisme mis en service d'un mécanisme mis en service *en silence*.
+ *
+ * `operationRealisable` reste **due**, et il faut le dire plutôt que de la faire basculer par
+ * symétrie : six emplacements réimplémentent encore `reseau !== 'connecte'` à la main. Les y
+ * substituer est un geste d'ETB-06, pas de ce cycle, et le déclarer branchée sans l'avoir fait
+ * rendrait le harnais muet sur ce qui reste.
  *
  * Établie par balayage exhaustif de `app/core/` — toute fonction exportée qu'un chemin d'amorçage
  * doit appeler pour que le produit fonctionne. Les fonctions appelées **par** l'une d'elles dans
@@ -155,6 +163,68 @@ const AMORCAGE: readonly Amorcage[] = [
     ou: 'layouts/default.vue',
   },
 
+  // ── Les QUATRE bascules du cycle 005 — la file entre en service ───────────────────────────
+  //
+  // Elles étaient dues par SYN-01 depuis le cycle 003, et c'est ce harnais qui a rendu leur
+  // branchement impossible à faire en silence : au premier appelant, le test échoue et la ligne
+  // doit passer ici dans le MÊME changement. Il l'a fait, quatre fois.
+  {
+    nom: 'FileLocale.ouvrir',
+    definition: 'core/sync/index.ts',
+    role: 'la file hors-ligne — **ouverte au démarrage**, déchiffrée depuis le stockage, et son '
+      + 'passager est la note interne',
+    etat: 'branché',
+    ou: 'plugins/02.sync.client.ts',
+  },
+  {
+    nom: 'marquerClasseA',
+    definition: 'core/sync/classes.ts',
+    role: 'le seul point d’entrée de la file — la note interne y passe, et elle seule',
+    etat: 'branché',
+    ou: 'modules/etablissements/notes.ts',
+  },
+  {
+    nom: 'viderFile',
+    definition: 'core/sync/vidage.ts',
+    role: 'vide la file, **rafraîchir avant d’envoyer** — appelée par les quatre déclencheurs, '
+      + 'et par eux seuls',
+    etat: 'branché',
+    ou: 'core/sync/envoi.ts',
+  },
+  {
+    nom: 'brancherFile',
+    definition: 'core/sync/attente.ts',
+    role: 'déclare la file du produit à `ecrituresEnAttente` — la garde de déconnexion mesure '
+      + 'désormais des écritures, plus l’absence de file',
+    etat: 'branché',
+    ou: 'plugins/02.sync.client.ts',
+  },
+  {
+    nom: 'brancherEnvoi',
+    definition: 'core/sync/envoi.ts',
+    role: 'pose les déclencheurs d’envoi — retour au premier plan et retour du réseau ; **aucune '
+      + 'minuterie de scrutation**',
+    etat: 'branché',
+    ou: 'plugins/02.sync.client.ts',
+  },
+  {
+    nom: 'useEtatSynchronisation',
+    definition: 'core/sync/etat.ts',
+    role: 'la source unique du témoin (composant 10) et de l’écran `S1` — deux lectures '
+      + 'indépendantes divergeraient, et le témoin cesserait d’être cru',
+    etat: 'branché',
+    ou: 'core/design-system/TemoinSynchronisation.vue',
+  },
+  // `surRetourPremierPlan` n'EST PAS dans cette liste, et c'est une limite du harnais, écrite
+  // plutôt que contournée. C'est une **méthode** de `PlatformAdapter` : son appel réel s'écrit
+  // `adaptateurCourant().surRetourPremierPlan(tenter)`, que le motif rejette délibérément — le
+  // `(?<![\w.])` est ce qui empêche `file.viderFile()` de compter comme un appel de `viderFile`.
+  //
+  // Les **deux preuves dues** par l'exigence 6 du § « Couverture des portes » lui sont donc
+  // apportées ailleurs, et elles existent : `app/tests/file-envoi.spec.ts` l'exerce (un abonnement
+  // qui déclenche un envoi, un désabonnement qui l'arrête) **et** vérifie que `brancherEnvoi`
+  // l'appelle sur l'adaptateur. `brancherEnvoi`, elle, est bien inventoriée ici.
+
   // ── Dues : le mécanisme existe, aucun chemin du produit ne l'atteint ──────────────────────
   //
   // Ce ne sont PAS des défauts à corriger ici. Ce sont des mécanismes en attente de l'écran qui
@@ -162,43 +232,12 @@ const AMORCAGE: readonly Amorcage[] = [
   // silence : le jour où un appelant apparaît, ce fichier échoue et la ligne doit passer à
   // « branché » dans le MÊME changement.
   {
-    nom: 'FileLocale',
-    definition: 'core/sync/index.ts',
-    role: 'la file hors-ligne — jamais instanciée : `TYPES_CLASSE_A` ne porte que '
-      + '`note_etablissement.creee`, dont l’écran n’existe pas',
-    etat: 'dû',
-    ou: 'le premier écran qui écrit une opération de classe A',
-  },
-  {
-    nom: 'marquerClasseA',
-    definition: 'core/sync/classes.ts',
-    role: 'le seul point d’entrée de la file — rien n’y passe encore',
-    etat: 'dû',
-    ou: 'le premier écran qui écrit une opération de classe A',
-  },
-  {
-    nom: 'viderFile',
-    definition: 'core/sync/vidage.ts',
-    role: 'vide la file au retour du réseau, **rafraîchir avant d’envoyer** — aucun crochet de '
-      + 'retour au premier plan ne l’appelle',
-    etat: 'dû',
-    ou: 'SYN-01 · le témoin de synchronisation et le crochet de reprise',
-  },
-  {
     nom: 'operationRealisable',
     definition: 'core/sync/index.ts',
     role: 'la garde hors-ligne canonique — six emplacements réimplémentent `reseau !== '
       + '\'connecte\'` à la main, ce qui contourne le registre `TYPES_CLASSE_A`',
     etat: 'dû',
-    ou: 'SYN-01 · à substituer aux six gardes écrites à la main',
-  },
-  {
-    nom: 'brancherFile',
-    definition: 'core/sync/attente.ts',
-    role: 'déclare la file du produit à `ecrituresEnAttente` — **tant que personne ne l’appelle, '
-      + 'la garde de déconnexion répond 0 faute de file, pas faute d’écritures**',
-    etat: 'dû',
-    ou: 'SYN-01 · dans le même changement que la première instanciation de `FileLocale`',
+    ou: 'ETB-06 · à substituer aux six gardes écrites à la main',
   },
 ]
 

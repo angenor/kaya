@@ -220,6 +220,8 @@ describe('G1 — mode clair et mode sombre', () => {
       'EcranComptes.vue', // `G3`
       'EcranEtablissement.vue',
       'EcranJournalAudit.vue', // `G4`
+      // ── Cycle 005 — l'écran composé de la note interne, premier passager de la file ────
+      'EcranNotes.vue',
       'EcranOffre.vue', // `G2` — écran maquetté, deux états
       'FormulaireCategorie.vue',
       'FormulaireUnite.vue',
@@ -231,6 +233,10 @@ describe('G1 — mode clair et mode sombre', () => {
       'SectionMentions.vue',
       'SectionPointsDeVente.vue',
       'SectionServices.vue',
+      // ── Cycle 005 — le composant 10, monté dans la COQUILLE donc présent sur toutes les
+      //    pages. Il porte trois tons distincts (succès, alerte, danger) : c'est exactement le
+      //    genre de composant où une seconde palette se glisserait.
+      'TemoinSynchronisation.vue',
       // Le cadre à deux volets du styleguide. Il n'est pas un composant canonique, mais il pose des
       // jetons de couleur et il porte la classe `.dark` — donc il relève exactement du contrôle
       // ci-dessus. L'exclure aurait été le placer hors de vue sans raison.
@@ -247,6 +253,10 @@ describe('G1 — mode clair et mode sombre', () => {
       'hebergement.vue', // `G2`
       'index.vue', // `R1`
       'journal-audit.vue', // `G4`
+      // ── Cycle 005 — les deux pages de la file hors-ligne ──────────────────────────────
+      'mes-envois.vue', // `S1`, écran DÉRIVÉ du composant 10 — le mot « synchronisation » est
+                        // proscrit du visible, URL comprise
+      'notes.vue', // écran COMPOSÉ, cas (c)
     ])
   })
 })

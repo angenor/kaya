@@ -40,6 +40,7 @@ import { rafraichirSession, type ResultatConnexion } from '~/core/auth'
 import { contexteAppel, type ContexteAppel } from '~/core/auth/session'
 
 import type { EntreeFile } from './classes'
+import { classer } from './quarantaine'
 import type { EtatReseau } from './index'
 import type { FileLocale } from './index'
 
@@ -61,13 +62,31 @@ export type ResultatVidage =
   /** Une partie est partie ; le reste attend le prochain passage. */
   | { issue: 'partielle', envoyees: number, restantes: number }
 
+/** Ce qu'un envoi unitaire rapporte. */
+export interface IssueEnvoi {
+  /** L'entrée peut-elle quitter la file ? `200` autant que `201`. */
+  readonly acquittee: boolean
+  /** Le code de réponse, ou `null` si l'appel n'a pas abouti. **`null` n'est pas `0`.** */
+  readonly statut: number | null
+  /** Le code de refus, sur lequel l'interface branche sa clé i18n — **jamais un `message`**. */
+  readonly code: string
+}
+
 /**
- * Envoie une entrée. Rendu `true` si elle est acquittée et peut quitter la file.
+ * Envoie une entrée.
  *
  * Passé en paramètre plutôt qu'appelé ici : chaque type d'opération de classe A a son propre point
- * d'entrée d'API, et cette fonction n'a pas à les connaître. Elle ne connaît que l'**ordre**.
+ * d'entrée d'API, et cette fonction n'a pas à les connaître. Elle ne connaît que l'**ordre**, et
+ * ce qu'il faut faire de chaque issue.
+ *
+ * # Pourquoi il rend une issue plutôt qu'un booléen — changement du cycle 005
+ *
+ * Un booléen ne distingue pas « le réseau n'a pas porté l'appel » de « le serveur a refusé
+ * définitivement ». Les deux cas exigent des traitements opposés : réessayer indéfiniment pour le
+ * premier, ne jamais réessayer pour le second. Confondus, on obtient soit une boucle infinie sur
+ * un refus, soit une écriture jetée parce que le réseau a hoqueté.
  */
-export type Envoyeur = (entree: EntreeFile, contexte: ContexteAppel) => Promise<boolean>
+export type Envoyeur = (entree: EntreeFile, contexte: ContexteAppel) => Promise<IssueEnvoi>
 
 /**
  * Vide la file — **et c'est la seule façon d'en sortir quelque chose**.
@@ -109,18 +128,49 @@ export async function viderFile(
 
   // ─── 2. VIDER ─────────────────────────────────────────────────────────────────────────────
   let envoyees = 0
-  // Copie de la liste : `retirer` modifie la file pendant l'itération.
+  let refusees = 0
+
+  // Copie de la liste : `retirer` et `mettreEnQuarantaine` la modifient pendant l'itération.
   for (const entree of [...file.lister()]) {
-    const acquittee = await envoyer(entree, contexte)
-    if (!acquittee) {
-      // On s'arrête au premier échec plutôt que de continuer. L'ordre d'arrivée est indifférent
-      // pour la classe A (commutative), mais insister sur un réseau qui vient de refuser dépense
-      // la batterie et le forfait de quelqu'un pour rien.
-      break
+    file.compterTentative(entree.id)
+    const issue = await envoyer(entree, contexte)
+
+    switch (classer(issue.statut)) {
+      case 'retirer':
+        file.retirer(entree.id)
+        envoyees += 1
+        continue
+
+      case 'quarantaine':
+        // **Le refus est définitif : l'entrée sort de la file d'envoi et devient consultable.**
+        // La laisser en tête bloquerait tout le service pour une seule saisie fautive — c'est le
+        // défaut que la quarantaine existe pour empêcher, et il faut continuer la boucle, pas
+        // s'arrêter.
+        file.mettreEnQuarantaine(entree.id, issue.code, new Date().toISOString())
+        refusees += 1
+        continue
+
+      case 'session':
+        // Un `401` **après** un rafraîchissement réussi : la session a été révoquée entre-temps —
+        // « Déconnecter cet appareil » depuis un autre poste. La file reste intacte.
+        return {
+          issue: 'reconnexion_requise',
+          restantes: file.enAttente,
+          cle: 'connexion.refus.session_expiree',
+        }
+
+      case 'reessayer':
+        // On s'arrête au premier échec réseau plutôt que de continuer. L'ordre d'arrivée est
+        // indifférent pour la classe A (commutative), mais insister sur un réseau qui vient de
+        // refuser dépense la batterie et le forfait de quelqu'un pour rien.
+        return { issue: 'partielle', envoyees, restantes: file.enAttente }
     }
-    file.retirer(entree.id)
-    envoyees += 1
   }
+
+  // `refusees` ne compte pas dans `envoyees` : rien n'est parti. Mais la file est bien vide de ce
+  // qui attendait, et le dire « partielle » ferait armer un réessai sur une file où il ne reste
+  // que des refus définitifs — donc une boucle.
+  void refusees
 
   return file.enAttente === 0
     ? { issue: 'videe', envoyees }

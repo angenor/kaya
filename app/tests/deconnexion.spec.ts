@@ -47,7 +47,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CLE_RAFRAICHISSEMENT, effacerSession, poserSession } from '../core/auth'
 import fr from '../core/i18n/fr.json'
 import { adaptateurCourant } from '../core/platform/courant'
-import { brancherFile, ecrituresEnAttente, FileLocale, fileBranchee, marquerClasseA } from '../core/sync'
+import { brancherFile, ecrituresEnAttente, FileLocale, fileBranchee } from '../core/sync'
+import { entreeDeTest } from './commun/classes'
 import Coquille from '../layouts/default.vue'
 
 const SOURCE = readFileSync(join(process.cwd(), 'layouts/default.vue'), 'utf8')
@@ -120,15 +121,7 @@ function monter() {
  */
 function fileAvecUneEcriture(id: string): FileLocale {
   const file = new FileLocale()
-  file.enfiler({
-    id,
-    type: 'note_etablissement.creee',
-    horodatageClient: '2026-08-02T09:41:00.000Z',
-    charge: marquerClasseA(
-      { texte: 'Table 4 — deux bières' },
-      'A4 — append-only, commutative, sans effet monétaire',
-    ),
-  })
+  file.enfiler(entreeDeTest({ id }))
   return file
 }
 

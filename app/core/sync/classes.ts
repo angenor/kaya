@@ -39,6 +39,24 @@ export type OperationClasseA<T = unknown> = T & {
   readonly [MARQUE_CLASSE_A]: true
 }
 
+/**
+ * Le contexte d'une écriture, **figé au moment de la saisie**.
+ *
+ * # Le défaut que ce champ existe pour empêcher, et il est silencieux
+ *
+ * Aminata saisit quatre commandes hors ligne sur l'établissement A, puis change d'établissement
+ * actif — geste normal pour une gérante de deux structures. Le réseau revient.
+ *
+ * Sans ce champ, la file relirait le contexte **à l'envoi** et les quatre écritures partiraient
+ * sur l'établissement B. Rien n'échouerait : les identifiants sont valides, le serveur accepte, et
+ * la faute ne se voit qu'à la clôture — quand le chiffre d'affaires de A manque et que celui de B
+ * est faux. Impossible à démêler après coup, puisque rien ne dit d'où venait chaque ligne.
+ */
+export interface ContexteEcriture {
+  readonly tenantId: string
+  readonly etablissementId: string
+}
+
 /** Entrée de la file locale. */
 export interface EntreeFile<T = unknown> {
   /** UUID v7 **généré par le client** — c'est lui qui rend le rejeu inoffensif (principe VI). */
@@ -48,7 +66,29 @@ export interface EntreeFile<T = unknown> {
   /** Horodatage du terminal. **Indicatif** : ordre d'affichage local, jamais une règle. */
   readonly horodatageClient: string
   readonly charge: OperationClasseA<T>
+  /** Le contexte **au moment de la saisie**, jamais relu à l'envoi. Voir {@link ContexteEcriture}. */
+  readonly contexte: ContexteEcriture
+  /**
+   * Combien de fois l'envoi a été tenté.
+   *
+   * Alimente l'intervalle croissant de réessai, et le diagnostic de l'écran `S1` — « cette
+   * écriture a été tentée sept fois » est une information que l'exploitant peut porter au support,
+   * là où « en attente » ne dit rien.
+   */
+  readonly tentatives: number
 }
+
+/**
+ * Ce que la file NE PORTE PAS, et qui est le point : **aucun jeton**.
+ *
+ * L'absence de champ est ce qui l'empêche. Un jeton mis en file serait **périmé au retour** — le
+ * jeton d'accès dure soixante minutes, une coupure de service en dure quatre-vingt-dix — et le
+ * ranger prolongerait la durée de vie d'un secret sur un terminal qu'on peut perdre.
+ *
+ * C'est pourquoi le vidage rafraîchit **avant** d'envoyer, et pourquoi il est le seul chemin de
+ * sortie de la file : l'ordre est porté par une fonction, pas par la discipline des appelants.
+ */
+export type AucunJetonEnFile = never
 
 /**
  * Marque une opération comme étant de classe A.
@@ -84,6 +124,11 @@ export const TYPES_CLASSE_A: readonly string[] = [
   // registre. Les cycles suivants remplissent cette liste : sélection d'établissement actif
   // (ETB-06), journal d'audit (CPT-04), relevé de position (CPT-06), ouverture de tiroir
   // (IMP-01)…
+  //
+  // **Le cycle 005 n'en ajoute AUCUNE, et c'est une décision.** La file devient réelle avec le
+  // seul passager qu'elle avait déjà — la note interne. Y verser un type de plus « puisqu'on y
+  // est » ferait entrer une opération dont personne n'a rouvert le registre pour vérifier la
+  // classe, et c'est exactement le moment où la question doit se poser.
 ]
 
 /** Ce type d'opération est-il déclaré de classe A ? */

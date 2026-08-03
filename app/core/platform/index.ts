@@ -120,6 +120,41 @@ export interface StockageSecurise {
 }
 
 /**
+ * **Stockage persistant ORDINAIRE** — le volume, pas les secrets.
+ *
+ * # Pourquoi il est distinct de {@link StockageSecurise}, et ce que la distinction évite
+ *
+ * Keystore et Keychain sont conçus pour des **secrets courts et peu nombreux**. Y ranger une file
+ * d'écritures de plusieurs centaines d'entrées, réécrite à chaque saisie, est un usage qu'ils
+ * tiennent mal — et qui échouerait d'abord sur l'Android d'entrée de gamme d'Aminata, c'est-à-dire
+ * sur la cible.
+ *
+ * Le montage retenu (research R-06) met dans le coffre ce pour quoi il est fait — **une clé** — et
+ * laisse le volume ici, où il est **illisible sans elle**. Deux emplacements, deux natures :
+ *
+ * ```text
+ * clé de chiffrement de la file  →  stockageSecurise     (coffre système ; « aucune » sur web)
+ * cryptogramme de la file        →  stockagePersistant   (ce contrat)
+ * ```
+ *
+ * # Pourquoi cette interface existe plutôt qu'un `localStorage` dans `core/sync/`
+ *
+ * Le principe VII, et la porte **P-15** qui le tient : aucun stockage de navigateur n'est nommé
+ * hors de `core/platform/`. Un `localStorage.setItem` dans la file marcherait — dans un
+ * navigateur — et devrait être rouvert pour chaque coquille Tauri. La règle a déjà servi : c'est
+ * elle qui a permis à `stockage-web.ts` de déclarer `garantie: 'aucune'` dans son **type** plutôt
+ * que dans un commentaire que personne ne lit.
+ *
+ * **Aucune garantie de confidentialité n'est promise ici, et c'est le point** : ce stockage est
+ * ordinaire. La confidentialité vient du chiffrement, dont la clé vit ailleurs.
+ */
+export interface StockagePersistant {
+  lire(cle: string): Promise<string | null>
+  ecrire(cle: string, valeur: string): Promise<void>
+  supprimer(cle: string): Promise<void>
+}
+
+/**
  * Se désabonner d'un signal de plateforme.
  *
  * **Rendue par tout abonnement, jamais `void`.** Un écouteur qu'on ne peut pas retirer fait fuir
@@ -135,6 +170,8 @@ export interface PlatformAdapter {
   scanner(): Promise<ResultatCapacite<string>>
   ocrPieceIdentite(image: Blob): Promise<ResultatCapacite<ChampsPieceIdentite>>
   readonly stockageSecurise: StockageSecurise
+  /** Le **volume** — cryptogramme de la file. Voir {@link StockagePersistant}. */
+  readonly stockagePersistant: StockagePersistant
   notifier(notification: Notification): Promise<ResultatCapacite>
   geolocaliser(): Promise<ResultatCapacite<Position>>
   etatReseau(): EtatReseau
@@ -197,6 +234,75 @@ export const stockageSecuriseAbsent: StockageSecurise = {
     return indisponible('plateforme_non_supportee')
   },
 }
+
+/**
+ * Stockage persistant **du moteur de rendu** — implémentation partagée par les quatre plateformes.
+ *
+ * Les trois coquilles Tauri servent l'application dans un moteur de rendu qui fournit
+ * `localStorage` ; le web aussi. Une implémentation unique est donc exacte aujourd'hui, et le jour
+ * où une coquille voudra un magasin natif — un fichier chiffré, une base SQLite — elle remplacera
+ * ce champ **dans son adaptateur**, sans qu'aucun appelant ne bouge. C'est précisément ce que
+ * l'interface achète.
+ *
+ * # Ce que cette implémentation ne fait PAS, et qui est délibéré
+ *
+ * Elle ne **lève jamais**. Un quota dépassé, une navigation privée de Safari qui déclare
+ * `localStorage` et refuse l'écriture : dans les deux cas, l'écriture est perdue en silence côté
+ * stockage, et la file **reste en mémoire**. C'est le bon compromis — faire échouer une saisie
+ * parce que le disque est plein transformerait une dégradation en perte de travail, alors que la
+ * file en mémoire tiendra jusqu'au prochain envoi.
+ *
+ * Ce que ça coûte est écrit plutôt que découvert : dans ce cas, la file ne survivra pas au
+ * rechargement. C'est vérifié par `app/tests/file-persistance.spec.ts`, qui distingue les deux
+ * situations au lieu de les confondre.
+ */
+export const stockagePersistantMoteur: StockagePersistant = {
+  async lire(cle: string): Promise<string | null> {
+    if (typeof localStorage === 'undefined') {
+      return null
+    }
+    try {
+      return localStorage.getItem(PREFIXE_PERSISTANT + cle)
+    }
+    catch {
+      return null
+    }
+  },
+
+  async ecrire(cle: string, valeur: string): Promise<void> {
+    if (typeof localStorage === 'undefined') {
+      return
+    }
+    try {
+      localStorage.setItem(PREFIXE_PERSISTANT + cle, valeur)
+    }
+    catch {
+      // Quota dépassé ou stockage refusé. Voir la note de tête : la file reste en mémoire.
+    }
+  },
+
+  async supprimer(cle: string): Promise<void> {
+    if (typeof localStorage === 'undefined') {
+      return
+    }
+    try {
+      localStorage.removeItem(PREFIXE_PERSISTANT + cle)
+    }
+    catch {
+      // Idem.
+    }
+  },
+}
+
+/**
+ * Préfixe des clés persistantes — **le même que celui du stockage sécurisé**, et c'est voulu.
+ *
+ * `purger()` de `stockage-web.ts` retire toutes les clés `kaya.`. Le cryptogramme de la file doit
+ * partir avec le reste à la déconnexion : le laisser survivre à un changement de personne
+ * laisserait les écritures d'Aminata sur le terminal de Yao — chiffrées, mais présentes, et
+ * déchiffrables tant que la clé du coffre n'a pas bougé.
+ */
+const PREFIXE_PERSISTANT = 'kaya.'
 
 /**
  * État du réseau, **plateforme et appels réels combinés**.

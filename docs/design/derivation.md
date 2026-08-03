@@ -3,6 +3,14 @@
 *Source de vérité de l'héritage visuel des écrans non maquettés. Extrait de `docs/Kaya_Design.md`
 PARTIE V §25 le 2026-07-30 — ce fichier fait foi, `Kaya_Design.md` y renvoie.*
 
+**Version 1.4.0** — l'écran **Notes internes** ajouté le 2026-08-03 (cycle SYN), **deuxième écran
+composé** du produit. Le total passe de 44 à **45**.
+
+C'est le premier écran du produit dont la raison d'être est de **donner un passager à un
+mécanisme** : la file hors-ligne existait depuis deux cycles sans qu'aucun écran n'écrive en
+classe A, et un mécanisme sans passager réel est du code exporté et appelé nulle part. `S1`, lui,
+figurait déjà parmi les 32 dérivés — il n'est pas ajouté, il est **livré**.
+
 **Version 1.3.0** — `G5` Chambres et types de chambre ajouté le 2026-08-02 (cycle HEB), et avec lui
 **une catégorie qui manquait à cette matrice** : les écrans **composés**.
 
@@ -22,13 +30,13 @@ signalement du plan du cycle 005. —  `R0` Connexion ajouté le 2026-08-01 (cyc
 
 ---
 
-## Les 44 écrans du produit
+## Les 45 écrans du produit
 
 | Catégorie | Nombre | Référence |
 |---|---|---|
 | **Écrans maquettés** | **11** codes, **29 fichiers d'états** | `docs/design/html/{code}-{nom}[-{etat}].html` |
 | **Écrans dérivés** | **32** | la matrice ci-dessous |
-| **Écrans composés** | **1** | le tableau « Les écrans composés », ci-dessous |
+| **Écrans composés** | **2** | le tableau « Les écrans composés », ci-dessous |
 
 Codes maquettés : `C4` `F2` `G2` `M4` `P2` `Q1` `R1` `R4` `R7` `S2` `V1`.
 
@@ -53,6 +61,7 @@ face et de l'argent en jeu, et c'est là que le dessin décide de la vitesse.
 | Écran | Composants employés | Mention | Vérification |
 |---|---|---|---|
 | `G5` Chambres et types de chambre | **08** ligne de liste · **16** champ de saisie (dont l'état « choix fermé ») · **01 · 02 · 03** actions · **11** état vide illustré · **13** squelette de chargement | **composé** · **à valider à l'atelier terrain** | Une liste et deux formulaires ; couverture par la bibliothèque vérifiée motif par motif ; Adjoua règle son parc à l'ouverture puis y revient à la marge ; zone de charme |
+| **Notes internes** (`/notes`) | **08** ligne de liste (dont l'état « en attente d'envoi ») · **16** champ de saisie · **01** bouton principal · **11** état vide illustré · **13** squelette de chargement | **composé** · **à valider à l'atelier terrain** | **(1)** une liste et un formulaire, motif posé par `G5` · **(2)** conception entièrement issue de la bibliothèque, vérifiée composant par composant — aucun élément n'est hors des seize · **(3)** une note interne se consulte rarement, par un utilisateur formé : c'est ce que l'équipe se laisse d'un service à l'autre · **(4)** personne n'a de doute sur son apparence — une liste de textes horodatés et un champ. **Zone de charme** : ni client en face, ni argent en jeu |
 
 > **Pourquoi le choix du type de chambre emploie le composant 16 et non le 12.** La règle du
 > composant 12 (contrôle segmenté) est explicite : « au-delà de quatre options c'est une liste, pas
@@ -62,6 +71,12 @@ face et de l'argent en jeu, et c'est là que le dessin décide de la vitesse.
 > **La mention « à valider à l'atelier terrain » n'est pas une formalité.** Un écran composé n'a
 > aucune maquette contre laquelle comparer son rendu : le contrôle mécanique — jetons, thème sombre,
 > parcours réel — le couvre, le jugement d'usage non. La mention dit ce qui reste dû.
+>
+> **Ce que l'écran de notes ajoute au composant 08, et qui n'est pas un état nouveau.** La ligne
+> « en attente d'envoi » **figure déjà** dans les états du composant 08 (`composants.md` §08 :
+> « repos · survol · sélectionnée · **en attente d'envoi** · annulée · ligne de total »). Elle
+> n'avait simplement jamais été rendue, aucun écran n'écrivant encore en classe A. Le cycle 005
+> l'emploie pour la première fois — il ne l'invente pas.
 
 ---
 
@@ -91,7 +106,7 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 | `G3` Utilisateurs et rôles | `G2` | Configuration |
 | `G4` Journal d'audit | `R5` + `F2` | Liste filtrable, registre sobre |
 | `A1` À propos | `G2` | Configuration en **lecture seule** |
-| `S1` Panneau de synchronisation | **Composant 10** — témoin de synchronisation | Développement du composant : le témoin dit l'état d'un coup d'œil, le panneau détaille ce qui attend et permet d'agir |
+| `S1` Panneau de synchronisation — **titre « Mes envois », route `/mes-envois`** (livré au cycle SYN) | **Composant 10** — témoin de synchronisation | Développement du composant : le témoin dit l'état d'un coup d'œil, le panneau détaille ce qui attend et permet d'agir. **Le nom du fichier de page décide de la route, et une URL est visible** : `/synchronisation` aurait fait entrer par cette porte un mot que le lexique proscrit du visible |
 | `S3` États vides et erreurs | Famille d'illustrations | Couvert par la fondation |
 | `M1` Accueil mobile | `R1` + `M4` | Composition en régime mobile |
 | `M2` Commande mobile | `P2` | C'est déjà la cible mobile de `P2` |

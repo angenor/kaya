@@ -27,6 +27,7 @@ import {
   sessionCourante,
 } from '../core/auth'
 import { FileLocale, marquerClasseA, viderFile, type EntreeFile } from '../core/sync'
+import { CONTEXTE_TEST } from './commun/classes'
 import { uuidV7 } from '../core/sync/uuid-v7'
 
 const BASE = 'http://localhost:8080'
@@ -67,6 +68,18 @@ function serveurRafraichissement(statut: number, corps: unknown) {
   }) as typeof fetch
 }
 
+/**
+ * Une entrée acquittée par le serveur — `201`, ou `200` sur un rejeu.
+ *
+ * **Depuis le cycle 005, un envoyeur rend une ISSUE et non un booléen.** Un booléen ne distinguait
+ * pas « le réseau n'a pas porté l'appel » de « le serveur a refusé définitivement », et les deux
+ * exigent des traitements opposés : réessayer indéfiniment pour le premier, jamais pour le second.
+ */
+const ACQUITTE = { acquittee: true, statut: 201, code: '' } as const
+
+/** Le réseau n'a pas porté l'appel. `statut: null` — **rien n'a été décidé côté serveur**. */
+const RESEAU_COUPE = { acquittee: false, statut: null, code: 'reseau' } as const
+
 /** Trois écritures de classe A, telles qu'une serveuse les produit pendant la coupure. */
 function troisNotes(): EntreeFile[] {
   return [1, 2, 3].map(rang => ({
@@ -78,6 +91,10 @@ function troisNotes(): EntreeFile[] {
       { texte: `commande ${rang}` },
       'A4 — append-only, sans effet monétaire, rejeu inoffensif',
     ),
+    // Le contexte est FIGÉ à la saisie : changer d'établissement actif pendant la coupure ne
+    // réattribue jamais une écriture déjà enfilée (cycle 005).
+    contexte: CONTEXTE_TEST,
+    tentatives: 0,
   }))
 }
 
@@ -128,7 +145,7 @@ describe('R-18 — au retour du réseau, rafraîchir précède le premier envoi'
 
     const resultat = await viderFile(file, BASE, 'connecte', async (entree) => {
       journal.push(`envoi:${entree.id}`)
-      return true
+      return ACQUITTE
     })
 
     expect(resultat).toEqual({ issue: 'videe', envoyees: 3 })
@@ -156,7 +173,7 @@ describe('R-18 — au retour du réseau, rafraîchir précède le premier envoi'
 
     const resultat = await viderFile(new FileLocale(), BASE, 'connecte', async () => {
       journal.push('envoi')
-      return true
+      return ACQUITTE
     })
 
     expect(resultat).toEqual({ issue: 'rien_a_faire' })
@@ -173,7 +190,7 @@ describe('l’échec du rafraîchissement NE VIDE PAS la file', () => {
 
     const resultat = await viderFile(file, BASE, 'connecte', async () => {
       journal.push('envoi')
-      return true
+      return ACQUITTE
     })
 
     expect(resultat).toMatchObject({ issue: 'reconnexion_requise', restantes: 3 })
@@ -187,7 +204,7 @@ describe('l’échec du rafraîchissement NE VIDE PAS la file', () => {
 
     const resultat = await viderFile(file, BASE, 'hors_ligne', async () => {
       journal.push('envoi')
-      return true
+      return ACQUITTE
     })
 
     expect(resultat).toEqual({ issue: 'hors_ligne', restantes: 3 })
@@ -203,7 +220,9 @@ describe('l’échec du rafraîchissement NE VIDE PAS la file', () => {
     let envois = 0
     const resultat = await viderFile(file, BASE, 'connecte', async () => {
       envois += 1
-      return envois === 1
+      // Le second envoi tombe sur un réseau injoignable — `statut: null`. Ce n'est PAS un refus
+      // du serveur : rien n'a été décidé, donc on réessaiera, et l'écriture reste en file.
+      return envois === 1 ? ACQUITTE : RESEAU_COUPE
     })
 
     expect(resultat).toEqual({ issue: 'partielle', envoyees: 1, restantes: 2 })
@@ -223,6 +242,8 @@ describe('porte P-13 — la file reste fermée aux classes B, C et D', () => {
         type: 'compte_role.attribue',
         horodatageClient: new Date().toISOString(),
         charge: marquerClasseA({ roleCode: 'caissier' }, 'marque abusive — le test la provoque'),
+        contexte: CONTEXTE_TEST,
+        tentatives: 0,
       }),
     ).toThrow(/n'est pas déclarée de classe A/)
   })

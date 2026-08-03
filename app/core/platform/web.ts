@@ -12,6 +12,7 @@ import {
   etatReseauNavigateur,
   indisponible,
   type ChampsPieceIdentite,
+  stockagePersistantMoteur,
   type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
@@ -47,6 +48,9 @@ export const adaptateurWeb: PlatformAdapter = {
   // ranger un jeton de rafraîchissement de quatre-vingt-dix jours, et la seule alternative serait
   // de redemander le mot de passe à chaque ouverture d'onglet.
   stockageSecurise: stockageWeb,
+
+  // Le VOLUME de la file, chiffré, à côté du coffre qui porte la clé (research R-06).
+  stockagePersistant: stockagePersistantMoteur,
 
   async notifier(_notification: Notification): Promise<ResultatCapacite> {
     return indisponible('permission_refusee')

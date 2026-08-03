@@ -115,6 +115,12 @@ export default defineNuxtConfig({
     public: {
       apiBaseUrl: 'http://localhost:8080',
       etablissementId: '',
+      // **Valeur d'ATTENTE, jamais la source de vérité.** Le seuil réel vient du catalogue
+      // (`sync.latence_degradee_seuil_ms`, migration `0028`), donc de la configuration
+      // d'établissement, donc d'après la connexion. Avant elle, l'observateur d'appels doit bien
+      // comparer à quelque chose : c'est ce nombre, et le principe I(c) reste tenu — le catalogue
+      // décide, ce champ dépanne le temps d'une ouverture d'application.
+      latenceDegradeeSeuilMs: 3000,
     },
   },
 

@@ -41,10 +41,10 @@
     "action_creer": "Ajouter une note interne"
   },
   "reseau": {
-    "connecte": "Connecté",
-    "degrade": "Réseau dégradé",
-    "hors_ligne": "Hors ligne",
-    "en_attente": "{n} élément en attente | {n} éléments en attente"
+    "connecte": "Enregistré",
+    "degrade": "Connexion faible",
+    "hors_ligne": "Hors connexion",
+    "en_attente": "En attente d'envoi ({n}) | En attente d'envoi ({n})"
   },
   "capacite": {
     "indisponible": "Cette action n'est pas disponible sur cet appareil.",
@@ -405,5 +405,45 @@
         "duree_hors_contrainte": "Cette formule se loue de {min} à {max}."
       }
     }
+  },
+  "sync": {
+    "titre": "Mes envois",
+    "sous_titre": "Ce qui n'est pas encore parti, et ce qui a été refusé.",
+    "en_attente_titre": "En attente d'envoi",
+    "en_attente_vide": "Tout est parti. Rien n'attend.",
+    "tentatives": "Tentée {n} fois | Tentée {n} fois",
+    "saisie_le": "Saisie à {heure}",
+    "quarantaine": {
+      "titre": "Saisies refusées",
+      "vide": "Aucune saisie refusée.",
+      "relancer": "Renvoyer cette saisie",
+      "refusee_le": "Refusée à {heure}",
+      "motif": {
+        "validation": "Cette saisie a été refusée : elle ne respecte pas ce que le serveur attend. Corrigez-la et ressaisissez-la.",
+        "permission_refusee": "Cette saisie a été refusée : vous n'avez pas le droit de l'enregistrer. Demandez à la personne responsable.",
+        "introuvable": "Cette saisie a été refusée : ce à quoi elle se rattache n'existe plus.",
+        "conflit": "Cette saisie a été refusée : elle entre en conflit avec ce qui est déjà enregistré.",
+        "etablissement_inconnu": "Cette saisie a été refusée : l'établissement auquel elle se rattache est introuvable.",
+        "inconnu": "Cette saisie a été refusée par le serveur. Ressaisissez-la, ou signalez-la si elle est refusée à nouveau."
+      }
+    },
+    "horloge": {
+      "retard": "L'heure de cet appareil retarde de {n} minutes.",
+      "avance": "L'heure de cet appareil avance de {n} minutes.",
+      "rassurance": "Les durées et les montants restent calculés sur l’heure du serveur."
+    }
+  },
+  "notes": {
+    "titre": "Notes internes",
+    "sous_titre": "Ce que l'équipe se laisse d'un service à l'autre.",
+    "vide": "Aucune note pour le moment. La première dira ce qu'il faut savoir au prochain service.",
+    "chargement": "Chargement des notes…",
+    "chargement_impossible": "Les notes ne peuvent pas être affichées pour le moment.",
+    "acces_refuse": "Vous n'avez pas accès aux notes internes de cet établissement.",
+    "ajouter": "Ajouter",
+    "ajout_en_cours": "Ajout en cours…",
+    "champ_vide": "Écrivez la note avant de l’ajouter.",
+    "champ_trop_long": "La note ne peut pas dépasser {max} caractères.",
+    "en_attente_envoi": "Enregistrée sur cet appareil, en attente d'envoi."
   }
 }

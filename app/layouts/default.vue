@@ -72,6 +72,20 @@
  * d'établissement, `G3` et `G4` n'en ont aucun. Se poser sous eux ne touche à aucun des trois ;
  * se poser au-dessus les aurait tous rouverts.
  *
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *  LE TÉMOIN DE SYNCHRONISATION — cycle 005
+ * ═══════════════════════════════════════════════════════════════════════════════════════════════
+ *
+ * Le composant 10 est monté ici, et non dans un écran. « Indicateur permanent de l'état réseau »
+ * (principe VI) veut dire **présent sur toutes les pages**, et la seule façon de le garantir est
+ * de le poser dans la coquille : une page nouvelle en hérite sans rien écrire, et ne peut pas
+ * l'oublier.
+ *
+ * Le commentaire ci-dessus disait, au cycle 004, que le témoin « reste dû par ETB-06 ». Il
+ * l'était en tant qu'élément de la **barre de contexte** — avec le sélecteur d'établissement,
+ * qui, lui, reste dû. Le témoin seul, en pied, ne touche à aucun en-tête maquetté : c'est la même
+ * précaution qui a mis « passer la main » en bas plutôt qu'en haut.
+ *
  * # Le refus quand la file n'est pas vide — posé AVANT que la file existe
  *
  * `fermerSession()` purge le stockage de la plateforme (principe VI, cadrage §11.5 règle 5). Le
@@ -95,6 +109,7 @@
  */
 import { ref, watch } from 'vue'
 
+import TemoinSynchronisation from '~/core/design-system/TemoinSynchronisation.vue'
 import { fermerSession, sessionCourante, type SessionUtilisateur } from '~/core/auth'
 import { ecrituresEnAttente } from '~/core/sync'
 
@@ -171,6 +186,16 @@ async function passerLaMain(): Promise<void> {
       v-if="session"
       class="mt-auto flex flex-col items-end gap-2 px-4 py-3"
     >
+      <!-- COMPOSANT 10 · TÉMOIN DE SYNCHRONISATION — « le composant le plus important du
+           produit ». Il est ICI, dans la coquille, donc sur TOUTES les pages : c'est ce que
+           « indicateur permanent » veut dire (principe VI). Le monter écran par écran
+           garantirait qu'un écran l'oublie, et ce serait celui où l'on écrit.
+
+           Il n'est pas dans un en-tête, et c'est la même raison qui a mis « passer la main » en
+           pied : `R1` porte un `<header>` de 64 px, `G1` un de 58 px, `G3` et `G4` n'en ont
+           aucun. Se poser au-dessus les aurait tous rouverts, et `docs/design/derivation.md` est
+           opposable — un écran hors de la matrice ne se code pas. -->
+      <TemoinSynchronisation />
       <!-- COMPOSANT 07 · BANDEAU — contrefort, fond `-soft`, texte `-fort`, une phrase. Il se
            pose à côté du bouton qui vient de refuser, pas en haut d'un écran qu'on ne regarde
            plus. -->

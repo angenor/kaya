@@ -12,6 +12,7 @@ import {
   indisponible,
   stockageSecuriseAbsent,
   type ChampsPieceIdentite,
+  stockagePersistantMoteur,
   type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
@@ -39,6 +40,11 @@ export const adaptateurDesktop: PlatformAdapter = {
   },
 
   stockageSecurise: stockageSecuriseAbsent,
+
+  // Le VOLUME de la file, chiffré. Il n'attend PAS la coquille Tauri : le moteur de rendu
+  // fournit déjà un stockage persistant, et la file doit survivre au redémarrage dès
+  // aujourd'hui.
+  stockagePersistant: stockagePersistantMoteur,
 
   async notifier(_notification: Notification): Promise<ResultatCapacite> {
     return indisponible('plateforme_non_supportee')

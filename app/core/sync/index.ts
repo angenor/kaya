@@ -32,11 +32,36 @@
  * de la coquille, qui refuse de purger le stockage sur une file non vide.
  */
 
+import type { PlatformAdapter } from '~/core/platform'
+
 import { estTypeClasseA, type EntreeFile, type OperationClasseA } from './classes'
+import { ouvrirMagasin, type MagasinFile } from './persistance'
+import { type EntreeQuarantaine } from './quarantaine'
 
 export * from './classes'
-export { brancherFile, ecrituresEnAttente, fileBranchee } from './attente'
-export { viderFile, type Envoyeur, type ResultatVidage } from './vidage'
+export { brancherFile, ecrituresEnAttente, fileBranchee, fileCourante } from './attente'
+export { viderFile, type Envoyeur, type IssueEnvoi, type ResultatVidage } from './vidage'
+export {
+  classer,
+  cleMotifRefus,
+  type EntreeQuarantaine,
+  type Suite,
+} from './quarantaine'
+export { CLES_PERSISTANCE, ouvrirMagasin, type MagasinFile } from './persistance'
+export {
+  apresEcritureReussie,
+  brancherEnvoi,
+  debrancherEnvoi,
+  declencherEnvoi,
+  delaiReessaiMs,
+} from './envoi'
+export {
+  etatSynchronisation,
+  signalerChangement,
+  useEtatSynchronisation,
+  type EtatSynchronisation,
+} from './etat'
+export { uuidV7 } from './uuid-v7'
 
 /** État du réseau, affiché en permanence (principe VI). */
 export type EtatReseau = 'connecte' | 'degrade' | 'hors_ligne'
@@ -53,10 +78,65 @@ export class OperationRefusee extends Error {
 }
 
 /**
- * File locale — **coquille**. La persistance et le vidage viennent du cycle SYN.
+ * File locale — **persistante depuis le cycle 005**.
+ *
+ * # Ce qui a changé, et ce qui n'a surtout pas changé
+ *
+ * Elle survit désormais au rechargement et à l'extinction, chiffrée (voir `persistance.ts`), et
+ * porte sa quarantaine. **Ce qui n'a pas changé est la règle qui la tient** : la file n'a
+ * toujours **aucun chemin de sortie autre que {@link viderFile}**, et c'est ce qui porte l'ordre
+ * rafraîchir-avant-vider — pas la discipline des appelants.
+ *
+ * # Pourquoi `ouvrir` est asynchrone, et pas le constructeur
+ *
+ * La clé de chiffrement vient du coffre système, dont l'accès est asynchrone sur les quatre
+ * plateformes. Un constructeur ne peut pas attendre : il rendrait une file vide qui se remplirait
+ * « plus tard », et le témoin afficherait zéro pendant ce temps — c'est-à-dire au moment précis où
+ * l'utilisateur ouvre l'application pour vérifier que son travail est parti.
+ *
+ * # L'écriture en mémoire est SYNCHRONE, la persistance suit
+ *
+ * `enfiler` ne rend pas de promesse, et c'est délibéré : une saisie doit être acceptée
+ * immédiatement (FR-002 de la story — « acceptée, sans message d'erreur »). L'écriture au
+ * stockage part derrière, et son échec **ne fait pas échouer la saisie** — la file reste en
+ * mémoire, ce qui est déjà mieux que de perdre la commande. La conséquence est écrite plutôt que
+ * découverte : dans ce cas, elle ne survivra pas au rechargement.
  */
 export class FileLocale {
   private entrees: EntreeFile[] = []
+
+  /** Ce qui a été définitivement refusé — **consultable, jamais bloquant**. */
+  private refusees: EntreeQuarantaine[] = []
+
+  /**
+   * Le magasin chiffré. `null` pour une file **de mémoire seule** — celle qu'un test construit,
+   * et celle qui sert tant qu'aucun adaptateur n'est passé.
+   */
+  private magasin: MagasinFile | null = null
+
+  /**
+   * Ouvre la file de cet appareil : lit la clé au coffre, déchiffre ce qui attendait.
+   *
+   * Un cryptogramme illisible fait repartir la file **vide** plutôt qu'échouer — voir la note de
+   * `persistance.ts`. Refuser de démarrer bloquerait le terminal sur un état qu'aucun exploitant
+   * ne peut réparer.
+   */
+  static async ouvrir(adaptateur: PlatformAdapter): Promise<FileLocale> {
+    const file = new FileLocale()
+    file.magasin = await ouvrirMagasin(adaptateur)
+    file.entrees = await file.magasin.charger()
+    return file
+  }
+
+  /**
+   * Écrit l'état courant au stockage. **Volontairement sans `await` chez l'appelant.**
+   *
+   * Une saisie ne doit pas attendre le disque. Les échecs sont absorbés par le stockage lui-même
+   * (voir `stockagePersistantMoteur`), qui ne lève jamais.
+   */
+  private persister(): void {
+    void this.magasin?.enregistrer(this.entrees)
+  }
 
   /**
    * Enfile une opération de classe A.
@@ -79,6 +159,53 @@ export class FileLocale {
       )
     }
     this.entrees.push(entree as EntreeFile)
+    this.persister()
+  }
+
+  /**
+   * Écarte une entrée **définitivement refusée** par le serveur.
+   *
+   * Elle quitte la file d'envoi et devient consultable. Elle ne bloque plus rien : ni les
+   * écritures suivantes, ni le geste de passer la main — `ecrituresEnAttente()` compte ce qui
+   * attend de partir, pas ce que le serveur ne reprendra jamais.
+   */
+  mettreEnQuarantaine(id: string, code: string, refuseeLe: string): void {
+    const entree = this.entrees.find(e => e.id === id)
+    if (!entree) {
+      return
+    }
+    this.entrees = this.entrees.filter(e => e.id !== id)
+    this.refusees.push({ entree, code, refuseeLe })
+    this.persister()
+  }
+
+  /**
+   * Remet une entrée de quarantaine dans la file — **geste explicite de l'utilisateur**, jamais
+   * automatique.
+   *
+   * Un rejeu automatique d'un refus définitif boucllerait indéfiniment. C'est l'exploitant qui
+   * décide, depuis l'écran `S1`, après avoir lu le motif.
+   */
+  relancerDepuisQuarantaine(id: string): void {
+    const rang = this.refusees.findIndex(e => e.entree.id === id)
+    if (rang === -1) {
+      return
+    }
+    const [reprise] = this.refusees.splice(rang, 1)
+    if (reprise) {
+      // Le compteur de tentatives repart de zéro : c'est une décision humaine nouvelle, pas la
+      // suite de la série qui avait échoué.
+      this.entrees.push({ ...reprise.entree, tentatives: 0 })
+    }
+    this.persister()
+  }
+
+  /** Compte une tentative d'envoi sur une entrée — alimente l'intervalle croissant et `S1`. */
+  compterTentative(id: string): void {
+    this.entrees = this.entrees.map(e =>
+      e.id === id ? { ...e, tentatives: e.tentatives + 1 } : e,
+    )
+    this.persister()
   }
 
   /**
@@ -90,6 +217,7 @@ export class FileLocale {
    */
   retirer(id: string): void {
     this.entrees = this.entrees.filter(entree => entree.id !== id)
+    this.persister()
   }
 
   /** Nombre d'éléments en attente — affiché en permanence par l'indicateur de synchronisation. */
@@ -97,9 +225,19 @@ export class FileLocale {
     return this.entrees.length
   }
 
+  /** Nombre d'écritures **définitivement refusées** — affiché par `S1`, jamais par le témoin. */
+  get enQuarantaine(): number {
+    return this.refusees.length
+  }
+
   /** Contenu de la file, en lecture seule. */
   lister(): readonly EntreeFile[] {
     return this.entrees
+  }
+
+  /** Ce qui a été refusé, en lecture seule. */
+  quarantaine(): readonly EntreeQuarantaine[] {
+    return this.refusees
   }
 }
 

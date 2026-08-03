@@ -64,6 +64,23 @@ export function fileBranchee(): boolean {
 }
 
 /**
+ * La file branchée, ou `null`.
+ *
+ * # Pourquoi ce point d'accès existe, et ce qu'il n'ouvre pas
+ *
+ * L'état de synchronisation et l'envoi ont besoin de la file elle-même — pour lire la quarantaine,
+ * pour envoyer. Ils ne peuvent pas la recevoir en paramètre : ils sont appelés depuis un composant
+ * ou un plugin, qui n'a aucune raison de la tenir.
+ *
+ * **Ce n'est pas une seconde sortie de la file.** {@link viderFile} reste le seul chemin par
+ * lequel une écriture en sort, et c'est lui qui porte l'ordre rafraîchir-avant-vider. Ce que cette
+ * fonction rend est la file, pas une écriture ; ce qu'on en fait reste soumis à la même règle.
+ */
+export function fileCourante(): FileLocale | null {
+  return file
+}
+
+/**
  * Combien d'écritures attendent d'être envoyées.
  *
  * `0` aujourd'hui, toujours, parce qu'aucune file n'est branchée. C'est la valeur qu'il faut : le
