@@ -56,14 +56,24 @@ documents fiscaux — dont aucun n'existe.
 ### La contrainte qui porte le cycle de vie
 
 ```sql
-CHECK ((etat = 'resolue') = (issue IS NOT NULL AND resolue_le IS NOT NULL
-                             AND resolue_par_compte_id IS NOT NULL))
+CHECK ((etat = 'resolue') = (issue IS NOT NULL)
+   AND (etat = 'resolue') = (resolue_le IS NOT NULL)
+   AND (etat = 'resolue') = (resolue_par_compte_id IS NOT NULL))
 ```
 
-**Une égalité de conditions, pas trois `CHECK` séparés.** Même patron que le classement
+**Une égalité de conditions, pas trois implications.** Même patron que le classement
 d'établissement du module doré : l'état et ses trois corollaires ne peuvent pas diverger. Un
 `UPDATE` qui poserait `etat = 'resolue'` en oubliant l'issue serait refusé par la base, pas par
 une revue.
+
+> **⚠️ Corrigé à l'implémentation, et le détail n'est pas cosmétique.** Ce document écrivait
+> d'abord l'égalité sur la **conjonction** des trois corollaires :
+> `(etat = 'resolue') = (issue IS NOT NULL AND resolue_le IS NOT NULL AND … IS NOT NULL)`.
+> Cette forme laisse passer un corollaire **isolé** : sur un constat `constatee`, poser l'issue
+> seule donne `false = (true AND false AND false)`, soit `false = false`, donc **accepté**. Un
+> écran qui écrirait les trois champs dans le désordre laisserait une issue sur un conflit non
+> tranché — exactement l'état que la contrainte existe pour rendre impossible. Trouvé par le test
+> qui l'exerce, avant que la migration ne soit figée.
 
 ### Sécurité au niveau ligne
 

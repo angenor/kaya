@@ -9,7 +9,7 @@
 //!
 //! Ce fichier rend ce glissement bruyant.
 //!
-//! # Périmètre inspecté — **cinq provisions, trois cycles**
+//! # Périmètre inspecté — **six provisions, quatre cycles**
 //!
 //! *§ « Couverture des portes » : une porte dont la cible est vide passe toujours au vert. Le
 //! décompte est donc comparé à [`PROVISIONS`], et la liste est ici.*
@@ -21,6 +21,13 @@
 //! | `comptes.employe` | 003 | CPT-05 — le contrat de travail, la paie |
 //! | `comptes.appareil_enrole` | 003 | CPT-05 / CPT-06 — l'enrôlement par paire de clés |
 //! | `hebergement.prestation_incluse` | 004 | HEB-09 — le petit-déjeuner inclus, incrément 2 |
+//! | `synchronisation.reconciliation_orpheline` | 005 | SYN-03 — l'écriture arrivée sur un agrégat déjà clos et facturé |
+//!
+//! **Les six ne portent pas le même régime de privilège, et la différence est le sujet.** Cinq
+//! n'accordent RIEN à `kaya_app`, pas même `SELECT`. La sixième accorde `SELECT` **seul** — parce
+//! qu'elle a un lecteur légitime avant son cycle (le récapitulatif de fin de journée doit pouvoir
+//! dire « trois constats attendent »), et aucun écrivain. Ce qui prouve une provision n'est pas
+//! l'absence de tout droit : c'est l'absence du droit d'**écrire**.
 //!
 //! **N'est PAS inspecté** : ce que ferait un binaire de maintenance sous `kaya_owner`. Le
 //! propriétaire des tables peut tout écrire, par construction — c'est le rôle applicatif qui est
@@ -49,9 +56,14 @@ const PROVISIONS: &[(&str, &str, &str)] = &[
         "prestation_incluse",
         "cycle 004 — HEB-09, petit-déjeuner inclus",
     ),
+    (
+        "synchronisation",
+        "reconciliation_orpheline",
+        "cycle 005 — SYN-03, écriture arrivée sur un agrégat clos",
+    ),
 ];
 
-/// Les cinq tables existent, avec leurs contraintes.
+/// Les six tables existent, avec leurs contraintes.
 #[tokio::test]
 async fn les_tables_de_provision_existent() {
     let pool = commun::pool_owner().await;
@@ -415,6 +427,200 @@ async fn le_role_applicatif_n_a_aucun_privilege_sur_la_prestation_incluse() {
          général rendrait l'assertion précédente vraie pour la mauvaise raison. Obtenu : \
          {privileges:?}",
         referentiel.len()
+    );
+}
+
+// =================================================================================================
+//  Cycle 005 — SYN-03, la provision qui accorde `SELECT` et RIEN d'autre
+// =================================================================================================
+
+/// **`kaya_app` ne peut ni insérer, ni modifier, ni supprimer dans `reconciliation_orpheline`.**
+///
+/// # Ce que ce test prouve, et qui n'est pas ce qu'on croit
+///
+/// Il ne prouve pas qu'aucun code n'écrit dans cette table : il prouve qu'**aucun code ne le
+/// pourra**. La distinction compte, parce que le premier énoncé se vérifie par relecture — donc
+/// mal — et le second par la base, à chaque appel.
+///
+/// La provision accorde `SELECT`, contrairement aux cinq autres, et son motif est écrit dans
+/// `0027`. C'est précisément pourquoi ce test ne peut pas se contenter de compter les privilèges :
+/// il doit nommer les trois verbes interdits.
+#[tokio::test]
+async fn le_role_applicatif_ne_peut_pas_ecrire_dans_la_reconciliation_orpheline() {
+    let pool = commun::pool_owner().await;
+
+    let privileges: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        SELECT table_name, privilege_type
+        FROM information_schema.role_table_grants
+        WHERE grantee = 'kaya_app' AND table_schema = 'synchronisation'
+        ORDER BY 1, 2
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("lecture des privilèges");
+
+    let ecritures: Vec<&(String, String)> = privileges
+        .iter()
+        .filter(|(table, privilege)| {
+            table == "reconciliation_orpheline"
+                && matches!(privilege.as_str(), "INSERT" | "UPDATE" | "DELETE")
+        })
+        .collect();
+
+    assert!(
+        ecritures.is_empty(),
+        "le rôle applicatif peut ÉCRIRE dans `synchronisation.reconciliation_orpheline` : \
+         {ecritures:?}\n\
+         C'est l'« ajout d'un petit endpoint » que ce fichier existe pour rendre bruyant. Le \
+         registre classe la création en A et la résolution en B ; les deux classes sont justes et \
+         attendent SYN-03. Ce n'est pas la classe qui est différée, c'est l'implémentation."
+    );
+
+    // **Le versant positif** : la lecture, elle, est accordée. Sans cette assertion, un `REVOKE`
+    // massif sur tout le schéma rendrait la précédente vraie pour la mauvaise raison — et la
+    // provision serait devenue illisible sans que rien ne le dise.
+    assert!(
+        privileges
+            .iter()
+            .any(|(table, privilege)| table == "reconciliation_orpheline" && privilege == "SELECT"),
+        "`kaya_app` n'a même pas `SELECT` sur `synchronisation.reconciliation_orpheline`. La \
+         migration `0027` l'accorde délibérément : le récapitulatif de fin de journée doit pouvoir \
+         compter les constats en attente avant que SYN-03 ne livre l'écran qui les tranche. \
+         Obtenu : {privileges:?}"
+    );
+}
+
+/// **Aucun endpoint n'expose la réconciliation orpheline.**
+#[test]
+fn aucun_endpoint_n_expose_la_reconciliation_orpheline() {
+    let contrat = kaya_api::application::contrat_complet();
+
+    let suspects: Vec<&String> = contrat
+        .paths
+        .paths
+        .keys()
+        .filter(|chemin| {
+            let c = chemin.to_lowercase();
+            c.contains("reconciliation") || c.contains("orphelin")
+        })
+        .collect();
+
+    assert!(
+        suspects.is_empty(),
+        "des endpoints exposent la réconciliation orpheline : {suspects:?}\n\
+         La résolution d'un conflit orphelin est HUMAINE et obligatoire (cadrage §11.4) : un \
+         endpoint livré avant l'écran qui la porte laisserait un chemin où le conflit se résout \
+         sans que personne ne l'ait vu."
+    );
+}
+
+/// **Le cycle de vie est tenu par la base, et l'égalité de conditions n'a pas d'échappatoire.**
+///
+/// Le `CHECK` de `0027` est une **égalité**, non trois implications : `etat = 'resolue'` équivaut
+/// à « issue, horodatage et compte résolveur sont tous les trois posés ». Trois `CHECK` séparés
+/// diraient « si résolue alors issue » sans dire « si issue alors résolue », et l'écart se paierait
+/// le jour où l'écran de SYN-03 écrirait les deux dans le désordre.
+///
+/// Le test s'exécute sous `kaya_owner` — le seul rôle qui puisse écrire ici, précisément parce que
+/// `kaya_app` ne le peut pas. C'est la contrainte qui est éprouvée, pas le privilège.
+#[tokio::test]
+async fn la_resolution_est_tout_ou_rien() {
+    use uuid::Uuid;
+
+    let pool = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool, "provisions — réconciliation orpheline").await;
+
+    /// Insère un constat, en laissant l'appelant choisir l'état et ses corollaires.
+    async fn inserer(
+        pool: &sqlx::PgPool,
+        jeu: commun::JeuTenant,
+        etat: &str,
+        issue: Option<&str>,
+        resolue_le: Option<time::OffsetDateTime>,
+        resolue_par: Option<Uuid>,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = pool.begin().await.expect("transaction");
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+            .await
+            .expect("pose du tenant");
+
+        let resultat = sqlx::query(
+            r#"
+            INSERT INTO synchronisation.reconciliation_orpheline
+                (id, tenant_id, etablissement_id, ecriture_id, ecriture_type,
+                 agregat_type, agregat_id, etat, issue, resolue_le, resolue_par_compte_id)
+            VALUES ($1, $2, $3, $4, 'ligne_commande', 'addition', $5, $6, $7, $8, $9)
+            "#,
+        )
+        .bind(Uuid::now_v7())
+        .bind(jeu.tenant_id)
+        .bind(jeu.etablissement_id)
+        .bind(Uuid::now_v7())
+        .bind(Uuid::now_v7())
+        .bind(etat)
+        .bind(issue)
+        .bind(resolue_le)
+        .bind(resolue_par)
+        .execute(&mut *tx)
+        .await
+        .map(|_| ());
+
+        if resultat.is_ok() {
+            tx.commit().await.expect("commit");
+        }
+        resultat
+    }
+
+    // 1 · Un constat neuf, sans aucun corollaire — accepté.
+    inserer(&pool, jeu, "constatee", None, None, None)
+        .await
+        .expect("un constat `constatee` sans issue doit être accepté");
+
+    // 2 · Résolu avec ses trois corollaires — accepté.
+    inserer(
+        &pool,
+        jeu,
+        "resolue",
+        Some("AVOIR_REFACTURATION"),
+        Some(time::OffsetDateTime::now_utc()),
+        Some(Uuid::now_v7()),
+    )
+    .await
+    .expect("un constat `resolue` complet doit être accepté");
+
+    // 3 · Résolu SANS issue — refusé par la base, pas par une revue.
+    let sans_issue = inserer(
+        &pool,
+        jeu,
+        "resolue",
+        None,
+        Some(time::OffsetDateTime::now_utc()),
+        Some(Uuid::now_v7()),
+    )
+    .await;
+    assert!(
+        sans_issue.is_err(),
+        "un constat marqué `resolue` sans issue a été accepté : l'égalité de conditions de `0027` \
+         ne tient pas, et un écran pourrait clore un conflit sans dire comment"
+    );
+
+    // 4 · Une issue posée sur un constat ENCORE ouvert — refusé aussi. C'est le sens que trois
+    //     `CHECK` séparés auraient laissé passer.
+    let issue_sans_resolution = inserer(
+        &pool,
+        jeu,
+        "constatee",
+        Some("PRISE_EN_CHARGE"),
+        None,
+        None,
+    )
+    .await;
+    assert!(
+        issue_sans_resolution.is_err(),
+        "une issue a été posée sur un constat encore `constatee`. C'est exactement le sens qu'une \
+         implication simple laisse passer, et pourquoi `0027` pose une ÉGALITÉ de conditions."
     );
 }
 

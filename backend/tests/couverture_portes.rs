@@ -361,6 +361,13 @@ const TABLES_CREEES: &[(&str, &str)] = &[
     ("hebergement", "plage_demi_journee"),
     ("hebergement", "occupation"),
     ("hebergement", "prestation_incluse"),
+    // ── Cycle 005 (SYN) — une table, et c'est une provision ─────────────────────────────────
+    //
+    // Elle figure ici pour la même raison qu'`employe`, `appareil_enrole` et
+    // `prestation_incluse` : l'isolation la concerne autant que les autres, et l'omettre la
+    // sortirait du décompte de P-07. Son régime de privilège la distingue — `SELECT` seul —
+    // mais c'est `provisions_sans_logique.rs` qui garde cette seconde propriété, pas celle-ci.
+    ("synchronisation", "reconciliation_orpheline"),
 ];
 
 /// **P-07 — les vingt tables existent, et toutes sont inspectées par la porte.**

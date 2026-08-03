@@ -299,6 +299,102 @@ async fn p08_un_tenant_ne_lit_jamais_les_lignes_d_un_autre() {
     tx.rollback().await.expect("rollback");
 }
 
+/// **La provision de SYN-03 est isolée comme toutes les autres tables** — cycle 005.
+///
+/// # Pourquoi une provision mérite un test d'isolation
+///
+/// `synchronisation.reconciliation_orpheline` n'a aucun endpoint, aucun service, et `kaya_app` n'y
+/// a que `SELECT`. Il serait tentant de conclure qu'elle ne peut rien fuiter. C'est faux dans le
+/// seul sens qui compte : **le `SELECT` accordé est un chemin de lecture réel**, et le jour où le
+/// récapitulatif de fin de journée comptera les constats en attente, il passera par lui.
+///
+/// Une politique manquante ne se verrait alors pas : la requête rendrait des lignes, simplement
+/// celles de tout le monde. La porte P-07 vérifie que la politique **existe** ; ce test vérifie
+/// qu'elle **fonctionne**, ce qui n'est pas la même question — une politique posée sur la mauvaise
+/// colonne satisferait la première et pas celle-ci.
+///
+/// L'insertion se fait sous `kaya_owner`, seul rôle qui puisse écrire ici. La lecture se fait sous
+/// `kaya_app`, celui par lequel l'API passe.
+#[tokio::test]
+async fn p08_la_reconciliation_orpheline_est_isolee_par_tenant() {
+    use uuid::Uuid;
+
+    let pool_owner = commun::pool_owner().await;
+    let a = commun::creer_tenant(&pool_owner, "P-08 réconciliation A").await;
+    let b = commun::creer_tenant(&pool_owner, "P-08 réconciliation B").await;
+
+    // Un constat pour chacun, écrits sous le propriétaire.
+    let mut poses = Vec::new();
+    for jeu in [a, b] {
+        let id = Uuid::now_v7();
+        let mut tx = pool_owner.begin().await.expect("transaction");
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+            .await
+            .expect("pose du tenant");
+        sqlx::query(
+            r#"
+            INSERT INTO synchronisation.reconciliation_orpheline
+                (id, tenant_id, etablissement_id, ecriture_id, ecriture_type,
+                 agregat_type, agregat_id)
+            VALUES ($1, $2, $3, $4, 'ligne_commande', 'addition', $5)
+            "#,
+        )
+        .bind(id)
+        .bind(jeu.tenant_id)
+        .bind(jeu.etablissement_id)
+        .bind(Uuid::now_v7())
+        .bind(Uuid::now_v7())
+        .execute(&mut *tx)
+        .await
+        .expect("insertion du constat");
+        tx.commit().await.expect("commit");
+        poses.push(id);
+    }
+    let (constat_a, constat_b) = (poses[0], poses[1]);
+
+    // Sous le rôle applicatif, dans le contexte de A : le constat de B est invisible, y compris
+    // demandé par son identifiant — le cas qu'un filtre applicatif oublié laisserait passer.
+    let pool = commun::pool_app().await;
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, a.tenant_id)
+        .await
+        .expect("pose du tenant A");
+
+    let vu_b: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM synchronisation.reconciliation_orpheline WHERE id = $1",
+    )
+    .bind(constat_b)
+    .fetch_optional(&mut *tx)
+    .await
+    .expect("lecture croisée");
+
+    assert!(
+        vu_b.is_none(),
+        "le tenant A a lu le constat de réconciliation du tenant B. La politique `isolation_tenant` \
+         de `0027` ne filtre pas — et cette table portera des identifiants d'écritures et \
+         d'agrégats, c'est-à-dire la trace de ce qui s'est vendu chez le voisin."
+    );
+
+    // **Le versant positif** : A voit bien le sien. Sans lui, un `SELECT` qui échouerait pour
+    // toute autre raison — table absente, privilège retiré — rendrait le test vert.
+    let vu_a: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM synchronisation.reconciliation_orpheline WHERE id = $1",
+    )
+    .bind(constat_a)
+    .fetch_optional(&mut *tx)
+    .await
+    .expect("lecture de son propre constat");
+
+    assert_eq!(
+        vu_a,
+        Some(constat_a),
+        "le tenant A ne voit pas son PROPRE constat : le `SELECT` accordé par `0027` ne sert à \
+         rien, et l'assertion précédente était vraie pour la mauvaise raison"
+    );
+
+    tx.rollback().await.expect("rollback");
+}
+
 /// **Écriture** croisée — le cas le moins visible et le plus grave.
 ///
 /// `USING` seul filtrerait la lecture et laisserait passer l'insertion d'une ligne portant le

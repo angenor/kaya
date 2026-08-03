@@ -81,11 +81,11 @@ consommé par dix fichiers de portes, et les deux migrations conditionnent tout 
 
 ### Le schéma (2 migrations)
 
-- [ ] T015 Écrire `backend/migrations/0027_reconciliation_orpheline.sql` — table `synchronisation.reconciliation_orpheline` avec `id` client en clé primaire, deux horodatages, `CHECK` d'**égalité de conditions** sur le cycle de vie, index partiel `WHERE etat = 'constatee'`, **RLS `ENABLE` + `FORCE` + politique `isolation_tenant`**, et `GRANT SELECT` **seul** à `kaya_app`
-- [ ] T016 Écrire `backend/migrations/0028_parametres_synchronisation.sql` — 2 clés au catalogue sur le patron de `0023`, avec libellés et descriptions **en langue utilisateur**
-- [ ] T017 Étendre `backend/tests/provisions_sans_logique.rs` de **5 à 6** provisions ; vérifier que `kaya_app` **ne peut ni insérer ni modifier** `reconciliation_orpheline` — c'est ce qui prouve la provision (principe X)
-- [ ] T018 Étendre `backend/tests/isolation_tenant.rs` et `rls_catalogue.rs` à la table nouvelle : le tenant A ne lit aucune ligne du tenant B
-- [ ] T019 **Double passe `cargo sqlx prepare`** selon la procédure du quickstart §1, puis les **deux** contrôles : `git status --short backend/.sqlx` (aucune suppression) **puis** `touch` des fichiers à `sqlx::query` avant `SQLX_OFFLINE=true cargo check --workspace --all-targets --locked`
+- [x] T015 Écrire `backend/migrations/0027_reconciliation_orpheline.sql` — table `synchronisation.reconciliation_orpheline` avec `id` client en clé primaire, deux horodatages, `CHECK` d'**égalité de conditions** sur le cycle de vie, index partiel `WHERE etat = 'constatee'`, **RLS `ENABLE` + `FORCE` + politique `isolation_tenant`**, et `GRANT SELECT` **seul** à `kaya_app`
+- [x] T016 Écrire `backend/migrations/0028_parametres_synchronisation.sql` — 2 clés au catalogue sur le patron de `0023`, avec libellés et descriptions **en langue utilisateur**
+- [x] T017 Étendre `backend/tests/provisions_sans_logique.rs` de **5 à 6** provisions ; vérifier que `kaya_app` **ne peut ni insérer ni modifier** `reconciliation_orpheline` — c'est ce qui prouve la provision (principe X)
+- [x] T018 Étendre `backend/tests/isolation_tenant.rs` et `rls_catalogue.rs` à la table nouvelle : le tenant A ne lit aucune ligne du tenant B
+- [x] T019 **Double passe `cargo sqlx prepare`** selon la procédure du quickstart §1, puis les **deux** contrôles : `git status --short backend/.sqlx` (aucune suppression) **puis** `touch` des fichiers à `sqlx::query` avant `SQLX_OFFLINE=true cargo check --workspace --all-targets --locked`
 
 **Point de contrôle** : périmètre découvert, schéma en place, cache sqlx vérifié par les deux
 contrôles. Les stories peuvent démarrer.

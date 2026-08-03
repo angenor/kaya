@@ -43,8 +43,8 @@ use sqlx::{PgPool, Row};
 /// stricte deviendrait rouge à chaque migration — pour une raison qui n'est pas un défaut.
 /// Ce qu'on garde est ce qui compte : **la cible ne rétrécit jamais**.
 ///
-/// 16 au cycle 002, 26 au 003, **34** au terme du 004.
-const PLANCHER_TABLES: usize = 34;
+/// 16 au cycle 002, 26 au 003, 34 au terme du 004, **35** avec `reconciliation_orpheline` (`0027`).
+const PLANCHER_TABLES: usize = 35;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///

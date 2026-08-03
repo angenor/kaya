@@ -68,7 +68,19 @@ fn cles_du_recapitulatif() -> BTreeSet<String> {
             let Some(f) = apres.find('`') else { break };
             let brut = apres[..f].trim();
             reste = &apres[f + 1..];
-            if !brut.is_empty() && brut.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            // **Le point est admis depuis le cycle 005.** Les huit premières clés du produit
+            // n'ont aucun préfixe — `heure_arrivee_standard`, `mot_de_passe_longueur_min` —
+            // parce qu'aucune ne risquait de collision. SYN en introduit deux dont le nom est
+            // générique par nature : un `latence_degradee_seuil_ms` nu serait revendiqué par le
+            // premier autre module qui mesure une latence. Le catalogue est un référentiel
+            // **unique du produit**, partagé par tous les modules ; c'est là que les préfixes
+            // deviennent utiles, et l'extraction doit les voir sous peine de rendre la porte
+            // muette sur toute clé préfixée.
+            if !brut.is_empty()
+                && brut
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+            {
                 cles.insert(brut.to_lowercase());
             }
         }
@@ -179,6 +191,11 @@ async fn le_catalogue_contient_exactement_les_cles_des_cycles_livres() {
         "heure_arrivee_standard",
         "heure_depart_standard",
         "seuil_bascule_nuitee_minutes",
+        // SYN-02 / SYN-04 — les deux du cycle 005, et **les premières à porter un préfixe de
+        // module**. Le catalogue est un référentiel unique du produit : `latence_degradee_seuil_ms`
+        // sans préfixe serait revendiqué par le premier autre module qui mesure une latence.
+        "sync.derive_horloge_seuil_secondes",
+        "sync.latence_degradee_seuil_ms",
     ]
     .into_iter()
     .map(str::to_owned)

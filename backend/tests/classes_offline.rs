@@ -80,8 +80,9 @@ const REGISTRE: &str = include_str!("../../docs/registre-classes-offline.md");
 /// table nouvelle non déclarée, découverte ou non.
 ///
 /// **Il suit les tables réellement créées, migration par migration**, jamais la cible d'un cycle :
-/// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34.
-const PLANCHER_TABLES: usize = 34;
+/// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34, et
+/// **35** avec `reconciliation_orpheline` (`0027`), seule table du cycle 005.
+const PLANCHER_TABLES: usize = 35;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///

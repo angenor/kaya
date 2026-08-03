@@ -307,14 +307,14 @@ const UNITES_MEUBLE: [(Uuid, &str); 4] = [
 const FORMULE_MEUBLE_NUITEE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000321");
 const FORMULE_MEUBLE_MENSUEL: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000322");
 
-/// Les trois valeurs de configuration Deloria, promises par la migration `0023`.
+/// Les **cinq** valeurs de configuration Deloria, promises par les migrations `0023` et `0028`.
 ///
 /// Le catalogue déclare qu'une clé existe ; **les valeurs viennent d'ici** — une migration n'a pas
 /// de tenant courant et n'écrirait rien, en silence, sur une table en `FORCE ROW LEVEL SECURITY`.
 ///
 /// `(id, clé, valeur JSON)`. Le type de la valeur est vérifié par le catalogue : `HEURE_LOCALE`
-/// exige une chaîne, `DUREE_MINUTES` un entier.
-const PARAMETRES_DELORIA: [(Uuid, &str, &str); 3] = [
+/// exige une chaîne, `DUREE_MINUTES` et `ENTIER` un entier.
+const PARAMETRES_DELORIA: [(Uuid, &str, &str); 5] = [
     (
         uuid!("0198c4a0-0000-7000-8000-000000000151"),
         "heure_arrivee_standard",
@@ -329,6 +329,26 @@ const PARAMETRES_DELORIA: [(Uuid, &str, &str); 3] = [
         uuid!("0198c4a0-0000-7000-8000-000000000153"),
         "seuil_bascule_nuitee_minutes",
         "480",
+    ),
+    // ── SYN, migration `0028` ────────────────────────────────────────────────────────────
+    //
+    // **300 secondes** — la valeur du cadrage §11.4 (« alerte au-delà de 5 minutes de dérive »),
+    // posée en secondes parce que l'écart mesuré est une différence d'instants. Un terminal de
+    // Deloria dont l'horloge s'écarte de plus de cinq minutes fait écrire une entrée au registre
+    // des actions, **une par épisode**, et l'écriture n'est jamais refusée.
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000154"),
+        "sync.derive_horloge_seuil_secondes",
+        "300",
+    ),
+    // **3 000 millisecondes** — au-delà, le témoin affiche « Connexion faible » plutôt que
+    // « Enregistré ». Sans cette valeur, le pilote verrait un état que rien ne produit : à
+    // Abengourou, une 3G qui répond en quatre secondes est le cas courant, et c'est exactement
+    // celui que le troisième état existe pour dire.
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000155"),
+        "sync.latence_degradee_seuil_ms",
+        "3000",
     ),
 ];
 
@@ -1145,12 +1165,12 @@ async fn seeder_hebergement_residence_test(
     Ok(())
 }
 
-/// **Les valeurs de configuration que la migration `0023` a promises aux seeds.**
+/// **Les valeurs de configuration que les migrations `0023` et `0028` ont promises aux seeds.**
 ///
 /// Le catalogue déclare qu'une clé existe, son type et jusqu'où elle se surcharge ; il ne pose
-/// aucune valeur par défaut (principe I·c). Sans ce seed, les trois clés HEB existeraient sans
-/// qu'aucun établissement ne les renseigne — et la configuration d'établissement montrerait trois
-/// lignes vides sur le tenant du pilote.
+/// aucune valeur par défaut (principe I·c). Sans ce seed, les cinq clés — trois de HEB, deux de
+/// SYN — existeraient sans qu'aucun établissement ne les renseigne, et la configuration
+/// d'établissement montrerait cinq lignes vides sur le tenant du pilote.
 ///
 /// La portée est l'**établissement** : `etablissement_module_id` et `point_de_vente_id` restent
 /// nuls, et la contrainte `parametre_configuration_une_seule_portee` garantit qu'on ne peut pas en
@@ -1185,7 +1205,7 @@ async fn seeder_parametres_deloria(pool: &PgPool) -> Result<(), Box<dyn std::err
     tracing::info!(
         tenant = %TENANT_DELORIA,
         parametres = PARAMETRES_DELORIA.len(),
-        "valeurs de configuration HEB posées — 14 h, 12 h, seuil de bascule 480 min"
+        "valeurs de configuration posées — HEB : 14 h, 12 h, bascule 480 min ; SYN : dérive 300 s, latence 3 000 ms"
     );
     Ok(())
 }
