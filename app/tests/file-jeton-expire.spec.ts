@@ -230,6 +230,69 @@ describe('l’échec du rafraîchissement NE VIDE PAS la file', () => {
   })
 })
 
+// =================================================================================================
+//  Cycle 005 — la file est PERSISTANTE, et l'ordre tient toujours
+// =================================================================================================
+
+describe('l’ordre rafraîchir-avant-vider tient sur une file ROUVERTE', () => {
+  it('après une extinction, le rafraîchissement reste le PREMIER appel', async () => {
+    // Le cas que la persistance ouvre, et qui n'existait pas avant ce cycle : la file survit à
+    // l'extinction, donc le jeton d'accès est **certainement** périmé au redémarrage — un
+    // terminal éteint le soir et rallumé le matin a laissé passer bien plus que soixante minutes.
+    // C'est le pire cas de R-18, et il devient le cas ordinaire.
+    const { FileLocale: File } = await import('../core/sync')
+    const { adaptateurCourant } = await import('../core/platform/courant')
+
+    const avant = await File.ouvrir(adaptateurCourant())
+    troisNotes().forEach(entree => avant.enfiler(entree))
+    await new Promise(resoudre => setTimeout(resoudre, 0))
+
+    await rangerRafraichissement('rafraichissement-de-la-veille')
+    serveurRafraichissement(200, corpsSession('rafraichissement-du-matin'))
+
+    const rouverte = await File.ouvrir(adaptateurCourant())
+    expect(rouverte.enAttente, 'la file n’a pas survécu — le test ne prouverait rien').toBe(3)
+
+    journal.length = 0
+    const resultat = await viderFile(rouverte, BASE, 'connecte', async (entree) => {
+      journal.push(`envoi:${entree.id}`)
+      return ACQUITTE
+    })
+
+    expect(resultat).toEqual({ issue: 'videe', envoyees: 3 })
+    expect(journal[0]).toBe('rafraichissement')
+    expect(journal.filter(l => l === 'rafraichissement')).toHaveLength(1)
+  })
+
+  it('l’échec du rafraîchissement laisse la file PERSISTÉE intacte — elle survit encore', async () => {
+    // Vider sur un `401` détruirait exactement les écritures qu'on cherche à sauver. Sur une file
+    // persistée, la faute serait pire : elle effacerait aussi le cryptogramme, donc sans retour
+    // possible même après reconnexion.
+    const { FileLocale: File } = await import('../core/sync')
+    const { adaptateurCourant } = await import('../core/platform/courant')
+
+    const file = await File.ouvrir(adaptateurCourant())
+    troisNotes().forEach(entree => file.enfiler(entree))
+    await new Promise(resoudre => setTimeout(resoudre, 0))
+
+    await rangerRafraichissement('rafraichissement-mort')
+    serveurRafraichissement(401, { code: 'session_invalide', message: 'x' })
+
+    const resultat = await viderFile(file, BASE, 'connecte', async () => ACQUITTE)
+
+    expect(resultat).toMatchObject({ issue: 'reconnexion_requise', restantes: 3 })
+    expect(file.enAttente).toBe(3)
+
+    // **Et après une réouverture**, les trois sont toujours là.
+    const rouverte = await File.ouvrir(adaptateurCourant())
+    expect(
+      rouverte.enAttente,
+      'le refus de rafraîchissement a emporté la file persistée : les écritures sont perdues, et '
+      + 'même une reconnexion ne les ramènera pas',
+    ).toBe(3)
+  })
+})
+
 describe('porte P-13 — la file reste fermée aux classes B, C et D', () => {
   it('une opération de ce cycle est refusée à l’enfilement', () => {
     const file = new FileLocale()

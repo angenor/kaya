@@ -36,6 +36,7 @@ import {
   effacerSession,
   enTetesAuth,
   lireRafraichissement,
+  oublierJetonRafraichissement,
   oublierRafraichissement,
   poserSession,
   rangerRafraichissement,
@@ -210,7 +211,13 @@ export async function rafraichirSession(
     // Le jeton est consommé, révoqué ou inconnu. Dans le cas le plus grave — une copie rejouée —
     // le serveur vient de couper toute la famille. Retomber sur la connexion est la seule suite
     // possible, et c'est aussi ce qui rend le vol visible à la victime.
-    await oublierRafraichissement()
+    //
+    // **Le JETON part, et lui seul.** Une purge totale emporterait la clé qui déchiffre la file
+    // hors-ligne, et les écritures non parties deviendraient illisibles — y compris après une
+    // reconnexion réussie. C'est le contraire de la règle 2 de `core/sync/vidage.ts`, et la faute
+    // ne se voit qu'après une coupure plus longue que le jeton, donc jamais en développement.
+    // La purge totale reste le geste de `fermerSession`, où la personne change vraiment.
+    await oublierJetonRafraichissement()
     return { issue: 'refus', cle: REFUS_SESSION_EXPIREE }
   }
 

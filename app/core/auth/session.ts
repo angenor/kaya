@@ -160,7 +160,43 @@ export async function lireRafraichissement(): Promise<string | null> {
  * Elle vide *tout* le stockage de l'application, pas seulement le jeton : ce sont des données
  * d'identité, et le terminal peut être partagé — au maquis, le téléphone du gérant sert aussi à
  * la serveuse. Un jeton retiré à côté d'un cache de comptes serait une demi-purge.
+ *
+ * # ⚠️ Elle emporte la CLÉ de la file hors-ligne, et c'est pour cela qu'elle est gardée
+ *
+ * Depuis le cycle 005, la file persistée est chiffrée par une clé rangée ici. Purger la rend
+ * définitivement illisible — la file survit dans le stockage ordinaire, et plus rien ne peut la
+ * déchiffrer.
+ *
+ * C'est **correct pour une déconnexion** : la personne change, et la garde
+ * `ecrituresEnAttente() > 0` du pied de coquille refuse le geste avant toute destruction. Ce n'est
+ * **pas** correct pour une session expirée — voir {@link oublierJetonRafraichissement}.
  */
 export async function oublierRafraichissement(): Promise<void> {
   await adaptateurCourant().stockageSecurise.purger()
+}
+
+/**
+ * **Oublie le seul jeton de rafraîchissement** — la session est finie, la personne est la même.
+ *
+ * # Le défaut que cette fonction sépare, et il a été trouvé par un test
+ *
+ * `rafraichirSession` appelait la purge **totale** sur un `401`. Le cycle 005 a rendu la file
+ * persistante et chiffrée, avec sa clé dans ce même stockage : une session expirée détruisait donc
+ * la clé, et avec elle les écritures qui n'étaient pas parties. **Exactement ce que la règle 2 de
+ * `core/sync/vidage.ts` interdit** — « l'échec du rafraîchissement NE VIDE PAS la file » — et la
+ * faute était pire que ce que la règle décrit, puisqu'une reconnexion ne les aurait pas ramenées.
+ *
+ * Les deux gestes ne disent pas la même chose, et les confondre coûtait un service :
+ *
+ * | Geste | Ce qui se passe | Ce qu'on fait du stockage |
+ * |---|---|---|
+ * | **Passer la main** | La **personne change** | Purge totale — et la garde de file refuse d'abord si quelque chose attend |
+ * | **Session expirée** (`401`) | La personne **reste la même**, elle se reconnecte | Le jeton part, la file reste |
+ *
+ * Ce que ça laisse sur le terminal après une expiration : la clé de chiffrement de la file, et le
+ * thème. Ni l'un ni l'autre n'est une donnée d'identité de client, et le jeton — le seul secret
+ * rejouable — est bien parti.
+ */
+export async function oublierJetonRafraichissement(): Promise<void> {
+  await adaptateurCourant().stockageSecurise.supprimer(CLE_RAFRAICHISSEMENT)
 }

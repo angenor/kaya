@@ -45,6 +45,17 @@
  * Aminata, le second décrit le réseau. L'i18n disait « Connecté » ; le lexique fait foi, et
  * l'écart est corrigé dans le même cycle.
  *
+ * # ⚠️ Racine UNIQUE, et un COMMENTAIRE en tête de template la casse
+ *
+ * La règle du dépôt dit « une page a une seule racine, et c'est un élément ». Ce qu'elle ne disait
+ * pas, et que ce composant a appris : **un commentaire HTML placé avant l'élément racine compte
+ * comme un nœud**. Le template compile alors en fragment, `wrapper.attributes()` rend `undefined`
+ * sur tout, et — dans un cas réel — Vue lève `Cannot read properties of null (reading
+ * 'parentNode')` à la navigation suivante.
+ *
+ * Les commentaires d'explication vivent donc ici, dans le bloc de script, et les commentaires de
+ * template sont **à l'intérieur** de la racine.
+ *
  * # Il est dans la COQUILLE, donc sur toutes les pages
  *
  * C'est ce que « indicateur permanent » veut dire (principe VI). Le monter écran par écran
@@ -134,9 +145,6 @@ const tonPastille = computed(() => {
 </script>
 
 <template>
-  <!-- Racine UNIQUE et élément — jamais un fragment. La leçon du cycle 004 : un fragment dont la
-       branche active est un composant paresseux non résolu a un `el` nul, et Vue lève
-       `Cannot read properties of null` à la navigation suivante. -->
   <span
     class="inline-flex items-center gap-2 font-titre text-mini font-semibold"
     :class="tonTexte"

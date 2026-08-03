@@ -32,6 +32,7 @@ export {
   effacerSession,
   enTetesAuth,
   lireRafraichissement,
+  oublierJetonRafraichissement,
   oublierRafraichissement,
   poserSession,
   rangerRafraichissement,
