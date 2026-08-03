@@ -20,12 +20,17 @@
 //!
 //! **Inspecté** — tous les fichiers `.rs` sous :
 //!
-//!   * `backend/crates/**/src/` — le socle, les capacités, les verticales ;
-//!   * `backend/api/src/` — handlers et assemblage.
+//!   * **les crates découverts** des trois familles de la hiérarchie, plus `domain` — la liste
+//!     vient des `[workspace] members`, jamais d'un chemin écrit ici. Un crate ajouté au produit
+//!     entre dans le balayage sans que personne y pense ; c'est ce qui manquait aux cycles 003 et
+//!     004, où un schéma entier est resté invisible à une porte voisine ;
+//!   * `backend/api/src/` — handlers et assemblage. Il n'est membre d'aucune famille et porterait
+//!     pourtant un chemin d'écriture d'audit : il est donc **ajouté nommément**.
 //!
 //! **Exclu, nommément** :
 //!
-//!   * `backend/crates/socle/comptes/src/audit/taxonomie.rs` — c'est la **définition** de
+//!   * la **définition** de l'énumération, dans `socle/comptes` — chemin composé depuis le
+//!     manifeste. C'est la **définition** de
 //!     l'énumération. Y voir chaque variante n'apprend rien : elles y sont toutes, par
 //!     construction. L'inclure rendrait les dix types « branchés » dès leur déclaration, ce qui
 //!     est exactement le contraire de ce qu'on mesure.
@@ -39,6 +44,8 @@
 //! `TypeActionAudit` est une énumération fermée et que la colonne `type_action` n'est jamais
 //! alimentée depuis un `String` de l'appelant.** Les deux se tiennent : le typage ferme la porte
 //! que ce contrôle statique ne peut pas garder.
+
+mod commun;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -55,7 +62,17 @@ const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
 const FAMILLES_ATTENDUES: usize = 11;
 
 /// Le fichier de **définition** de l'énumération — exclu du balayage, voir le commentaire de tête.
-const DEFINITION: &str = "crates/socle/comptes/src/audit/taxonomie.rs";
+///
+/// Le chemin est **composé** depuis les `[workspace] members` : une exemption qui survivrait au
+/// crate qu'elle exempte serait pire qu'inutile — elle exclurait un fichier inexistant, et
+/// l'énumération réelle entrerait dans le balayage sans que rien ne le dise.
+fn definition() -> String {
+    commun::perimetre::fichier_du_crate(
+        commun::perimetre::Famille::Socle,
+        "comptes",
+        "src/audit/taxonomie.rs",
+    )
+}
 
 /// Le titre de la section du document où vit le tableau des familles.
 ///
@@ -157,12 +174,17 @@ fn racine_backend() -> PathBuf {
 /// une porte qui ne trouve rien d'une porte qui n'a rien à trouver.
 fn fichiers_inspectes() -> Vec<PathBuf> {
     let racine = racine_backend();
-    let exclu = racine.join(DEFINITION);
+    let exclu = racine.join(definition());
 
+    // **Le périmètre est DÉCOUVERT** : les crates métier viennent du manifeste, `api/src` s'y
+    // ajoute parce que c'est la couche d'assemblage — elle n'est membre d'aucune des trois
+    // familles et porterait pourtant un chemin d'écriture d'audit.
     let mut fichiers = Vec::new();
-    for arbre in ["crates", "api/src"] {
-        collecter(&racine.join(arbre), &exclu, &mut fichiers);
+    for arbre in commun::perimetre::crates_metier() {
+        collecter(&racine.join(&arbre), &exclu, &mut fichiers);
     }
+    collecter(&racine.join(commun::perimetre::chemin_domain()), &exclu, &mut fichiers);
+    collecter(&racine.join("api/src"), &exclu, &mut fichiers);
     fichiers.sort();
     fichiers
 }
@@ -390,11 +412,12 @@ fn decompte_des_familles_branchees_et_dues() {
 /// ne pas dépendre de la représentation `serde`.
 #[test]
 fn l_enumeration_rust_et_le_document_portent_les_memes_codes() {
-    let source = std::fs::read_to_string(racine_backend().join(DEFINITION)).unwrap_or_else(|e| {
+    let definition = definition();
+    let source = std::fs::read_to_string(racine_backend().join(&definition)).unwrap_or_else(|e| {
         panic!(
-            "impossible de lire {DEFINITION} : {e}\n\
+            "impossible de lire {definition} : {e}\n\
              C'est la définition de `TypeActionAudit`. Si elle a été déplacée, mettre à jour la \
-             constante DEFINITION — qui sert aussi d'exclusion au balayage."
+             fonction `definition()` — qui sert aussi d'exclusion au balayage."
         )
     });
 

@@ -19,10 +19,14 @@
 //! L'erreur ne se commet jamais franchement. Elle se commet en ajoutant « juste une dépendance »
 //! pour réutiliser un type qui se trouve du mauvais côté.
 
+mod commun;
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Command;
 
 use serde_json::Value;
+
+use commun::perimetre;
 
 /// Famille d'un crate, déduite du **chemin de son manifeste**.
 ///
@@ -39,17 +43,22 @@ enum Famille {
 }
 
 fn famille(chemin_manifeste: &str) -> Famille {
-    if chemin_manifeste.contains("/crates/socle/") {
-        Famille::Socle
-    } else if chemin_manifeste.contains("/crates/capacites/") {
-        Famille::Capacites
-    } else if chemin_manifeste.contains("/crates/verticales/") {
-        Famille::Verticales
-    } else if chemin_manifeste.contains("/crates/domain/") {
-        Famille::Domain
-    } else {
-        Famille::Assemblage
+    // **Les racines viennent du module de périmètre, jamais d'un chemin écrit ici.** Elles s'y
+    // composent depuis les `[workspace] members` — un répertoire de famille renommé se voit alors
+    // au manifeste, et non trois cycles plus tard sur une porte devenue muette.
+    let racine_de = |f: perimetre::Famille| format!("/{}/", f.racine());
+
+    for (famille_perimetre, famille_locale) in [
+        (perimetre::Famille::Socle, Famille::Socle),
+        (perimetre::Famille::Capacites, Famille::Capacites),
+        (perimetre::Famille::Verticales, Famille::Verticales),
+        (perimetre::Famille::Domain, Famille::Domain),
+    ] {
+        if chemin_manifeste.contains(&racine_de(famille_perimetre)) {
+            return famille_locale;
+        }
     }
+    Famille::Assemblage
 }
 
 /// Cette arête est-elle autorisée par le principe II ?
@@ -252,10 +261,11 @@ fn p03_la_cible_de_la_porte_n_est_pas_vide() {
         total
     }
 
-    let publics = compter_items_publics(Path::new("crates/verticales"));
+    let racine_verticales = perimetre::Famille::Verticales.racine();
+    let publics = compter_items_publics(Path::new(&racine_verticales));
     assert!(
         publics >= 20,
-        "seulement {publics} item(s) public(s) dans `crates/verticales/`.\n\
+        "seulement {publics} item(s) public(s) dans `{racine_verticales}/`.\n\
          Un crate présent mais creux rendrait la porte P-03 aussi vide qu'une famille absente : \
          rien ne pourrait remonter dans le socle, donc rien ne pourrait être interdit."
     );
@@ -306,12 +316,18 @@ fn p12_aucune_regle_fiscale_hors_de_l_adaptateur() {
     use std::fs;
     use std::path::Path;
 
-    // Assertion de non-régression (R-15) : la cible doit exister.
-    let module_fiscal = Path::new("crates/domain/src/fiscal.rs");
+    // Assertion de non-régression (R-15) : la cible doit exister. Le chemin est **composé** par le
+    // module de périmètre, qui panique si le crate a quitté le workspace — un chemin écrit à la
+    // main aurait, lui, désigné un fichier absent et fait échouer la porte sur la mauvaise cause.
+    let crate_domain = perimetre::chemin_domain();
+    let crate_fiscalite = perimetre::chemin_crate(perimetre::Famille::Socle, "fiscalite");
+    let chemin_fiscal_sans_ext = format!("{crate_domain}/src/fiscal");
+    let chemin_fiscal = format!("{chemin_fiscal_sans_ext}.rs");
+    let module_fiscal = Path::new(&chemin_fiscal);
     assert!(
         module_fiscal.exists(),
-        "crates/domain/src/fiscal.rs a disparu : la porte P-12 n'a plus de cible et cesserait de \
-         vérifier quoi que ce soit sans que rien ne l'indique"
+        "{chemin_fiscal} a disparu : la porte P-12 n'a plus de cible et cesserait de vérifier \
+         quoi que ce soit sans que rien ne l'indique"
     );
 
     /// Types de `domain::fiscal` dont la référence hors de `socle/fiscalite` signale une règle
@@ -353,8 +369,10 @@ fn p12_aucune_regle_fiscale_hors_de_l_adaptateur() {
     for fichier in fichiers {
         let chemin = fichier.to_string_lossy().replace('\\', "/");
 
-        // Les deux emplacements légitimes : le trait lui-même, et la déclaration des types.
-        if chemin.contains("crates/socle/fiscalite/") || chemin.contains("crates/domain/src/fiscal")
+        // Les deux emplacements légitimes : le trait lui-même, et la déclaration des types. Les
+        // deux chemins sont **composés** depuis le manifeste, ce qui garantit qu'une exemption ne
+        // survit pas au crate qu'elle exempte.
+        if chemin.contains(&format!("{crate_fiscalite}/")) || chemin.contains(&chemin_fiscal_sans_ext)
         {
             continue;
         }

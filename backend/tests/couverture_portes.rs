@@ -18,6 +18,10 @@
 //! | Porte | Ensemble | Total |
 //! |---|---|---|
 //! | P-05 | types d'événements outbox déclarés au modèle de données | **22** (13 + 9) |
+//!
+//! **Le total réel du produit est 28 depuis le cycle 005**, et non 27 : le balayage découvert a
+//! trouvé `note_etablissement.creee`, émis depuis le cycle 001 et absent de la liste — voir la
+//! note en tête de `TYPES_EVENEMENTS`.
 //! | P-07 | tables créées par les cycles 002 et 003 | **20** (10 + 10) |
 //! | — | tables des quatre schémas applicatifs, tous cycles | **26** |
 //! | P-08 | opérations HTTP servies par le contrat | **43** |
@@ -104,6 +108,19 @@ fn compter_operations(item: &utoipa::openapi::path::PathItem) -> usize {
 /// censé les trouver ; ils ont été ajoutés aux tests de `outbox_transactionnel.rs` au fil de leur
 /// phase, et ce test constate qu'aucun ne manque.
 const TYPES_EVENEMENTS: &[&str] = &[
+    // ── Cycle 001 (TRX) — LE TYPE QUE CE RECOLLEMENT NE VOYAIT PAS ─────────────────────────
+    //
+    // **`note_etablissement.creee` a été émis en production pendant quatre cycles sans figurer
+    // ici.** Ce n'est pas un oubli de rédaction : la liste a été écrite au cycle 002, pour les
+    // types du cycle 002, et le versant « aucun type émis n'est absent de la liste » ne balayait
+    // que les fichiers de service **nommés à la main** — dont aucun n'était celui du module doré.
+    // La porte comptait donc 27 types et le produit en émettait 28, sans qu'aucun des deux
+    // versants ne puisse le dire.
+    //
+    // Il a été trouvé par le cycle 005, au moment exact où le balayage est passé d'une liste de
+    // onze chemins aux **crates métier découverts**. C'est le troisième trou de ce genre trouvé
+    // dans ce dépôt, et le premier trouvé par une porte plutôt que par une relecture.
+    "note_etablissement.creee",
     "etablissement.cree",
     "etablissement.modifie",
     "etablissement.classement_change",
@@ -204,28 +221,27 @@ fn p05_les_types_d_evenements_declares_sont_tous_couverts() {
 /// déclaré — donc qui n'apparaîtrait ni au modèle de données, ni dans aucun décompte.
 #[test]
 fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
-    use std::path::Path;
-
     let mut emis = BTreeSet::new();
 
-    // Les constantes `pub const TYPE_… : &str = "…";` des services.
-    for chemin in [
-        "crates/socle/etablissements/src/etablissement/service.rs",
-        "crates/socle/etablissements/src/modules/service.rs",
-        "crates/socle/etablissements/src/points_de_vente/service.rs",
-        "crates/socle/etablissements/src/configuration/service.rs",
-        "crates/socle/etablissements/src/branding/service.rs",
-        // ── Cycle 003 ──────────────────────────────────────────────────────────────────────
-        "crates/socle/comptes/src/personne/service.rs",
-        "crates/socle/comptes/src/compte/service.rs",
-        "crates/socle/comptes/src/roles/service.rs",
-        "crates/socle/comptes/src/authentification/service.rs",
-        // ── Cycle 004 — LA VERTICALE, qui échappait entièrement au balayage ─────────────────
-        "crates/verticales/hebergement/src/referentiel/service.rs",
-        "crates/verticales/hebergement/src/occupation/service.rs",
-    ] {
-        let contenu = std::fs::read_to_string(Path::new(chemin))
-            .unwrap_or_else(|_| panic!("{chemin} introuvable — le décompte porterait sur moins"));
+    // ── Le périmètre est DÉCOUVERT depuis le cycle 005 ────────────────────────────────────
+    //
+    // Ce test lisait onze chemins de service écrits à la main, et la liste avait déjà laissé
+    // passer les cinq types du cycle 004 : aucun fichier de `verticales/` n'y figurait, les types
+    // étaient émis en production et **invisibles à la porte**, qui restait verte. Les ajouter
+    // aurait corrigé ce cas-là ; ce sont les cas suivants qui étaient en jeu.
+    //
+    // Le balayage porte donc sur **tous les fichiers `.rs` des crates métier découverts**. Un
+    // service ajouté au produit — dans un crate existant ou dans un crate nouveau — entre dans la
+    // cible sans que personne y pense, et le décompte plancher ci-dessous rend visible tout
+    // rétrécissement.
+    let fichiers = commun::perimetre::sources_des_crates_metier();
+    let mut fichiers_avec_type = 0usize;
+
+    for fichier in &fichiers {
+        let Ok(contenu) = std::fs::read_to_string(fichier) else {
+            continue;
+        };
+        let avant = emis.len();
 
         for ligne in contenu.lines() {
             let ligne = ligne.trim();
@@ -237,6 +253,10 @@ fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
             {
                 emis.insert(ligne[debut + 1..debut + 1 + fin].to_owned());
             }
+        }
+
+        if emis.len() > avant {
+            fichiers_avec_type += 1;
         }
     }
 
@@ -257,6 +277,24 @@ fn p05_aucun_type_emis_par_le_code_n_est_absent_de_la_liste() {
         emis.len() >= 10,
         "seulement {} type(s) extrait(s) des services : l'extraction est probablement cassée, et \
          ce test passerait en n'inspectant rien",
+        emis.len()
+    );
+
+    // **Le périmètre est imprimé et compté** — exigence 1 et 2 du § « Couverture des portes ».
+    // Onze fichiers de service portaient un type au terme du cycle 004 ; le plancher est là pour
+    // qu'un balayage qui n'en trouverait plus que trois ne passe pas au vert.
+    const PLANCHER_FICHIERS_EMETTEURS: usize = 11;
+    assert!(
+        fichiers_avec_type >= PLANCHER_FICHIERS_EMETTEURS,
+        "seulement {fichiers_avec_type} fichier(s) émetteur(s) de type d'événement trouvé(s) sur \
+         {} fichier(s) balayés, pour un plancher de {PLANCHER_FICHIERS_EMETTEURS}.\n\
+         Une porte dont la cible rétrécit passe au vert sans rien vérifier.",
+        fichiers.len()
+    );
+    println!(
+        "P-05 — {} fichier(s) balayé(s) sur les crates métier découverts, {fichiers_avec_type} \
+         émetteur(s), {} type(s) trouvé(s).",
+        fichiers.len(),
         emis.len()
     );
 }
@@ -839,16 +877,16 @@ const CLASSES_OFFLINE: &str = include_str!("classes_offline.rs");
 ///
 /// Le lire plutôt que le recopier est ce qui fait de ce test un **recollement** : une constante
 /// recopiée diverge en silence, une constante relue échoue au premier écart.
-fn tables_attendues_par_classes_offline() -> usize {
+fn plancher_de_classes_offline() -> usize {
     CLASSES_OFFLINE
         .lines()
         .find_map(|ligne| {
             let ligne = ligne.trim();
-            let apres = ligne.strip_prefix("const TABLES_ATTENDUES: usize = ")?;
+            let apres = ligne.strip_prefix("const PLANCHER_TABLES: usize = ")?;
             apres.trim_end_matches(';').parse::<usize>().ok()
         })
         .expect(
-            "`const TABLES_ATTENDUES: usize = …;` introuvable dans classes_offline.rs. La \
+            "`const PLANCHER_TABLES: usize = …;` introuvable dans classes_offline.rs. La \
              déclaration a-t-elle été reformulée ? Sans elle, ce recollement ne compare plus rien.",
         )
 }
@@ -873,15 +911,10 @@ fn tables_attendues_par_classes_offline() -> usize {
 async fn recapitulatif_des_portes_a_decompte() {
     let pool = commun::pool_owner().await;
 
-    // Les cinq schémas applicatifs, dans l'ordre de leur apparition au produit. `public` en est
-    // exclu : `sqlx.toml` y place la table de suivi des migrations, qui ne porte rien de métier.
-    const SCHEMAS_APPLICATIFS: &[&str] = &[
-        "etablissements",
-        "synchronisation",
-        "fiscalite",
-        "comptes",
-        "hebergement",
-    ];
+    // **Les schémas sont DÉCOUVERTS** — ce récapitulatif portait sa propre liste de cinq, et c'est
+    // exactement le motif qui a fait manquer `comptes` au cycle 003 puis `hebergement` au 004. Un
+    // récapitulatif faux est pire qu'aucun : c'est le chiffre qu'on recopie dans la revue.
+    let schemas_applicatifs = commun::perimetre::schemas_applicatifs(&pool).await;
 
     let par_schema: Vec<(String, i64)> = sqlx::query(
         r#"
@@ -893,7 +926,7 @@ async fn recapitulatif_des_portes_a_decompte() {
         ORDER BY n.nspname
         "#,
     )
-    .bind(SCHEMAS_APPLICATIFS)
+    .bind(&schemas_applicatifs)
     .fetch_all(&pool)
     .await
     .expect("comptage")
@@ -903,28 +936,35 @@ async fn recapitulatif_des_portes_a_decompte() {
 
     let tables: i64 = par_schema.iter().map(|(_, n)| n).sum();
 
-    assert_eq!(
+    // Tout schéma découvert n'a pas forcément de table — un schéma vide en aurait zéro et
+    // n'apparaîtrait pas au `GROUP BY`. Ce qui compte est qu'aucun schéma **porteur de tables** ne
+    // manque au décompte, et le plancher ci-dessous le tient.
+    assert!(
+        par_schema.len() <= schemas_applicatifs.len(),
+        "le comptage a rendu {} schéma(s) pour {} découvert(s) : {par_schema:?}",
         par_schema.len(),
-        SCHEMAS_APPLICATIFS.len(),
-        "{} schéma(s) applicatif(s) trouvé(s) sur {} attendu(s) : {:?}\n\n\
-         Un schéma absent du catalogue est un schéma que ce récapitulatif ne compte pas — et son \
-         total resterait plausible. C'est ainsi que `comptes` a échappé au balayage pendant tout \
-         le cycle 003.",
-        par_schema.len(),
-        SCHEMAS_APPLICATIFS.len(),
-        par_schema
+        schemas_applicatifs.len()
     );
 
-    let attendues = tables_attendues_par_classes_offline();
-    assert_eq!(
-        usize::try_from(tables).expect("décompte positif"),
-        attendues,
-        "{tables} table(s) dans les cinq schémas applicatifs, contre {attendues} déclarée(s) par \
-         `classes_offline.rs`.\n\
+    let plancher = plancher_de_classes_offline();
+    assert!(
+        usize::try_from(tables).expect("décompte positif") >= plancher,
+        "{tables} table(s) sur les schémas découverts, contre un plancher de {plancher} déclaré \
+         par `classes_offline.rs`.\n\
          Ventilation : {par_schema:?}\n\n\
-         Les deux fichiers comptent le même ensemble ; un écart signifie qu'une migration a été \
-         ajoutée sans mettre à jour `TABLES_ATTENDUES`, ou qu'un schéma manque à l'un des deux \
-         balayages."
+         Les deux fichiers comptent le même ensemble depuis le même périmètre découvert ; un total \
+         inférieur au plancher signifie une migration destructrice ou un schéma sorti du champ."
+    );
+
+    // **Le recollement ne compare plus deux listes, il vérifie que l'autre fichier s'adosse à la
+    // découverte.** Depuis que les deux lisent `perimetre::schemas_applicatifs()`, comparer leurs
+    // décomptes serait tautologique : ce qui mérite d'être vérifié est qu'aucun des deux n'est
+    // retourné à une liste écrite à la main.
+    assert!(
+        CLASSES_OFFLINE.contains("perimetre::schemas_applicatifs"),
+        "`classes_offline.rs` n'appelle plus `perimetre::schemas_applicatifs()` : il a donc \
+         retrouvé une liste de schémas écrite à la main, et le trou qui a coûté deux cycles est \
+         rouvert. Voir `commun/perimetre.rs`."
     );
 
     let operations: usize = application::contrat_complet()

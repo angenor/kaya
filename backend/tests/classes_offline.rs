@@ -27,6 +27,25 @@
 //! Ce que la porte garantit, et qui suffit à son objet : **aucune entité ne peut être créée sans
 //! que quelqu'un ait ouvert le registre et écrit une classe.** C'est le moment où la question se
 //! pose ; c'est celui qu'on manquait avant.
+//!
+//! # Périmètre inspecté — DÉCOUVERT depuis le cycle 005
+//!
+//! *Exigence 1 du § « Couverture des portes » de la constitution.*
+//!
+//! **Inspecté** : toutes les tables de base (`BASE TABLE`) de **tous** les schémas que
+//! `commun::perimetre::schemas_applicatifs()` découvre dans `pg_namespace`, moins les tables
+//! exclues nommément ci-dessous.
+//!
+//! **Ce que la découverte a remplacé, et pourquoi.** Ce fichier portait sa propre liste de cinq
+//! schémas, écrite à la main. Elle a laissé deux trous réels et documentés : `comptes` au cycle
+//! 003 — dix tables invisibles pendant un cycle entier — et `hebergement` au cycle 004, huit de
+//! plus. Les deux fois, la porte est restée **verte** en inspectant une fraction de ce qu'elle
+//! annonçait. Un schéma créé par migration entre désormais dans le périmètre sans que personne y
+//! pense, et le module de découverte échoue si le décompte baisse.
+//!
+//! **Non inspecté** : les vues, les vues matérialisées et les séquences — le registre classe des
+//! entités qui portent un état, pas des projections. Et la table de suivi des migrations de sqlx,
+//! exclue nommément avec son motif.
 
 mod commun;
 
@@ -37,36 +56,32 @@ use sqlx::Row;
 /// Le registre, lu à la compilation. Une modification du fichier recompile le test.
 const REGISTRE: &str = include_str!("../../docs/registre-classes-offline.md");
 
-/// Schémas soumis à la porte.
+/// Plancher du nombre de tables inspectées — **le décompte, pas seulement la liste**.
 ///
-/// **`comptes` manquait, et son absence était un trou de couverture réel** : les dix tables du
-/// cycle 003 échappaient au balayage, et une onzième créée sans déclaration serait passée. Le
-/// test `les_entites_du_cycle_003_sont_declarees` les nommait une par une — ce qui vérifie que
-/// celles-là sont déclarées, jamais qu'aucune autre ne manque. C'est exactement la différence
-/// entre une liste et une porte.
-/// **`hebergement` est ajouté par le cycle 004, et son absence aurait été le même trou.** Les huit
-/// tables de la première verticale échapperaient entièrement au balayage — exactement ce que le
-/// cycle 003 a trouvé sur `comptes`. La liste est le périmètre de la porte : ce qui n'y est pas
-/// n'est pas inspecté, et rien ne le dit.
-const SCHEMAS_APPLICATIFS: &[&str] = &[
-    "etablissements",
-    "synchronisation",
-    "fiscalite",
-    "comptes",
-    "hebergement",
-];
-
-/// Nombre de tables attendu dans les cinq schémas — **le décompte, pas seulement la liste**.
+/// 16 au cycle 002, 26 après le 003, **34** à la fin du 004. Une porte dont la cible se vide passe
+/// toujours au vert : ce nombre est ce qui distingue « tout est déclaré » de « il n'y avait rien à
+/// inspecter ».
 ///
-/// 16 au cycle 002, 26 après le cycle 003, **34** à la fin du cycle 004. Une porte dont la cible
-/// se vide passe toujours au vert : ce nombre est ce qui distingue « tout est déclaré » de « il
-/// n'y avait rien à inspecter ».
+/// # Pourquoi un PLANCHER, et non plus une égalité — changement du cycle 005
 ///
-/// **Il suit les tables réellement créées, migration par migration**, et non la cible du cycle :
+/// Jusqu'ici la porte exigeait l'égalité stricte, et **elle exigeait aussi la liste de ses cinq
+/// schémas**, écrite à la main juste au-dessus. Cette liste a laissé deux trous réels : le schéma
+/// `comptes` au cycle 003, dix tables invisibles ; `hebergement` au cycle 004, huit de plus.
+///
+/// Les schémas viennent désormais de `commun::perimetre::schemas_applicatifs()`, découverts du
+/// catalogue. Un schéma créé par migration entre donc dans le périmètre **sans que personne y
+/// pense** — c'était tout l'objet. Mais il y entre avec ses tables, et une égalité stricte
+/// deviendrait rouge à chaque migration, pour une raison qui n'est pas un défaut : on prendrait
+/// l'habitude de la lire rouge.
+///
+/// Le plancher garde ce qui compte — la cible ne rétrécit **jamais** — et laisse la découverte
+/// faire son travail. Ce qu'on perd, c'est le signal « une table est apparue » ; ce qu'on ne perd
+/// pas, c'est le contrôle qui compte : `toute_table_est_declaree_au_registre` échoue sur toute
+/// table nouvelle non déclarée, découverte ou non.
+///
+/// **Il suit les tables réellement créées, migration par migration**, jamais la cible d'un cycle :
 /// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34.
-/// L'écrire d'avance rendrait la porte rouge entre deux migrations pour une raison qui n'est pas
-/// un défaut, et on prendrait l'habitude de la lire rouge.
-const TABLES_ATTENDUES: usize = 34;
+const PLANCHER_TABLES: usize = 34;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///
@@ -121,6 +136,8 @@ fn entites_declarees() -> BTreeSet<String> {
 }
 
 async fn tables_reelles(pool: &sqlx::PgPool) -> BTreeSet<String> {
+    let schemas = commun::perimetre::schemas_applicatifs(pool).await;
+
     sqlx::query(
         r#"
         SELECT table_name
@@ -128,7 +145,7 @@ async fn tables_reelles(pool: &sqlx::PgPool) -> BTreeSet<String> {
         WHERE table_schema = ANY($1) AND table_type = 'BASE TABLE'
         "#,
     )
-    .bind(SCHEMAS_APPLICATIFS)
+    .bind(&schemas)
     .fetch_all(pool)
     .await
     .expect("lecture du catalogue")
@@ -148,12 +165,13 @@ async fn toute_table_est_declaree_au_registre_des_classes_hors_ligne() {
         !tables.is_empty(),
         "aucune table trouvée — la porte n'a rien vérifié. Base non migrée ?"
     );
-    assert_eq!(
-        tables.len(),
-        TABLES_ATTENDUES,
-        "{} table(s) inspectée(s) au lieu des {TABLES_ATTENDUES} attendues :\n  {}\n\n\
-         Une porte dont la cible rétrécit passe au vert sans rien vérifier. Si une table a été \
-         ajoutée, incrémenter TABLES_ATTENDUES **dans le même changement** que la migration.",
+    assert!(
+        tables.len() >= PLANCHER_TABLES,
+        "{} table(s) inspectée(s) pour un plancher de {PLANCHER_TABLES} :\n  {}\n\n\
+         Une porte dont la cible RÉTRÉCIT passe au vert sans rien vérifier. Un décompte qui baisse \
+         a trois causes possibles, toutes des défauts : une migration destructrice (le principe \
+         I(b) l'interdit), un schéma sorti du périmètre découvert, ou une base qui n'est pas celle \
+         qu'on croit.",
         tables.len(),
         tables.iter().map(String::as_str).collect::<Vec<_>>().join("\n  ")
     );

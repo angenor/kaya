@@ -451,11 +451,17 @@ async fn la_limitation_d_un_compte_n_atteint_pas_les_autres() {
 ///
 /// Liste **explicite** plutôt qu'un motif de nom : un fichier renommé sortirait silencieusement
 /// d'un motif, alors qu'il fait échouer une liste nommée.
-const CHEMINS_DE_CONNEXION: &[&str] = &[
-    "crates/socle/comptes/src/authentification/service.rs",
-    "crates/socle/comptes/src/session/entrepot.rs",
-    "api/src/routes/session.rs",
-];
+///
+/// Les deux chemins de crate sont **composés** depuis les `[workspace] members` : nommer le
+/// fichier reste une décision, savoir où vit le crate n'en est pas une.
+fn chemins_de_connexion() -> Vec<String> {
+    use commun::perimetre::{self, Famille};
+    vec![
+        perimetre::fichier_du_crate(Famille::Socle, "comptes", "src/authentification/service.rs"),
+        perimetre::fichier_du_crate(Famille::Socle, "comptes", "src/session/entrepot.rs"),
+        "api/src/routes/session.rs".to_owned(),
+    ]
+}
 
 /// **Aucun fichier du chemin de connexion n'appelle la politique de mot de passe.**
 ///
@@ -470,8 +476,8 @@ fn la_politique_n_est_jamais_appelee_sur_le_chemin_de_connexion() {
     let mut inspectes = 0_usize;
     let mut fautifs = Vec::new();
 
-    for relatif in CHEMINS_DE_CONNEXION {
-        let chemin = racine.join(relatif);
+    for relatif in chemins_de_connexion() {
+        let chemin = racine.join(&relatif);
         assert!(
             chemin.is_file(),
             "{relatif} n'existe pas — le contrôle n'inspecterait rien, et une porte sans cible \
@@ -491,7 +497,7 @@ fn la_politique_n_est_jamais_appelee_sur_le_chemin_de_connexion() {
         }
     }
 
-    assert_eq!(inspectes, CHEMINS_DE_CONNEXION.len());
+    assert_eq!(inspectes, chemins_de_connexion().len());
     assert!(
         fautifs.is_empty(),
         "la politique de mot de passe est appelée sur le chemin de connexion : {fautifs:?}\n\

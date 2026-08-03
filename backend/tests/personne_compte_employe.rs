@@ -22,7 +22,7 @@
 //! |---|---|---|
 //! | Les trois figures | `comptes.personne`, `comptes.compte`, `comptes.employe` sur base réelle | — |
 //! | Colonnes de contrat | **les 2 tables** `personne` et `compte`, via `information_schema.columns` | une colonne de contrat nommée sans aucun des huit motifs (`salaire`, `embauche`, `cnps`, `contrat`, `remuneration`, `paie`, `licenciement`, `anciennete`) passerait |
-//! | Graphe d'appels | **3 arbres** — `backend/crates/socle/comptes/src/`, `backend/api/src/`, `backend/crates/socle/etablissements/src/` | un accès construit dynamiquement (chaîne concaténée) passerait ; c'est pourquoi l'absence de privilège de `0018` double ce contrôle |
+//! | Graphe d'appels | **3 arbres** — les sources de `socle/comptes` et de `socle/etablissements`, plus `backend/api/src/`. Les deux chemins de crate sont **composés depuis les `[workspace] members`** (`commun::perimetre`), jamais écrits ici : un crate renommé fait paniquer la composition au lieu de désigner un répertoire absent, que le balayage traiterait comme vide — donc conforme | un accès construit dynamiquement (chaîne concaténée) passerait ; c'est pourquoi l'absence de privilège de `0018` double ce contrôle |
 //!
 //! Le troisième contrôle a une garantie de second rang qui vaut mieux que lui : `kaya_app` n'a
 //! **aucun privilège** sur `comptes.employe`, pas même `SELECT` (migration `0018`). Un chemin de
@@ -60,11 +60,18 @@ const MOTIFS_DE_CONTRAT: [&str; 8] = [
 ];
 
 /// Les arbres de code inspectés par le contrôle de graphe d'appels.
-const ARBRES_INSPECTES: [&str; 3] = [
-    "crates/socle/comptes/src",
-    "api/src",
-    "crates/socle/etablissements/src",
-];
+///
+/// Les deux chemins de crate sont **composés** depuis les `[workspace] members` : un crate
+/// renommé fait paniquer `fichier_du_crate` au lieu de désigner un répertoire absent, que le
+/// balayage traiterait comme vide — donc conforme.
+fn arbres_inspectes() -> Vec<String> {
+    use commun::perimetre::{self, Famille};
+    vec![
+        perimetre::fichier_du_crate(Famille::Socle, "comptes", "src"),
+        "api/src".to_owned(),
+        perimetre::fichier_du_crate(Famille::Socle, "etablissements", "src"),
+    ]
+}
 
 // =================================================================================================
 //  1 · Les trois figures de CPT-00, sur une base réelle
@@ -398,7 +405,7 @@ fn aucun_chemin_de_code_ne_lit_employe() {
     let mut fichiers_inspectes = 0_usize;
     let mut fautifs: Vec<String> = Vec::new();
 
-    for arbre in ARBRES_INSPECTES {
+    for arbre in arbres_inspectes() {
         let chemin = racine.join(arbre);
         assert!(
             chemin.is_dir(),

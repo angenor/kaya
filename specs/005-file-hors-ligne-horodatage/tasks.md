@@ -64,16 +64,16 @@ consommé par dix fichiers de portes, et les deux migrations conditionnent tout 
 
 ### Le module d'énumération partagé (FR-004b à FR-004d)
 
-- [ ] T007 Créer `backend/tests/commun/perimetre.rs` — `schemas_applicatifs()` lu de `pg_namespace` avec **liste d'exclusion nommée et justifiée** (`pg_catalog`, `information_schema`, `pg_toast*`, `public`, schéma des migrations), et `crates_du_socle()` / `crates_des_capacites()` / `crates_des_verticales()` lus des `[workspace] members` de `backend/Cargo.toml`. Exposer depuis `commun/mod.rs`
-- [ ] T008 Ajouter à `perimetre.rs` le **contrôle de non-régression** : le décompte de schémas et de crates échoue s'il **baisse** — un schéma disparu est soit une migration destructrice, soit un filtre devenu trop large
-- [ ] T009 Porter `backend/tests/classes_offline.rs` sur `perimetre::schemas_applicatifs()` — supprimer `SCHEMAS_APPLICATIFS` et `TABLES_ATTENDUES` en dur, conserver le décompte comparé à la découverte
-- [ ] T010 [P] Porter `backend/tests/architecture.rs` et `backend/tests/portes_a_vide.rs` sur `perimetre::crates_*()` — 4 des 21 chemins en dur
-- [ ] T011 [P] Porter `backend/tests/couverture_portes.rs` sur `perimetre::crates_*()` — 9 chemins en dur, le fichier le plus touché
-- [ ] T012 [P] Porter `backend/tests/audit_taxonomie.rs`, `authentification_indiscernable.rs` et `personne_compte_employe.rs` — les 8 chemins restants
-- [ ] T013 Porter `backend/tests/rls_catalogue.rs` sur le périmètre découvert et vérifier que **P-07 compte toutes les tables**, pas un sous-ensemble — c'est le trou du cycle 002 (4 tables sur 10)
-- [ ] T014 Vérifier que les **21 occurrences** de chemin de crate en dur sont ramenées à **zéro** (`grep -ro "crates/socle" backend/tests`), et que chaque fichier porté déclare son périmètre en commentaire de tête (exigence 1)
+- [x] T007 Créer `backend/tests/commun/perimetre.rs` — `schemas_applicatifs()` lu de `pg_namespace` avec **liste d'exclusion nommée et justifiée** (`pg_catalog`, `information_schema`, `pg_toast*`, `public`, schéma des migrations), et `crates_du_socle()` / `crates_des_capacites()` / `crates_des_verticales()` lus des `[workspace] members` de `backend/Cargo.toml`. Exposer depuis `commun/mod.rs`
+- [x] T008 Ajouter à `perimetre.rs` le **contrôle de non-régression** : le décompte de schémas et de crates échoue s'il **baisse** — un schéma disparu est soit une migration destructrice, soit un filtre devenu trop large
+- [x] T009 Porter `backend/tests/classes_offline.rs` sur `perimetre::schemas_applicatifs()` — supprimer `SCHEMAS_APPLICATIFS` et `TABLES_ATTENDUES` en dur, conserver le décompte comparé à la découverte
+- [x] T010 [P] Porter `backend/tests/architecture.rs` et `backend/tests/portes_a_vide.rs` sur `perimetre::crates_*()` — 4 des 21 chemins en dur
+- [x] T011 [P] Porter `backend/tests/couverture_portes.rs` sur `perimetre::crates_*()` — 9 chemins en dur, le fichier le plus touché
+- [x] T012 [P] Porter `backend/tests/audit_taxonomie.rs`, `authentification_indiscernable.rs` et `personne_compte_employe.rs` — les 8 chemins restants
+- [x] T013 Porter `backend/tests/rls_catalogue.rs` sur le périmètre découvert et vérifier que **P-07 compte toutes les tables**, pas un sous-ensemble — c'est le trou du cycle 002 (4 tables sur 10)
+- [x] T014 Vérifier que les **21 occurrences** de chemin de crate en dur sont ramenées à **zéro** (`grep -ro "crates/socle" backend/tests`), et que chaque fichier porté déclare son périmètre en commentaire de tête (exigence 1)
 
-- [ ] T014b Écrire dans `backend/tests/commun/perimetre.rs` le **contrôle prospectif de FR-004c** : un test qui échoue si un fichier de `backend/tests/` déclare un `const … : &[&str]` de schémas ou de crates sans passer par `perimetre::`. Sans lui, la règle « toute porte future en hérite » reste déclarative, et la porte n° 27 réintroduira une liste sans que rien ne le dise
+- [x] T014b Écrire dans `backend/tests/commun/perimetre.rs` le **contrôle prospectif de FR-004c** : un test qui échoue si un fichier de `backend/tests/` déclare un `const … : &[&str]` de schémas ou de crates sans passer par `perimetre::`. Sans lui, la règle « toute porte future en hérite » reste déclarative, et la porte n° 27 réintroduira une liste sans que rien ne le dise
 
 > **Ce que cette phase va faire tomber, et qui n'est pas une régression.** Élargir un périmètre
 > découvre du code que la porte ne voyait pas. Chaque échec est un **défaut trouvé**, à documenter

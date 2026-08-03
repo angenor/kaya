@@ -25,32 +25,26 @@ mod commun;
 
 use sqlx::{PgPool, Row};
 
-/// Schémas soumis à la porte. Un schéma applicatif ajouté sans être inscrit ici échapperait à la
-/// vérification — c'est pourquoi la liste vit à côté du test qui l'utilise, et non dans un
-/// fichier de configuration qu'on oublierait d'ouvrir.
-const SCHEMAS_APPLICATIFS: &[&str] = &[
-    "etablissements",
-    "synchronisation",
-    "fiscalite",
-    // Cycle 003 (CPT) — dix tables, dont quatre référentiels globaux.
-    "comptes",
-    // Cycle 004 (HEB) — sept tables, **aucun référentiel global** : les types de chambre, les
-    // chambres et les formules appartiennent chacun à un établissement, donc à un tenant. C'est
-    // la première verticale, et son schéma n'a pas de régime particulier — ce qui est en soi une
-    // information : la hiérarchie du principe II ne change rien à l'isolation.
-    "hebergement",
-];
-
-/// Nombre de tables attendues sous la porte, **tous schémas confondus**.
+/// Plancher du nombre de tables sous la porte, **tous schémas confondus**.
 ///
 /// Une porte dont la cible est vide passe toujours (constitution, § « Couverture des portes »).
-/// La liste ci-dessus est le point unique où un module entier peut sortir du champ sans qu'aucune
-/// erreur ne se produise : le décompte est ce qui rend cette sortie visible.
 ///
-/// 16 au cycle 002, 26 au cycle 003, **33 après `0025`**, **34** après `0026`, terme du cycle 004. Le décompte
-/// suit les tables réellement créées, migration par migration : l'écrire d'avance rendrait la
-/// porte rouge entre deux migrations pour une raison qui n'est pas un défaut.
-const TOTAL_TABLES_ATTENDU: usize = 34;
+/// # Le périmètre a cessé d'être une liste — cycle 005
+///
+/// Ce fichier portait sa propre énumération de cinq schémas, avec en commentaire l'argument
+/// qu'elle devait vivre « à côté du test qui l'utilise, et non dans un fichier de configuration
+/// qu'on oublierait d'ouvrir ». **L'argument était juste et la conclusion fausse** : ce n'est pas
+/// l'éloignement qui a fait manquer `comptes` au cycle 003 puis `hebergement` au 004, c'est le
+/// fait qu'un humain devait y penser. Les schémas viennent désormais de
+/// `commun::perimetre::schemas_applicatifs()`, découverts de `pg_namespace`.
+///
+/// Le décompte devient un **plancher** pour la même raison qu'à `classes_offline.rs` : la
+/// découverte fait entrer les tables d'un schéma nouveau sans que personne y pense, et une égalité
+/// stricte deviendrait rouge à chaque migration — pour une raison qui n'est pas un défaut.
+/// Ce qu'on garde est ce qui compte : **la cible ne rétrécit jamais**.
+///
+/// 16 au cycle 002, 26 au 003, **34** au terme du 004.
+const PLANCHER_TABLES: usize = 34;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///
@@ -119,7 +113,7 @@ async fn inventorier(pool: &PgPool) -> Vec<EtatTable> {
          ORDER BY 1, 2
         "#,
     )
-    .bind(SCHEMAS_APPLICATIFS)
+    .bind(&commun::perimetre::schemas_applicatifs(pool).await)
     .fetch_all(pool)
     .await
     .expect("lecture du catalogue PostgreSQL");
@@ -182,20 +176,28 @@ async fn p07_toute_table_applicative_est_isolee() {
     assert!(
         !tables.is_empty(),
         "aucune table trouvée dans les schémas applicatifs — la porte P-07 n'a rien vérifié. \
-         Base non migrée, ou liste SCHEMAS_APPLICATIFS périmée."
+         Base non migrée, ou périmètre découvert vide."
     );
-    assert_eq!(
-        tables.len(),
-        TOTAL_TABLES_ATTENDU,
-        "P-07 a inspecté {} table(s) pour {TOTAL_TABLES_ATTENDU} attendue(s).\n\
+    assert!(
+        tables.len() >= PLANCHER_TABLES,
+        "P-07 a inspecté {} table(s) pour un plancher de {PLANCHER_TABLES}.\n\
          \n\
          Une porte qui n'inspecte pas tout est indistinguable d'une porte qui n'a rien à \
-         inspecter : les deux passent au vert. Si des tables ont été ajoutées, porter le total \
-         ici ; s'il en manque, vérifier SCHEMAS_APPLICATIFS avant toute autre hypothèse.\n\
+         inspecter : les deux passent au vert. Un décompte qui BAISSE est un défaut — migration \
+         destructrice, schéma sorti du périmètre découvert, ou base qui n'est pas celle qu'on \
+         croit.\n\
          \n\
          Tables vues : {:?}",
         tables.len(),
         tables.iter().map(|t| &t.nom_complet).collect::<Vec<_>>()
+    );
+
+    // **Le périmètre est imprimé** — exigence 1 du § « Couverture des portes ». Une porte qui dit
+    // « ok » sans dire sur quoi laisse le lecteur supposer qu'elle a tout vu ; c'est précisément
+    // la supposition qui a coûté deux cycles.
+    println!(
+        "P-07 — {} table(s) inspectée(s) sur les schémas découverts, plancher {PLANCHER_TABLES}.",
+        tables.len()
     );
 
     let manquements = manquements(&tables);

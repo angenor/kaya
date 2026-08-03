@@ -156,10 +156,14 @@ fn p11_tests_dores_fiscaux() {
     );
 
     // Le crate `socle/fiscalite` doit exister : c'est là que les règles vivront, et la porte P-12
-    // vérifie qu'elles ne vivent nulle part ailleurs.
+    // vérifie qu'elles ne vivent nulle part ailleurs. Le chemin est **composé** depuis les
+    // `[workspace] members` — `chemin_crate` panique si le crate en est sorti, au lieu de rendre
+    // un `false` qu'on lirait comme un défaut de la porte.
+    let lib_fiscalite =
+        commun::perimetre::fichier_du_crate(commun::perimetre::Famille::Socle, "fiscalite", "src/lib.rs");
     assert!(
-        Path::new("crates/socle/fiscalite/src/lib.rs").exists(),
-        "P-11 : le crate socle/fiscalite a disparu — les tests dorés n'auraient plus de cible."
+        Path::new(&lib_fiscalite).exists(),
+        "P-11 : {lib_fiscalite} a disparu — les tests dorés n'auraient plus de cible."
     );
 }
 
@@ -225,7 +229,14 @@ fn fr008_aucun_compteur_d_etablissements_a_visee_tarifaire() {
         "quota_etablissement",
     ];
 
-    for repertoire in ["crates/socle/etablissements/src", "api/src"] {
+    // Le périmètre de FR-008 : le crate où une logique d'abonnement se logerait naturellement, et
+    // la couche qui l'exposerait. Le premier est composé depuis le manifeste.
+    let src_etablissements = commun::perimetre::fichier_du_crate(
+        commun::perimetre::Famille::Socle,
+        "etablissements",
+        "src",
+    );
+    for repertoire in [src_etablissements.as_str(), "api/src"] {
         for fichier in sources_rust(std::path::Path::new(repertoire)) {
             let contenu = std::fs::read_to_string(&fichier).unwrap_or_default();
             // Le corps du code, pas les commentaires : ce fichier nomme lui-même les motifs, et

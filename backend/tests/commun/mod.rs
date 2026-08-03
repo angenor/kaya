@@ -8,6 +8,13 @@
 
 #![allow(dead_code)]
 
+/// **Le périmètre des portes — découvert, jamais énuméré.**
+///
+/// Dix fichiers de ce répertoire énuméraient leur propre périmètre à la main, et le motif avait
+/// laissé un trou à chacun des trois cycles précédents. Toute porte lit désormais ses schémas du
+/// catalogue de PostgreSQL et ses crates des `[workspace] members` — voir `perimetre.rs`.
+pub mod perimetre;
+
 use std::str::FromStr;
 
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
