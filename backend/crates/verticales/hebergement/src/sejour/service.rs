@@ -744,6 +744,36 @@ where
         }))
     }
 
+    /// ★ **La proposition automatique d'unité** — US3, l'arrivée d'un client connu.
+    ///
+    /// Rend les unités de la catégorie **par ordre stable et explicable** : les libres d'abord,
+    /// puis par code croissant — l'ordre du tableau de clés.
+    ///
+    /// # Quand aucune n'est libre, le refus NOMME la première disponibilité
+    ///
+    /// La liste rendue n'est **jamais vide** tant que la catégorie a des unités : chacune porte
+    /// l'instant où elle se libère, remise en état comprise. Un refus qui dirait seulement
+    /// « complet » obligerait Yao à ouvrir un autre écran pour répondre au client qui attend
+    /// devant lui — et c'est la différence entre un écran qui répond et un écran qui bloque.
+    pub async fn unites_proposables(
+        &self,
+        etablissement_id: Uuid,
+        categorie_id: Uuid,
+        debut: OffsetDateTime,
+        fin: OffsetDateTime,
+    ) -> Result<Vec<repository::Proposition>, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let propositions =
+            repository::unites_proposables(&mut tx, etablissement_id, categorie_id, debut, fin)
+                .await?;
+        tx.rollback().await?;
+
+        Ok(propositions)
+    }
+
     /// Les accompagnants **non retirés** d'un séjour.
     pub async fn accompagnants(
         &self,

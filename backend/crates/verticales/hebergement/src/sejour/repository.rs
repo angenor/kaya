@@ -483,3 +483,87 @@ pub async fn inscrire_orpheline(
     .await?;
     Ok(())
 }
+
+// =================================================================================================
+//  ★ La proposition automatique d'unité — US3
+// =================================================================================================
+
+/// Une unité proposable, et l'instant où elle le devient.
+pub struct Proposition {
+    pub unite_id: Uuid,
+    pub code: String,
+    /// `None` quand l'unité est libre **sur l'intervalle demandé**.
+    ///
+    /// Renseigné sinon : c'est **la première disponibilité ultérieure**, et c'est ce qui rend le
+    /// refus utile. Une liste vide dirait « non » ; celle-ci dit « pas avant 16 h 40 ».
+    pub disponible_a: Option<OffsetDateTime>,
+}
+
+/// La première unité libre d'une catégorie sur un intervalle — **remise en état comprise**.
+///
+/// # ★ L'ordre est STABLE et EXPLICABLE, et aucune optimisation de remplissage n'est faite
+///
+/// Les unités sont proposées **par code croissant** : `A1`, puis `A2`, puis `B3`. C'est l'ordre
+/// que l'exploitant lit sur son tableau de clés.
+///
+/// **Aucune story du périmètre ne demande d'optimiser le remplissage**, et en inventer une
+/// stratégie rendrait la proposition **imprévisible pour l'opérateur** : Yao ne saurait plus
+/// pourquoi le système lui propose la 107 plutôt que la 102, et cesserait de suivre la
+/// proposition — ce qui annulerait tout le bénéfice. Le principe X interdit d'ailleurs de bâtir ce
+/// qu'aucune story n'appelle.
+///
+/// # Le refus NOMME la première disponibilité ultérieure
+///
+/// Quand aucune unité n'est libre sur l'intervalle, la fonction rend quand même les unités de la
+/// catégorie, chacune avec **l'instant où elle se libère** — remise en état comprise, puisque
+/// c'est `periode` et non `fin_client` qui borne l'indisponibilité. Un refus qui dirait seulement
+/// « complet » obligerait Yao à ouvrir un autre écran pour répondre au client qui attend devant
+/// lui.
+pub async fn unites_proposables(
+    tx: &mut sqlx::PgTransaction<'_>,
+    etablissement_id: Uuid,
+    categorie_id: Uuid,
+    debut: OffsetDateTime,
+    fin: OffsetDateTime,
+) -> Result<Vec<Proposition>, ErreurSejour> {
+    let lignes = sqlx::query!(
+        r#"
+        SELECT u.id                        AS unite_id,
+               u.code,
+               MAX(upper(o.periode))       AS "libre_a?"
+        FROM hebergement.unite u
+        LEFT JOIN hebergement.occupation o
+               ON o.unite_id = u.id
+              AND o.statut = 'active'
+              -- ⚠️ `periode` et non `(debut_client, fin_client)` : la remise en état FAIT PARTIE
+              -- de l'indisponibilité. Proposer une chambre encore en ménage produirait une
+              -- attribution que la contrainte d'exclusion refuserait — après le geste de Yao.
+              AND o.periode && tstzrange($3, $4, '[)')
+        WHERE u.etablissement_id = $1
+          AND u.categorie_id = $2
+          -- Une chambre à nettoyer n'est pas proposable : le sous-statut de ménage est de
+          -- classe A et vit à part de l'occupation (HEB-06).
+          AND u.statut_menage <> 'a_nettoyer'
+        GROUP BY u.id, u.code
+        -- ★ ORDRE STABLE ET EXPLICABLE : les libres d'abord, puis par code croissant — l'ordre du
+        -- tableau de clés. Aucune optimisation de remplissage : elle rendrait la proposition
+        -- imprévisible, et Yao cesserait de la suivre.
+        ORDER BY (MAX(upper(o.periode)) IS NOT NULL), u.code
+        "#,
+        etablissement_id,
+        categorie_id,
+        debut,
+        fin,
+    )
+    .fetch_all(&mut **tx)
+    .await?;
+
+    Ok(lignes
+        .into_iter()
+        .map(|l| Proposition {
+            unite_id: l.unite_id,
+            code: l.code,
+            disponible_a: l.libre_a,
+        })
+        .collect())
+}
