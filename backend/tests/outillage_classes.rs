@@ -127,6 +127,10 @@ const SOURCES_DE_TESTS: &[(&str, &str)] = &[
     ("sejour_arrivee.rs", include_str!("sejour_arrivee.rs")),
     ("sejour_hors_ligne.rs", include_str!("sejour_hors_ligne.rs")),
     (
+        "accompagnant_classe_a.rs",
+        include_str!("accompagnant_classe_a.rs"),
+    ),
+    (
         "outbox_immuabilite.rs",
         include_str!("outbox_immuabilite.rs"),
     ),
