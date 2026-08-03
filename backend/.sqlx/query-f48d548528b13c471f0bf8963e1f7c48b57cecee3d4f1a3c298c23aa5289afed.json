@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT MIN(lower(periode)) AS \"debut?\"\n        FROM hebergement.occupation\n        WHERE unite_id = $1\n          AND statut = 'active'\n          AND lower(periode) >= $2\n          -- Le séjour qu'on prolonge n'est pas son propre conflit.\n          AND (sejour_id IS NULL OR sejour_id <> $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "debut?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "f48d548528b13c471f0bf8963e1f7c48b57cecee3d4f1a3c298c23aa5289afed"
+}

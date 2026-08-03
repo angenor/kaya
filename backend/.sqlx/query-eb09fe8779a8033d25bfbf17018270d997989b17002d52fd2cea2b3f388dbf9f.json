@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, sejour_id, nom, prenoms,\n               (numero_piece IS NOT NULL) AS \"piece_enregistree!\",\n               retire_le, cree_le\n        FROM hebergement.accompagnant\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sejour_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "sejour_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "nom",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "nom"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "prenoms",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "prenoms"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "piece_enregistree!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "retire_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "retire_le"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "cree_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.accompagnant",
+            "name": "cree_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      null,
+      true,
+      false
+    ]
+  },
+  "hash": "eb09fe8779a8033d25bfbf17018270d997989b17002d52fd2cea2b3f388dbf9f"
+}

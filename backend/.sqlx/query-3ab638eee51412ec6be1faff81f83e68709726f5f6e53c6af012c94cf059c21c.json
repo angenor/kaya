@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO comptes.client (personne_id, tenant_id, date_naissance, nationalite,\n                                        horodatage_client)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (personne_id) DO NOTHING\n            RETURNING personne_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "personne_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.client",
+            "name": "personne_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3ab638eee51412ec6be1faff81f83e68709726f5f6e53c6af012c94cf059c21c"
+}

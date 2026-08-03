@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.sejour\n            (id, tenant_id, etablissement_id, client_id, horodatage_client)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (id) DO NOTHING\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.sejour",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "66f9c5f8934cdffed54bdf21d2105d65e822c82c77eecf4e2476c95e02beba66"
+}

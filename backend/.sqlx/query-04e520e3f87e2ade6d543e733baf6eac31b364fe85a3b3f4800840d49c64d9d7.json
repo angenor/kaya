@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, sejour_id, numero, complete, generee_le, completee_le\n        FROM hebergement.fiche_police\n        WHERE sejour_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "sejour_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "sejour_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "numero",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "numero"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "complete",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "complete"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "generee_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "generee_le"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "completee_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "completee_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "04e520e3f87e2ade6d543e733baf6eac31b364fe85a3b3f4800840d49c64d9d7"
+}

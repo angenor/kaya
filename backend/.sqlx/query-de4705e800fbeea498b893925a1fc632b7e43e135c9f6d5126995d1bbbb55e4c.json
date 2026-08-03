@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT personne_id FROM comptes.client WHERE personne_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "personne_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.client",
+            "name": "personne_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "de4705e800fbeea498b893925a1fc632b7e43e135c9f6d5126995d1bbbb55e4c"
+}

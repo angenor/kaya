@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.numerotation_fiche_police\n            (tenant_id, etablissement_id, dernier_numero)\n        VALUES ($1, $2, 1)\n        ON CONFLICT (tenant_id, etablissement_id)\n        DO UPDATE SET dernier_numero = hebergement.numerotation_fiche_police.dernier_numero + 1\n        RETURNING dernier_numero\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dernier_numero",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.numerotation_fiche_police",
+            "name": "dernier_numero"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "cfa0f724437f8bba1beac3a6ee755731c8a3d0801a3bd3423f4f85a42995152a"
+}

@@ -1,0 +1,148 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT sejour_id, nuits_constatees, nombre_personnes,\n               assujettie_taxe_nuitee, regle_conversion_taxe,\n               classement_etablissement, commune, fige_le,\n               nuitees_assujetties, montant_mineur, devise\n        FROM hebergement.taxe_sejour_constat\n        WHERE sejour_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sejour_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "sejour_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "nuits_constatees",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "nuits_constatees"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "nombre_personnes",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "nombre_personnes"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "assujettie_taxe_nuitee",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "assujettie_taxe_nuitee"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "regle_conversion_taxe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "regle_conversion_taxe"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "classement_etablissement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "classement_etablissement"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "commune",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "commune"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "fige_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "fige_le"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "nuitees_assujetties",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "nuitees_assujetties"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "montant_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "montant_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "devise",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "devise"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "4e64a05b66eff9d026a188c80cd48ec64b2bfa6f8e419384f62bf17b5ce7ba0b"
+}

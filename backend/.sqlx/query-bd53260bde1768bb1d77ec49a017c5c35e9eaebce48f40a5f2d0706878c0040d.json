@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.personne\n            (id, tenant_id, nom, nom_repli, telephone_repli, numero_piece_repli)\n        SELECT * FROM UNNEST($1::UUID[], $2::UUID[], $3::TEXT[], $4::TEXT[], $5::TEXT[], $6::TEXT[])\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bd53260bde1768bb1d77ec49a017c5c35e9eaebce48f40a5f2d0706878c0040d"
+}

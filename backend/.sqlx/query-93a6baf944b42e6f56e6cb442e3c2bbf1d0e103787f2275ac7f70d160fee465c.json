@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE hebergement.fiche_police\n        SET complete = true, completee_le = now()\n        WHERE sejour_id = $1 AND complete = false\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "93a6baf944b42e6f56e6cb442e3c2bbf1d0e103787f2275ac7f70d160fee465c"
+}

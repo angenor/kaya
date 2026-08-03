@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE comptes.client\n        SET date_naissance = $2,\n            nationalite    = $3,\n            modifie_le     = now()\n        WHERE personne_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5e2da72c011d669c95cbd9c7a1a1db67411aafb6d039a23c880e4605e12f9380"
+}

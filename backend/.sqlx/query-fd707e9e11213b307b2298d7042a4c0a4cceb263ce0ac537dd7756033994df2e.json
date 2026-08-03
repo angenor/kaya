@@ -1,0 +1,172 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id                AS \"id!\",\n               p.nom               AS \"nom!\",\n               p.prenoms,\n               p.telephone,\n               p.email,\n               c.date_naissance,\n               c.nationalite,\n               p.type_piece,\n               p.numero_piece      AS \"numero_piece_chiffre\",\n               p.piece_capturee_le,\n               p.horodatage_client,\n               p.cree_le           AS \"cree_le!\",\n               p.modifie_le        AS \"modifie_le!\"\n        FROM comptes.personne p\n        INNER JOIN comptes.client c ON c.personne_id = p.id\n        WHERE p.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "nom!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "nom"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "prenoms",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "prenoms"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "telephone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "telephone"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "email"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "date_naissance",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "comptes.client",
+            "name": "date_naissance"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "nationalite",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.client",
+            "name": "nationalite"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "type_piece",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "type_piece"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "numero_piece_chiffre",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "numero_piece"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "piece_capturee_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "piece_capturee_le"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "horodatage_client",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "horodatage_client"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "cree_le!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "cree_le"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "modifie_le!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "modifie_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "fd707e9e11213b307b2298d7042a4c0a4cceb263ce0ac537dd7756033994df2e"
+}
