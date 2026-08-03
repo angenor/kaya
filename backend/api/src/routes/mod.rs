@@ -175,6 +175,14 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(sejours::clore),
     );
     config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/prolongation")
+            .service(sejours::prolonger),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/changement-unite")
+            .service(sejours::changer_unite),
+    );
+    config.service(
         scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client")
             .service(sejours::rattacher_client),
     );

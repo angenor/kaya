@@ -217,3 +217,27 @@ pub enum IssueAccompagnant {
     /// ★ Le séjour est **clos** — `202`, avec l'identifiant de la ligne de réconciliation.
     Orphelin { reconciliation_id: Uuid },
 }
+
+/// Une unité proposée en remplacement — **de la même catégorie**.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UniteAlternative {
+    pub unite_id: Uuid,
+    /// Ce que l'exploitant nomme — `A1`, `B3`. C'est ce qu'Adjoua dit au client.
+    pub code: String,
+}
+
+/// ★ **Le conflit NOMMÉ** — FR-070.
+///
+/// Un message générique est un **défaut**. C'est la différence entre un refus qu'Adjoua peut
+/// expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+/// libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ConflitOccupation {
+    pub unite_id: Uuid,
+    /// L'instant où la chambre cesse d'être disponible. `None` quand le conflit vient d'ailleurs
+    /// — auquel cas le refus reste juste, mais l'écran ne peut pas donner d'heure.
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub debut_occupation_suivante: Option<OffsetDateTime>,
+    /// Les unités de la **même catégorie** libres sur l'intervalle étendu (FR-071).
+    pub unites_alternatives: Vec<UniteAlternative>,
+}

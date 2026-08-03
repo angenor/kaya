@@ -27,8 +27,8 @@ use uuid::Uuid;
 use kaya_hebergement::Issue;
 use kaya_hebergement::erreurs::ErreurSejour;
 use kaya_hebergement::sejour::{
-    Accompagnant, FichePolice, IssueAccompagnant, NouvelAccompagnant, OuvrirSejour, Sejour,
-    SejourOuvert, SejourVue,
+    Accompagnant, ConflitOccupation, FichePolice, IssueAccompagnant, NouvelAccompagnant,
+    OuvrirSejour, Sejour, SejourOuvert, SejourVue,
 };
 
 use crate::application::EtatApplication;
@@ -40,6 +40,8 @@ use crate::securite;
 const PERM_LIRE: &str = "heb.sejour.lire";
 const PERM_OUVRIR: &str = "heb.sejour.ouvrir";
 const PERM_CLORE: &str = "heb.sejour.clore";
+const PERM_PROLONGER: &str = "heb.sejour.prolonger";
+const PERM_CHANGER_UNITE: &str = "heb.sejour.changer_unite";
 /// Permission **transversale** de la fiche client — l'historique en exige **deux**.
 const PERM_CLIENT_LIRE: &str = "sej.client.lire";
 
@@ -420,6 +422,138 @@ pub async fn retirer_accompagnant(
         .map_err(en_reponse)?;
 
     Ok(HttpResponse::Ok().json(accompagnant))
+}
+
+/// Corps de prolongation.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ProlongerRequete {
+    /// UUID v7 généré par le client — le rejeu est inoffensif.
+    pub id: Uuid,
+    #[serde(with = "time::serde::rfc3339")]
+    pub nouvelle_fin_client: OffsetDateTime,
+    /// ★ **Le franchissement du seuil de bascule doit être CONFIRMÉ avant** (FR-073).
+    ///
+    /// Passer du passage à la nuitée n'est pas un palier majoré : c'est un **changement de
+    /// formule**, et le montant change d'un ordre de grandeur. Annoncer après avoir appliqué
+    /// serait le contraire de ce que le cadrage §8.3 vend au propriétaire.
+    #[serde(default)]
+    pub bascule_acceptee: bool,
+}
+
+/// Corps de changement de chambre.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ChangerUniteRequete {
+    pub id: Uuid,
+    pub unite_cible_id: Uuid,
+}
+
+// =================================================================================================
+//  ★ 13 · POST .../sejours/{sejour_id}/prolongation — le conflit NOMMÉ
+// =================================================================================================
+
+/// Prolonge un séjour.
+///
+/// ★ **Le `409` NOMME son conflit** (FR-070) : il porte l'unité, l'instant de début de
+/// l'occupation suivante et les **unités alternatives** de la même catégorie libres sur
+/// l'intervalle étendu (FR-071).
+///
+/// Un message générique est un **défaut** : c'est la différence entre un refus qu'Adjoua peut
+/// expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+/// libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+#[utoipa::path(
+    operation_id = "sejour_prolonger",
+    tag = "sejours",
+    params(
+        ("etablissement_id" = Uuid, Path, description = "Établissement"),
+        ("sejour_id" = Uuid, Path, description = "Séjour"),
+    ),
+    request_body = ProlongerRequete,
+    responses(
+        (status = 200, description = "Prolongé — la période étendue et les lignes ajoutées", body = SejourOuvert),
+        (status = 401, description = "Non authentifié"),
+        (status = 403, description = "Permission absente", body = CorpsErreur),
+        (status = 404, description = "Séjour inconnu", body = CorpsErreur),
+        (status = 409, description = "★ conflit_occupation_suivante — avec l'instant du conflit et les alternatives · sejour_clos", body = ConflitOccupation),
+        (status = 422, description = "bascule_formule_non_confirmee — le montant résultant est annoncé AVANT", body = CorpsErreur),
+    ),
+    security(("bearer" = []))
+)]
+#[post("")]
+pub async fn prolonger(
+    etat: web::Data<EtatApplication>,
+    contexte: ContexteAppel,
+    chemin: web::Path<(Uuid, Uuid)>,
+    corps: web::Json<ProlongerRequete>,
+) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_PROLONGER)?;
+    let (etablissement_id, sejour_id) = chemin.into_inner();
+    let corps = corps.into_inner();
+
+    let (sejour, conflit) = etat
+        .service_sejour(contexte.tenant_id)
+        .prolonger(
+            etablissement_id,
+            sejour_id,
+            corps.nouvelle_fin_client,
+            corps.bascule_acceptee,
+        )
+        .await
+        .map_err(en_reponse)?;
+
+    // ★ Le conflit n'est pas une erreur technique : c'est un **fait d'exploitation**, rendu avec
+    // ce qu'il faut pour y répondre. Un `CorpsErreur` nu perdrait les alternatives.
+    Ok(match conflit {
+        Some(conflit) => HttpResponse::Conflict().json(conflit),
+        None => HttpResponse::Ok().json(sejour),
+    })
+}
+
+// =================================================================================================
+//  ★ 14 · POST .../sejours/{sejour_id}/changement-unite
+// =================================================================================================
+
+/// Déplace un séjour vers une autre chambre — **deux occupations, un séjour**.
+///
+/// ★ **Aucun déplacement partiel n'est jamais produit** : la clôture de l'occupation d'origine et
+/// l'ouverture de la nouvelle vivent dans la **même transaction**. Un échec sur la seconde annule
+/// la première — le client ne se retrouve jamais « nulle part ».
+///
+/// Le constat de taxe reste **un**, sur l'ensemble du séjour : un constat par occupation
+/// **doublerait la taxe due** d'un client qui a changé de chambre.
+#[utoipa::path(
+    operation_id = "sejour_changer_unite",
+    tag = "sejours",
+    params(
+        ("etablissement_id" = Uuid, Path, description = "Établissement"),
+        ("sejour_id" = Uuid, Path, description = "Séjour"),
+    ),
+    request_body = ChangerUniteRequete,
+    responses(
+        (status = 200, description = "Déplacé — deux occupations sur le même séjour, chacune à son tarif propre", body = SejourOuvert),
+        (status = 401, description = "Non authentifié"),
+        (status = 403, description = "Permission absente", body = CorpsErreur),
+        (status = 404, description = "Séjour ou chambre inconnus", body = CorpsErreur),
+        (status = 409, description = "unite_cible_occupee — sans déplacement partiel · sejour_deja_clos", body = CorpsErreur),
+    ),
+    security(("bearer" = []))
+)]
+#[post("")]
+pub async fn changer_unite(
+    etat: web::Data<EtatApplication>,
+    contexte: ContexteAppel,
+    chemin: web::Path<(Uuid, Uuid)>,
+    corps: web::Json<ChangerUniteRequete>,
+) -> Result<HttpResponse, actix_web::Error> {
+    securite::exiger(&contexte, PERM_CHANGER_UNITE)?;
+    let (etablissement_id, sejour_id) = chemin.into_inner();
+
+    let sejour = etat
+        .service_sejour(contexte.tenant_id)
+        .changer_unite(etablissement_id, sejour_id, corps.into_inner().unite_cible_id)
+        .await
+        .map_err(en_reponse)?;
+
+    Ok(HttpResponse::Ok().json(sejour))
 }
 
 // =================================================================================================

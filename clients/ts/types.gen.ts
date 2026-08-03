@@ -758,6 +758,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/changement-unite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Déplace un séjour vers une autre chambre — **deux occupations, un séjour**.
+         * @description ★ **Aucun déplacement partiel n'est jamais produit** : la clôture de l'occupation d'origine et
+         *     l'ouverture de la nouvelle vivent dans la **même transaction**. Un échec sur la seconde annule
+         *     la première — le client ne se retrouve jamais « nulle part ».
+         *
+         *     Le constat de taxe reste **un**, sur l'ensemble du séjour : un constat par occupation
+         *     **doublerait la taxe due** d'un client qui a changé de chambre.
+         */
+        post: operations["sejour_changer_unite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client": {
         parameters: {
             query?: never;
@@ -835,6 +860,32 @@ export interface paths {
         get: operations["sejour_fiche_police_lire"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/prolongation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prolonge un séjour.
+         * @description ★ **Le `409` NOMME son conflit** (FR-070) : il porte l'unité, l'instant de début de
+         *     l'occupation suivante et les **unités alternatives** de la même catégorie libres sur
+         *     l'intervalle étendu (FR-071).
+         *
+         *     Un message générique est un **défaut** : c'est la différence entre un refus qu'Adjoua peut
+         *     expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+         *     libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+         */
+        post: operations["sejour_prolonger"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1448,6 +1499,13 @@ export interface components {
             mot_de_passe_actuel?: string | null;
             nouveau_mot_de_passe: string;
         };
+        /** @description Corps de changement de chambre. */
+        ChangerUniteRequete: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            unite_cible_id: string;
+        };
         /**
          * @description Ce qu'une liste de résultats montre — **et rien de plus**.
          *
@@ -1502,6 +1560,25 @@ export interface components {
              *     réceptionniste là ; une liste de codes sans établissement serait fausse.
              */
             roles?: components["schemas"]["RolePorte"][];
+        };
+        /**
+         * @description ★ **Le conflit NOMMÉ** — FR-070.
+         *
+         *     Un message générique est un **défaut**. C'est la différence entre un refus qu'Adjoua peut
+         *     expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+         *     libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+         */
+        ConflitOccupation: {
+            /**
+             * Format: date-time
+             * @description L'instant où la chambre cesse d'être disponible. `None` quand le conflit vient d'ailleurs
+             *     — auquel cas le refus reste juste, mais l'écran ne peut pas donner d'heure.
+             */
+            debut_occupation_suivante?: string | null;
+            /** Format: uuid */
+            unite_id: string;
+            /** @description Les unités de la **même catégorie** libres sur l'intervalle étendu (FR-071). */
+            unites_alternatives: components["schemas"]["UniteAlternative"][];
         };
         /** @description Corps rendu par tout refus métier de ce cycle. */
         CorpsErreur: {
@@ -2520,6 +2597,24 @@ export interface components {
             id: string;
             texte: string;
         };
+        /** @description Corps de prolongation. */
+        ProlongerRequete: {
+            /**
+             * @description ★ **Le franchissement du seuil de bascule doit être CONFIRMÉ avant** (FR-073).
+             *
+             *     Passer du passage à la nuitée n'est pas un palier majoré : c'est un **changement de
+             *     formule**, et le montant change d'un ordre de grandeur. Annoncer après avoir appliqué
+             *     serait le contraire de ce que le cadrage §8.3 vend au propriétaire.
+             */
+            bascule_acceptee?: boolean;
+            /**
+             * Format: uuid
+             * @description UUID v7 généré par le client — le rejeu est inoffensif.
+             */
+            id: string;
+            /** Format: date-time */
+            nouvelle_fin_client: string;
+        };
         /** @description Corps de rafraîchissement. */
         RafraichirRequete: {
             /** Format: uuid */
@@ -2791,6 +2886,13 @@ export interface components {
          * @enum {string}
          */
         TypeActionAudit: "remise" | "annulation_ligne_envoyee" | "avoir" | "ouverture_tiroir" | "modification_tarif" | "suppression" | "changement_role" | "ecart_caisse" | "rebascule_palier_passage" | "forcage_disponibilite" | "derive_horloge_constatee" | "consultation_piece_identite";
+        /** @description Une unité proposée en remplacement — **de la même catégorie**. */
+        UniteAlternative: {
+            /** @description Ce que l'exploitant nomme — `A1`, `B3`. C'est ce qu'Adjoua dit au client. */
+            code: string;
+            /** Format: uuid */
+            unite_id: string;
+        };
         /** @description Une unité attribuable, telle que la consultation de disponibilité la rend. */
         UniteDisponible: {
             code: string;
@@ -5558,6 +5660,69 @@ export interface operations {
             };
         };
     };
+    sejour_changer_unite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangerUniteRequete"];
+            };
+        };
+        responses: {
+            /** @description Déplacé — deux occupations sur le même séjour, chacune à son tarif propre */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour ou chambre inconnus */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description unite_cible_occupee — sans déplacement partiel · sejour_deja_clos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     sejour_rattacher_client: {
         parameters: {
             query?: never;
@@ -5712,6 +5877,78 @@ export interface operations {
             };
             /** @description Séjour inconnu */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_prolonger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProlongerRequete"];
+            };
+        };
+        responses: {
+            /** @description Prolongé — la période étendue et les lignes ajoutées */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description ★ conflit_occupation_suivante — avec l'instant du conflit et les alternatives · sejour_clos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConflitOccupation"];
+                };
+            };
+            /** @description bascule_formule_non_confirmee — le montant résultant est annoncé AVANT */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

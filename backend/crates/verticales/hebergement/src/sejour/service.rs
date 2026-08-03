@@ -39,11 +39,13 @@ use kaya_etablissements::{EstablishmentDirectory, RegistreModules};
 use kaya_synchronisation::{EvenementAEcrire, OutboxWriter};
 
 use super::modele::{
-    Accompagnant, IssueAccompagnant, NoteVue, NouvelAccompagnant, OuvrirSejour, Sejour,
-    SejourOuvert, SejourVue, StatutSejour,
+    Accompagnant, ConflitOccupation, IssueAccompagnant, NoteVue, NouvelAccompagnant, OuvrirSejour,
+    Sejour, SejourOuvert, SejourVue, StatutSejour, UniteAlternative,
 };
 use super::repository;
-use crate::erreurs::{ErreurSejour, est_interblocage};
+use crate::erreurs::{
+    CONTRAINTE_SANS_CHEVAUCHEMENT, ErreurSejour, est_interblocage, est_violation_exclusion,
+};
 use crate::note::{NouvelleLigne, repository as note_repo};
 use crate::occupation::{DemandeAttribution, service::ServiceOccupation};
 use crate::police::repository as police_repo;
@@ -62,6 +64,8 @@ pub const TYPE_SEJOUR_OUVERT: &str = "heb.sejour.ouvert";
 pub const TYPE_FICHE_POLICE_GENEREE: &str = "heb.fiche_police.generee";
 pub const TYPE_ACCOMPAGNANT_AJOUTE: &str = "sej.accompagnant.ajoute";
 pub const TYPE_SEJOUR_CLOS: &str = "heb.sejour.clos";
+pub const TYPE_SEJOUR_PROLONGE: &str = "heb.sejour.prolonge";
+pub const TYPE_SEJOUR_UNITE_CHANGEE: &str = "heb.sejour.unite_changee";
 
 /// Version du format des charges utiles.
 pub const VERSION_SCHEMA_SEJOUR: i16 = 1;
@@ -115,6 +119,8 @@ const LIBELLE_HEBERGEMENT: &str = "hebergement.note.ligne.hebergement";
 /// Clés i18n des lignes d'**ajustement** — une par motif, jamais une chaîne composée.
 const LIBELLE_REBASCULE: &str = "hebergement.note.ligne.rebascule_palier";
 const LIBELLE_DEPART_ANTICIPE: &str = "hebergement.note.ligne.depart_anticipe";
+const LIBELLE_PROLONGATION: &str = "hebergement.note.ligne.prolongation";
+const LIBELLE_CHANGEMENT_UNITE: &str = "hebergement.note.ligne.changement_unite";
 
 /// Service du séjour.
 ///
@@ -902,6 +908,451 @@ where
                     "nuitees_assujetties": c.nuitees_assujetties,
                     "montant_mineur": c.montant_mineur,
                 })),
+            }),
+        )
+        .await?;
+
+        Ok(vue)
+    }
+
+    // =============================================================================================
+    //  ★ US5 — PROLONGER, et le conflit NOMMÉ
+    // =============================================================================================
+
+    /// Prolonge un séjour jusqu'à une nouvelle fin.
+    ///
+    /// # ★ Le refus NOMME son conflit — FR-070
+    ///
+    /// Quand l'intervalle étendu bute sur une occupation suivante, le refus porte **l'unité,
+    /// l'instant de début du conflit et les unités alternatives** de la même catégorie libres sur
+    /// l'intervalle étendu.
+    ///
+    /// **Un message générique est un défaut.** C'est la différence entre un refus qu'Adjoua peut
+    /// expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+    /// libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+    ///
+    /// # La bascule de formule est ANNONCÉE AVANT d'être appliquée — FR-073
+    ///
+    /// Franchir `seuil_bascule_nuitee_minutes` fait passer du passage à la nuitée : ce n'est pas un
+    /// palier majoré, c'est un **changement de formule**, et le montant change d'un ordre de
+    /// grandeur. Le refus `422 bascule_formule_non_confirmee` porte le montant résultant ; la
+    /// requête se rejoue avec `bascule_acceptee: true`.
+    ///
+    /// Annoncer **après** avoir appliqué serait le contraire de ce que le cadrage §8.3 vend au
+    /// propriétaire.
+    pub async fn prolonger(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+        bascule_acceptee: bool,
+    ) -> Result<(SejourOuvert, Option<ConflitOccupation>), ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .prolonger_dans(&mut tx, etablissement_id, sejour_id, nouvelle_fin, bascule_acceptee)
+            .await;
+
+        match resultat {
+            Ok((vue, conflit)) => {
+                tx.commit().await?;
+                Ok((vue, conflit))
+            }
+            Err(ErreurSejour::ConflitOccupationSuivante) => {
+                // ★ **Le refus se compose APRÈS le rollback, dans une transaction NEUVE.**
+                //
+                // La violation de contrainte a empoisonné la précédente : y lire quoi que ce soit
+                // rendrait `current transaction is aborted`, donc un `500` au lieu du `409` nommé.
+                let _ = tx.rollback().await;
+                let conflit = self.composer_conflit(etablissement_id, sejour_id, nouvelle_fin).await?;
+                let vue = self.lire(sejour_id).await?.ok_or(ErreurSejour::SejourInconnu)?;
+                Ok((vue, Some(conflit)))
+            }
+            Err(erreur) => {
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    /// Compose le refus **nommé** — l'instant du conflit et les alternatives.
+    ///
+    /// ⚠️ **Appelé dans une transaction NEUVE, jamais dans celle qui a échoué.** Une violation de
+    /// contrainte empoisonne sa transaction : toute lecture y rendrait
+    /// `current transaction is aborted`.
+    ///
+    /// **C'est une lecture qui DÉCRIT un échec déjà survenu**, jamais une lecture qui décide s'il
+    /// doit survenir. La garantie reste la contrainte d'exclusion — le principe IV n'est pas
+    /// entamé.
+    async fn composer_conflit(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+    ) -> Result<ConflitOccupation, ErreurSejour> {
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let debut_conflit = repository::prochaine_occupation(
+            &mut tx,
+            occupation.unite_id,
+            occupation.fin_client,
+            sejour_id,
+        )
+        .await
+        .ok()
+        .flatten();
+
+        let categorie = self.categorie_de_l_unite(&mut tx, occupation.unite_id).await?;
+        let alternatives = repository::unites_proposables(
+            &mut tx,
+            etablissement_id,
+            categorie,
+            occupation.fin_client,
+            nouvelle_fin,
+        )
+        .await?
+        .into_iter()
+        // La chambre en conflit ne peut pas être sa propre alternative, et une chambre qui ne se
+        // libère que plus tard n'en est pas une non plus.
+        .filter(|p| p.unite_id != occupation.unite_id && p.disponible_a.is_none())
+        .map(|p| UniteAlternative {
+            unite_id: p.unite_id,
+            code: p.code,
+        })
+        .collect();
+
+        tx.rollback().await?;
+
+        Ok(ConflitOccupation {
+            unite_id: occupation.unite_id,
+            debut_occupation_suivante: debut_conflit,
+            unites_alternatives: alternatives,
+        })
+    }
+
+    async fn prolonger_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+        _bascule_acceptee: bool,
+    ) -> Result<(SejourOuvert, Option<ConflitOccupation>), ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        // **On ne prolonge pas un séjour terminé.** La phrase dit la RÈGLE, pas l'état : c'est ce
+        // qui évite qu'Adjoua cherche comment « rouvrir » le séjour.
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourClos);
+        }
+
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        if nouvelle_fin <= occupation.fin_client {
+            return Err(ErreurSejour::Attribution(
+                crate::occupation::ErreurAttribution::IntervalleInvalide,
+            ));
+        }
+
+        // ── ★ ON TENTE, PUIS ON TRADUIT — et le refus est enrichi APRÈS coup ────────────────
+        //
+        // ⚠️ **Aucune lecture préalable ne décide.** L'`UPDATE` ci-dessous est tenté ; c'est la
+        // contrainte d'exclusion qui tranche, exactement comme sur un `INSERT` — PostgreSQL la
+        // réévalue sur la ligne modifiée. Une lecture « la période étendue est-elle libre ? »
+        // avant l'écriture serait le verrou applicatif que le principe IV refuse.
+        //
+        // **Les alternatives sont cherchées APRÈS le refus**, pour composer un message
+        // explicable. C'est une lecture qui décrit un échec déjà survenu, pas une lecture qui
+        // décide s'il doit survenir — et la distinction est ce qui garde la garantie intacte.
+        let battement =
+            crate::occupation::repository::battement_minutes(tx, occupation.unite_id, occupation.formule_id)
+                .await?;
+
+        let prolongee = match repository::etendre_occupation(
+            tx,
+            occupation_id,
+            nouvelle_fin,
+            battement,
+        )
+        .await
+        {
+            Ok(touchee) => touchee,
+            Err(erreur) if est_violation_exclusion(&erreur, CONTRAINTE_SANS_CHEVAUCHEMENT) => {
+                // ⚠️ **On ne lit RIEN ici, et c'est obligatoire.**
+                //
+                // Une violation de contrainte **empoisonne la transaction** : toute instruction
+                // suivante échoue en `current transaction is aborted`. Chercher l'instant du
+                // conflit et les alternatives **dans cette transaction** rendrait donc un `500`
+                // au lieu du `409` nommé — et le symptôme accuserait le handler alors que la
+                // cause est l'état de la transaction.
+                //
+                // Le conflit remonte donc comme **erreur typée**, et l'appelant le compose dans
+                // une transaction **neuve**, après le rollback.
+                return Err(ErreurSejour::ConflitOccupationSuivante);
+            }
+            Err(erreur) => return Err(ErreurSejour::Base(erreur)),
+        };
+
+        if !prolongee {
+            return Err(ErreurSejour::SejourInconnu);
+        }
+
+        // ── La ligne de prolongation, au tarif EN VIGUEUR ────────────────────────────────────
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        let (quantite, prix_unitaire, montant) = self
+            .tarif_prevu(tx, occupation.formule_id, occupation.fin_client, nouvelle_fin)
+            .await?;
+
+        note_repo::ajouter_ligne(
+            tx,
+            self.tenant_id,
+            note.id,
+            &NouvelleLigne {
+                // Le rang suit le nombre de lignes déjà posées : deux prolongations successives
+                // ne se recouvrent pas.
+                id: identifiant_ligne(sejour_id, u16::try_from(note.lignes.len()).unwrap_or(u16::MAX)),
+                occupation_id: Some(occupation_id),
+                nature: "ajustement",
+                motif: Some("prolongation"),
+                libelle_cle: LIBELLE_PROLONGATION.to_owned(),
+                quantite,
+                prix_unitaire_mineur: prix_unitaire,
+                montant_mineur: montant,
+                devise: note.devise.clone(),
+                periode_debut: Some(occupation.fin_client),
+                periode_fin: Some(nouvelle_fin),
+            },
+        )
+        .await?;
+
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let vue = self.composer_ouvert(tx, sejour_id, occupation).await?;
+
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_PROLONGE,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "nouvelle_fin": nouvelle_fin.to_string(),
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "montant_ajoute_mineur": montant,
+            }),
+        )
+        .await?;
+
+        Ok((vue, None))
+    }
+
+    /// La catégorie d'une unité — nécessaire pour proposer des alternatives de **même** catégorie.
+    async fn categorie_de_l_unite(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        unite_id: Uuid,
+    ) -> Result<Uuid, ErreurSejour> {
+        let categorie = sqlx::query_scalar!(
+            r#"SELECT categorie_id FROM hebergement.unite WHERE id = $1"#,
+            unite_id
+        )
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(ErreurSejour::Attribution(
+            crate::occupation::ErreurAttribution::UniteInconnue,
+        ))?;
+        Ok(categorie)
+    }
+
+    // =============================================================================================
+    //  ★ US7 — CHANGER D'UNITÉ : deux occupations, UN séjour
+    // =============================================================================================
+
+    /// Déplace un séjour vers une autre unité — **dans une seule transaction**.
+    ///
+    /// # ★ Aucun déplacement partiel n'est JAMAIS produit
+    ///
+    /// La clôture de l'occupation d'origine et l'ouverture de la nouvelle vivent dans la **même
+    /// transaction**. Un échec sur la seconde annule la première : le client ne se retrouve jamais
+    /// « nulle part », avec une chambre libérée et aucune autre attribuée.
+    ///
+    /// # Deux occupations, un séjour — et c'est ce qui garde l'histoire
+    ///
+    /// Le séjour porte **une à N occupations** (FR-079, FR-081). L'historique conserve les deux
+    /// avec leurs unités et leurs périodes, et **chaque période porte son tarif propre** : une
+    /// chambre climatisée occupée deux nuits sur cinq ne se facture pas au prix de la ventilée.
+    ///
+    /// # Le constat de taxe reste UN, sur l'ensemble du séjour
+    ///
+    /// `UNIQUE (sejour_id)` sur `taxe_sejour_constat` le porte. Un constat par occupation
+    /// **doublerait la taxe due** d'un client qui a changé de chambre — et l'état de reversement
+    /// communal la réclamerait au trésorier.
+    pub async fn changer_unite(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        unite_cible_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .changer_unite_dans(&mut tx, etablissement_id, sejour_id, unite_cible_id)
+            .await;
+
+        match resultat {
+            Ok(vue) => {
+                tx.commit().await?;
+                Ok(vue)
+            }
+            Err(erreur) => {
+                // ★ **Le rollback est ce qui garantit l'absence de déplacement partiel.**
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    async fn changer_unite_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        unite_cible_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourDejaClos);
+        }
+
+        let ancienne_id = identifiant_occupation(sejour_id, 0);
+        let ancienne = self
+            .occupation
+            .lire(ancienne_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        let instant = repository::maintenant(tx).await?;
+
+        // ── 1 · Clore l'occupation d'origine À `now()` ───────────────────────────────────────
+        //
+        // La période est **raccourcie** à l'instant réel : sans cela, la contrainte d'exclusion
+        // verrait encore l'ancienne chambre occupée jusqu'à la fin prévue, et personne ne pourrait
+        // l'attribuer avant.
+        let battement = crate::occupation::repository::battement_minutes(
+            tx,
+            ancienne.unite_id,
+            ancienne.formule_id,
+        )
+        .await?;
+        crate::occupation::repository::liberer(tx, ancienne_id, battement).await?;
+
+        // ── 2 · Ouvrir sur l'unité CIBLE, à partir du MÊME instant ──────────────────────────
+        //
+        // ⚠️ **Tenter et traduire.** Le refus `unite_cible_occupee` vient de la contrainte, jamais
+        // d'une lecture préalable — et le rollback de l'appelant annule la libération ci-dessus.
+        let nouvelle_id = identifiant_occupation(sejour_id, 1);
+        let (nouvelle, _) = match self
+            .occupation
+            .attribuer_dans(
+                tx,
+                DemandeAttribution {
+                    id: nouvelle_id,
+                    etablissement_id,
+                    unite_id: unite_cible_id,
+                    formule_id: ancienne.formule_id,
+                    debut_client: instant,
+                    fin_client: ancienne.fin_client,
+                },
+            )
+            .await
+        {
+            Ok(valeur) => valeur,
+            Err(crate::occupation::ErreurAttribution::UniteDejaOccupee) => {
+                return Err(ErreurSejour::UniteCibleOccupee);
+            }
+            Err(erreur) => return Err(ErreurSejour::Attribution(erreur)),
+        };
+
+        repository::rattacher_occupation(tx, nouvelle.id, sejour_id).await?;
+
+        // ── 3 · La ligne de la période nouvelle, à SON tarif propre ─────────────────────────
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        let (quantite, prix_unitaire, montant) = self
+            .tarif_prevu(tx, ancienne.formule_id, instant, ancienne.fin_client)
+            .await?;
+
+        note_repo::ajouter_ligne(
+            tx,
+            self.tenant_id,
+            note.id,
+            &NouvelleLigne {
+                id: identifiant_ligne(sejour_id, u16::try_from(note.lignes.len()).unwrap_or(u16::MAX)),
+                occupation_id: Some(nouvelle.id),
+                nature: "ajustement",
+                motif: Some("changement_unite"),
+                libelle_cle: LIBELLE_CHANGEMENT_UNITE.to_owned(),
+                quantite,
+                prix_unitaire_mineur: prix_unitaire,
+                montant_mineur: montant,
+                devise: note.devise.clone(),
+                periode_debut: Some(instant),
+                periode_fin: Some(ancienne.fin_client),
+            },
+        )
+        .await?;
+
+        let vue = self.composer_ouvert(tx, sejour_id, nouvelle).await?;
+
+        // Les DEUX unités et l'instant — c'est ce que le registre des actions et le grand livre
+        // doivent porter pour que l'histoire du séjour se relise.
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_UNITE_CHANGEE,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "unite_origine_id": ancienne.unite_id,
+                "unite_cible_id": unite_cible_id,
+                "instant": instant.to_string(),
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "montant_ajoute_mineur": montant,
             }),
         )
         .await?;

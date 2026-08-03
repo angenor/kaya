@@ -567,3 +567,71 @@ pub async fn unites_proposables(
         })
         .collect())
 }
+
+// =================================================================================================
+//  US5 — la prolongation, et le conflit NOMMÉ
+// =================================================================================================
+
+/// L'occupation **suivante** d'une unité, à partir d'un instant donné.
+///
+/// ★ **C'est ce qui rend le refus explicable.** FR-070 : *un message générique est un défaut*.
+/// La différence est celle entre un refus qu'Adjoua peut expliquer au client — « cette chambre est
+/// réservée à partir de 16 h 40 » — et un refus qu'elle contournera.
+pub async fn prochaine_occupation(
+    tx: &mut sqlx::PgTransaction<'_>,
+    unite_id: Uuid,
+    apres: OffsetDateTime,
+    sejour_exclu: Uuid,
+) -> Result<Option<OffsetDateTime>, ErreurSejour> {
+    let instant = sqlx::query_scalar!(
+        r#"
+        SELECT MIN(lower(periode)) AS "debut?"
+        FROM hebergement.occupation
+        WHERE unite_id = $1
+          AND statut = 'active'
+          AND lower(periode) >= $2
+          -- Le séjour qu'on prolonge n'est pas son propre conflit.
+          AND (sejour_id IS NULL OR sejour_id <> $3)
+        "#,
+        unite_id,
+        apres,
+        sejour_exclu,
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+
+    Ok(instant)
+}
+
+/// Étend la période d'une occupation — **remise en état comprise**.
+///
+/// ⚠️ **C'est un `UPDATE`, et la contrainte d'exclusion le vérifie exactement comme un `INSERT`.**
+/// Elle n'est pas contournée par la modification : PostgreSQL réévalue l'exclusion sur la ligne
+/// modifiée. Le service **tente et traduit**, comme partout ailleurs.
+pub async fn etendre_occupation(
+    tx: &mut sqlx::PgTransaction<'_>,
+    occupation_id: Uuid,
+    nouvelle_fin_client: OffsetDateTime,
+    battement_minutes: i32,
+) -> Result<bool, sqlx::Error> {
+    let touchee = sqlx::query_scalar!(
+        r#"
+        UPDATE hebergement.occupation
+        SET fin_client = $2,
+            periode = tstzrange(
+                lower(periode),
+                $2::TIMESTAMPTZ + make_interval(mins => $3::INT),
+                '[)'
+            )
+        WHERE id = $1 AND statut = 'active'
+        RETURNING id
+        "#,
+        occupation_id,
+        nouvelle_fin_client,
+        battement_minutes,
+    )
+    .fetch_optional(&mut **tx)
+    .await?;
+
+    Ok(touchee.is_some())
+}

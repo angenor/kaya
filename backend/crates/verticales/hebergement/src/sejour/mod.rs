@@ -31,8 +31,9 @@ pub mod repository;
 pub mod service;
 
 pub use modele::{
-    Accompagnant, FichePolice, IssueAccompagnant, LigneNote, NoteVue, NouvelAccompagnant,
-    OuvrirSejour, Sejour, SejourOuvert, SejourVue, StatutSejour,
+    Accompagnant, ConflitOccupation, FichePolice, IssueAccompagnant, LigneNote, NoteVue,
+    NouvelAccompagnant, OuvrirSejour, Sejour, SejourOuvert, SejourVue, StatutSejour,
+    UniteAlternative,
 };
 pub use service::{
     AGREGAT_SEJOUR, ServiceSejour, TYPE_ACCOMPAGNANT_AJOUTE, TYPE_FICHE_POLICE_GENEREE,
