@@ -90,7 +90,7 @@ C'est le document qui rend sûr le fait de coder directement. Chaque écran déc
 |---|---|---|
 | `R0` Connexion | `G2` | Formulaire minimal ; états d'erreur et vides de `S3` |
 | `R2` Vue du jour | `R1` + composant 14 | Grille d'unités au lieu de tuiles |
-| `R3` Arrivée — **terme du lexique v1.6.0, « check-in » est écarté** ; route `/arrivee` | `R4` | Parcours long : plus de champs, même grammaire. **Toujours INSCRIT, non codé** — voir la note de fin de cycle 006 |
+| `R3` Arrivée — **terme du lexique v1.6.0, « check-in » est écarté** ; route `/arrivee` | `R4` | Parcours long : plus de champs, même grammaire. **CODÉ** — cycle 006, `app/modules/sejours/EcranArrivee.vue` |
 | `R5` Fiche client et recherche — route `/clients` | `R7` | Liste + fiche, pas de total. **Toujours INSCRIT, non codé** — voir la note de fin de cycle 006 |
 | `R6` Note temps réel | `R7` | Sans l'action finale |
 | `P1` Plan de salle | `R2` | Tables au lieu d'unités |
@@ -169,21 +169,23 @@ valeurs, on réimplémente. Seule exception : `docs/design/theme.css`, copié te
 
 ## Note de fin de cycle 006 (SEJ) — ce qui a été codé, et ce qui ne l'a pas été
 
-**Un seul écran du cycle est livré : `R4` Le passage**, maquetté, dans ses cinq états
-(`docs/design/html/R4-passage.html` et ses quatre variantes). Il est en **zone de vitesse** et ne
+**Deux écrans du cycle sont livrés : `R4` Le passage et `R3` Arrivée.** `R4` est maquetté, dans
+ses cinq états (`docs/design/html/R4-passage.html` et ses quatre variantes). Il est en **zone de vitesse** et ne
 se compose jamais : `docs/Kaya_Design.md` §1 est formel, et `R4` porte une intention dessinée
 qu'un assemblage ne retrouverait pas — les tailles de la durée et de l'heure de fin, la place du
 prix sur le bouton.
 
-**Trois écrans du périmètre restent à coder**, et leur ligne ci-dessus reste **« inscrit »** :
+`R3` est **dérivé** de `R4` — *« parcours long : plus de champs, même grammaire »* — et sa ligne
+ci-dessus est passée à **« CODÉ »** dans le même changement que le fichier, jamais avant.
+
+**Deux écrans du périmètre restent à coder**, et leur ligne ci-dessus reste **« inscrit »** :
 
 | Écran | État | Ce qui manque |
 |---|---|---|
-| `R3` Arrivée | **inscrit**, non codé | Le parcours long — dérive de `R4` |
 | `R7` La note et le départ | **maquetté**, non codé | L'écran de départ ; son API est livrée et testée |
 | `R5` Fiche client et recherche | **inscrit**, non codé | La liste et la fiche — dérivent de `R7` |
 
-⚠️ **Ces trois lignes ne passent PAS à « codé », et c'est le point.** `derivation.md` est
+⚠️ **Ces deux lignes ne passent PAS à « codé », et c'est le point.** `derivation.md` est
 **opposable** : la porte P-19 s'en sert pour autoriser un écran sans maquette. Inscrire « codé »
 sur un écran qui n'existe pas ferait mentir le seul document qui dise ce qui a le droit d'être
 codé — et le mensonge serait invisible, puisque rien ne relit un tableau de dérivation contre le

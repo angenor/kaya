@@ -226,6 +226,8 @@ describe('G1 — mode clair et mode sombre', () => {
       'ChoixDuree.vue',
       // ── Cycle 003 — les quatre écrans ──────────────────────────────────────────────────
       'EcranAccueil.vue', // `R1`
+      // ── Cycle 006 — l'arrivée, écran DÉRIVÉ de `R4` ────────────────────────────────────
+      'EcranArrivee.vue', // `R3` — le parcours long, même grammaire
       'EcranChambres.vue', // `G5` — écran COMPOSÉ, sans maquette
       'EcranComptes.vue', // `G3`
       'EcranEtablissement.vue',
@@ -237,6 +239,7 @@ describe('G1 — mode clair et mode sombre', () => {
       'FormulaireCategorie.vue',
       'FormulaireUnite.vue',
       'GrilleUnites.vue', // `R4` — l'attribution d'un seul tap
+      'ListeAccompagnants.vue', // `R3` — un nom suffit par accompagnant
       'ListeUnites.vue',
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
@@ -258,6 +261,7 @@ describe('G1 — mode clair et mode sombre', () => {
       // Ce sont des coquilles, et elles rendent quand même quelque chose : le fond et le texte de
       // « chargement… » et du message d'erreur. C'est l'écran qu'on voit quand quelque chose ne va
       // pas — celui où un texte illisible en mode sombre coûte le plus cher.
+      'arrivee.vue', // `R3` — jamais « /check-in » : le mot est écarté du lexique
       'chambres.vue', // `G5`
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`

@@ -501,6 +501,43 @@
       "a_nettoyer": "To clean",
       "en_cours": "Saving",
       "hors_ligne_attribution": "Without a connection, a room cannot be assigned. Reconnect to record this stay."
+    },
+    "arrivee": {
+      "chargement": "Loading the arrival screen…",
+      "chargement_impossible": "The arrival screen could not be loaded.",
+      "le_client": "Guest",
+      "chercher_client": "Search for a guest record",
+      "chercher_client_aide": "A name, a phone number or an ID number — the same field serves all three.",
+      "chercher_client_invite": "Bakayoko, 07 07 12 34 56…",
+      "chercher": "Search",
+      "resultats_tronques": "More records match. Narrow the search to see them.",
+      "recherche_impossible": "The search did not complete. Try again in a moment.",
+      "recherche_hors_ligne": "Without a connection, guest records cannot be consulted.",
+      "sans_fiche_possible": "Without a record you can hand over the room right away. The record will stay to be completed.",
+      "ce_n_est_pas_lui": "Not this guest",
+      "combien_de_nuits": "How many nights?",
+      "heure_arrivee": "Arrival time",
+      "heure_depart": "Departure time",
+      "heure_format": "24-hour format, for example 14:00.",
+      "heure_invalide": "Enter a time in 24-hour format, for example 14:00.",
+      "heures_non_reglees": "Standard arrival and departure times are not set for this establishment. Enter them here, then set them once and for all in the accommodation offer.",
+      "recapitulatif": "From {arrivee} to {depart}",
+      "total_prevu": "{montant} for {n} night(s)",
+      "c_est_fait": "Done",
+      "depart_prevu": "Expected departure",
+      "fiche_numero": "Police record no. {numero}.",
+      "client_suivant": "Next guest",
+      "accompagnants": {
+        "titre": "Additional guests",
+        "un_nom_suffit": "A name is enough. Nothing else is asked.",
+        "nom": "Additional guest name",
+        "nom_invite": "Aya",
+        "nom_requis": "Enter a name.",
+        "ajouter": "Add",
+        "retirer": "Remove",
+        "total_personnes": "{n} person(s) in total, including the main guest.",
+        "capacite_depassee": "This room is intended for {n} person(s). You can continue."
+      }
     }
   }
 }

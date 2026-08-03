@@ -501,6 +501,43 @@
       "a_nettoyer": "À nettoyer",
       "en_cours": "Enregistrement en cours",
       "hors_ligne_attribution": "Sans connexion, une chambre ne peut pas être attribuée. Reconnectez-vous pour enregistrer ce passage."
+    },
+    "arrivee": {
+      "chargement": "Chargement de l'écran d'arrivée…",
+      "chargement_impossible": "L'écran d'arrivée n'a pas pu être chargé.",
+      "le_client": "Le client",
+      "chercher_client": "Chercher une fiche client",
+      "chercher_client_aide": "Un nom, un numéro de téléphone ou un numéro de pièce — la même entrée sert les trois.",
+      "chercher_client_invite": "Bakayoko, 07 07 12 34 56…",
+      "chercher": "Chercher",
+      "resultats_tronques": "D'autres fiches correspondent. Précisez la recherche pour les voir.",
+      "recherche_impossible": "La recherche n'a pas abouti. Réessayez dans un instant.",
+      "recherche_hors_ligne": "Sans connexion, les fiches clients ne peuvent pas être consultées.",
+      "sans_fiche_possible": "Sans fiche, vous pouvez donner la chambre tout de suite. La fiche restera à compléter.",
+      "ce_n_est_pas_lui": "Ce n'est pas lui",
+      "combien_de_nuits": "Combien de nuits ?",
+      "heure_arrivee": "Heure d'arrivée",
+      "heure_depart": "Heure de départ",
+      "heure_format": "Format 24 h, par exemple 14:00.",
+      "heure_invalide": "Indiquez une heure au format 24 h, par exemple 14:00.",
+      "heures_non_reglees": "Les heures d'arrivée et de départ standard ne sont pas réglées pour cet établissement. Indiquez-les ici, puis réglez-les une fois pour toutes dans l'offre d'hébergement.",
+      "recapitulatif": "Du {arrivee} au {depart}",
+      "total_prevu": "{montant} pour {n} nuit(s)",
+      "c_est_fait": "C'est fait",
+      "depart_prevu": "Départ prévu",
+      "fiche_numero": "Fiche de police n° {numero}.",
+      "client_suivant": "Client suivant",
+      "accompagnants": {
+        "titre": "Les accompagnants",
+        "un_nom_suffit": "Un nom suffit. Rien d'autre n'est demandé.",
+        "nom": "Nom de l'accompagnant",
+        "nom_invite": "Aya",
+        "nom_requis": "Indiquez un nom.",
+        "ajouter": "Ajouter",
+        "retirer": "Retirer",
+        "total_personnes": "{n} personne(s) au total, vous compris le titulaire.",
+        "capacite_depassee": "Cette chambre est prévue pour {n} personne(s). Vous pouvez continuer."
+      }
     }
   }
 }

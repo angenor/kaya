@@ -255,9 +255,9 @@ ajoutés, **aucune information déjà connue retapée**.
 **Référence** : `docs/design/derivation.md`, ligne `R3` — *« hérite de `R4` : parcours long, plus de
 champs, même grammaire »*. **Ouvrir `R4-passage.html` et la respecter.**
 
-- [ ] T051 [US3] [P] Écrire `app/modules/sejours/ListeAccompagnants.vue` : ajout d'un accompagnant **avec un nom seul** — demander une pièce par accompagnant coûterait la cible des 60 secondes. Composant **16** (champ de saisie canonique) pour tout champ, sans exception.
-- [ ] T052 [US3] Écrire `app/modules/sejours/EcranArrivee.vue` : **la grammaire de `R4` conservée** — le tap reste le geste, les champs s'ajoutent sans devenir un formulaire. Client connu → **tout est pré-rempli** et rien n'est à retaper (FR-035). Heures d'arrivée et de départ standard appliquées d'office et modifiables. `docs/design/derivation.md` est mis à jour dans le même changement : `R3` passe d'« inscrit » à **« codé »**.
-- [ ] T053 [US3] Créer `app/pages/arrivee.vue` — route `/arrivee`, racine unique, i18n `fr`/`en`, **clair ET sombre**, entrée **absente** de l'accueil sans module `HEBERGEMENT` (principe VII).
+- [X] T051 [US3] [P] Écrire `app/modules/sejours/ListeAccompagnants.vue` : ajout d'un accompagnant **avec un nom seul** — demander une pièce par accompagnant coûterait la cible des 60 secondes. Composant **16** (champ de saisie canonique) pour tout champ, sans exception.
+- [X] T052 [US3] Écrire `app/modules/sejours/EcranArrivee.vue` : **la grammaire de `R4` conservée** — le tap reste le geste, les champs s'ajoutent sans devenir un formulaire. Client connu → **tout est pré-rempli** et rien n'est à retaper (FR-035). Heures d'arrivée et de départ standard appliquées d'office et modifiables. `docs/design/derivation.md` est mis à jour dans le même changement : `R3` passe d'« inscrit » à **« codé »**.
+- [X] T053 [US3] Créer `app/pages/arrivee.vue` — route `/arrivee`, racine unique, i18n `fr`/`en`, **clair ET sombre**, entrée **absente** de l'accueil sans module `HEBERGEMENT` (principe VII).
 
 ---
 

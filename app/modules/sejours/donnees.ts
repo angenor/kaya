@@ -80,6 +80,32 @@ export interface DonneesPassage {
   formules: FormuleVue[]
 }
 
+/**
+ * Ce dont l'écran `R3` (Arrivée) a besoin — **exactement les trois mêmes lectures que `R4`**.
+ *
+ * Ce n'est pas une coïncidence : la matrice de dérivation fait de `R3` un `R4` **au parcours plus
+ * long**, pas un écran d'un autre genre. Lui donner un chargeur distinct dupliquerait trois appels
+ * identiques, et les deux divergeraient au premier champ ajouté à l'un des trois contrats.
+ */
+export type DonneesArrivee = DonneesPassage
+
+/** Charge l'écran d'arrivée. **Même chargeur que `R4`** — voir `DonneesArrivee`. */
+export const chargerArrivee = chargerPassage
+
+/**
+ * Un accompagnant en cours de déclaration — **local, jamais encore envoyé**.
+ *
+ * ⚠️ **Ce type vit ici et non dans `ListeAccompagnants.vue`** : un bloc `<script setup>` n'admet
+ * aucun `export`, et l'y déclarer ferait échouer la compilation du SFC avec un message qui ne
+ * nomme pas la cause.
+ */
+export interface AccompagnantSaisi {
+  /** Clé de rendu locale ; l'UUID v7 réel est engendré à l'envoi par `ouvrir-sejour.ts`. */
+  cle: string
+  nom: string
+  prenoms?: string
+}
+
 /** Ce dont l'écran `R7` a besoin. */
 export interface DonneesDepart {
   sejours: SejourVue[]
