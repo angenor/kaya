@@ -184,6 +184,10 @@ mod tests {
             "rebascule_palier_passage",
             "forcage_disponibilite",
             "derive_horloge_constatee",
+            // ★ Cycle 006 (SEJ-01) — la première famille qui trace une LECTURE et non une
+            // modification. Son code ne bouge plus : il est stocké en base dans un registre
+            // IMMUABLE, où rien ne se corrige après coup.
+            "consultation_piece_identite",
         ];
 
         let reels: Vec<&str> = TypeActionAudit::TOUS.iter().map(|t| t.code()).collect();
@@ -199,7 +203,9 @@ mod tests {
     fn tous_couvre_l_enumeration_entiere() {
         assert_eq!(
             TypeActionAudit::TOUS.len(),
-            11,
+            // Onze au cycle 005, **douze depuis le cycle 006** : `consultation_piece_identite`
+            // (SEJ-01), la première famille qui trace une LECTURE et non une modification.
+            12,
             "une famille a été ajoutée ou retirée sans que `TOUS` suive"
         );
 

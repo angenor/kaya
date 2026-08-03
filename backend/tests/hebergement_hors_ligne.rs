@@ -1,4 +1,4 @@
-//! **PORTE P-13 — les treize opérations de l'hébergement, et leur classe hors-ligne.**
+//! **PORTE P-13 — les quatorze opérations de l'hébergement, et leur classe hors-ligne.**
 //!
 //! > Aucune opération de classe B, C ou D n'est atteignable depuis un chemin de code exécutable
 //! > hors ligne (principe VI).
@@ -9,16 +9,16 @@
 //! terminal, et le terminal n'est pas ici. Ce que le serveur peut établir, et qui suffit à l'objet
 //! de la porte, tient en deux propositions :
 //!
-//! 1. **chacune des treize exige un jeton** — donc une session, donc une connexion, donc le
+//! 1. **chacune des quatorze exige un jeton** — donc une session, donc une connexion, donc le
 //!    réseau. Une opération atteignable sans jeton le serait depuis n'importe quel chemin, y
 //!    compris un terminal qui vide une file locale ;
-//! 2. **les treize aboutissent en ligne**. Sans ce versant, une opération retirée du produit
+//! 2. **les quatorze aboutissent en ligne**. Sans ce versant, une opération retirée du produit
 //!    satisferait encore la moitié négative — c'est la leçon du cycle 003, et elle vaut ici mot
 //!    pour mot.
 //!
 //! # Le périmètre est FERMÉ, pas énuméré
 //!
-//! [`OPERATIONS`] liste les treize, et le premier test compare cette liste aux chemins
+//! [`OPERATIONS`] liste les quatorze, et le premier test compare cette liste aux chemins
 //! `/hebergement/` **réellement présents au contrat**. Une quatorzième opération ajoutée sans être
 //! inscrite ici fait échouer la porte au lieu d'échapper au balayage — c'est la différence entre
 //! une liste et une porte, et c'est exactement le trou trouvé sur le schéma `comptes` au cycle 003.
@@ -136,9 +136,30 @@ const OPERATIONS: &[Operation] = &[
         methode: Method::POST,
         chemin: "/api/v1/etablissements/{etablissement_id}/hebergement/occupations/{occupation_id}/tarif",
     },
+    // ── Cycle 006 (SEJ) — l'état des unités, servi sous `/hebergement/` ─────────────────────
+    //
+    // ⚠️ **Elle est inscrite ICI parce que son CHEMIN est sous `/hebergement/`**, pas parce
+    // qu'elle appartient au cycle 004. Le balayage de ce fichier porte sur le préfixe : une
+    // opération ajoutée sous ce préfixe et non inscrite y échapperait entièrement, et la porte
+    // resterait verte — c'est le trou trouvé sur le schéma `comptes` au cycle 003.
+    //
+    // C'est une **lecture** : elle rend l'état d'occupation **dérivé** des occupations, jamais
+    // posé à la main (principe IV), et le sous-statut de ménage y est en lecture seule — son
+    // écriture est HEB-06, hors périmètre.
+    Operation {
+        numero: 17,
+        nom: "état des unités (cycle 006)",
+        methode: Method::GET,
+        chemin: "/api/v1/etablissements/{etablissement_id}/hebergement/etat-des-unites",
+    },
 ];
 
-const TREIZE: usize = 13;
+/// Le décompte **figé** des opérations servies sous `/hebergement/`.
+///
+/// Treize au cycle 004, **quatorze depuis le cycle 006** — l'état des unités, qui sert le montage
+/// de l'écran `R4`. Le nom de la constante suit le décompte : le laisser à `QUATORZE` ferait mentir
+/// la lecture du fichier avant de faire mentir le test.
+const QUATORZE: usize = 14;
 
 // =================================================================================================
 //  L'INSTANCIATION — cycle 005, ce que coûte désormais la couverture d'opérations de classe C
@@ -151,8 +172,8 @@ const TREIZE: usize = 13;
 // **Les tests écrits à la main plus bas sont CONSERVÉS**, et le motif est le garde-fou de ce
 // cycle : une macro qui couvrirait moins que le code qu'elle remplace transformerait une
 // réécriture en régression silencieuse. Ils vérifient trois propriétés que la macro ne porte pas —
-// que la liste des treize correspond EXACTEMENT aux chemins du contrat (aucune opération de la
-// verticale hors liste), que les privilèges de chaque table disent sa classe, et que les treize
+// que la liste des quatorze correspond EXACTEMENT aux chemins du contrat (aucune opération de la
+// verticale hors liste), que les privilèges de chaque table disent sa classe, et que les quatorze
 // **aboutissent en ligne** (le versant positif, sans lequel une opération retirée du produit
 // satisferait encore la moitié négative).
 tester_classe_bcd!(
@@ -173,16 +194,16 @@ tester_classe_bcd!(
 );
 
 // =================================================================================================
-//  VERSANT NÉGATIF — aucune des treize n'est atteignable sans jeton
+//  VERSANT NÉGATIF — aucune des quatorze n'est atteignable sans jeton
 // =================================================================================================
 
-/// Chacune des treize porte une exigence d'authentification, **et il n'y en a pas une quatorzième**.
+/// Chacune des quatorze porte une exigence d'authentification, **et il n'y en a pas une quatorzième**.
 ///
 /// Les deux moitiés comptent. La première refuse une opération publique ; la seconde refuse une
-/// opération qui aurait échappé à la liste — auquel cas la porte inspecterait treize chemins en
+/// opération qui aurait échappé à la liste — auquel cas la porte inspecterait quatorze chemins en
 /// croyant couvrir le module.
 #[test]
-fn les_treize_operations_exigent_un_jeton_et_aucune_autre_n_existe() {
+fn les_quatorze_operations_exigent_un_jeton_et_aucune_autre_n_existe() {
     let contrat = kaya_api::application::contrat_complet();
     let mut inspectees = 0usize;
     let mut sans_securite = Vec::new();
@@ -224,8 +245,8 @@ fn les_treize_operations_exigent_un_jeton_et_aucune_autre_n_existe() {
     }
 
     assert_eq!(
-        inspectees, TREIZE,
-        "{inspectees} opération(s) inspectée(s) au lieu de {TREIZE}. Une porte dont la cible \
+        inspectees, QUATORZE,
+        "{inspectees} opération(s) inspectée(s) au lieu de {QUATORZE}. Une porte dont la cible \
          rétrécit passe au vert sans rien vérifier."
     );
     assert!(
@@ -258,9 +279,9 @@ fn les_treize_operations_exigent_un_jeton_et_aucune_autre_n_existe() {
         .sum();
 
     assert_eq!(
-        au_contrat, TREIZE,
+        au_contrat, QUATORZE,
         "le contrat sert {au_contrat} opération(s) sous `/hebergement/` alors que ce fichier en \
-         déclare {TREIZE}.\n\
+         déclare {QUATORZE}.\n\
          Une opération ajoutée sans être inscrite ici échapperait entièrement au balayage, et la \
          porte resterait verte — c'est exactement le trou trouvé sur le schéma `comptes` au \
          cycle 003. Inscrire l'opération ci-dessus, dans le MÊME changement que sa route."
@@ -351,20 +372,20 @@ async fn les_privileges_disent_la_classe_de_chaque_table() {
 }
 
 // =================================================================================================
-//  VERSANT POSITIF — les treize aboutissent EN LIGNE
+//  VERSANT POSITIF — les quatorze aboutissent EN LIGNE
 // =================================================================================================
 
-/// **Le parcours complet d'Adjoua**, des treize opérations dans l'ordre où elles se déroulent.
+/// **Le parcours complet d'Adjoua**, des quatorze opérations dans l'ordre où elles se déroulent.
 ///
 /// *Une porte qui refuse sans vérifier ce qu'elle autorise passe au vert en n'ayant rien à
-/// inspecter.* Le test précédent constate que les treize exigent un jeton ; celui-ci constate
-/// qu'avec le jeton, les treize **aboutissent**.
+/// inspecter.* Le test précédent constate que les quatorze exigent un jeton ; celui-ci constate
+/// qu'avec le jeton, les quatorze **aboutissent**.
 ///
 /// L'ordre n'est pas décoratif : on ne peut pas créer une unité avant sa catégorie, ni attribuer
 /// avant d'avoir une formule, ni calculer un tarif avant d'avoir attribué. Le parcours est celui
 /// d'Adjoua réglant son offre le matin et attribuant une chambre l'après-midi.
 #[actix_web::test]
-async fn les_treize_operations_aboutissent_en_ligne() {
+async fn les_quatorze_operations_aboutissent_en_ligne() {
     let pool_owner = commun::pool_owner().await;
     let jeu = commun::creer_tenant(&pool_owner, "P-13 hébergement en ligne").await;
     let etb = jeu.etablissement_id;
@@ -596,9 +617,23 @@ async fn les_treize_operations_aboutissent_en_ligne() {
     );
     assert!(statut.is_success());
 
+    // ── Cycle 006 — l'état des unités, servi sous le même préfixe ────────────────────────────
+    //
+    // Le versant POSITIF compte autant que le négatif : sans lui, une opération retirée du
+    // produit satisferait encore la moitié négative, et la porte resterait verte sur un produit
+    // amputé.
+    exiger_succes!(
+        17,
+        "état des unités",
+        actix_web::test::TestRequest::get()
+            .uri(&format!("{base}/etat-des-unites"))
+            .insert_header((AUTORISATION, adjoua.bearer.clone()))
+            .to_request()
+    );
+
     assert_eq!(
-        reussies, TREIZE,
-        "{reussies} opération(s) exercée(s) en ligne au lieu de {TREIZE}"
+        reussies, QUATORZE,
+        "{reussies} opération(s) exercée(s) en ligne au lieu de {QUATORZE}"
     );
 
     // **Et sans jeton, la première d'entre elles est refusée.** Le versant négatif est vérifié sur

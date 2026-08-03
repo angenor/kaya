@@ -38,7 +38,21 @@ use std::collections::BTreeSet;
 /// Sans ce décompte, retirer les cinq permissions du cycle laisserait le test vert : il n'aurait
 /// plus rien à valider. C'est la différence entre « aucune permission ne nomme un module inconnu »
 /// et « aucune permission ne nomme de module du tout ».
-const PERMISSIONS_DE_MODULE_ATTENDUES: i64 = 5;
+///
+/// # ★ Cinq au cycle 004, DIX depuis le cycle 006 — et l'écart se justifie ici
+///
+/// SEJ apporte **sept** permissions, dont **cinq seulement** sont rattachées à `HEBERGEMENT` :
+/// `heb.sejour.lire`, `.ouvrir`, `.clore`, `.prolonger`, `.changer_unite`.
+///
+/// ⚠️ **Les deux autres — `sej.client.lire` et `sej.client.gerer` — portent `module_code = NULL`,
+/// et ce n'est PAS un oubli.** La fiche client ne dépend d'aucun module d'activité : un maquis ou
+/// un bar seul en aura besoin dès **SEJ-05**, sans hébergement. Les rattacher à `HEBERGEMENT`
+/// obligerait ce jour-là soit à créer une seconde permission de client, soit à activer un module
+/// d'hébergement dans un maquis pour lire une fiche.
+///
+/// C'est exactement pourquoi ce décompte ne compte **que** les permissions rattachées : il
+/// mesurerait autrement une propriété que le produit ne veut pas.
+const PERMISSIONS_DE_MODULE_ATTENDUES: i64 = 10;
 
 /// Les cinq permissions du cycle HEB, nommées.
 ///
@@ -183,19 +197,52 @@ async fn le_receptionniste_a_tout_sauf_la_gestion_de_l_offre() {
         "le réceptionniste ne fixe pas les tarifs : `heb.offre.gerer` ne doit pas lui être \
          attribuée. Obtenu : {siennes:?}"
     );
+    // ── Cycle 006 — le réceptionniste gagne TOUT le parcours du séjour ───────────────────────
+    //
+    // C'est Yao qui enregistre, prolonge, change de chambre et fait partir : c'est exactement son
+    // métier. Un réceptionniste qui ne pourrait pas clore un séjour renverrait le client vers le
+    // gérant à chaque départ.
+    for attendue in [
+        "heb.sejour.lire",
+        "heb.sejour.ouvrir",
+        "heb.sejour.clore",
+        "heb.sejour.prolonger",
+        "heb.sejour.changer_unite",
+    ] {
+        assert!(
+            siennes.contains(attendue),
+            "le réceptionniste doit porter « {attendue} » : le parcours du séjour EST son métier. \
+             Obtenu : {siennes:?}"
+        );
+    }
+
     assert_eq!(
         siennes.len(),
-        PERMISSIONS_HEBERGEMENT.len() - 1,
-        "quatre permissions sur cinq attendues pour le réceptionniste. Obtenu : {siennes:?}"
+        // Neuf : quatre du cycle 004 — tout sauf `heb.offre.gerer` — et les cinq du séjour.
+        (PERMISSIONS_HEBERGEMENT.len() - 1) + 5,
+        "neuf permissions attendues pour le réceptionniste : quatre du cycle 004 (tout sauf la \
+         gestion de l'offre) et les cinq du séjour. Obtenu : {siennes:?}"
     );
 }
 
-/// **Propriétaire et gérant ont les cinq**, chacun.
+/// **Le gérant a les dix ; le propriétaire en a SIX — et l'écart est délibéré.**
+///
+/// ★ **Le propriétaire ne reçoit que `heb.sejour.lire` parmi les cinq du séjour.** Il consulte :
+/// il veut savoir qui est passé et ce qui a été facturé, ce que le registre des actions et cette
+/// lecture lui donnent. **Il n'enregistre pas d'arrivée**, et lui donner `heb.sejour.ouvrir`
+/// « au cas où » rendrait le registre des actions moins lisible en y mêlant des gestes qu'il ne
+/// fait pas — alors que c'est précisément **ce que le propriétaire achète** (cadrage §8.3).
+///
+/// ⚠️ **Écart assumé avec le cycle 004**, où il recevait les cinq permissions d'hébergement. Là,
+/// il s'agissait de **régler l'offre** — tarifs, chambres, formules — qui est bien son geste. Ici
+/// il s'agit d'**exploiter le comptoir**, qui ne l'est pas.
 #[actix_web::test]
-async fn le_proprietaire_et_le_gerant_ont_les_cinq() {
+async fn le_gerant_a_tout_et_le_proprietaire_consulte_seulement() {
     let pool = commun::pool_owner().await;
 
-    for role in ["proprietaire", "gerant"] {
+    // Le gérant porte les dix ; le propriétaire six — les cinq du cycle 004 et la seule lecture
+    // du séjour.
+    for (role, attendues) in [("gerant", PERMISSIONS_DE_MODULE_ATTENDUES), ("proprietaire", 6)] {
         let nombre: i64 = sqlx::query_scalar(
             r#"
             SELECT COUNT(*)
@@ -211,10 +258,33 @@ async fn le_proprietaire_et_le_gerant_ont_les_cinq() {
         .expect("décompte");
 
         assert_eq!(
-            nombre,
-            PERMISSIONS_DE_MODULE_ATTENDUES,
-            "le rôle « {role} » devrait porter les {PERMISSIONS_DE_MODULE_ATTENDUES} permissions \
-             d'hébergement"
+            nombre, attendues,
+            "le rôle « {role} » devrait porter {attendues} permission(s) d'hébergement"
         );
     }
+
+    // ── Le versant qui compte : ce que le propriétaire N'A PAS ───────────────────────────────
+    //
+    // Un décompte seul passerait au vert si l'on remplaçait `heb.sejour.lire` par
+    // `heb.sejour.ouvrir` : six resterait six.
+    let siennes: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT rp.permission_code
+        FROM comptes.role_permission rp
+        JOIN comptes.permission p ON p.code = rp.permission_code
+        WHERE rp.role_code = 'proprietaire' AND p.code LIKE 'heb.sejour.%'
+        "#,
+    )
+    .fetch_all(&pool)
+    .await
+    .expect("permissions du propriétaire");
+
+    assert_eq!(
+        siennes,
+        vec!["heb.sejour.lire".to_owned()],
+        "★ le propriétaire CONSULTE le séjour, il ne l'exploite pas. Lui donner `ouvrir`, `clore` \
+         ou `prolonger` « au cas où » mêlerait au registre des actions des gestes qu'il ne fait \
+         pas — alors que c'est exactement ce que le propriétaire achète (cadrage §8.3). \
+         Obtenu : {siennes:?}"
+    );
 }

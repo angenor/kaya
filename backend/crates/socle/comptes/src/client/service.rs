@@ -578,8 +578,21 @@ fn normaliser_telephone(saisie: &str, indicatif_par_defaut: &str) -> String {
     if saisie.trim_start().starts_with('+') {
         return chiffres;
     }
+    // ⚠️ **Le zéro de tête N'EST PAS retiré, et c'est une décision.**
+    //
+    // Le réflexe est de le traiter comme un **préfixe interurbain** — en France, `06 12…` devient
+    // `+33 6 12…`. **La Côte d'Ivoire n'en a pas** : depuis la renumérotation de 2021, le numéro
+    // national compte dix chiffres et s'écrit à l'international `+225 07 07 12 34 56`, zéro
+    // compris. Le retirer produirait `225707123456` là où le pays écrit `2250707123456` — un
+    // chiffre de moins, et une fiche introuvable dès qu'on la cherche autrement qu'on l'a créée.
+    //
+    // ⚠️ **Cette règle est celle de la Côte d'Ivoire, et le produit servira d'autres pays.** Le
+    // jour où un indicatif dont le plan de numérotation retire le zéro entrera au produit, ce
+    // n'est pas cette ligne qu'il faudra corriger mais une **règle par juridiction** — le même
+    // raisonnement que `JurisdictionAdapter` pour la fiscalité. Écrit ici pour que la
+    // simplification se voie plutôt qu'elle ne se découvre.
     let indicatif = repli_telephone(indicatif_par_defaut);
-    format!("{indicatif}{}", chiffres.trim_start_matches('0'))
+    format!("{indicatif}{chiffres}")
 }
 
 fn nom_valide(brut: &str) -> Result<String, ErreurClient> {

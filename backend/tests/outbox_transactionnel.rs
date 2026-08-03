@@ -2144,3 +2144,218 @@ async fn p05_cycle_006_la_cloture_emet_un_evenement_reconstituable() {
         );
     }
 }
+
+// =================================================================================================
+//  Cycle 006 — les cinq types que le recollement réclamait nommément
+// =================================================================================================
+
+/// **La fiche client émet `sej.client.cree` puis `sej.client.modifie`, et JAMAIS le numéro.**
+///
+/// ⚠️ **Ces deux charges utiles sont les plus sensibles du produit.** L'outbox est un grand livre
+/// à rétention **illimitée** et **immuable** : un numéro de pièce qui y entre ne peut **jamais**
+/// en sortir, et la rétention de 90 jours de TRX-06 deviendrait inapplicable sur la copie.
+#[actix_web::test]
+async fn p05_cycle_006_la_fiche_client_emet_sans_jamais_le_numero_de_piece() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 fiche client").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "Yao",
+        &[("receptionniste", Some(jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    const NUMERO: &str = "CI00246813";
+    let client_id = Uuid::now_v7();
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri("/api/v1/clients")
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": client_id,
+            "nom": "Traoré",
+            "type_piece": "CNI",
+            "numero_piece": NUMERO,
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::patch()
+        .uri(&format!("/api/v1/clients/{client_id}"))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "nom": "Traoré Konan", "numero_piece": NUMERO }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    // Une préférence — classe A, append-only.
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!("/api/v1/clients/{client_id}/preferences"))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "id": Uuid::now_v7(), "texte": "Chambre calme" }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charges: Vec<(String, serde_json::Value)> = sqlx::query_as(
+        r#"
+        SELECT type_evenement, payload FROM synchronisation.evenement_outbox
+        WHERE tenant_id = $1 ORDER BY sequence_etablissement
+        "#,
+    )
+    .bind(jeu.tenant_id)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture du grand livre");
+    tx.rollback().await.expect("rollback");
+
+    for attendu in ["sej.client.cree", "sej.client.modifie", "sej.preference.enregistree"] {
+        assert!(
+            charges.iter().any(|(t, _)| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types : {:?}",
+            charges.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    for (type_evenement, charge) in &charges {
+        let brut = charge.to_string();
+        assert!(
+            !brut.contains(NUMERO),
+            "★ un numéro de pièce d'identité est entré dans le grand livre par « \
+             {type_evenement} ». Le grand livre est IMMUABLE et à rétention ILLIMITÉE : la donnée \
+             ne peut jamais en sortir, et la rétention de 90 jours de TRX-06 devient inapplicable \
+             sur la copie. Charge : {brut}"
+        );
+    }
+}
+
+/// **La prolongation et le changement d'unité émettent leur événement, montants en ENTIERS.**
+#[actix_web::test]
+async fn p05_cycle_006_la_prolongation_et_le_changement_d_unite_emettent() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 prolongation").await;
+
+    // Une seconde chambre, pour le changement d'unité.
+    let unite_bis = Uuid::now_v7();
+    {
+        let mut tx = pool_owner.begin().await.expect("transaction");
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+            .await
+            .expect("tenant");
+        let categorie: Uuid = sqlx::query_scalar(
+            "SELECT categorie_id FROM hebergement.unite WHERE id = $1",
+        )
+        .bind(decor.unite_id)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("catégorie");
+        sqlx::query(
+            r#"
+            INSERT INTO hebergement.unite
+                (id, tenant_id, etablissement_id, categorie_id, code, etage)
+            VALUES ($1, $2, $3, $4, 'A2', 1)
+            "#,
+        )
+        .bind(unite_bis)
+        .bind(decor.jeu.tenant_id)
+        .bind(decor.jeu.etablissement_id)
+        .bind(categorie)
+        .execute(&mut *tx)
+        .await
+        .expect("seconde unité");
+        tx.commit().await.expect("commit");
+    }
+
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Adjoua",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": sejour_id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/prolongation",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": Uuid::now_v7(),
+            "nouvelle_fin_client": (debut + time::Duration::hours(48))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/changement-unite",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "id": Uuid::now_v7(), "unite_cible_id": unite_bis }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let types = types_evenements(&pool_owner, decor.jeu.tenant_id, sejour_id).await;
+    for attendu in ["heb.sejour.prolonge", "heb.sejour.unite_changee"] {
+        assert!(
+            types.iter().any(|t| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types : {types:?}"
+        );
+    }
+
+    // Les montants sont des **entiers d'unité mineure**, jusque dans le JSONB (P-10).
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charges: Vec<(serde_json::Value,)> = sqlx::query_as(
+        r#"
+        SELECT payload FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1
+          AND type_evenement IN ('heb.sejour.prolonge', 'heb.sejour.unite_changee')
+        "#,
+    )
+    .bind(sejour_id)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture");
+    tx.rollback().await.expect("rollback");
+
+    for (charge,) in &charges {
+        assert!(
+            charge["total_mineur"].is_i64() && charge["montant_ajoute_mineur"].is_i64(),
+            "tout montant est un ENTIER d'unité mineure, jusque dans le JSONB (P-10) : {charge}"
+        );
+        assert!(
+            charge["devise"].is_string(),
+            "la devise voyage AU MÊME NIVEAU que les montants, toujours : {charge}"
+        );
+    }
+}

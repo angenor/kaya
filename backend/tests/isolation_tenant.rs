@@ -174,6 +174,58 @@ const COUVERTURE: &[(&str, Regime)] = &[
     ("/api/v1/clients", Regime::Isole),
     ("/api/v1/clients/{client_id}", Regime::Isole),
     ("/api/v1/clients/{client_id}/preferences", Regime::Isole),
+    // ── Cycle 006 — séjours (SEJ-02, SEJ-04) ───────────────────────────────────────────────
+    //
+    // Les onze chemins sont **isolés**, sans exception. Les sept tables du schéma `hebergement`
+    // ajoutées par ce cycle portent un `tenant_id` et leur politique `isolation_tenant`,
+    // `WITH CHECK` compris.
+    //
+    // ⚠️ **`/api/v1/clients/{client_id}/sejours` est ICI, et pas au lot des fiches clientes.**
+    // Son chemin commence par `/clients`, mais il lit `hebergement.sejour` et se monte sur le
+    // crate `hebergement`. Le ranger avec les fiches ferait croire que `socle/comptes` le sert —
+    // ce qui serait une jointure inter-schémas (P-04) ET une arête `socle/ → verticales/` (P-03).
+    //
+    // La donnée en jeu est celle qu'un concurrent voudrait le plus : le taux d'occupation, les
+    // tarifs pratiqués et la clientèle d'un exploitant, tout entiers dans ces onze chemins.
+    ("/api/v1/clients/{client_id}/sejours", Regime::Isole),
+    ("/api/v1/etablissements/{etablissement_id}/sejours", Regime::Isole),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants/{accompagnant_id}",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/prolongation",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/changement-unite",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart",
+        Regime::Isole,
+    ),
+    (
+        "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/fiche-police",
+        Regime::Isole,
+    ),
+    // L'état des unités est **dérivé des occupations** d'un établissement : isolé comme elles.
+    (
+        "/api/v1/etablissements/{etablissement_id}/hebergement/etat-des-unites",
+        Regime::Isole,
+    ),
     // ── Cycle 004 — référentiel d'hébergement (HEB-01, HEB-03, HEB-04, HEB-05) ─────────────
     //
     // Les six chemins sont **isolés**, sans exception. Les six tables du schéma `hebergement`
