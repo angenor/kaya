@@ -136,7 +136,7 @@ plan — les quatre arrivent, sans erreur de console. Quickstart §2.
 - [x] T036 [P] [US1] Écrire `app/tests/file-persistance.spec.ts` — survit au **rechargement** et à l'extinction ; la charge est **illisible sans la clé** dans le stockage
 - [x] T037 [P] [US1] Écrire `app/tests/temoin-sync.spec.ts` — **3 états × 2 thèmes × 2 langues**, soit douze combinaisons ; jamais de pourcentage
 - [x] T038 [P] [US1] Étendre `app/tests/file-jeton-expire.spec.ts` — l'échec de rafraîchissement laisse la file **intacte** ; l'ordre rafraîchir-avant-vider tient **même quand les deux réussissent**
-- [ ] T039 [US1] Vérifier `pnpm porte:p22` et `porte:p22:negatif` — les deux écrans atteints **en direct et par navigation**, sur **Chromium et WebKit**, sans erreur de console
+- [x] T039 [US1] Vérifier `pnpm porte:p22` et `porte:p22:negatif` — les deux écrans atteints **en direct et par navigation**, sur **Chromium et WebKit**, sans erreur de console
 
 **Point de contrôle US1** : la file est réelle et son passager aussi. Quickstart §2 et §3 passent.
 **C'est le MVP** — livrable seul.

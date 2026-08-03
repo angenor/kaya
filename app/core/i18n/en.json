@@ -291,6 +291,16 @@
     "seuil_bascule_nuitee_minutes": {
       "libelle": "Stay that becomes a night",
       "description": "Beyond this duration, a stay is billed as a night."
+    },
+    "sync": {
+      "derive_horloge_seuil_secondes": {
+        "libelle": "Clock gap reported",
+        "description": "Beyond this gap between a device's clock and the server's, an entry is written to the action log. The record is never refused."
+      },
+      "latence_degradee_seuil_ms": {
+        "libelle": "Weak connection threshold",
+        "description": "Beyond this response time, the application reports a weak connection rather than a normal one."
+      }
     }
   },
   "mentions": {

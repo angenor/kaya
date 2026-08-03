@@ -291,6 +291,16 @@
     "seuil_bascule_nuitee_minutes": {
       "libelle": "Passage qui devient une nuit",
       "description": "Au-delà de cette durée, un passage est facturé comme une nuitée."
+    },
+    "sync": {
+      "derive_horloge_seuil_secondes": {
+        "libelle": "Écart d'heure signalé",
+        "description": "Au-delà de cet écart entre l'heure d'un appareil et celle du serveur, une entrée est portée au registre des actions. L'enregistrement n'est jamais refusé."
+      },
+      "latence_degradee_seuil_ms": {
+        "libelle": "Seuil de connexion faible",
+        "description": "Au-delà de ce temps de réponse, l'application annonce une connexion faible plutôt qu'une connexion normale."
+      }
     }
   },
   "mentions": {
