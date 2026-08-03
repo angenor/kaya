@@ -151,10 +151,10 @@ qui refuse à la compilation, et l'écran qui annonce avant la saisie.
 **Test d'indépendance** : réseau coupé, parcourir chaque écran d'écriture livré à ce jour ; toute
 action B/C/D annonce son indisponibilité avant la saisie, aucune n'est mise en file. Quickstart §4.
 
-- [ ] T040 [US2] Écrire `tests-e2e/hors-ligne.spec.ts` — périmètre **croisé** entre trois sources déjà existantes, aucune écrite à la main : opérations non-`GET` du contrat OpenAPI × classe du registre × routes de `tests-e2e/routes.ts`
-- [ ] T041 [US2] Faire **rapporter** à `tests-e2e/hors-ligne.spec.ts` le nombre d'opérations B/C/D couvertes face au total du contrat, et échouer en **nommant** l'opération non couverte (exigence 2)
-- [ ] T042 [US2] Déclarer en tête de `hors-ligne.spec.ts` la **limite assumée** : la porte vérifie qu'une annonce apparaît, **jamais que sa formulation est la bonne** — la justesse du libellé relève du lexique et de P-16, et les confondre donnerait une porte qui ment
-- [ ] T043 [US2] Vérifier dans `tests-e2e/hors-ligne.spec.ts` que le balayage **n'écrit rien** (exigence 3) : seuls les écrans sont ouverts ; le seul geste d'écriture du parcours est la note interne, sur un tenant de test
+- [x] T040 [US2] Écrire `tests-e2e/hors-ligne.spec.ts` — périmètre **croisé** entre trois sources déjà existantes, aucune écrite à la main : opérations non-`GET` du contrat OpenAPI × classe du registre × routes de `tests-e2e/routes.ts`
+- [x] T041 [US2] Faire **rapporter** à `tests-e2e/hors-ligne.spec.ts` le nombre d'opérations B/C/D couvertes face au total du contrat, et échouer en **nommant** l'opération non couverte (exigence 2)
+- [x] T042 [US2] Déclarer en tête de `hors-ligne.spec.ts` la **limite assumée** : la porte vérifie qu'une annonce apparaît, **jamais que sa formulation est la bonne** — la justesse du libellé relève du lexique et de P-16, et les confondre donnerait une porte qui ment
+- [x] T043 [US2] Vérifier dans `tests-e2e/hors-ligne.spec.ts` que le balayage **n'écrit rien** (exigence 3) : seuls les écrans sont ouverts ; le seul geste d'écriture du parcours est la note interne, sur un tenant de test
 - [x] T044 [US2] Étendre `app/tests/file-classe-a.spec.ts` — les `@ts-expect-error` couvrent le contexte et les tentatives nouveaux ; un enfilement d'opération non marquée **ne compile toujours pas**
 
 **Point de contrôle US2** : P-13 est vérifiée sur ses deux versants, avec une cible comptée.
@@ -210,13 +210,13 @@ comportement inchangé et **sans perte de couverture**. Quickstart §6.
 
 ## Phase 7 : Consolidation et revue
 
-- [ ] T064 [P] Exécuter les **26 portes** une par une selon `specs/005-file-hors-ligne-horodatage/quickstart.md` §7, et consigner tout échec du portage de périmètre comme **défaut trouvé**, avec sa correction
-- [ ] T065 [P] `pnpm lint` (racine, couvre `app/` et `web/`), `lint:tokens`, `test:i18n` — parité fr/en sur les clés nouvelles et corrigées
+- [x] T064 [P] Exécuter les **26 portes** une par une selon `specs/005-file-hors-ligne-horodatage/quickstart.md` §7, et consigner tout échec du portage de périmètre comme **défaut trouvé**, avec sa correction
+- [x] T065 [P] `pnpm lint` (racine, couvre `app/` et `web/`), `lint:tokens`, `test:i18n` — parité fr/en sur les clés nouvelles et corrigées
 - [ ] T066 Reprendre la **double passe `sqlx prepare`** et les deux contrôles après toutes les modifications de requêtes, `touch` compris
-- [ ] T067 Régénérer le client TypeScript dans `app/core/api/` (`pnpm generer:client`) et vérifier que **le diff est vide** — le contrat ne change pas, et c'est ce contrôle qui le prouve
+- [x] T067 Régénérer le client TypeScript dans `app/core/api/` (`pnpm generer:client`) et vérifier que **le diff est vide** — le contrat ne change pas, et c'est ce contrôle qui le prouve
 - [ ] T068 Vérifier dans `app/tests/amorcage.spec.ts` les **deux preuves dues** pour chaque fonction d'amorçage (exigence 6) : `brancherFile` et `surRetourPremierPlan` ont un test qui les exerce **et** un test qui vérifie qu'elles sont appelées dans le parcours réel
 - [ ] T069 Construire l'image de production `docker buildx build --platform linux/amd64 -f infra/Dockerfile.api` — le poste est `arm64`, jamais de copie d'un binaire local
-- [ ] T070 **Revue Definition of Done** (`docs/user-stories-v1.md` §0.4) — les dix points, un par un, avec la preuve de chacun. Écrire `specs/005-file-hors-ligne-horodatage/revue-dod.md` sur le modèle du cycle 004, **y compris les points pris en défaut**
+- [x] T070 **Revue Definition of Done** (`docs/user-stories-v1.md` §0.4) — les dix points, un par un, avec la preuve de chacun. Écrire `specs/005-file-hors-ligne-horodatage/revue-dod.md` sur le modèle du cycle 004, **y compris les points pris en défaut**
 
 ---
 

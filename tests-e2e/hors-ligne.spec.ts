@@ -194,7 +194,19 @@ let erreurs: string[] = []
 /** Les écrans à balayer : toutes les routes protégées, sauf le styleguide. */
 const ECRANS = ROUTES.filter(route => route.exigeSession)
 
-test.beforeAll(async ({ browser }: { browser: Browser }) => {
+/**
+ * **Une seule connexion par exécution, et c'est une contrainte du produit, pas du test.**
+ *
+ * `LimiteTentatives` plafonne à **dix tentatives par identifiant sur une fenêtre glissante de cinq
+ * minutes, réussies comprises** — et le refus de dépassement est **indiscernable d'un mot de passe
+ * faux** (FR-012), ce qui rend le diagnostic long quand on le rencontre.
+ *
+ * Un `beforeAll` de niveau fichier est rejoué à chaque redémarrage de worker, et Playwright
+ * redémarre le worker après un échec : une défaillance en produit une seconde, qui en produit une
+ * troisième. La connexion vit donc dans le **seul** groupe qui en a besoin, et le contrôle de
+ * périmètre — qui ne touche à aucune page — n'en consomme aucune.
+ */
+async function ouvrirSession(browser: Browser): Promise<void> {
   expect(
     COMPTE_DEMONSTRATION.motDePasse,
     'KAYA_SEEDS_MOT_DE_PASSE n’est pas défini — la porte ne pourrait pas se connecter.',
@@ -211,11 +223,7 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
   await page.getByLabel(/mot de passe/i).fill(COMPTE_DEMONSTRATION.motDePasse)
   await page.getByRole('button', { name: /se connecter/i }).click()
   await page.waitForURL(url => new URL(url).pathname === '/', { timeout: 20_000 })
-})
-
-test.afterAll(async () => {
-  await contexte?.close()
-})
+}
 
 test.beforeEach(() => {
   erreurs = []
@@ -259,7 +267,13 @@ test('FR-005b · le périmètre est croisé, compté, et rapporté', async () =>
 // =================================================================================================
 
 test.describe('réseau coupé — chaque écran d’écriture annonce, aucun n’enfile', () => {
-  test.beforeAll(async () => {
+  // Les cas partagent une page et un ordre : `serial` évite qu'un échec en cascade masque le
+  // premier, et qu'une reconnexion soit tentée pour rien.
+  test.describe.configure({ mode: 'serial' })
+
+  test.beforeAll(async ({ browser }: { browser: Browser }) => {
+    await ouvrirSession(browser)
+
     // **La coupure est réelle**, au niveau du contexte du navigateur : toute requête sortante
     // échoue, comme derrière un réseau tombé. Simuler `navigator.onLine` seul ne prouverait rien —
     // c'est exactement l'état qu'`etatReseauNavigateur()` ne suffit pas à décrire.
@@ -267,7 +281,8 @@ test.describe('réseau coupé — chaque écran d’écriture annonce, aucun n�
   })
 
   test.afterAll(async () => {
-    await contexte.setOffline(false)
+    await contexte?.setOffline(false)
+    await contexte?.close()
   })
 
   for (const ecran of ECRANS) {

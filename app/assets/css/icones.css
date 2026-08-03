@@ -16,7 +16,7 @@
    ce qui la fait basculer en mode sombre sans une seule règle de plus.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Phosphor — 78 glyphe(s) ────────────────────────────────────── */
+/* ── Phosphor — 81 glyphe(s) ────────────────────────────────────── */
 @font-face {
   font-family: "Phosphor";
   src: url("../fonts/phosphor-kaya.woff2") format("woff2");
@@ -37,6 +37,7 @@
 }
 
 .ph.ph-armchair:before { content: "\e012"; }
+.ph.ph-arrow-counter-clockwise:before { content: "\e038"; }
 .ph.ph-arrow-left:before { content: "\e058"; }
 .ph.ph-arrow-square-out:before { content: "\e5de"; }
 .ph.ph-arrow-u-up-left:before { content: "\e08a"; }
@@ -62,6 +63,7 @@
 .ph.ph-cash-register:before { content: "\ed80"; }
 .ph.ph-check:before { content: "\e182"; }
 .ph.ph-clock:before { content: "\e19a"; }
+.ph.ph-clock-countdown:before { content: "\ed2c"; }
 .ph.ph-clock-counter-clockwise:before { content: "\e1a0"; }
 .ph.ph-cloud-arrow-up:before { content: "\e1ae"; }
 .ph.ph-coffee:before { content: "\e1c2"; }
@@ -86,6 +88,7 @@
 .ph.ph-money:before { content: "\e588"; }
 .ph.ph-monitor:before { content: "\e32e"; }
 .ph.ph-moon-stars:before { content: "\e58e"; }
+.ph.ph-note-pencil:before { content: "\e34c"; }
 .ph.ph-notebook:before { content: "\e34e"; }
 .ph.ph-package:before { content: "\e390"; }
 .ph.ph-paper-plane-tilt:before { content: "\e398"; }
