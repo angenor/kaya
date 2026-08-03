@@ -2045,3 +2045,102 @@ async fn decor_sejour(pool: &sqlx::PgPool, nom: &str) -> DecorSejour {
         formule_id,
     }
 }
+
+/// ★ **`heb.sejour.clos` porte le total, TOUTES les lignes, les ajustements ET le constat.**
+///
+/// TRX-02 : *l'opération se reconstitue **sans consulter aucune autre table**.* Le grand livre est
+/// rétroactif et sa rétention illimitée : une projection qui relirait `note_sejour`,
+/// `ligne_sejour` et `taxe_sejour_constat` lirait des tables dont le contenu aura changé — et sur
+/// le constat, elle lirait une valeur que FIS-03 aura entre-temps alimentée.
+#[actix_web::test]
+async fn p05_cycle_006_la_cloture_emet_un_evenement_reconstituable() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 clôture").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Yao",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = time::OffsetDateTime::now_utc() - time::Duration::hours(2);
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": sejour_id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/depart",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charge: serde_json::Value = sqlx::query_scalar(
+        r#"
+        SELECT payload FROM synchronisation.evenement_outbox
+        WHERE tenant_id = $1 AND type_evenement = 'heb.sejour.clos'
+        "#,
+    )
+    .bind(decor.jeu.tenant_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("l'événement `heb.sejour.clos` doit être émis");
+    tx.rollback().await.expect("rollback");
+
+    for cle in ["sejour_id", "clos_le", "duree_reelle_minutes", "total_mineur", "devise", "lignes"] {
+        assert!(
+            !charge[cle].is_null(),
+            "la charge utile de `heb.sejour.clos` ne porte pas « {cle} » : l'opération ne se \
+             reconstitue pas sans consulter une autre table (TRX-02). Charge : {charge}"
+        );
+    }
+
+    assert!(
+        charge["total_mineur"].is_i64(),
+        "`total_mineur` doit être un ENTIER d'unité mineure (P-10, jusque dans le JSONB) : {charge}"
+    );
+
+    // ★ **Le constat voyage AVEC l'événement**, et son montant y est `null`.
+    let constat = &charge["constat_taxe"];
+    assert!(
+        !constat.is_null(),
+        "★ le constat de taxe doit voyager avec l'événement de clôture. Sans lui, FIS-03 devrait \
+         relire `taxe_sejour_constat` — dont il aura entre-temps alimenté le montant, ce qui rend \
+         la relecture circulaire. Charge : {charge}"
+    );
+    assert!(
+        constat["nuitees_assujetties"].is_null() && constat["montant_mineur"].is_null(),
+        "★ un montant de taxe est parti dans le grand livre. Décider quelles nuits sont \
+         assujetties est une RÈGLE FISCALE (P-12), et le grand livre est IMMUABLE : une valeur \
+         fausse qui y entre ne peut jamais en sortir. Constat : {constat}"
+    );
+    for cle in ["nuits_constatees", "assujettie_taxe_nuitee", "classement_etablissement", "commune"] {
+        assert!(
+            !constat[cle].is_null(),
+            "le constat doit porter « {cle} » — c'est le paramétrage RECOPIÉ qui rend le figeage \
+             vrai. Constat : {constat}"
+        );
+    }
+}

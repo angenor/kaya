@@ -1415,3 +1415,103 @@ mod tests {
         assert_ne!(identifiant_fiche(a), identifiant_fiche(b));
     }
 }
+
+// =================================================================================================
+//  L'implémentation de LecteurSejour — exposé, sans consommateur à CE cycle
+// =================================================================================================
+
+/// **Il n'a aucun appelant au cycle 006, et c'est écrit à sa définition.**
+///
+/// SEJ-03 (T2) rattachera une consommation de bar à un séjour ; FIS-03 (T3) lira le constat figé.
+/// Sans ce trait, les deux liraient `hebergement.*` par jointure inter-schémas (porte P-04) — la
+/// seconde sur la donnée la plus sensible du produit.
+///
+/// *Une alternative qui existe se prend ; une alternative à construire se contourne.*
+#[async_trait::async_trait]
+impl<E, A, R, C, J> crate::traits::LecteurSejour for ServiceSejour<E, A, R, C, J>
+where
+    E: OutboxWriter + Clone + Send + Sync,
+    A: EstablishmentDirectory + Clone + Send + Sync,
+    R: RegistreModules + Clone + Send + Sync,
+    C: AnnuaireClients + Send + Sync,
+    J: kaya_comptes::audit::JournalAudit + Send + Sync,
+{
+    async fn resume(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<crate::traits::SejourResume>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let Some(sejour) = repository::lire(&mut tx, sejour_id).await? else {
+            tx.rollback().await?;
+            return Ok(None);
+        };
+        let note = note_repo::lire_par_sejour(&mut tx, sejour_id).await?;
+        tx.rollback().await?;
+
+        Ok(note.map(|note| crate::traits::SejourResume {
+            id: sejour.id,
+            etablissement_id: sejour.etablissement_id,
+            client_id: sejour.client_id,
+            statut: sejour.statut,
+            note_id: note.id,
+            devise: note.devise,
+            // **Somme des lignes**, jamais une colonne totalisatrice.
+            total_mineur: note.total_mineur,
+        }))
+    }
+
+    async fn ouverts(
+        &self,
+        etablissement_id: Uuid,
+    ) -> Result<Vec<crate::traits::SejourResume>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let lignes = repository::lister(&mut tx, etablissement_id, true).await?;
+
+        let mut resumes = Vec::with_capacity(lignes.len());
+        for ligne in lignes {
+            if let Some(note) = note_repo::lire_par_sejour(&mut tx, ligne.sejour.id).await? {
+                resumes.push(crate::traits::SejourResume {
+                    id: ligne.sejour.id,
+                    etablissement_id: ligne.sejour.etablissement_id,
+                    client_id: ligne.sejour.client_id,
+                    statut: ligne.sejour.statut,
+                    note_id: note.id,
+                    devise: note.devise,
+                    total_mineur: note.total_mineur,
+                });
+            }
+        }
+        tx.rollback().await?;
+        Ok(resumes)
+    }
+
+    async fn constat_taxe(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<crate::traits::ConstatTaxeSejour>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let constat = taxe_repo::lire(&mut tx, sejour_id).await?;
+        tx.rollback().await?;
+
+        Ok(constat.map(|c| crate::traits::ConstatTaxeSejour {
+            sejour_id: c.sejour_id,
+            nuits_constatees: c.nuits_constatees,
+            nombre_personnes: c.nombre_personnes,
+            assujettie_taxe_nuitee: c.assujettie_taxe_nuitee,
+            // Un code illisible vaut `None` plutôt que de faire tomber la lecture : une ligne
+            // écrite par une version ultérieure du produit ne doit pas rendre un constat figé
+            // inaccessible — c'est précisément la donnée qu'on ne peut pas reconstituer.
+            regle_conversion_taxe: c
+                .regle_conversion_taxe
+                .as_deref()
+                .and_then(|code| crate::referentiel::RegleConversionTaxe::depuis_code(code).ok()),
+            classement_etablissement: c.classement_etablissement,
+            commune: c.commune,
+            fige_le: c.fige_le,
+        }))
+    }
+}

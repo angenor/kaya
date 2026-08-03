@@ -128,6 +128,13 @@ const OPERATIONS: &[Operation] = &[
         classe: Some("A"),
     },
     Operation {
+        numero: 15,
+        nom: "clore un séjour",
+        methode: Method::POST,
+        chemin: "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart",
+        classe: Some("B"),
+    },
+    Operation {
         numero: 16,
         nom: "lire la fiche de police",
         methode: Method::GET,
@@ -146,14 +153,14 @@ const OPERATIONS: &[Operation] = &[
 
 /// Le décompte attendu — **figé**, et c'est ce qui rend la porte opposable.
 ///
-/// ⚠️ **Quatorze, pas dix-sept.** Les opérations 13 (prolongation), 14 (changement d'unité) et
-/// 15 (départ) arrivent avec leurs stories — US5, US7 et US4. Le contrat du cycle en annonce
-/// dix-sept ; **quatorze sont servies à ce point du cycle**, et l'écart est écrit ici plutôt que
-/// laissé à la lecture d'un décompte qui ne correspondrait pas.
+/// ⚠️ **Quinze, pas dix-sept.** Les opérations 13 (prolongation) et 14 (changement d'unité)
+/// arrivent avec leurs stories — US5 et US7. Le contrat du cycle en annonce dix-sept ; **quinze
+/// sont servies à ce point du cycle**, et l'écart est écrit ici plutôt que laissé à la lecture
+/// d'un décompte qui ne correspondrait pas.
 ///
 /// Une constante qui suivrait silencieusement la longueur du tableau ne prouverait rien : elle
 /// vaudrait toujours ce que le tableau vaut, y compris amputé.
-const OPERATIONS_ATTENDUES: usize = 14;
+const OPERATIONS_ATTENDUES: usize = 15;
 
 // =================================================================================================
 //  INSTANCIATION — les opérations d'écriture de classe B et C
@@ -176,20 +183,25 @@ tester_classe_bcd!(
             actix_web::http::Method::POST,
             "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client",
         ),
+        (
+            "clore un séjour",
+            actix_web::http::Method::POST,
+            "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart",
+        ),
     ],
 );
 
 // =================================================================================================
-//  Versant NÉGATIF — les quatorze exigent un jeton, et il n'y en a pas une quinzième
+//  Versant NÉGATIF — les quinze exigent un jeton, et il n'y en a pas une seizième
 // =================================================================================================
 
-/// **Chacune des quatorze porte une exigence d'authentification, et aucune autre n'existe.**
+/// **Chacune des quinze porte une exigence d'authentification, et aucune autre n'existe.**
 ///
 /// Les deux moitiés comptent. La première refuse une opération publique ; la seconde refuse une
-/// opération qui aurait **échappé à la liste** — auquel cas la porte inspecterait quatorze chemins
+/// opération qui aurait **échappé à la liste** — auquel cas la porte inspecterait quinze chemins
 /// en croyant couvrir le cycle.
 #[test]
-fn les_quatorze_operations_du_cycle_exigent_un_jeton() {
+fn les_quinze_operations_du_cycle_exigent_un_jeton() {
     let contrat = kaya_api::application::contrat_complet();
     let mut inspectees = 0usize;
     let mut sans_securite = Vec::new();
@@ -318,8 +330,8 @@ fn le_registre_et_le_contrat_s_accordent_sur_les_classes() {
         .filter(|o| o.classe != Some("A"))
         .count();
     assert_eq!(
-        en_b_ou_c, 4,
-        "quatre écritures de classe B ou C sont attendues — créer et modifier une fiche (C), \
-         ouvrir un séjour et rattacher un client (B). Trouvées : {en_b_ou_c}"
+        en_b_ou_c, 5,
+        "cinq écritures de classe B ou C sont attendues — créer et modifier une fiche (C), \
+         ouvrir un séjour, rattacher un client et clore (B). Trouvées : {en_b_ou_c}"
     );
 }
