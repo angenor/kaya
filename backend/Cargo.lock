@@ -2350,6 +2350,7 @@ dependencies = [
  "kaya-etablissements",
  "kaya-stocks",
  "kaya-synchronisation",
+ "rust_decimal",
  "serde",
  "serde_json",
  "sqlx",

@@ -18,6 +18,11 @@ publish.workspace = true
 kaya-domain = { workspace = true }
 kaya-etablissements = { workspace = true }
 kaya-comptes = { workspace = true }
+
+# `rust_decimal` porte la QUANTITÉ des lignes de note — `NUMERIC(14,4)` en base, jamais un entier
+# ni un flottant (principe V, porte P-10). Déjà au gel §3.1 et déjà tiré par `sqlx` ; l'ajouter ici
+# est une arête de dépendance, pas une entrée nouvelle.
+rust_decimal = { workspace = true }
 kaya-synchronisation = { workspace = true }
 kaya-stocks = { workspace = true }
 
