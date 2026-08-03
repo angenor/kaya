@@ -237,6 +237,7 @@
       "ecart_caisse": "Cash count discrepancy",
       "rebascule_palier_passage": "Moved to the higher rate",
       "forcage_disponibilite": "Forced assignment",
+      "derive_horloge_constatee": "A device's clock is wrong",
       "inconnu": "Unrecognised action"
     }
   },

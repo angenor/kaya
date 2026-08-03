@@ -179,14 +179,29 @@ describe('les noms techniques n’atteignent jamais l’écran', () => {
     // chaque famille a un libellé : une onzième famille absente de la liste passerait les deux
     // tests, et s'afficherait en brut à l'écran le jour où quelqu'un la branche.
     //
-    // `Exclude` rend `never` tant que la couverture est complète ; une famille du contrat
-    // manquant à la liste le rend non-`never`, et l'affectation cesse de compiler. C'est un
-    // contrôle de TYPE : il échoue au `tsc` de `vitest --typecheck`, pas à l'exécution.
+    // ⚠️ **Ce contrôle ne contrôlait rien, et le cycle 005 l'a constaté en ajoutant une onzième
+    // famille au contrat.** Sa forme précédente était :
+    //
+    //     const couvertureComplete: FamillesDuContratNonListees[] = []
+    //
+    // Un tableau **vide** est assignable à `('derive_horloge_constatee')[]` comme à `never[]` :
+    // l'affectation compilait dans les deux cas, et le test annonçait une garantie qu'il n'avait
+    // pas. C'est le mode de défaillance que ce dépôt documente depuis le cycle 001 — un vert qui
+    // donne l'assurance empêchant la relecture.
+    //
+    // La forme qui tient compare le type à `never` **sans distribution** : `[T] extends [never]`.
+    // L'écrire `T extends never ? …` ne marcherait pas non plus — un type conditionnel sur
+    // `never` est distributif et rend `never`, donc ni `true` ni `false`.
     type FamillesDuContratNonListees = Exclude<TypeAction, (typeof TYPES_ACTION)[number]>
-    const couvertureComplete: FamillesDuContratNonListees[] = []
+    type CouvertureComplete = [FamillesDuContratNonListees] extends [never] ? true : false
 
-    expect(couvertureComplete).toHaveLength(0)
-    expect(TYPES_ACTION).toHaveLength(10)
+    // Une famille du contrat absente de `TYPES_ACTION` rend `CouvertureComplete` égal à `false`,
+    // et `const … : false = true` cesse de compiler. Contrôle de TYPE : il échoue au `tsc` de
+    // `vitest --typecheck`, pas à l'exécution.
+    const couvertureComplete: CouvertureComplete = true
+
+    expect(couvertureComplete).toBe(true)
+    expect(TYPES_ACTION).toHaveLength(11)
   })
 })
 

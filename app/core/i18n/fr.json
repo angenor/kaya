@@ -237,6 +237,7 @@
       "ecart_caisse": "Écart au comptage",
       "rebascule_palier_passage": "Passage au tarif supérieur",
       "forcage_disponibilite": "Attribution forcée",
+      "derive_horloge_constatee": "L'heure d'un appareil est fausse",
       "inconnu": "Action non reconnue"
     }
   },

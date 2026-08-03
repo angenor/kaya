@@ -22,13 +22,13 @@ import { enTetesAuth, type ContexteAppel } from '~/core/auth'
  * Une famille de la taxonomie d'audit — **le type du contrat**, `docs/taxonomie-audit.md`.
  *
  * `TypeActionAudit` est une énumération **fermée** côté serveur : le contrat la rend comme une
- * union de dix littéraux. La reprendre ici plutôt que de la redéclarer fait qu'une famille
+ * union de littéraux. La reprendre ici plutôt que de la redéclarer fait qu'une famille
  * renommée ou retirée casse la compilation du front.
  */
 export type TypeAction = components['schemas']['TypeActionAudit']
 
 /**
- * Les dix familles, **dans l'ordre d'affichage du filtre**.
+ * Les **onze** familles, dans l'ordre d'affichage du filtre.
  *
  * Le type ne suffit pas : une union n'est pas énumérable à l'exécution, et l'écran a besoin de la
  * liste pour composer son sélecteur. `satisfies` relie les deux — une famille **renommée ou
@@ -47,6 +47,11 @@ export const TYPES_ACTION = [
   'ecart_caisse',
   'rebascule_palier_passage',
   'forcage_disponibilite',
+  // Cycle 005 (SYN-04) — la première famille qui ne trace aucun geste d'utilisateur : elle
+  // constate que l'heure d'un terminal s'écarte de celle du serveur. Elle est au filtre comme
+  // les dix autres, parce que c'est exactement ce qu'un propriétaire vient chercher au registre
+  // après un service où les horaires paraissaient faux.
+  'derive_horloge_constatee',
 ] as const satisfies readonly TypeAction[]
 
 /** L'auteur d'une entrée. **`nom` absent = compte illisible**, jamais un identifiant en repli. */
