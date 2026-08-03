@@ -377,8 +377,39 @@ where
         //
         // Un accompagnant déclaré à l'arrivée et perdu par un second appel manqué ferait une fiche
         // de police **fausse** — un document légal qui omet une personne déclarée.
+        //
+        // ★ **Chacun émet SON événement, exactement comme s'il arrivait par l'opération 11.**
+        //
+        // C'est un défaut trouvé par `outbox_transactionnel.rs` : les accompagnants déclarés à
+        // l'arrivée n'en émettaient aucun, alors que le même fait — un accompagnant existe —
+        // en émet un quand il passe par l'endpoint dédié. Une projection bâtie sur
+        // `sej.accompagnant.ajoute` aurait donc manqué **la majorité** d'entre eux, puisqu'on les
+        // déclare au comptoir, pas après coup.
+        //
+        // La règle en une phrase : **le même fait produit le même événement, quel que soit le
+        // chemin qui l'a créé.** Faire porter ces accompagnants par la seule charge utile de
+        // `heb.sejour.ouvert` obligerait tout consommateur à lire deux types d'événements pour
+        // connaître un seul fait.
         for accompagnant in &demande.accompagnants {
-            repository::ajouter_accompagnant(tx, self.tenant_id, demande.id, accompagnant).await?;
+            let cree =
+                repository::ajouter_accompagnant(tx, self.tenant_id, demande.id, accompagnant)
+                    .await?;
+            if cree {
+                self.emettre(
+                    tx,
+                    demande.etablissement_id,
+                    TYPE_ACCOMPAGNANT_AJOUTE,
+                    AGREGAT_ACCOMPAGNANT,
+                    accompagnant.id,
+                    json!({
+                        "accompagnant_id": accompagnant.id,
+                        "sejour_id": demande.id,
+                        "nom": accompagnant.nom,
+                        "prenoms": accompagnant.prenoms,
+                    }),
+                )
+                .await?;
+            }
         }
 
         // ── 4 · LA NUMÉROTATION, PUIS LA FICHE DE POLICE ──────────────────────────────────────
