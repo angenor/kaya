@@ -43,6 +43,25 @@ mod commun;
 
 use std::collections::BTreeSet;
 
+// =================================================================================================
+//  POURQUOI `tester_classe_a!` NE S'APPLIQUE PAS ICI — cycle 005
+// =================================================================================================
+//
+// Ce n'est pas une lacune du portage, c'est un fait du produit, et il mérite d'être écrit plutôt
+// que découvert par le prochain qui essaiera.
+//
+// La macro `tester_classe_a!` engendre ses tests **par HTTP** : elle envoie trois fois le même
+// corps sur un endpoint d'écriture. **Le registre des actions n'en a aucun** — le contrat n'expose
+// aucun point d'entrée d'écriture d'audit (research R-17 du cycle 003), et c'est délibéré : une
+// entrée voyage toujours avec l'opération qu'elle trace, jamais seule.
+//
+// Instancier la macro ici aurait donc demandé de lui inventer un endpoint, c'est-à-dire de créer
+// une opération que personne n'a spécifiée — ce que le principe X interdit. Les tests ci-dessous
+// écrivent par le trait `JournalAudit`, qui est le chemin réel.
+//
+// Le contrôle `aucun_endpoint_d_ecriture_d_audit_n_est_apparu` plus bas garde cette raison : le
+// jour où un endpoint existerait, il échouerait, et le portage deviendrait possible **et** dû.
+
 use kaya_comptes::audit::{
     EntreeAudit, FiltresAudit, JournalAudit, JournalAuditPostgres, TypeActionAudit,
 };
@@ -435,4 +454,43 @@ async fn le_curseur_parcourt_le_registre_sans_saut_ni_doublon() {
     let mut decroissant = lus.clone();
     decroissant.sort_by(|a, b| b.cmp(a));
     assert_eq!(lus, decroissant, "l'ordre du parcours n'est pas celui du registre");
+}
+
+// =================================================================================================
+//  Le contrôle qui garde la raison ci-dessus — cycle 005
+// =================================================================================================
+
+/// **Aucun endpoint d'écriture d'audit n'existe** — et c'est ce qui explique l'absence de macro.
+///
+/// Si un tel endpoint apparaissait, deux choses deviendraient vraies en même temps : `tester_classe_a!`
+/// s'appliquerait à cette entité, et il faudrait l'instancier. Ce test échoue à ce moment-là,
+/// c'est-à-dire au seul moment où quelqu'un peut y penser.
+#[test]
+fn aucun_endpoint_d_ecriture_d_audit_n_est_apparu() {
+    let contrat = kaya_api::application::contrat_complet();
+
+    let ecritures: Vec<String> = contrat
+        .paths
+        .paths
+        .iter()
+        .filter(|(chemin, _)| {
+            let c = chemin.to_lowercase();
+            c.contains("audit") || c.contains("registre")
+        })
+        .filter(|(_, item)| item.post.is_some() || item.put.is_some() || item.delete.is_some())
+        .map(|(chemin, _)| chemin.clone())
+        .collect();
+
+    assert!(
+        ecritures.is_empty(),
+        "un endpoint d'ÉCRITURE d'audit est apparu : {ecritures:?}\n\n\
+         Deux conséquences, dans cet ordre :\n\
+         \n\
+         1. **Vérifier que c'est voulu.** Le contrat n'en exposait aucun (research R-17) parce \
+            qu'une entrée d'audit voyage avec l'opération qu'elle trace, jamais seule. Un endpoint \
+            d'écriture permettrait d'écrire au registre SANS l'action correspondante — c'est-à-dire \
+            de fabriquer une trace.\n\
+         2. Si c'est voulu, **instancier `tester_classe_a!` sur cette entité** : la macro engendre \
+            le rejeu triple et les six ordres par HTTP, ce qui n'était pas possible jusqu'ici."
+    );
 }

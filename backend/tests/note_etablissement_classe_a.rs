@@ -26,6 +26,31 @@ use actix_web::test;
 use serde_json::json;
 use uuid::Uuid;
 
+// =================================================================================================
+//  L'INSTANCIATION — ce que coûte désormais la couverture d'une entité de classe A
+// =================================================================================================
+//
+// Une déclaration. Elle engendre le rejeu triple (une ligne, UN événement) et les six ordres du
+// désordre, **en six tests nommés** : la permutation est dans le nom, et c'est ce qu'on lit en CI
+// à vingt-trois heures.
+//
+// Les deux tests écrits à la main plus bas sont **conservés** et non remplacés, et le motif est le
+// garde-fou de ce cycle : une macro qui couvrirait moins que le code qu'elle remplace
+// transformerait une réécriture en régression silencieuse. Ils vérifient deux propriétés que la
+// macro ne porte pas — les statuts `201/200/200` exacts, et l'égalité des ÉTATS FINAUX (textes
+// compris) et non seulement de leur cardinal.
+tester_classe_a!(
+    par_macro,
+    schema = "etablissements",
+    table = "note_etablissement",
+    agregat = "note_etablissement",
+    chemin = |etablissement_id| format!("/api/v1/etablissements/{etablissement_id}/notes"),
+    corps = |id, rang| serde_json::json!({
+        "id": id,
+        "texte": format!("Écriture engendrée n° {rang}."),
+    }),
+);
+
 
 /// **Test de rejeu.** Trois envois du même identifiant → un enregistrement, `201` puis `200`.
 ///

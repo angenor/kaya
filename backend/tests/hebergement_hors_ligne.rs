@@ -141,6 +141,38 @@ const OPERATIONS: &[Operation] = &[
 const TREIZE: usize = 13;
 
 // =================================================================================================
+//  L'INSTANCIATION — cycle 005, ce que coûte désormais la couverture d'opérations de classe C
+// =================================================================================================
+//
+// Une déclaration. La macro engendre le contrôle d'inatteignabilité hors ligne — chaque opération
+// exige un jeton, donc une session, donc le réseau — pour toutes les opérations d'ÉCRITURE de la
+// verticale.
+//
+// **Les tests écrits à la main plus bas sont CONSERVÉS**, et le motif est le garde-fou de ce
+// cycle : une macro qui couvrirait moins que le code qu'elle remplace transformerait une
+// réécriture en régression silencieuse. Ils vérifient trois propriétés que la macro ne porte pas —
+// que la liste des treize correspond EXACTEMENT aux chemins du contrat (aucune opération de la
+// verticale hors liste), que les privilèges de chaque table disent sa classe, et que les treize
+// **aboutissent en ligne** (le versant positif, sans lequel une opération retirée du produit
+// satisferait encore la moitié négative).
+tester_classe_bcd!(
+    ecritures_par_macro,
+    classe = "C",
+    operations = &[
+        (
+            "créer une catégorie",
+            actix_web::http::Method::POST,
+            "/api/v1/etablissements/{etablissement_id}/hebergement/categories",
+        ),
+        (
+            "modifier une catégorie",
+            actix_web::http::Method::PUT,
+            "/api/v1/etablissements/{etablissement_id}/hebergement/categories/{categorie_id}",
+        ),
+    ],
+);
+
+// =================================================================================================
 //  VERSANT NÉGATIF — aucune des treize n'est atteignable sans jeton
 // =================================================================================================
 

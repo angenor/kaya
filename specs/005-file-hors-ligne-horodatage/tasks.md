@@ -193,14 +193,14 @@ une déclaration.
 **Test d'indépendance** : réécrire les trois instanciations manuelles avec l'outillage, à
 comportement inchangé et **sans perte de couverture**. Quickstart §6.
 
-- [ ] T055 [US4] **Relever le décompte d'assertions** de `note_etablissement_classe_a.rs`, `audit_classe_a.rs` et `hebergement_hors_ligne.rs` **avant** tout portage, et le consigner. C'est le garde-fou du risque principal du cycle : une macro qui couvre moins transforme une réécriture en régression silencieuse
-- [ ] T056 [US4] Créer `backend/tests/commun/classes.rs` — macro `tester_classe_a!` engendrant le **rejeu triple** (une ligne, **un** événement outbox) et le **désordre sur les six ordres**, en **six tests nommés** et non un test générique
-- [ ] T057 [US4] Ajouter `tester_classe_bcd!` à `backend/tests/commun/classes.rs` — le test d'inatteignabilité hors ligne, et pour B le test de concurrence (deux exécutions simultanées, une seule réussit)
-- [ ] T058 [US4] Ajouter `tester_classe_d!` à `backend/tests/commun/classes.rs` — double soumission au retour du réseau, **installée à vide** avec son assertion de non-régression : la certification FNE est de la tranche T3
-- [ ] T059 [US4] Porter `note_etablissement_classe_a.rs` sur les macros et **comparer le décompte d'assertions** à T055
-- [ ] T060 [US4] [P] Porter `audit_classe_a.rs` sur les macros, même comparaison
-- [ ] T061 [US4] [P] Porter `hebergement_hors_ligne.rs` sur les macros, même comparaison
-- [ ] T062 [US4] Créer `backend/tests/outillage_classes.rs` — parcourt le registre, en extrait toute entité **ayant une table réelle**, et échoue si elle n'a **aucune** instanciation correspondant à sa classe. Pendant exact de `classes_offline.rs` : celui-là vérifie qu'une classe est **déclarée**, celui-ci qu'elle est **exercée**
+- [x] T055 [US4] **Relever le décompte d'assertions** de `note_etablissement_classe_a.rs`, `audit_classe_a.rs` et `hebergement_hors_ligne.rs` **avant** tout portage, et le consigner. C'est le garde-fou du risque principal du cycle : une macro qui couvre moins transforme une réécriture en régression silencieuse
+- [x] T056 [US4] Créer `backend/tests/commun/classes.rs` — macro `tester_classe_a!` engendrant le **rejeu triple** (une ligne, **un** événement outbox) et le **désordre sur les six ordres**, en **six tests nommés** et non un test générique
+- [x] T057 [US4] Ajouter `tester_classe_bcd!` à `backend/tests/commun/classes.rs` — le test d'inatteignabilité hors ligne, et pour B le test de concurrence (deux exécutions simultanées, une seule réussit)
+- [x] T058 [US4] Ajouter `tester_classe_d!` à `backend/tests/commun/classes.rs` — double soumission au retour du réseau, **installée à vide** avec son assertion de non-régression : la certification FNE est de la tranche T3
+- [x] T059 [US4] Porter `note_etablissement_classe_a.rs` sur les macros et **comparer le décompte d'assertions** à T055
+- [x] T060 [US4] [P] Porter `audit_classe_a.rs` sur les macros, même comparaison
+- [x] T061 [US4] [P] Porter `hebergement_hors_ligne.rs` sur les macros, même comparaison
+- [x] T062 [US4] Créer `backend/tests/outillage_classes.rs` — parcourt le registre, en extrait toute entité **ayant une table réelle**, et échoue si elle n'a **aucune** instanciation correspondant à sa classe. Pendant exact de `classes_offline.rs` : celui-là vérifie qu'une classe est **déclarée**, celui-ci qu'elle est **exercée**
 - [x] T063 [US4] Créer `app/tests/commun/classes.ts` — utilitaires du versant application : marque de classe, refus d'enfilement, annonce avant saisie
 
 **Point de contrôle US4** : couvrir une entité nouvelle coûte une déclaration, et l'oublier fait

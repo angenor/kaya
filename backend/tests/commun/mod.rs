@@ -15,6 +15,13 @@
 /// catalogue de PostgreSQL et ses crates des `[workspace] members` — voir `perimetre.rs`.
 pub mod perimetre;
 
+/// **Les tests obligatoires du §0.7, engendrés par macro** — rejeu, désordre, inatteignabilité.
+///
+/// Ils ont été honorés trois fois par réécriture avant ce module, avec trois formulations et trois
+/// occasions d'en couvrir un peu moins. Couvrir une entité coûte désormais une **déclaration**, et
+/// `outillage_classes.rs` fait échouer le build en nommant celle qui l'aurait oubliée.
+pub mod classes;
+
 use std::str::FromStr;
 
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
