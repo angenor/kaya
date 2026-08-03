@@ -170,6 +170,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clients/{client_id}/sejours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * L'historique des séjours d'un client, **du plus récent au plus ancien**.
+         * @description ★ **Elle est ici, et non dans `clients.rs`, pour deux raisons opposables** : elle lit
+         *     `hebergement.sejour`, et elle se monte sur le crate `hebergement`. Si `socle/comptes` la
+         *     servait, ce serait une jointure inter-schémas (**P-04**) *et* une arête `socle/ → verticales/`
+         *     (**P-03**) — deux violations d'un coup.
+         *
+         *     **Double garde de permission** : `sej.client.lire` **et** `heb.sejour.lire`. La première dit
+         *     qu'on a le droit de savoir qui est ce client, la seconde qu'on a le droit de savoir ce qu'il a
+         *     consommé. Un rôle qui n'aurait que la première verrait une fiche sans historique — ce qui est
+         *     exactement le comportement voulu pour un compte de portée restreinte.
+         */
+        get: operations["client_historique_sejours"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/comptes": {
         parameters: {
             query?: never;
@@ -424,6 +452,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etablissements/{etablissement_id}/hebergement/etat-des-unites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rend **toutes** les unités de l'établissement avec leur état d'occupation dérivé.
+         * @description # ⚠️ Ce n'est PAS HEB-06
+         *
+         *     Le sous-statut de ménage est **en lecture seule** ici, et l'état d'occupation est **dérivé des
+         *     occupations**, jamais posé à la main (principe IV). Une colonne `statut` sur `unite` se
+         *     désynchroniserait à la première libération manquée, et deux personnes verraient la même chambre
+         *     libre et occupée — ce que le cadrage désigne nommément comme la cause des doubles attributions.
+         *
+         *     # Cet appel se fait au MONTAGE de l'écran `R4`, avant le premier geste
+         *
+         *     Il **ne compte pas** dans le budget d'un appel bloquant, qui court du premier geste à la
+         *     confirmation (FR-031). C'est même l'inverse : le précharger est ce qui permet à l'attribution
+         *     de n'être qu'un tap.
+         */
+        get: operations["hebergement_etat_des_unites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/etablissements/{etablissement_id}/hebergement/formules": {
         parameters: {
             query?: never;
@@ -598,6 +657,148 @@ export interface paths {
          *     `PUT .../tables`.
          */
         post: operations["points_de_vente_creer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liste les séjours d'un établissement, **avec le nom de leur client**.
+         * @description ★ Les noms sont résolus **par lot**, en un seul appel au trait `AnnuaireClients` — jamais par
+         *     jointure (porte P-04), et jamais un par un : une résolution unitaire produirait N+1 requêtes,
+         *     et c'est le détail qui décide si l'écran de départ s'ouvre en 200 ms ou en deux secondes.
+         */
+        get: operations["sejour_lister"];
+        put?: never;
+        /**
+         * Ouvre un séjour — **un appel, une transaction, cinq écritures**.
+         * @description C'est ce qui tient le budget de FR-031 : au plus **un** appel réseau bloquant entre le premier
+         *     geste et la confirmation.
+         *
+         *     ⚠️ **`409 unite_deja_occupee` vient de la contrainte d'exclusion**, jamais d'une vérification
+         *     préalable. Un `SELECT … FOR UPDATE` donnerait le même code en rendant la double attribution
+         *     *improbable* au lieu d'*impossible*.
+         */
+        post: operations["sejour_ouvrir"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lit un séjour complet — le séjour, l'occupation, la note et son total, la fiche de police. */
+        get: operations["sejour_lire"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ajoute un accompagnant — **classe A**, la seule écriture de séjour atteignable hors ligne.
+         * @description ★ **Trois codes, et le troisième est celui du principe VI.**
+         *
+         *     Sur un séjour **clos**, l'écriture n'est ni acceptée (`201` serait un ajout d'office) ni
+         *     rejetée (`409` serait un rejet silencieux) : elle part en **file de réconciliation** avec son
+         *     motif et sa charge utile, et rend **`202`**. C'est le premier cas réel d'écriture orpheline du
+         *     produit.
+         */
+        post: operations["sejour_accompagnant_ajouter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants/{accompagnant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Retire un accompagnant — **`retire_le`, jamais un `DELETE`**.
+         * @description Sans cela, la fiche de police perdrait la trace d'une personne qui a bien été déclarée, et un
+         *     registre légal qui perd une déclaration est un document faux devant la gendarmerie. Le verbe
+         *     HTTP est `DELETE` parce que c'est le geste de l'utilisateur ; la base, elle, ne supprime rien.
+         */
+        delete: operations["sejour_accompagnant_retirer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rattache une fiche client à un séjour déjà ouvert.
+         * @description **Ne rouvre pas le séjour et ne remet pas en cause l'attribution** (FR-028). C'est le parcours
+         *     normal du passage : la pièce vient **après** la clé (FR-023). La fiche de police passe à
+         *     « complète » dans la même transaction.
+         */
+        post: operations["sejour_rattacher_client"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/fiche-police": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lit la fiche de police d'un séjour.
+         * @description Elle porte la mention obligatoire « **Document non fiscal — ne tient pas lieu de facture** » à
+         *     l'affichage : c'est un **document opérationnel** au sens de FIS-02, et le principe V l'exige de
+         *     tous (FR-048).
+         *
+         *     ⚠️ **Elle ne porte aucune identité recopiée** : les noms viennent du client et des
+         *     accompagnants. Recopier créerait une troisième surface de rétention pour la même donnée.
+         */
+        get: operations["sejour_fiche_police_lire"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1007,6 +1208,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Un accompagnant — **classe A**. */
+        Accompagnant: {
+            /** Format: date-time */
+            cree_le: string;
+            /** Format: uuid */
+            id: string;
+            nom: string;
+            /**
+             * @description ⚠️ **Le numéro de pièce n'est PAS rendu par ce type.** La colonne existe (migration
+             *     `0031`) ; ce champ dit seulement qu'une pièce est enregistrée, comme `ClientResume` le fait
+             *     pour le titulaire. Le rendre exposerait une seconde surface de fuite pour la donnée que
+             *     FR-012 protège.
+             */
+            piece_enregistree: boolean;
+            prenoms?: string | null;
+            /** Format: date-time */
+            retire_le?: string | null;
+            /** Format: uuid */
+            sejour_id: string;
+        };
+        /**
+         * @description Un accompagnant à ajouter — **un nom suffit** (FR-015).
+         *
+         *     Demander une pièce par accompagnant coûterait la cible des 60 secondes de l'arrivée.
+         */
+        AccompagnantRequete: {
+            /** Format: date */
+            date_naissance?: string | null;
+            /** Format: date-time */
+            horodatage_client?: string | null;
+            /** Format: uuid */
+            id: string;
+            nationalite?: string | null;
+            nom: string;
+            /**
+             * @description ⚠️ **Seconde surface de rétention du produit, et elle est assumée** : un accompagnant n'a
+             *     pas de fiche client. La purge de 90 jours de TRX-06 portera sur **deux** tables.
+             */
+            numero_piece?: string | null;
+            prenoms?: string | null;
+            type_piece?: string | null;
+        };
         /** @description Le document de test rendu. */
         ApercuReponse: {
             /** @description Contenu textuel du document. */
@@ -1501,6 +1744,16 @@ export interface components {
             portee_id?: string | null;
             valeur: unknown;
         };
+        /** @description Réponse d'une écriture partie en **file de réconciliation** — `202`. */
+        EcritureOrpheline: {
+            /**
+             * @description Code stable, traduit par le lexique : « Cette information est arrivée après le départ du
+             *     client. » suivie de « Le gérant décidera de la suite. »
+             */
+            motif: string;
+            /** Format: uuid */
+            reconciliation_id: string;
+        };
         /** @description Une entrée du registre, telle que l'API la rend. */
         EntreeJournalVue: {
             auteur: components["schemas"]["AuteurVue"];
@@ -1607,6 +1860,16 @@ export interface components {
             nom: string;
             statut: components["schemas"]["StatutSante"];
         };
+        /** @description La réponse complète — les unités **et** l'instant qui dit quand elle était vraie. */
+        EtatDesUnites: {
+            /**
+             * Format: date-time
+             * @description **Horodatage d'autorité serveur.** Il dit **quand** la réponse était vraie — information
+             *     honnête, plutôt que de laisser croire qu'elle le reste.
+             */
+            instant_autorite: string;
+            unites: components["schemas"]["EtatUniteVue"][];
+        };
         /** @description Réponse de la sonde. */
         EtatSante: {
             dependances: components["schemas"]["EtatDependance"][];
@@ -1616,6 +1879,36 @@ export interface components {
              *     c'est la version de Kaya, jamais celle d'une dépendance.
              */
             version: string;
+        };
+        /** @description L'état d'une unité, tel que l'écran `R4` l'affiche. */
+        EtatUniteVue: {
+            /** Format: uuid */
+            categorie_id: string;
+            /** @description Ce que l'exploitant nomme — `A1`, `B3`. C'est ce que Yao lit sur la clé. */
+            code: string;
+            /**
+             * Format: date-time
+             * @description Renseigné quand `etat = "remise_en_etat"` — le moment où la chambre redevient attribuable.
+             */
+            disponible_a?: string | null;
+            /** Format: int32 */
+            etage?: number | null;
+            /**
+             * @description **Dérivé** des occupations, jamais posé à la main (principe IV) :
+             *     `libre` · `occupee` · `remise_en_etat`.
+             */
+            etat: string;
+            /**
+             * Format: date-time
+             * @description Renseigné quand `etat = "occupee"` — l'heure que Yao redit au client.
+             */
+            fin_prevue?: string | null;
+            /** Format: uuid */
+            sejour_id?: string | null;
+            /** @description **En lecture seule.** Le sous-statut de ménage se modifie par HEB-06, hors périmètre. */
+            statut_menage: string;
+            /** Format: uuid */
+            unite_id: string;
         };
         /**
          * @description Les **quatre** façons de louer une unité. Toute autre valeur est refusée explicitement
@@ -1676,6 +1969,27 @@ export interface components {
             telephone?: string | null;
             type_piece?: string | null;
         };
+        /** @description La fiche de police d'un séjour. */
+        FichePolice: {
+            /**
+             * @description **FR-047** — une fiche sans identité rattachée est identifiée comme telle. Terme
+             *     utilisateur : « Identité à compléter », jamais « incomplète ».
+             */
+            complete: boolean;
+            /** Format: date-time */
+            completee_le?: string | null;
+            /** Format: date-time */
+            generee_le: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int64
+             * @description Continu **par établissement**, sans trou.
+             */
+            numero: number;
+            /** Format: uuid */
+            sejour_id: string;
+        };
         /** @description Une formule, telle que l'écran `G2` la lit. */
         FormuleVue: {
             assujettie_taxe_nuitee: boolean;
@@ -1720,6 +2034,36 @@ export interface components {
              *     idempotente par son effet : une occupation déjà libérée rend `200` sans second événement.
              */
             id: string;
+        };
+        /** @description Une ligne de la note. */
+        LigneNote: {
+            devise: string;
+            /** Format: uuid */
+            id: string;
+            /** @description **Clé i18n, jamais un libellé rendu** : la note s'affiche en `fr` et en `en` (P-16). */
+            libelle_cle: string;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure. Peut être négatif** — un départ anticipé rembourse.
+             */
+            montant_mineur: number;
+            /** @description Renseigné **seulement** sur un ajustement. */
+            motif?: string | null;
+            nature: string;
+            /** Format: date-time */
+            periode_debut?: string | null;
+            /** Format: date-time */
+            periode_fin?: string | null;
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** (P-10).
+             */
+            prix_unitaire_mineur: number;
+            /**
+             * @description ⚠️ **`NUMERIC` en base**, rendu en chaîne décimale : un `f64` perdrait des chiffres sur une
+             *     quantité au prorata, et le principe V l'interdit jusque dans le contrat.
+             */
+            quantite: string;
         };
         /** @description La clé d'objet d'un logo téléversé. */
         LogoReponse: {
@@ -1870,6 +2214,26 @@ export interface components {
             id: string;
             texte: string;
         };
+        /** @description La note d'un séjour, **avec son total calculé**. */
+        NoteVue: {
+            /** Format: date-time */
+            arretee_le?: string | null;
+            devise: string;
+            /** Format: uuid */
+            id: string;
+            lignes: components["schemas"]["LigneNote"][];
+            /** Format: uuid */
+            sejour_id: string;
+            statut: string;
+            /**
+             * Format: int64
+             * @description ★ **La somme des lignes, calculée à la lecture — jamais une colonne.**
+             *
+             *     Une colonne totalisatrice se désynchronise en silence, et le silence est exactement ce que
+             *     le propriétaire achète en installant ce logiciel (cadrage §8.3).
+             */
+            total_mineur: number;
+        };
         /** @description Un obstacle à la désactivation d'un service, tel que l'API le rend. */
         ObstacleVue: {
             module_code: string;
@@ -1931,6 +2295,45 @@ export interface components {
              */
             libelle_appareil?: string | null;
             mot_de_passe: string;
+        };
+        /** @description Corps d'ouverture d'un séjour — **l'opération du cycle**. */
+        OuvrirSejourRequete: {
+            /**
+             * @description Ajoutés dans la **même transaction** que le séjour : un accompagnant déclaré à l'arrivée et
+             *     perdu par un second appel manqué ferait une fiche de police fausse.
+             */
+            accompagnants?: components["schemas"]["AccompagnantRequete"][];
+            /**
+             * Format: uuid
+             * @description **ABSENT pour un passage** : la pièce d'identité vient après la clé (maquette `R4`,
+             *     FR-023). Un séjour sans fiche est un séjour valide.
+             */
+            client_id?: string | null;
+            /**
+             * Format: date-time
+             * @description RFC 3339. Pour un passage, calculés depuis la durée touchée.
+             */
+            debut_client: string;
+            /** Format: date-time */
+            fin_client: string;
+            /** Format: uuid */
+            formule_id: string;
+            /**
+             * Format: date-time
+             * @description Indicatif — **jamais employé par une règle métier** (porte P-23).
+             */
+            horodatage_client?: string | null;
+            /**
+             * Format: uuid
+             * @description UUID v7 **généré par le client** (FR-086) : c'est lui qui rend le rejeu inoffensif. Le
+             *     serveur déduplique, il n'engendre pas.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Choisie par l'opérateur — **un tap sur `R4`**.
+             */
+            unite_id: string;
         };
         /** @description Une page du registre. */
         PageJournalVue: {
@@ -2087,6 +2490,11 @@ export interface components {
             etablissement_id?: string | null;
             rafraichissement: string;
         };
+        /** @description Corps de rattachement d'un client à un séjour déjà ouvert. */
+        RattacherClientRequete: {
+            /** Format: uuid */
+            client_id: string;
+        };
         /** @description La rebascule d'un passage : le palier vendu, et celui qui s'applique en réalité. */
         Rebascule: {
             /**
@@ -2139,6 +2547,72 @@ export interface components {
              */
             etablissement_id?: string | null;
             role_code: string;
+        };
+        /** @description Un séjour tel qu'il est en base. */
+        Sejour: {
+            /**
+             * Format: uuid
+             * @description **Absent pour un passage** : la pièce d'identité vient après la clé (FR-023).
+             */
+            client_id?: string | null;
+            /** Format: date-time */
+            clos_le?: string | null;
+            /** Format: uuid */
+            etablissement_id: string;
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur**. C'est lui que le calcul de durée réelle lit au départ.
+             */
+            ouvert_le: string;
+            statut: components["schemas"]["StatutSejour"];
+        };
+        /**
+         * @description Ce que l'ouverture d'un séjour rend — **tout ce que l'écran doit afficher, en un appel**.
+         *
+         *     C'est ce qui tient le budget de FR-031 : au plus **un** appel réseau bloquant entre le premier
+         *     geste et la confirmation. Rendre le séjour seul obligerait l'écran à trois appels de plus pour
+         *     afficher « C'est fait » avec l'heure de fin.
+         */
+        SejourOuvert: {
+            fiche_police: components["schemas"]["FichePolice"];
+            /**
+             * Format: date-time
+             * @description Horodatage d'**autorité serveur** — il dit **quand** la réponse était vraie, et c'est lui
+             *     que l'écran affiche, jamais l'horloge du terminal.
+             */
+            instant_autorite: string;
+            note: components["schemas"]["NoteVue"];
+            occupation: components["schemas"]["OccupationVue"];
+            sejour: components["schemas"]["Sejour"];
+        };
+        /** @description Un séjour dans la liste — **avec le nom de son client**, résolu par `AnnuaireClients`. */
+        SejourVue: {
+            /**
+             * @description ⚠️ **Résolu par le trait, jamais par jointure** (P-04). `None` quand le séjour n'a pas de
+             *     client rattaché — ou quand sa fiche a été purgée par TRX-06, deux cas que l'écran présente
+             *     de la même façon : sans nom.
+             */
+            client_nom?: string | null;
+            client_telephone?: string | null;
+            devise: string;
+            /** Format: date-time */
+            fin_prevue?: string | null;
+            /**
+             * Format: int32
+             * @description Nombre de personnes — **dérivé** du titulaire et des accompagnants non retirés, jamais
+             *     saisi en double (FR-018).
+             */
+            nombre_personnes: number;
+            sejour: components["schemas"]["Sejour"];
+            /**
+             * Format: int64
+             * @description **Entier d'unité mineure** — la somme des lignes.
+             */
+            total_mineur: number;
+            /** Format: uuid */
+            unite_id?: string | null;
         };
         /**
          * @description Un service **actif** d'un établissement, tel que l'API le rend.
@@ -2240,6 +2714,16 @@ export interface components {
          * @enum {string}
          */
         StatutSante: "operationnel" | "degrade";
+        /**
+         * @description L'état d'un séjour. **Deux valeurs, et pas une de plus.**
+         *
+         *     Un séjour est en cours ou terminé. Les états intermédiaires qu'on serait tenté d'ajouter —
+         *     « en attente », « à confirmer » — appartiennent à la **réservation** (RSV, tranche T4), qui a
+         *     son propre cycle de vie `provisoire → confirmee → honoree | annulee | no_show`. Les mélanger
+         *     rendrait impossible de dire, devant une chambre occupée, si quelqu'un y dort.
+         * @enum {string}
+         */
+        StatutSejour: "en_cours" | "clos";
         TableRequete: {
             /** Format: uuid */
             id: string;
@@ -2789,6 +3273,45 @@ export interface operations {
             };
             /** @description preference_invalide */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    client_historique_sejours: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Fiche client */
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Les séjours du client, tous établissements du tenant confondus */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente — les DEUX sont exigées */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3785,6 +4308,54 @@ export interface operations {
             };
         };
     };
+    hebergement_etat_des_unites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Toutes les unités avec leur état DÉRIVÉ, et l'instant d'autorité */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtatDesUnites"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
     hebergement_lister_formules: {
         parameters: {
             query?: never;
@@ -4638,6 +5209,414 @@ export interface operations {
             };
             /** @description Service non activé sur cet établissement */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_lister: {
+        parameters: {
+            query?: {
+                /** @description `true` par défaut — l'écran de départ ne montre que ce qui est en cours. */
+                en_cours?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Les séjours, avec nom du client, personnes, unité et total */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourVue"][];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_ouvrir: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OuvrirSejourRequete"];
+            };
+        };
+        responses: {
+            /** @description Rejeu du même id — la ligne telle qu'elle est en base */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Séjour ouvert — le séjour, l'occupation, la note et son total, la fiche de police */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Établissement, unité, formule ou client inconnus */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description unite_deja_occupee — le refus vient de la CONTRAINTE · service_inactif */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description intervalle_invalide, duree_hors_contrainte, formule_hors_categorie, plage_non_fractionnable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Le séjour complet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SejourOuvert"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_accompagnant_ajouter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccompagnantRequete"];
+            };
+        };
+        responses: {
+            /** @description Rejeu du même id — aucun second événement outbox */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accompagnant"];
+                };
+            };
+            /** @description Ajouté à un séjour ouvert */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accompagnant"];
+                };
+            };
+            /** @description ★ Le séjour est CLOS : l'écriture part en file de réconciliation. Ni 201 (ajout d'office), ni 409 (rejet silencieux) */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EcritureOrpheline"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_accompagnant_retirer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+                /** @description Accompagnant */
+                accompagnant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retiré — la ligne porte retire_le, elle n'est pas supprimée */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accompagnant"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Accompagnant inconnu */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_rattacher_client: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RattacherClientRequete"];
+            };
+        };
+        responses: {
+            /** @description Client rattaché — la fiche de police devient complète */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sejour"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour ou client inconnus */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+        };
+    };
+    sejour_fiche_police_lire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Établissement */
+                etablissement_id: string;
+                /** @description Séjour */
+                sejour_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description La fiche de police, avec son numéro et sa complétude */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FichePolice"];
+                };
+            };
+            /** @description Non authentifié */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission absente */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CorpsErreur"];
+                };
+            };
+            /** @description Séjour inconnu */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

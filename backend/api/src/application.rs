@@ -310,6 +310,40 @@ impl EtatApplication {
         )
     }
 
+    /// ★ Service du séjour — **SEJ-02, SEJ-04, le cœur du cycle 006**.
+    ///
+    /// # Il reçoit `AnnuaireClients`, et c'est ce qui remplace une jointure
+    ///
+    /// Un séjour affiche toujours le nom de son client. C'est la jointure
+    /// `hebergement.sejour × comptes.personne` que tout le monde écrirait, et que la porte P-04
+    /// attraperait — mais **après coup**, une fois l'écran écrit.
+    ///
+    /// `backend/api/` est la famille « assemblage », **seul endroit du produit qui a le droit de
+    /// connaître à la fois le socle et les verticales** (principe II). C'est ici, et nulle part
+    /// ailleurs, que le trait exposé par `socle/comptes` rencontre son consommateur de
+    /// `verticales/hebergement` — et cette ligne-là est la seule qui les met en présence.
+    pub fn service_sejour(
+        &self,
+        tenant_id: uuid::Uuid,
+    ) -> kaya_hebergement::sejour::ServiceSejour<
+        kaya_synchronisation::outbox::PgOutboxWriter,
+        kaya_etablissements::etablissement::PgEstablishmentDirectory,
+        kaya_etablissements::modules::PgRegistreModules,
+        kaya_comptes::PgAnnuaireClients,
+    > {
+        kaya_hebergement::sejour::ServiceSejour::nouveau(
+            self.pool.clone(),
+            tenant_id,
+            kaya_synchronisation::outbox::PgOutboxWriter::nouveau(),
+            kaya_etablissements::etablissement::PgEstablishmentDirectory::nouveau(
+                self.pool.clone(),
+                tenant_id,
+            ),
+            kaya_etablissements::modules::PgRegistreModules::nouveau(self.pool.clone(), tenant_id),
+            kaya_comptes::PgAnnuaireClients::nouveau(self.pool.clone()),
+        )
+    }
+
     /// Service du référentiel d'hébergement — HEB-01, HEB-03, HEB-04, HEB-05.
     ///
     /// # Il prend un `tenant_id`, et c'est la même raison qu'à `service_roles`
