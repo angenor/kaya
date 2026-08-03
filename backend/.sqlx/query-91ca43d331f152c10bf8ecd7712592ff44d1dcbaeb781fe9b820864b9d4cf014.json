@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COUNT(*) AS \"c!\"\n        FROM comptes.client cl\n        JOIN comptes.compte c ON c.personne_id = cl.personne_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "91ca43d331f152c10bf8ecd7712592ff44d1dcbaeb781fe9b820864b9d4cf014"
+}

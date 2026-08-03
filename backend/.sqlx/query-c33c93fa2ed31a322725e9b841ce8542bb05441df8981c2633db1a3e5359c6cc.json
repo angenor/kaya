@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.numerotation_fiche_police\n            (tenant_id, etablissement_id, dernier_numero)\n        VALUES ($1, $2, $3)\n        ON CONFLICT (tenant_id, etablissement_id) DO UPDATE\n        SET dernier_numero = GREATEST(hebergement.numerotation_fiche_police.dernier_numero,\n                                      EXCLUDED.dernier_numero)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c33c93fa2ed31a322725e9b841ce8542bb05441df8981c2633db1a3e5359c6cc"
+}

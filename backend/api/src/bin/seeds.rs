@@ -429,6 +429,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     seeder_hebergement_deloria(&pool).await?;
     seeder_parametres_deloria(&pool).await?;
     seeder_hebergement_residence_test(&pool).await?;
+    // ── Cycle 006 — les fiches clientes et les séjours de démonstration ─────────────────────
+    seeder_clients(&pool).await?;
+    seeder_sejours(&pool).await?;
 
     println!("Seeds appliqués. Deux tenants :");
     println!("  Deloria         {TENANT_DELORIA}  (établissement {ETABLISSEMENT_DELORIA})");
@@ -447,6 +450,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  koffi@deloria.test    propriétaire");
     println!("  adjoua@deloria.test   gérante + caissière + réceptionniste  ← le cumul");
     println!("  yao@deloria.test      réceptionniste");
+    println!();
+    println!();
+    println!("Fiches clientes : 12 sur Deloria, 2 sur Résidence Test — aucune pièce d'identité.");
+    println!("Séjours         : 4 — nuitée en cours (2 nuits, 2 accompagnants), passage en cours");
+    println!("                  sans fiche, séjour CLOS avec son constat de taxe FIGÉ, et un");
+    println!("                  meublé en cours sur Résidence Test.");
+    println!("                  Le constat porte nuitees_assujetties et montant_mineur à NULL :");
+    println!("                  ce cycle fige des FAITS, le calcul appartient à FIS-03.");
     println!();
     println!("Rejouable : une seconde exécution laisse exactement le même état.");
 
@@ -1210,3 +1221,490 @@ async fn seeder_parametres_deloria(pool: &PgPool) -> Result<(), Box<dyn std::err
     Ok(())
 }
 
+
+// ===============================================================================================
+//  SEJ — les fiches clientes et les séjours de démonstration (cycle 006)
+// ===============================================================================================
+//
+// # ⚠️ JAMAIS PAR MIGRATION, et c'est le piège de tout ce fichier
+//
+// Une table en `FORCE ROW LEVEL SECURITY` accepte un `INSERT` de migration **en n'écrivant rien**,
+// sans erreur : une migration n'a pas de tenant courant, sa politique d'isolation ne trouve donc
+// aucune ligne à laisser passer, et `INSERT 0` ne lève pas. Le seed pose `app.current_tenant`
+// avant chaque transaction, et c'est ce qui le rend possible.
+//
+// # Ce que ce jeu de données rend VISIBLE, et qu'aucune autre donnée ne montrerait
+//
+// Le séjour clos porte son **constat de taxe figé** — avec `nuitees_assujetties` et
+// `montant_mineur` à **`NULL`**. C'est ce qui rend lisible, en base et sans lire une ligne de
+// code, que **ce cycle a laissé le calcul à FIS-03** : il fige des **faits** et un paramétrage
+// recopié, il ne dérive aucune assiette. Un jeu de données qui aurait « rempli » ces deux colonnes
+// pour faire joli aurait fait croire à un calcul qui n'existe pas.
+//
+// # Les instants sont RELATIFS À `now()`, et le seed reste rejouable
+//
+// « Un séjour en cours » n'a de sens que par rapport à maintenant : des dates figées auraient été
+// « en cours » le jour de leur écriture et closes le lendemain. La rejouabilité tient à autre
+// chose : **tout est en `ON CONFLICT DO NOTHING` sur des identifiants littéraux**. Une seconde
+// exécution n'écrit rien — pas même une occupation, dont la contrainte d'exclusion est couverte
+// par un `ON CONFLICT` **sans cible**, seule forme qui attrape aussi les violations d'exclusion.
+
+/// `(personne_id, client_id_est_le_meme, nom, prénoms, téléphone)`.
+///
+/// **Douze fiches**, assez pour que la recherche par nom rende plusieurs résultats et que la
+/// troncature se voie. Les diacritiques et l'apostrophe sont **volontaires** : `nom_repli` les
+/// replie, et c'est ce qui fait que « Kone » retrouve « Koné » et que les deux apostrophes
+/// retrouvent la même fiche.
+///
+/// ⚠️ **Aucune pièce d'identité.** Le numéro est chiffré par `CoffreTenant`, dont la clé vit hors
+/// de la base (`KAYA_COFFRE_CLE`) : en écrire un ici ferait dépendre le seed d'un secret, et un
+/// seed qui échoue faute de secret est un seed que personne ne lance. Le parcours de capture de
+/// pièce s'éprouve par les tests d'intégration, qui ont le coffre.
+const CLIENTS_DELORIA: [(Uuid, &str, Option<&str>, Option<&str>); 12] = [
+    (uuid!("0198c4a0-0000-7000-8000-000000000401"), "Bakayoko", Some("Adama"), Some("+2250707123456")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000402"), "Koné", Some("Aminata"), Some("+2250101223344")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000403"), "Kouassi", Some("Yao"), Some("+2250505667788")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000404"), "N'Guessan", Some("Affoué"), Some("+2250747889900")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000405"), "Traoré", Some("Ibrahim"), Some("+2250102030405")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000406"), "Diabaté", Some("Fatoumata"), Some("+2250708091011")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000407"), "Yapi", Some("Serge"), Some("+2250544332211")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000408"), "Ouattara", Some("Salif"), Some("+2250766554433")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000409"), "Gnahoré", Some("Marie"), None),
+    (uuid!("0198c4a0-0000-7000-8000-00000000040a"), "Konan", Some("Brou"), Some("+2250122334455")),
+    (uuid!("0198c4a0-0000-7000-8000-00000000040b"), "Assamoi", None, Some("+2250799887766")),
+    (uuid!("0198c4a0-0000-7000-8000-00000000040c"), "Zadi", Some("Nadège"), Some("+2250155667788")),
+];
+
+/// Deux fiches sur Résidence Test — **assez pour prouver l'isolation**, pas plus.
+///
+/// Un test d'isolation qui n'aurait qu'un tenant peuplé ne distinguerait pas « la politique RLS
+/// filtre » de « l'autre tenant est vide ».
+const CLIENTS_RESIDENCE_TEST: [(Uuid, &str, Option<&str>, Option<&str>); 2] = [
+    (uuid!("0198c4a0-0000-7000-8000-000000000451"), "Sanogo", Some("Mariam"), Some("+2250611223344")),
+    (uuid!("0198c4a0-0000-7000-8000-000000000452"), "Coulibaly", Some("Drissa"), Some("+2250688776655")),
+];
+
+// Les trois séjours de Deloria — chacun montre une chose qu'aucun autre ne montre.
+const SEJOUR_NUITEE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000411");
+const SEJOUR_PASSAGE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000412");
+const SEJOUR_CLOS: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000413");
+const SEJOUR_RESIDENCE: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000461");
+
+/// Une prestation à seeder : tout ce qu'un séjour porte, en une structure.
+struct SejourSeed {
+    sejour_id: Uuid,
+    tenant_id: Uuid,
+    etablissement_id: Uuid,
+    client_id: Option<Uuid>,
+    unite_id: Uuid,
+    formule_id: Uuid,
+    /// Décalage du début par rapport à `now()`, en minutes. **Négatif = dans le passé.**
+    debut_minutes: i64,
+    fin_minutes: i64,
+    /// Battement de remise en état, en minutes — il entre dans `periode`, jamais dans les bornes
+    /// commerciales. Le client ne paie pas le ménage.
+    remise_en_etat_minutes: i64,
+    /// Numéro de fiche de police, **continu par établissement**.
+    numero_fiche: i64,
+    quantite: &'static str,
+    prix_unitaire_mineur: i64,
+    montant_mineur: i64,
+    devise: &'static str,
+    /// `true` pour le séjour clos : note arrêtée, occupation libérée, constat figé.
+    clos: bool,
+}
+
+/// Les fiches clientes de Deloria et de Résidence Test.
+async fn seeder_clients(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    for (tenant_id, fiches) in [
+        (TENANT_DELORIA, &CLIENTS_DELORIA[..]),
+        (TENANT_RESIDENCE_TEST, &CLIENTS_RESIDENCE_TEST[..]),
+    ] {
+        let mut tx = pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, tenant_id).await?;
+
+        for (id, nom, prenoms, telephone) in fiches {
+            // ★ **`nom_repli` vient de la MÊME fonction que le produit**, jamais d'un
+            // `lower()` écrit ici. Deux replis divergents rendraient introuvables des fiches
+            // pourtant créées — et la divergence ne se verrait qu'à la recherche.
+            let nom_repli = kaya_comptes::client::repli(nom);
+            let telephone_repli = telephone.map(kaya_comptes::client::repli_telephone);
+
+            sqlx::query!(
+                r#"
+                INSERT INTO comptes.personne
+                    (id, tenant_id, nom, prenoms, telephone, nom_repli, telephone_repli)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (id) DO NOTHING
+                "#,
+                id,
+                tenant_id,
+                nom,
+                prenoms.as_deref(),
+                telephone.as_deref(),
+                nom_repli,
+                telephone_repli,
+            )
+            .execute(&mut *tx)
+            .await?;
+
+            // La qualification cliente — **une fiche client EST une personne qualifiée**, jamais
+            // une seconde identité. Le personnel n'apparaît donc jamais dans la recherche.
+            sqlx::query!(
+                r#"
+                INSERT INTO comptes.client (personne_id, tenant_id)
+                VALUES ($1, $2)
+                ON CONFLICT (personne_id) DO NOTHING
+                "#,
+                id,
+                tenant_id,
+            )
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+    }
+
+    // Une préférence sur la première fiche — **append-only**, et c'est ce que `R5` affiche.
+    let mut tx = pool.begin().await?;
+    tenant_context::poser_tenant(&mut tx, TENANT_DELORIA).await?;
+    sqlx::query!(
+        r#"
+        INSERT INTO comptes.preference_personne (id, tenant_id, personne_id, texte)
+        VALUES ($1, $2, $3, 'Chambre calme, étage bas.')
+        ON CONFLICT (id) DO NOTHING
+        "#,
+        uuid!("0198c4a0-0000-7000-8000-000000000431"),
+        TENANT_DELORIA,
+        CLIENTS_DELORIA[0].0,
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    tracing::info!(
+        deloria = CLIENTS_DELORIA.len(),
+        residence_test = CLIENTS_RESIDENCE_TEST.len(),
+        "fiches clientes seedées"
+    );
+    Ok(())
+}
+
+/// Les quatre séjours de démonstration.
+async fn seeder_sejours(pool: &PgPool) -> Result<(), Box<dyn std::error::Error>> {
+    let seeds = [
+        // 1 · **Nuitée en cours** — deux nuits, deux accompagnants. Chambre B3.
+        SejourSeed {
+            sejour_id: SEJOUR_NUITEE,
+            tenant_id: TENANT_DELORIA,
+            etablissement_id: ETABLISSEMENT_DELORIA,
+            client_id: Some(CLIENTS_DELORIA[0].0),
+            unite_id: uuid!("0198c4a0-0000-7000-8000-000000000213"),
+            formule_id: FORMULES_NUITEE[1],
+            debut_minutes: -24 * 60,
+            fin_minutes: 24 * 60,
+            remise_en_etat_minutes: 120,
+            numero_fiche: 1,
+            quantite: "2",
+            prix_unitaire_mineur: 15_500,
+            montant_mineur: 31_000,
+            devise: "XOF",
+            clos: false,
+        },
+        // 2 · **Passage en cours** — deux heures, SANS fiche cliente. La pièce vient après la
+        //     clé (FR-023) : la fiche de police est numérotée et déclarée incomplète.
+        SejourSeed {
+            sejour_id: SEJOUR_PASSAGE,
+            tenant_id: TENANT_DELORIA,
+            etablissement_id: ETABLISSEMENT_DELORIA,
+            client_id: None,
+            unite_id: uuid!("0198c4a0-0000-7000-8000-000000000201"),
+            formule_id: FORMULES_PASSAGE[0],
+            debut_minutes: -30,
+            fin_minutes: 90,
+            remise_en_etat_minutes: 30,
+            numero_fiche: 2,
+            quantite: "1",
+            prix_unitaire_mineur: 2_800,
+            montant_mineur: 2_800,
+            devise: "XOF",
+            clos: false,
+        },
+        // 3 · **Séjour CLOS avec son constat figé** — le seul qui montre ce que le cycle a laissé
+        //     à FIS-03.
+        SejourSeed {
+            sejour_id: SEJOUR_CLOS,
+            tenant_id: TENANT_DELORIA,
+            etablissement_id: ETABLISSEMENT_DELORIA,
+            client_id: Some(CLIENTS_DELORIA[4].0),
+            unite_id: uuid!("0198c4a0-0000-7000-8000-000000000241"),
+            formule_id: FORMULES_NUITEE[4],
+            debut_minutes: -5 * 24 * 60,
+            fin_minutes: -3 * 24 * 60,
+            remise_en_etat_minutes: 120,
+            numero_fiche: 3,
+            quantite: "2",
+            prix_unitaire_mineur: 25_500,
+            montant_mineur: 51_000,
+            devise: "XOF",
+            clos: true,
+        },
+        // 4 · Résidence Test — **un meublé à la nuitée**, pour que l'isolation ait deux côtés.
+        SejourSeed {
+            sejour_id: SEJOUR_RESIDENCE,
+            tenant_id: TENANT_RESIDENCE_TEST,
+            etablissement_id: ETABLISSEMENT_RESIDENCE_TEST,
+            client_id: Some(CLIENTS_RESIDENCE_TEST[0].0),
+            unite_id: UNITES_MEUBLE[0].0,
+            formule_id: FORMULE_MEUBLE_NUITEE,
+            debut_minutes: -12 * 60,
+            fin_minutes: 36 * 60,
+            remise_en_etat_minutes: 0,
+            numero_fiche: 1,
+            quantite: "2",
+            prix_unitaire_mineur: 18_000,
+            montant_mineur: 36_000,
+            devise: "XOF",
+            clos: false,
+        },
+    ];
+
+    for seed in seeds {
+        seeder_un_sejour(pool, &seed).await?;
+    }
+
+    // Les deux accompagnants du séjour de nuitée — **un nom suffit** (FR-015).
+    let mut tx = pool.begin().await?;
+    tenant_context::poser_tenant(&mut tx, TENANT_DELORIA).await?;
+    for (id, nom) in [
+        (uuid!("0198c4a0-0000-7000-8000-000000000421"), "Aya"),
+        (uuid!("0198c4a0-0000-7000-8000-000000000422"), "Konan"),
+    ] {
+        sqlx::query!(
+            r#"
+            INSERT INTO hebergement.accompagnant (id, tenant_id, sejour_id, nom)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (id) DO NOTHING
+            "#,
+            id,
+            TENANT_DELORIA,
+            SEJOUR_NUITEE,
+            nom,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+
+    tracing::info!("quatre séjours de démonstration seedés — dont un clos, avec son constat figé");
+    Ok(())
+}
+
+/// Un séjour, son occupation, sa note, sa ligne, sa fiche de police — **et son constat s'il est
+/// clos**.
+///
+/// Une transaction par séjour, comme le produit : cinq écritures groupées.
+async fn seeder_un_sejour(
+    pool: &PgPool,
+    seed: &SejourSeed,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut tx = pool.begin().await?;
+    tenant_context::poser_tenant(&mut tx, seed.tenant_id).await?;
+
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.sejour
+            (id, tenant_id, etablissement_id, client_id, statut, ouvert_le, clos_le)
+        VALUES ($1, $2, $3, $4,
+                CASE WHEN $5 THEN 'clos' ELSE 'en_cours' END,
+                now() + make_interval(mins => $6::INT),
+                CASE WHEN $5 THEN now() + make_interval(mins => $7::INT) ELSE NULL END)
+        ON CONFLICT DO NOTHING
+        "#,
+        seed.sejour_id,
+        seed.tenant_id,
+        seed.etablissement_id,
+        seed.client_id,
+        seed.clos,
+        seed.debut_minutes as i32,
+        seed.fin_minutes as i32,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // L'occupation. **`periode` inclut la remise en état, les bornes commerciales non** — le
+    // client ne paie pas le ménage, mais la chambre n'est pas attribuable pendant.
+    let occupation_id = deriver_seed(seed.sejour_id, 0x01);
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.occupation
+            (id, tenant_id, etablissement_id, unite_id, formule_id, sejour_id,
+             periode, debut_client, fin_client, statut, libere_le)
+        VALUES ($1, $2, $3, $4, $5, $6,
+                tstzrange(now() + make_interval(mins => $7::INT),
+                          now() + make_interval(mins => $8::INT), '[)'),
+                now() + make_interval(mins => $7::INT),
+                now() + make_interval(mins => $9::INT),
+                CASE WHEN $10 THEN 'liberee' ELSE 'active' END,
+                CASE WHEN $10 THEN now() + make_interval(mins => $9::INT) ELSE NULL END)
+        ON CONFLICT DO NOTHING
+        "#,
+        occupation_id,
+        seed.tenant_id,
+        seed.etablissement_id,
+        seed.unite_id,
+        seed.formule_id,
+        seed.sejour_id,
+        seed.debut_minutes as i32,
+        (seed.fin_minutes + seed.remise_en_etat_minutes) as i32,
+        seed.fin_minutes as i32,
+        seed.clos,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // La note. **Aucune colonne de total** : le total est la somme des lignes, calculée à la
+    // lecture. Une colonne se désynchroniserait au premier ajustement.
+    let note_id = deriver_seed(seed.sejour_id, 0x02);
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.note_sejour (id, tenant_id, sejour_id, devise, statut, arretee_le)
+        VALUES ($1, $2, $3, $4,
+                CASE WHEN $5 THEN 'arretee' ELSE 'ouverte' END,
+                CASE WHEN $5 THEN now() + make_interval(mins => $6::INT) ELSE NULL END)
+        ON CONFLICT DO NOTHING
+        "#,
+        note_id,
+        seed.tenant_id,
+        seed.sejour_id,
+        seed.devise,
+        seed.clos,
+        seed.fin_minutes as i32,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // La ligne d'hébergement. **`quantite` est un `NUMERIC`** (porte P-10) : une bière se vend à
+    // l'unité, du fer au mètre. Le libellé est une **clé i18n**, jamais une chaîne rendue.
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.ligne_sejour
+            (id, tenant_id, note_id, occupation_id, nature, libelle_cle,
+             quantite, prix_unitaire_mineur, montant_mineur, devise,
+             periode_debut, periode_fin)
+        VALUES ($1, $2, $3, $4, 'hebergement', 'hebergement.note.ligne.hebergement',
+                $5::TEXT::NUMERIC, $6, $7, $8,
+                now() + make_interval(mins => $9::INT),
+                now() + make_interval(mins => $10::INT))
+        ON CONFLICT DO NOTHING
+        "#,
+        deriver_seed(seed.sejour_id, 0x03),
+        seed.tenant_id,
+        note_id,
+        occupation_id,
+        seed.quantite,
+        seed.prix_unitaire_mineur,
+        seed.montant_mineur,
+        seed.devise,
+        seed.debut_minutes as i32,
+        seed.fin_minutes as i32,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // Le compteur de fiches — **par établissement, et jamais une `SEQUENCE`** : une séquence est
+    // globale au schéma et laisse des trous, deux propriétés fatales à une numérotation continue.
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.numerotation_fiche_police
+            (tenant_id, etablissement_id, dernier_numero)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (tenant_id, etablissement_id) DO UPDATE
+        SET dernier_numero = GREATEST(hebergement.numerotation_fiche_police.dernier_numero,
+                                      EXCLUDED.dernier_numero)
+        "#,
+        seed.tenant_id,
+        seed.etablissement_id,
+        seed.numero_fiche,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // La fiche de police. **Elle ne recopie AUCUNE identité** : les noms viennent du client et des
+    // accompagnants. Sans client rattaché, elle est **déclarée incomplète** — jamais fabriquée
+    // avec « M. X », qui serait un document légal faux.
+    sqlx::query!(
+        r#"
+        INSERT INTO hebergement.fiche_police
+            (id, tenant_id, etablissement_id, sejour_id, numero, complete, completee_le)
+        VALUES ($1, $2, $3, $4, $5, $6,
+                CASE WHEN $6 THEN now() + make_interval(mins => $7::INT) ELSE NULL END)
+        ON CONFLICT DO NOTHING
+        "#,
+        deriver_seed(seed.sejour_id, 0x04),
+        seed.tenant_id,
+        seed.etablissement_id,
+        seed.sejour_id,
+        seed.numero_fiche,
+        seed.client_id.is_some(),
+        seed.debut_minutes as i32,
+    )
+    .execute(&mut *tx)
+    .await?;
+
+    // ★ Le constat de taxe — **seulement sur le séjour clos**, et `nuitees_assujetties` /
+    // `montant_mineur` restent à `NULL`. C'est ce qui rend visible, en base, que ce cycle fige des
+    // FAITS et un paramétrage recopié, sans dériver d'assiette : la règle fiscale vit dans
+    // `JurisdictionAdapter`, et son test doré appartient à FIS-03.
+    if seed.clos {
+        sqlx::query!(
+            r#"
+            INSERT INTO hebergement.taxe_sejour_constat
+                (id, tenant_id, etablissement_id, sejour_id,
+                 nuits_constatees, nombre_personnes, periode_debut, periode_fin,
+                 formule_id, famille_formule, assujettie_taxe_nuitee, regle_conversion_taxe,
+                 classement_etablissement, commune)
+            SELECT $1, $2, $3, $4, $5, $6,
+                   now() + make_interval(mins => $7::INT),
+                   now() + make_interval(mins => $8::INT),
+                   $9, 'NUITEE', true, 'une_nuitee_par_occupation',
+                   -- ★ **RECOPIÉ, jamais référencé.** Le constat doit rester vrai le jour où
+                   -- l'établissement change de classement : une clé étrangère rendrait le passé
+                   -- réécrivable, et un contrôle fiscal porte sur ce qui était vrai ce jour-là.
+                   e.classement, e.commune
+            FROM etablissements.etablissement e
+            WHERE e.id = $3
+            ON CONFLICT DO NOTHING
+            "#,
+            deriver_seed(seed.sejour_id, 0x06),
+            seed.tenant_id,
+            seed.etablissement_id,
+            seed.sejour_id,
+            2,
+            1,
+            seed.debut_minutes as i32,
+            seed.fin_minutes as i32,
+            seed.formule_id,
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Dérive un identifiant fille depuis celui du séjour — **la même règle que le produit**.
+///
+/// Trois octets de discriminant XORés en fin d'UUID. Le seed la reproduit pour que les
+/// identifiants de la note, de la ligne et de la fiche soient **exactement** ceux qu'un rejeu du
+/// produit produirait : un seed qui tirerait des identifiants neufs rendrait la démonstration
+/// impossible à recouper avec ce que l'application écrit.
+fn deriver_seed(source: Uuid, discriminant: u8) -> Uuid {
+    let mut octets = *source.as_bytes();
+    octets[13] ^= discriminant;
+    octets[14] ^= discriminant.wrapping_mul(3);
+    octets[15] ^= discriminant.wrapping_mul(7);
+    Uuid::from_bytes(octets)
+}
