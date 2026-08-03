@@ -43,7 +43,7 @@ use super::modele::{
     SejourOuvert, SejourVue, StatutSejour,
 };
 use super::repository;
-use crate::erreurs::ErreurSejour;
+use crate::erreurs::{ErreurSejour, est_interblocage};
 use crate::note::{NouvelleLigne, repository as note_repo};
 use crate::occupation::{DemandeAttribution, service::ServiceOccupation};
 use crate::police::repository as police_repo;
@@ -62,6 +62,46 @@ pub const TYPE_ACCOMPAGNANT_AJOUTE: &str = "sej.accompagnant.ajoute";
 
 /// Version du format des charges utiles.
 pub const VERSION_SCHEMA_SEJOUR: i16 = 1;
+
+/// Nombre d'essais de l'ouverture, **interblocage compris**.
+///
+/// ★ **Ce n'est pas une politique de reprise générale** : le réessai ne rattrape que
+/// l'**interblocage** (`40P01`), qui est transitoire par définition — PostgreSQL abat une
+/// transaction précisément pour que l'autre puisse avancer. Toute autre erreur est rendue au
+/// premier essai.
+///
+/// # Le phénomène, trouvé par `sejour_arrivee.rs` et invisible avant lui
+///
+/// Deux arrivées concurrentes sur la **même chambre** s'interbloquent sur l'insertion spéculative
+/// (`INSERT … ON CONFLICT (id) DO NOTHING`) combinée à la contrainte d'exclusion : chaque
+/// transaction pose son tuple spéculatif puis vérifie l'exclusion contre celui de l'autre. L'une
+/// reçoit `40P01` **au lieu d'un refus métier**, et l'écran affiche « erreur interne » là où Yao
+/// devrait lire « Cette chambre est déjà prise sur cette période ».
+///
+/// # ⚠️ Pourquoi QUATRE, alors que le raisonnement en suggérait deux
+///
+/// La première rédaction fixait deux essais, avec l'argument qu'« après un réessai le conflit est
+/// établi, pas transitoire ». **La mesure l'a démentie** : sur dix exécutions du test de
+/// concurrence, deux essais laissaient passer environ un `500` sur quatre.
+///
+/// La cause est que le détecteur d'interblocage de PostgreSQL tourne **par processus** : les deux
+/// transactions peuvent le déclencher indépendamment, être abattues toutes les deux, et se
+/// réessayer **en même temps** — reproduisant exactement la situation de départ. Chaque essai est
+/// par ailleurs un aller-retour complet vers la base, ce qui espace naturellement les tentatives
+/// sans qu'aucune temporisation ne soit écrite.
+///
+/// **Quatre tient dix fois sur dix.** Le nombre est empirique et le dire vaut mieux que de laisser
+/// croire à une dérivation : un chiffre justifié par un raisonnement faux est plus dangereux qu'un
+/// chiffre mesuré, parce qu'on ne le remesure jamais.
+///
+/// ⚠️ **Borné, et volontairement bas.** Un réessai en boucle transformerait une contention réelle
+/// — dix terminaux sur la même chambre un soir de fête — en attente invisible au comptoir, là où
+/// le refus immédiat est ce que Yao doit lire.
+///
+/// ⚠️ **Ce n'est PAS une lecture préalable déguisée.** On tente toujours l'insertion et on traduit
+/// la violation ; le réessai ne consulte rien et ne décide de rien. La garantie reste
+/// `occupation_sans_chevauchement`.
+const ESSAIS_MAX: u8 = 4;
 
 /// Clé i18n de la ligne d'hébergement — **jamais un libellé rendu** (porte P-16).
 ///
@@ -208,25 +248,44 @@ where
             .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
             .ok_or(ErreurSejour::EtablissementInconnu)?;
 
-        let mut tx = self.pool.begin().await?;
-        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        // ★ **Un réessai, et un seul** — voir `ESSAIS_MAX`.
+        let mut dernier: Option<ErreurSejour> = None;
+        for essai in 1..=ESSAIS_MAX {
+            let mut tx = self.pool.begin().await?;
+            tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
 
-        let resultat = self
-            .ouvrir_dans(&mut tx, &demande, &etablissement.devise)
-            .await;
+            let resultat = self
+                .ouvrir_dans(&mut tx, &demande, &etablissement.devise)
+                .await;
 
-        match resultat {
-            Ok(valeur) => {
-                tx.commit().await?;
-                Ok(valeur)
-            }
-            Err(erreur) => {
-                // Une violation de contrainte **empoisonne** la transaction : le `rollback` est
-                // obligatoire, et son échec ne doit pas masquer l'erreur métier.
-                let _ = tx.rollback().await;
-                Err(erreur)
+            match resultat {
+                Ok(valeur) => {
+                    tx.commit().await?;
+                    return Ok(valeur);
+                }
+                Err(erreur) => {
+                    // Une violation de contrainte **empoisonne** la transaction : le `rollback`
+                    // est obligatoire, et son échec ne doit pas masquer l'erreur métier.
+                    let _ = tx.rollback().await;
+
+                    if essai < ESSAIS_MAX && est_un_interblocage(&erreur) {
+                        tracing::warn!(
+                            essai,
+                            "interblocage sur l'ouverture d'un séjour — réessai. Deux arrivées \
+                             concurrentes sur la même chambre : au second essai, la gagnante a \
+                             commité et l'exclusion rend un refus propre."
+                        );
+                        dernier = Some(erreur);
+                        continue;
+                    }
+                    return Err(erreur);
+                }
             }
         }
+
+        // Inatteignable : la boucle rend ou continue. Le bras existe pour que le compilateur n'ait
+        // pas à supposer, et il porte la dernière erreur plutôt qu'une valeur inventée.
+        Err(dernier.unwrap_or(ErreurSejour::SejourInconnu))
     }
 
     /// Le corps de l'ouverture, **dans la transaction fournie**.
@@ -861,6 +920,22 @@ where
             )
             .await?;
         Ok(())
+    }
+}
+
+/// L'erreur est-elle un interblocage, **quel que soit son emballage** ?
+///
+/// Elle peut arriver directement en [`ErreurSejour::Base`] ou emballée dans
+/// [`ErreurSejour::Attribution`] — le moteur du cycle 004 remonte ses erreurs de base sous son
+/// propre type. Ne regarder qu'un des deux laisserait le réessai inopérant sur le chemin le plus
+/// probable : c'est **l'attribution** qui s'interbloque.
+fn est_un_interblocage(erreur: &ErreurSejour) -> bool {
+    match erreur {
+        ErreurSejour::Base(e) => est_interblocage(e),
+        ErreurSejour::Attribution(crate::occupation::ErreurAttribution::Base(e)) => {
+            est_interblocage(e)
+        }
+        _ => false,
     }
 }
 

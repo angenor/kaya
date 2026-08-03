@@ -44,6 +44,48 @@ pub fn est_violation_exclusion(erreur: &sqlx::Error, contrainte: &str) -> bool {
             && e.constraint() == Some(contrainte))
 }
 
+/// Code SQLSTATE de l'interblocage — `40P01`.
+///
+/// Nommé plutôt que littéral : un code SQLSTATE écrit en dur dans une condition se retrouve un
+/// jour comparé à `"40001"` (échec de sérialisation), qui est un **autre** phénomène.
+pub const SQLSTATE_INTERBLOCAGE: &str = "40P01";
+
+/// Cette erreur est-elle un **interblocage** ?
+///
+/// ═══════════════════════════════════════════════════════════════════════════════════════════════
+///  ★ DÉFAUT TROUVÉ AU CYCLE 006, ET INVISIBLE AVANT LUI
+///
+///  Deux arrivées concurrentes sur la **même chambre** ne produisent pas toujours une violation
+///  d'exclusion propre : elles peuvent **s'interbloquer**, et PostgreSQL en abat une avec `40P01`.
+///
+///      Process A waits for ShareLock on transaction B
+///      Process B waits for ShareLock on speculative token of transaction A
+///      … while checking exclusion constraint on relation "occupation"
+///
+///  La cause est l'**insertion spéculative** — `INSERT … ON CONFLICT (id) DO NOTHING` — combinée à
+///  une contrainte d'exclusion. Chaque transaction pose son tuple spéculatif, puis vérifie
+///  l'exclusion contre celui de l'autre, et chacune attend l'autre.
+/// ═══════════════════════════════════════════════════════════════════════════════════════════════
+///
+/// # Pourquoi le cycle 004 ne l'a pas vu
+///
+/// Son test de concurrence attribue par **SQL direct**, sans `ON CONFLICT` : il n'y a pas
+/// d'insertion spéculative, donc pas de jeton spéculatif à attendre. Le phénomène n'apparaît que
+/// sur le chemin **idempotent**, celui que le parcours de séjour emploie — et c'est exactement ce
+/// que la constitution appelle re-exercer une porte par le parcours réel plutôt que par
+/// l'endpoint nu.
+///
+/// # Ce qu'un interblocage veut dire, et ce qu'il ne veut pas dire
+///
+/// **Il est transitoire par définition.** PostgreSQL abat une transaction précisément pour que
+/// l'autre puisse avancer ; au second essai, la gagnante a commité et l'exclusion rend un refus
+/// **propre**. C'est pourquoi la réponse est un **réessai**, et non une traduction directe en
+/// `unite_deja_occupee` : traduire ferait passer pour une chambre occupée tout interblocage, y
+/// compris ceux qui n'ont rien à voir avec la disponibilité.
+pub fn est_interblocage(erreur: &sqlx::Error) -> bool {
+    matches!(erreur, sqlx::Error::Database(e) if e.code().as_deref() == Some(SQLSTATE_INTERBLOCAGE))
+}
+
 // =================================================================================================
 //  Les refus du séjour — cycle 006
 // =================================================================================================
