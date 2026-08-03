@@ -99,7 +99,9 @@ lui promet, et c'est aussi la raison pour laquelle elle rencontrera de la résis
 > travail ; c'est la fréquence à laquelle on l'interroge qui a manqué. `cargo test --workspace`
 > avant chaque commit de fin de phase est le remède, et non une porte de plus.
 
-**Cinq sur douze sont branchées à la clôture du cycle 006**, et les sept autres restent dues aux
+**Cinq sur douze sont branchées à la clôture du cycle 006** — `suppression`, `changement_role`,
+`rebascule_palier_passage`, `derive_horloge_constatee` et `consultation_piece_identite` —, et les
+sept autres restent dues aux
 tranches T1 à T3 — c'est exactement ce que le document annonçait, et le harnais l'a vérifié à
 chaque étape.
 
