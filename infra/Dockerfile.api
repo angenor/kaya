@@ -11,12 +11,38 @@
 #
 # Corollaire consigné en SC-010 : les mesures de temps de compilation se font **dans ce
 # conteneur**, jamais sur le poste — c'est le seul endroit où `mold` est actif.
+#
+# ## ⚠️ L'étape de construction N'EMPLOIE PAS `--platform=$BUILDPLATFORM` — cycle 005
+#
+# Elle l'a employé jusqu'ici, et l'image produite était **fausse sur un poste arm64**.
+#
+# `--platform=$BUILDPLATFORM` fait tourner l'étape de compilation sur l'architecture de **l'hôte**,
+# ce qui évite l'émulation et divise le temps de construction. Mais `cargo build` produit alors un
+# binaire de l'hôte, et l'étape d'exécution — elle bien en `TARGETPLATFORM` — le copie tel quel.
+# Résultat : une image estampillée `linux/amd64` contenant un exécutable **arm64**.
+#
+# Le symptôme est celui que l'en-tête ci-dessus annonce, à un détail près qui rend le diagnostic
+# difficile : `exec /usr/local/bin/kaya-api: no such file or directory` — sur un fichier qui existe.
+# C'est le loader qui ne reconnaît pas l'architecture de l'ELF, pas le fichier qui manque.
+#
+# **Le défaut était invisible en intégration continue** : le runner est `amd64`, donc
+# `BUILDPLATFORM == TARGETPLATFORM`, et l'image sortait juste. Il ne se manifestait que sur le
+# poste de développement — c'est-à-dire exactement là où le §4.2 du gel dit de se méfier.
+#
+# Retirer la directive fait passer l'étape de compilation sous émulation sur un poste arm64 : c'est
+# lent, et c'est le prix d'une image qui démarre. **En CI, cela ne coûte rien** — il n'y a rien à
+# émuler. La compilation croisée (cible `x86_64-unknown-linux-gnu` et éditeur de liens croisé)
+# rendrait les deux rapides ; elle demande d'ajouter une chaîne d'outils au gel, ce qu'aucune story
+# ne porte aujourd'hui.
 
 # =================================================================================================
 #  Étape 1 — construction
 # =================================================================================================
 # Version épinglée du gel §2, jamais `latest`. La porte P-20 échoue sur un tag flottant.
-FROM --platform=$BUILDPLATFORM rust:1.97.1-trixie AS constructeur
+#
+# **Sans `--platform`** : l'étape hérite de `TARGETPLATFORM`, donc compile pour la cible réelle.
+# Voir la note de l'en-tête — la directive produisait une image amd64 au binaire arm64.
+FROM rust:1.97.1-trixie AS constructeur
 
 # `mold` — cibles Linux uniquement (R-01). Il n'existe pas sur macOS ; ici, il est chez lui.
 RUN apt-get update \

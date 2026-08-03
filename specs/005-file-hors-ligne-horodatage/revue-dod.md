@@ -170,6 +170,8 @@ Ce cycle n'imprime rien.
 *La partie de la revue qui compte. Un point coché est une information ; un point pris en défaut en
 est une meilleure.*
 
+**Huit points, dont un qui aurait empêché tout déploiement** — voir le n° 7.
+
 ### 1 · Le balayage e2e est passé au vert — mais il a d'abord passé au vert POUR RIEN
 
 `tests-e2e/hors-ligne.spec.ts` **passe, dix cas sur dix, sur chromium et webkit**. Ce qui mérite
@@ -251,7 +253,40 @@ qu'un encaissement est B en espèces et D en Mobile Money.
 Instancier `tester_classe_a!` sur une entité qui devrait être B produirait six tests verts sur un
 classement faux. La revue mensuelle demeure.
 
-### 7 · La suite backend et le balayage e2e ne peuvent pas tourner ensemble
+### 7 · L'image de production était FAUSSE, et le défaut est antérieur au cycle
+
+**L'image estampillée `linux/amd64` contenait un binaire `arm64`.** Elle n'aurait pas démarré sur
+le VPS Contabo.
+
+La cause est dans `infra/Dockerfile.api` : l'étape de construction portait
+`FROM --platform=$BUILDPLATFORM`, qui la fait tourner sur l'architecture de **l'hôte** — pour
+éviter l'émulation et gagner du temps. `cargo build` produisait donc un binaire de l'hôte, et
+l'étape d'exécution, elle bien en `TARGETPLATFORM`, le copiait tel quel.
+
+Le symptôme rend le diagnostic difficile :
+
+```
+exec /usr/local/bin/kaya-api: no such file or directory
+```
+
+…sur un fichier de 42 Mo qui existe. C'est le loader qui ne reconnaît pas l'architecture de l'ELF,
+pas le fichier qui manque. La confirmation vient de l'en-tête ELF : `e_machine = 0xB7`, soit 183,
+soit **AArch64**.
+
+**Le défaut était invisible en intégration continue** — le runner est `amd64`, donc
+`BUILDPLATFORM == TARGETPLATFORM`, et l'image sortait juste. Il ne se manifestait que sur le poste
+de développement, c'est-à-dire exactement là où le §4.2 du gel dit de se méfier : « le poste est
+`arm64`, la cible est `amd64` ».
+
+Corrigé en retirant la directive : l'étape hérite de `TARGETPLATFORM` et compile pour la cible
+réelle. Le coût est une compilation sous émulation sur un poste arm64 — lent, et c'est le prix
+d'une image qui démarre. **En CI, cela ne coûte rien.**
+
+La compilation croisée (cible `x86_64-unknown-linux-gnu` et éditeur de liens croisé) rendrait les
+deux rapides. Elle demande d'ajouter une chaîne d'outils au gel : **aucune story ne la porte
+aujourd'hui**, et c'est écrit ici plutôt que fait au passage.
+
+### 8 · La suite backend et le balayage e2e ne peuvent pas tourner ensemble
 
 `exiger_grand_livre_sans_consommateur_concurrent` refuse de dérouler les tests d'outbox quand un
 worker de publication tourne hors de `cargo test` — c'est-à-dire quand l'API est allumée, ce que le
@@ -325,3 +360,7 @@ Six, dont quatre qu'aucune relecture n'aurait vus.
 Et **un défaut de conception du témoin**, trouvé par son propre test : un commentaire HTML placé
 avant l'élément racine compte comme un nœud, le template compilait en fragment — la famille de
 défauts qui a rendu `G3` et `G4` inatteignables au cycle 003.
+
+**Et le septième, qui n'appartient pas à ce cycle mais qu'il a révélé** : l'image de production
+embarquait un binaire arm64 sous une étiquette amd64 (non-conformité 7). Il aurait empêché tout
+déploiement, et il était invisible en intégration continue.
