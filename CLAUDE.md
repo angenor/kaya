@@ -4,10 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle, les établissements, les comptes et l'hébergement sont en place** — cycles 001 (TRX),
-002 (ETB), 003 (CPT) et 004 (HEB) livrés : 18 crates Rust, 20 migrations, 234 tests backend, 458 tests front, 11 portes
-scriptées, les cinq écrans `G1`, `R0`, `R1`, `G3` et `G4`, et une image de production construite
-et exercée.
+**Le socle, les établissements, les comptes, l'hébergement et la synchronisation sont en place** —
+cycles 001 (TRX), 002 (ETB), 003 (CPT), 004 (HEB) et 005 (SYN) livrés : 18 crates Rust,
+28 migrations, 362 tests backend, 522 tests front, 12 portes scriptées, huit écrans, et une image
+de production construite et exercée.
+
+**Ce que le cycle 005 change, et qu'il faut savoir avant de coder :**
+
+- **La file hors-ligne est réelle.** Persistante, chiffrée par WebCrypto (AES-GCM, clé au coffre
+  système, cryptogramme dans le stockage ordinaire), vidée par **quatre déclencheurs et aucune
+  minuterie de scrutation**. Son premier passager est la note interne — `/notes`, écran composé.
+  Le témoin de synchronisation (composant 10) est monté dans la **coquille**, donc sur toutes les
+  pages.
+- **Le périmètre des portes est DÉCOUVERT, jamais énuméré.** `backend/tests/commun/perimetre.rs`
+  lit les schémas de `pg_namespace` et les crates des `[workspace] members`. Vingt et une
+  occurrences de chemin en dur ont disparu, et `perimetre_decouvert.rs` **refuse qu'on en
+  réintroduise**. Ne pas écrire `crates/socle/...` dans un test : composer par `chemin_crate()`.
+- **Les tests du §0.7 s'instancient.** `tester_classe_a!`, `tester_classe_bcd!`,
+  `tester_classe_d!` dans `backend/tests/commun/classes.rs`. Couvrir une entité coûte une
+  déclaration, et `outillage_classes.rs` échoue en **nommant** celle qui l'aurait oubliée.
+- **P-23 garde la provenance de l'instant.** `cree_le` fait autorité, `horodatage_client` ne porte
+  aucune règle. Trois exemptions **limitativement** énumérées — écrire la colonne n'en fait pas
+  partie : écrire une valeur n'est pas s'appuyer dessus.
 
 **La leçon la plus chère du projet à ce jour** : le cycle 003 a été livré avec 24 portes vertes et
 652 tests, et **deux de ces cinq écrans étaient inatteignables en navigateur**. L'application
@@ -106,7 +124,20 @@ de comptoir, l'appareil ne bouge pas, c'est la personne qui change. À ne pas co
 « Déconnecter cet appareil », qui coupe un autre appareil à distance. Les deux entrées sont au
 lexique — **tout terme visible passe par lui avant d'être codé**.
 
-État par tranche : **T1 en cours** (TRX, ETB, CPT et HEB livrés ; restent SYN et SEJ-1).
+État par tranche : **T1 en cours** (TRX, ETB, CPT, HEB et SYN livrés ; reste SEJ-1).
+
+**Ce que le cycle 005 a trouvé, et qui vaut plus que ce qu'il a construit.** Six défauts, dont
+quatre qu'aucune relecture n'aurait vus — le détail est dans
+`specs/005-file-hors-ligne-horodatage/revue-dod.md`. Deux méritent d'être connus ici :
+
+- **Un test peut passer au vert en n'inspectant rien, et le balayage hors ligne l'a fait.** Sa
+  première version ouvrait chaque écran par `page.goto` — or le jeton d'accès vit en mémoire, un
+  rechargement exige le réseau pour reprendre la session, et hors ligne **toutes les routes
+  renvoyaient sur `/connexion`**. Neuf cas verts, neuf fois le même écran de connexion. Le contrôle
+  qui l'empêche désormais tient en une ligne : vérifier que l'URL n'est **pas** `/connexion`.
+- **Un contrôle de type peut ne rien contrôler.** `const x: FamillesNonListees[] = []` compile
+  quel que soit le type — un tableau vide est assignable à tout. La forme qui tient compare à
+  `never` **sans distribution** : `[T] extends [never] ? true : false`.
 
 **⚠️ N'ARRÊTE JAMAIS UN PROCESSUS PAR SON NOM DE COMMANDE.** `pkill -f "nuxt.mjs dev"` a tué le
 serveur de développement d'un **autre projet** de ce poste, qui tournait depuis cinq heures.
@@ -362,6 +393,20 @@ pnpm porte:p10   # entiers / NUMERIC                  pnpm porte:p21b  # déclar
 pnpm porte:p22   # PARCOURS RÉEL — chaque route s'ouvre, en direct ET par navigation, deux thèmes
                  #   exige l'API, la base et les seeds ; le script le vérifie et le dit
 pnpm porte:p22:negatif   # prouve que P-22 sait échouer (casse le layout, constate, remet)
+
+# P-23 · PROVENANCE DE L'INSTANT — et le balayage hors ligne de FR-005b
+cargo test --test horodatage_autorite     # aucun calcul ne s'appuie sur horodatage_client
+cargo test --test outillage_classes       # toute entité implémentée est EXERCÉE, pas seulement déclarée
+pnpm exec playwright test tests-e2e/hors-ligne.spec.ts   # exige l'API ; deux moteurs
+
+# ⚠️ LA SUITE BACKEND ET LE E2E NE COEXISTENT PAS. `exiger_grand_livre_sans_consommateur_
+# concurrent` refuse de dérouler les tests d'outbox quand un worker de publication tourne hors
+# de `cargo test` — c'est-à-dire quand l'API est allumée, ce que le e2e exige. Séquencer, et
+# arrêter l'API PAR PORT : `lsof -ti:8080 | xargs kill`.
+#
+# ⚠️ LE LIMITEUR DE TENTATIVES PUNIT LES EXÉCUTIONS RAPPROCHÉES. Dix connexions par identifiant
+# sur une fenêtre GLISSANTE de cinq minutes, réussies comprises — et chaque essai la repousse.
+# Le refus est INDISCERNABLE d'un mot de passe faux (FR-012) : ne pas chercher ailleurs, attendre.
 pnpm generer:client                               # types TS depuis openapi.json
 
 # ESLint vit à la RACINE et couvre app/ ET web/qr ET web/console — les deux surfaces publiques
