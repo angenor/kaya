@@ -1,6 +1,9 @@
 //! ★ **SEJ-02** — l'ouverture d'un séjour : une transaction, la concurrence, et P-09 ré-exercée.
 //!
-//! # Les quatre garanties que ce fichier éprouve, et qui ne se voient PAS en relecture
+//! # Les huit garanties que ce fichier éprouve, et qui ne se voient PAS en relecture
+//!
+//! Les quatre premières portent sur **SEJ-02**, l'ouverture ; les quatre suivantes sur **SEJ-03**,
+//! l'arrivée d'un client attendu.
 //!
 //! | # | Ce qui est vérifié | Ce qu'une relecture manquerait |
 //! |---|---|---|
@@ -8,6 +11,10 @@
 //! | **b** | Deux arrivées chevauchantes : **exactement une** réussit, et le refus est un `ExclusionViolation` **sur la contrainte nommée** | Un `SELECT … FOR UPDATE` donnerait le même COMPTE en rendant la double attribution *improbable* au lieu d'*impossible* |
 //! | **c** | La numérotation de fiche de police est **continue par établissement**, sans trou | Une `SEQUENCE` passerait le test sur un seul établissement |
 //! | **d** | Un passage **sans client** produit un séjour valide et une fiche **numérotée et déclarée incomplète**, sans champ de remplissage | Une fiche fabriquée avec « M. X » passerait toute revue |
+//! | **e** | La requête d'arrivée d'un client connu n'a **aucune place** pour un champ d'identité, et l'identité ressort quand même | Un écran qui pré-remplit **et renvoie** la copie : chaque arrivée écraserait la fiche par une version périmée |
+//! | **f** | L'unité **proposée** est réellement libre — **l'attribution le confirme** | Une proposition d'accord avec elle-même : bornée par `fin_client`, elle proposerait une chambre encore en ménage, et le refus tomberait **après** le geste de Yao |
+//! | **g** | Deux accompagnants font **trois** personnes, et le retrait d'un ramène à **deux** | Une colonne `nombre_personnes` posée : elle passe la première moitié, se désynchronise au retrait, et le constat de taxe **fige la valeur fausse** |
+//! | **h** | Catégorie pleine → la liste **n'est pas vide** : chaque unité porte l'instant où elle se libère, **remise en état comprise** | Une liste vide, qui passe toute revue et oblige Yao à ouvrir un autre écran devant le client |
 //!
 //! # ★ (b) est la seule assertion qui compte, et elle porte sur la CAUSE
 //!
@@ -52,6 +59,9 @@ struct Decor {
     #[allow(dead_code)]
     unite_bis_id: Uuid,
     formule_id: Uuid,
+    /// La catégorie des deux chambres — **la proposition d'unité s'interroge par catégorie**,
+    /// jamais par unité : c'est ce que Yao demande au comptoir (« une Standard »).
+    categorie_id: Uuid,
 }
 
 /// Un établissement avec l'hébergement actif, un type de chambre, **deux** chambres et une nuitée.
@@ -141,6 +151,7 @@ async fn poser_decor(pool: &sqlx::PgPool, nom: &str) -> Decor {
         unite_id: unites[0],
         unite_bis_id: unites[1],
         formule_id,
+        categorie_id,
     }
 }
 
@@ -784,6 +795,475 @@ async fn creer_client(pool: &sqlx::PgPool, tenant_id: Uuid) -> Uuid {
 
     tx.commit().await.expect("commit");
     personne_id
+}
+
+/// Crée une personne **qualifiée cliente** avec un nom et un téléphone donnés.
+///
+/// Sert la preuve de FR-035 : ces deux valeurs sont écrites **une seule fois**, ici, et doivent
+/// ressortir de l'arrivée sans qu'aucune requête d'arrivée ne les ait portées.
+async fn creer_client_nomme(
+    pool: &sqlx::PgPool,
+    tenant_id: Uuid,
+    nom: &str,
+    telephone: &str,
+) -> Uuid {
+    let personne_id = Uuid::now_v7();
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    sqlx::query(
+        "INSERT INTO comptes.personne (id, tenant_id, nom, nom_repli, telephone) \
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(personne_id)
+    .bind(tenant_id)
+    .bind(nom)
+    .bind(nom.to_lowercase())
+    .bind(telephone)
+    .execute(&mut *tx)
+    .await
+    .expect("personne");
+
+    sqlx::query("INSERT INTO comptes.client (personne_id, tenant_id) VALUES ($1, $2)")
+        .bind(personne_id)
+        .bind(tenant_id)
+        .execute(&mut *tx)
+        .await
+        .expect("qualification");
+
+    tx.commit().await.expect("commit");
+    personne_id
+}
+
+/// Pose un battement de remise en état pour une catégorie et une famille de formule.
+async fn poser_remise_en_etat(pool: &sqlx::PgPool, decor: &Decor, minutes: i32) {
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("pose du tenant");
+
+    sqlx::query(
+        "INSERT INTO hebergement.temps_remise_en_etat \
+             (categorie_id, famille_formule, duree_minutes, tenant_id) \
+         VALUES ($1, 'NUITEE', $2, $3)",
+    )
+    .bind(decor.categorie_id)
+    .bind(minutes)
+    .bind(decor.jeu.tenant_id)
+    .execute(&mut *tx)
+    .await
+    .expect("battement de remise en état");
+
+    tx.commit().await.expect("commit");
+}
+
+// ⚠️ **La proposition d'unité n'a AUCUNE opération HTTP, et c'est délibéré.** L'écran `R3` la
+// compose depuis l'opération 17 (`etat-des-unites`), déjà servie à `R4` : ajouter une dix-huitième
+// opération pour une donnée que le terminal a déjà serait un appel réseau de plus sur le chemin le
+// plus chronométré du produit. Les deux tests qui suivent l'éprouvent donc **au service**, monté
+// par la fabrique du binaire — `depuis_environnement`, jamais champ par champ.
+
+// =================================================================================================
+//  ★ (e) CLIENT CONNU — zéro champ ressaisi (FR-035)
+// =================================================================================================
+
+/// ★ **Une arrivée de client connu ne porte AUCUN champ d'identité, et l'identité ressort quand
+/// même.**
+///
+/// # Ce que ce test prouve, et qu'une relecture d'écran ne prouverait pas
+///
+/// FR-035 dit « zéro champ ressaisi ». On peut le vérifier de deux façons :
+///
+/// - regarder l'écran et constater qu'il pré-remplit — ce qui **n'exclut pas** qu'il renvoie
+///   ensuite les valeurs pré-remplies au serveur, et donc qu'une modification de la fiche client
+///   soit écrasée par une copie périmée à chaque arrivée ;
+/// - vérifier que la **requête d'arrivée n'a aucune place** pour ces champs. C'est ce qui est fait
+///   ici, sur le corps réellement envoyé.
+///
+/// La seconde est la seule qui tienne : elle rend la ressaisie **impossible**, pas seulement
+/// évitée. Et elle explique pourquoi `hebergement.fiche_police` ne recopie **aucun** élément
+/// d'identité (migration `0033`) — le nom qui ressort est **résolu** par `AnnuaireClients`, il
+/// n'est pas stocké deux fois.
+#[actix_web::test]
+async fn un_client_connu_n_impose_aucune_ressaisie_et_l_identite_ressort_quand_meme() {
+    let owner = pool_owner().await;
+    let decor = poser_decor(&owner, "SEJ — client connu").await;
+    let cx = commun::compte_connecte(
+        &owner,
+        decor.jeu,
+        "Yao",
+        &[(ROLE, Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(pool_app().await);
+
+    // L'identité est écrite **une seule fois**, ici.
+    let client_id = creer_client_nomme(
+        &owner,
+        decor.jeu.tenant_id,
+        "Kouadio",
+        // Indicatif ivoirien, **zéro initial conservé** : la Côte d'Ivoire n'a pas de préfixe
+        // interurbain, le national tient en dix chiffres.
+        "+2250707123456",
+    )
+    .await;
+
+    let sejour_id = Uuid::now_v7();
+    let debut = OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let corps = corps_ouverture(
+        sejour_id,
+        decor.unite_id,
+        decor.formule_id,
+        debut,
+        48,
+        Some(client_id),
+    );
+
+    // ── 1 · le corps envoyé n'a AUCUNE place pour un champ d'identité ─────────────────────────
+    //
+    // C'est l'assertion qui compte. Elle porte sur ce qui **part du terminal**, pas sur ce que
+    // l'écran affiche.
+    let cles: Vec<&String> = corps.as_object().expect("objet").keys().collect();
+    for interdit in [
+        "nom",
+        "prenoms",
+        "telephone",
+        "email",
+        "type_piece",
+        "numero_piece",
+        "date_naissance",
+        "nationalite",
+    ] {
+        assert!(
+            !cles.iter().any(|c| c.as_str() == interdit),
+            "l'arrivée d'un client connu porte le champ « {interdit} » : c'est une ressaisie, et \
+             surtout une COPIE qui écrasera la fiche à la prochaine arrivée. Clés envoyées : \
+             {cles:?}"
+        );
+    }
+
+    let reponse = ouvrir!(app, cx.bearer, decor.jeu.etablissement_id, corps);
+    assert_eq!(reponse.status(), 201);
+
+    // ── 2 · l'identité ressort quand même, RÉSOLUE et non recopiée ────────────────────────────
+    let requete = actix_web::test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    let liste: serde_json::Value =
+        actix_web::test::read_body_json(actix_web::test::call_service(&app, requete).await).await;
+
+    let ligne = liste
+        .as_array()
+        .expect("un tableau")
+        .iter()
+        .find(|s| s["sejour"]["id"] == serde_json::json!(sejour_id))
+        .expect("le séjour ouvert doit figurer dans la liste des séjours en cours");
+
+    assert_eq!(
+        ligne["client_nom"], "Kouadio",
+        "le nom doit être RÉSOLU par AnnuaireClients — il n'a jamais transité par la requête \
+         d'arrivée. Ligne : {ligne}"
+    );
+    assert_eq!(
+        ligne["client_telephone"], "+2250707123456",
+        "le zéro initial doit survivre : « 07 07 12 34 56 » est le numéro national ivoirien \
+         COMPLET, pas un numéro préfixé"
+    );
+
+    // ── 3 · et la fiche de police ne RECOPIE rien ─────────────────────────────────────────────
+    //
+    // Une fiche qui dupliquerait le nom donnerait, au premier changement de fiche client, deux
+    // vérités — dont l'une est un document légal.
+    let requete = actix_web::test::TestRequest::get()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/fiche-police",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    let fiche: serde_json::Value =
+        actix_web::test::read_body_json(actix_web::test::call_service(&app, requete).await).await;
+
+    assert!(
+        !fiche.to_string().contains("Kouadio"),
+        "la fiche de police RECOPIE le nom du client. Elle doit le référencer par `client_id` et \
+         le laisser résoudre : sinon un changement de fiche client laisse un document légal qui \
+         porte l'ancien nom, sans que rien ne le signale. Fiche : {fiche}"
+    );
+}
+
+// =================================================================================================
+//  ★ (f) L'UNITÉ PROPOSÉE EST RÉELLEMENT LIBRE — et c'est l'attribution qui le prouve
+// =================================================================================================
+
+/// ★ **La proposition tient : l'attribution sur l'unité proposée réussit.**
+///
+/// # Pourquoi l'assertion ne s'arrête pas à la réponse de la proposition
+///
+/// Vérifier que `unites_proposables` rend `A2` avec `disponible_a = None` ne prouve qu'une chose :
+/// que la requête est d'accord avec elle-même. Si son `LEFT JOIN` bornait l'indisponibilité par
+/// `fin_client` plutôt que par `periode`, elle proposerait une chambre encore en remise en état —
+/// et **la contrainte d'exclusion refuserait l'attribution après le geste de Yao**, devant le
+/// client.
+///
+/// Le test attribue donc **réellement** sur l'unité proposée. C'est le seul contrôle qui distingue
+/// une proposition juste d'une proposition plausible.
+#[actix_web::test]
+async fn l_unite_proposee_est_reellement_libre_et_l_attribution_le_confirme() {
+    let owner = pool_owner().await;
+    let decor = poser_decor(&owner, "SEJ — proposition").await;
+    // 45 minutes de battement : sans lui, `periode` et `fin_client` coïncideraient et le test ne
+    // distinguerait pas les deux bornes.
+    poser_remise_en_etat(&owner, &decor, 45).await;
+    let cx = commun::compte_connecte(
+        &owner,
+        decor.jeu,
+        "Yao",
+        &[(ROLE, Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(pool_app().await);
+
+    let debut = OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let fin = debut + time::Duration::hours(24);
+
+    // A1 est prise sur l'intervalle.
+    let corps = corps_ouverture(
+        Uuid::now_v7(),
+        decor.unite_id,
+        decor.formule_id,
+        debut,
+        24,
+        None,
+    );
+    assert_eq!(
+        ouvrir!(app, cx.bearer, decor.jeu.etablissement_id, corps).status(),
+        201
+    );
+
+    let etat = kaya_api::application::EtatApplication::depuis_environnement(pool_app().await)
+        .expect("assemblage de l'état applicatif");
+    let propositions = etat
+        .service_sejour(decor.jeu.tenant_id)
+        .unites_proposables(decor.jeu.etablissement_id, decor.categorie_id, debut, fin)
+        .await
+        .expect("proposition d'unité");
+
+    let premiere = propositions.first().expect("la liste n'est jamais vide");
+    assert_eq!(
+        premiere.code, "A2",
+        "l'ordre est STABLE et EXPLICABLE : les libres d'abord, puis par code croissant — l'ordre \
+         du tableau de clés. Obtenu : {:?}",
+        propositions.iter().map(|p| &p.code).collect::<Vec<_>>()
+    );
+    assert!(
+        premiere.disponible_a.is_none(),
+        "la première proposition doit être libre SUR L'INTERVALLE, pas « libre plus tard »"
+    );
+
+    // ★ Et l'attribution le confirme — la proposition n'est pas seulement d'accord avec elle-même.
+    let corps = corps_ouverture(
+        Uuid::now_v7(),
+        premiere.unite_id,
+        decor.formule_id,
+        debut,
+        24,
+        None,
+    );
+    let reponse = ouvrir!(app, cx.bearer, decor.jeu.etablissement_id, corps);
+    let statut = reponse.status().as_u16();
+    let recu: serde_json::Value = actix_web::test::read_body_json(reponse).await;
+    assert_eq!(
+        statut, 201,
+        "l'unité PROPOSÉE a été refusée à l'attribution. La proposition borne-t-elle bien \
+         l'indisponibilité par `periode` — remise en état comprise — plutôt que par `fin_client` ? \
+         Corps : {recu}"
+    );
+}
+
+// =================================================================================================
+//  ★ (g) TROIS PERSONNES APRÈS DEUX ACCOMPAGNANTS — dérivé, jamais saisi (FR-018)
+// =================================================================================================
+
+/// ★ **Le titulaire plus deux accompagnants font trois — et le retrait d'un ramène à deux.**
+///
+/// # La seconde moitié est celle qui compte
+///
+/// Un nombre de personnes **posé en colonne** passerait la première assertion et échouerait la
+/// seconde : il se désynchroniserait au premier retrait. Et comme le constat de taxe **fige** ce
+/// qu'il lit, la valeur fausse y resterait **pour toujours** — un séjour déclaré à trois personnes
+/// alors qu'il en portait deux, sans rien pour le rattraper a posteriori.
+#[actix_web::test]
+async fn deux_accompagnants_font_trois_personnes_et_le_retrait_ramene_a_deux() {
+    let owner = pool_owner().await;
+    let decor = poser_decor(&owner, "SEJ — personnes").await;
+    let cx = commun::compte_connecte(
+        &owner,
+        decor.jeu,
+        "Yao",
+        &[(ROLE, Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let mut corps = corps_ouverture(sejour_id, decor.unite_id, decor.formule_id, debut, 24, None);
+
+    // ⚠️ Les accompagnants partent dans la **même** requête que le séjour : déclarés à l'arrivée
+    // et perdus par un second appel manqué, ils feraient une fiche de police fausse.
+    let accompagnant_a = Uuid::now_v7();
+    let accompagnant_b = Uuid::now_v7();
+    corps["accompagnants"] = serde_json::json!([
+        { "id": accompagnant_a, "nom": "Aya" },
+        { "id": accompagnant_b, "nom": "Konan" },
+    ]);
+
+    assert_eq!(
+        ouvrir!(app, cx.bearer, decor.jeu.etablissement_id, corps).status(),
+        201
+    );
+
+    // **Un nom seul suffit** (FR-015) : demander une pièce par accompagnant coûterait la cible des
+    // 60 secondes de l'arrivée.
+    let compter = |bearer: String| {
+        let app = &app;
+        let etablissement = decor.jeu.etablissement_id;
+        async move {
+            let requete = actix_web::test::TestRequest::get()
+                .uri(&format!("/api/v1/etablissements/{etablissement}/sejours"))
+                .insert_header(("authorization", bearer))
+                .to_request();
+            let liste: serde_json::Value =
+                actix_web::test::read_body_json(actix_web::test::call_service(app, requete).await)
+                    .await;
+            liste
+                .as_array()
+                .expect("un tableau")
+                .iter()
+                .find(|s| s["sejour"]["id"] == serde_json::json!(sejour_id))
+                .expect("le séjour")["nombre_personnes"]
+                .as_i64()
+                .expect("un entier")
+        }
+    };
+
+    assert_eq!(
+        compter(cx.bearer.clone()).await,
+        3,
+        "le titulaire compte pour un, plus deux accompagnants (FR-018)"
+    );
+
+    // ★ Le retrait — c'est ici qu'une colonne posée se trahirait.
+    let requete = actix_web::test::TestRequest::delete()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/accompagnants/{accompagnant_b}",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert!(
+        reponse.status().is_success(),
+        "le retrait d'un accompagnant doit réussir ; obtenu {}",
+        reponse.status()
+    );
+
+    assert_eq!(
+        compter(cx.bearer.clone()).await,
+        2,
+        "après retrait, le nombre de personnes doit être DÉRIVÉ à nouveau. Une colonne \
+         `nombre_personnes` sur `sejour` aurait passé l'assertion précédente et échoué celle-ci — \
+         et le constat de taxe aurait figé la valeur fausse POUR TOUJOURS."
+    );
+}
+
+// =================================================================================================
+//  ★ (h) CATÉGORIE PLEINE — le refus NOMME la première disponibilité, jamais une liste vide
+// =================================================================================================
+
+/// ★ **Quand tout est pris, la liste n'est pas vide : chaque unité porte l'instant où elle se
+/// libère — remise en état COMPRISE.**
+///
+/// # Les deux défauts que ce test attrape, et qu'aucune relecture ne verrait
+///
+/// 1. **Une liste vide.** Elle passerait toute revue (« il n'y a rien à proposer, c'est exact »)
+///    et obligerait Yao à ouvrir un autre écran pour répondre au client qui attend devant lui.
+///    C'est la différence entre un écran qui répond « pas avant 16 h 40 » et un écran qui dit
+///    « complet ».
+/// 2. **Un instant qui oublie le battement.** Annoncer la chambre libre à l'heure exacte du
+///    départ, alors qu'elle est encore à faire, produit une promesse au client que la contrainte
+///    d'exclusion démentira. L'assertion porte sur `fin + 45 min`, valeur qu'aucune coïncidence
+///    ne peut produire.
+#[actix_web::test]
+async fn categorie_pleine_le_refus_nomme_la_premiere_disponibilite_remise_en_etat_comprise() {
+    let owner = pool_owner().await;
+    let decor = poser_decor(&owner, "SEJ — catégorie pleine").await;
+    const BATTEMENT_MINUTES: i64 = 45;
+    poser_remise_en_etat(&owner, &decor, BATTEMENT_MINUTES as i32).await;
+    let cx = commun::compte_connecte(
+        &owner,
+        decor.jeu,
+        "Yao",
+        &[(ROLE, Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(pool_app().await);
+
+    let debut = OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let fin = debut + time::Duration::hours(24);
+
+    // Les deux chambres de la catégorie sont prises sur l'intervalle.
+    for unite_id in [decor.unite_id, decor.unite_bis_id] {
+        let corps = corps_ouverture(Uuid::now_v7(), unite_id, decor.formule_id, debut, 24, None);
+        assert_eq!(
+            ouvrir!(app, cx.bearer, decor.jeu.etablissement_id, corps).status(),
+            201
+        );
+    }
+
+    let etat = kaya_api::application::EtatApplication::depuis_environnement(pool_app().await)
+        .expect("assemblage de l'état applicatif");
+    let propositions = etat
+        .service_sejour(decor.jeu.tenant_id)
+        .unites_proposables(decor.jeu.etablissement_id, decor.categorie_id, debut, fin)
+        .await
+        .expect("proposition d'unité");
+
+    // 1 · la liste n'est PAS vide
+    assert_eq!(
+        propositions.len(),
+        2,
+        "catégorie pleine : la liste doit rendre les DEUX unités avec leur instant de libération, \
+         jamais une liste vide. Un refus qui dirait seulement « complet » obligerait Yao à ouvrir \
+         un autre écran devant le client."
+    );
+
+    // 2 · chacune NOMME son instant, et cet instant inclut le battement
+    let attendu = fin + time::Duration::minutes(BATTEMENT_MINUTES);
+    for proposition in &propositions {
+        let instant = proposition.disponible_a.unwrap_or_else(|| {
+            panic!(
+                "l'unité {} est annoncée libre alors que la catégorie est pleine",
+                proposition.code
+            )
+        });
+        assert_eq!(
+            instant, attendu,
+            "l'unité {} est annoncée libre à {instant}, soit l'heure exacte du départ. La remise \
+             en état ({BATTEMENT_MINUTES} min) FAIT PARTIE de l'indisponibilité : promettre la \
+             chambre plus tôt, c'est une promesse que la contrainte d'exclusion démentira devant \
+             le client. Attendu : {attendu}",
+            proposition.code
+        );
+    }
 }
 
 /// **Contrôle de diagnostic** : les deux mêmes arrivées, **séquentielles**.
