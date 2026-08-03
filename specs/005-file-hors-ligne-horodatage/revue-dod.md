@@ -22,8 +22,9 @@ preuve de chacun**. Un point coché sans preuve est un point que personne n'a v�
 | Familles d'audit | **11**, dont **4 branchées** | 11, dont 4 |
 | Paramètres au catalogue | **10** (8 + 2) | 10 |
 | Provisions sans logique | **6** (5 + 1) | 6 |
-| Tests backend | **167**, 0 échec | — |
+| Tests backend | **362**, 0 échec | — |
 | Tests front | **522** (+64), 0 échec, 0 erreur de type | — |
+| Balayage hors ligne (FR-005b) | **10** cas × **2** moteurs | — |
 | Clés i18n | **311 fr / 311 en**, écart nul | — |
 | Écrans du produit | **45** (11 maquettés / 32 dérivés / **2** composés) | 45 |
 
