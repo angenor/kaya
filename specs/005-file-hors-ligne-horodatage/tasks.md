@@ -103,8 +103,8 @@ plan — les quatre arrivent, sans erreur de console. Quickstart §2.
 
 ### La plateforme
 
-- [ ] T020 [P] [US1] Ajouter `surRetourPremierPlan(rappel): () => void` à `app/core/platform/index.ts` et l'implémenter dans les quatre adaptateurs (`web.ts` : `visibilitychange` **et** `focus` ; `desktop.ts` : focus de fenêtre Tauri ; `android.ts` / `ios.ts` : reprise d'activité). **Rendre la fonction de désabonnement, jamais `void`**
-- [ ] T021 [US1] Alimenter l'état `degrade` dans `app/core/platform/reseau.ts` depuis un observateur d'appels — dernière issue et dernière durée, seuil lu de `sync.latence_degradee_seuil_ms`. C'est la ligne que le commentaire de tête du fichier annonce depuis le cycle 001
+- [x] T020 [P] [US1] Ajouter `surRetourPremierPlan(rappel): () => void` à `app/core/platform/index.ts` et l'implémenter dans les quatre adaptateurs (`web.ts` : `visibilitychange` **et** `focus` ; `desktop.ts` : focus de fenêtre Tauri ; `android.ts` / `ios.ts` : reprise d'activité). **Rendre la fonction de désabonnement, jamais `void`**
+- [x] T021 [US1] Alimenter l'état `degrade` dans `app/core/platform/reseau.ts` depuis un observateur d'appels — dernière issue et dernière durée, seuil lu de `sync.latence_degradee_seuil_ms`. C'est la ligne que le commentaire de tête du fichier annonce depuis le cycle 001
 
 ### La file
 

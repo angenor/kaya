@@ -12,6 +12,7 @@ import {
   indisponible,
   stockageSecuriseAbsent,
   type ChampsPieceIdentite,
+  type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
   type Notification,
@@ -52,5 +53,33 @@ export const adaptateurDesktop: PlatformAdapter = {
 
   etatReseau(): EtatReseau {
     return etatReseauNavigateur()
+  },
+
+  /**
+   * **Le focus de fenêtre de Tauri**, dès que la coquille existe.
+   *
+   * C'est le cas qui justifie l'abstraction : sur desktop, le signal utile n'est pas celui du
+   * navigateur mais l'événement de fenêtre de Tauri, plus fin — il distingue une fenêtre revenue
+   * au premier plan d'un simple retour de focus dans la page.
+   *
+   * **Provisoire nommé**, de même nature que la sélection d'adaptateur de `courant.ts` : la
+   * coquille Tauri n'est pas construite. Les signaux du navigateur sont employés en attendant —
+   * ils fonctionnent, et le jour où la coquille arrive, seul ce corps change.
+   */
+  surRetourPremierPlan(rappel: () => void): Desabonnement {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return () => {}
+    }
+    const surVisibilite = (): void => {
+      if (document.visibilityState === 'visible') {
+        rappel()
+      }
+    }
+    document.addEventListener('visibilitychange', surVisibilite)
+    window.addEventListener('focus', rappel)
+    return () => {
+      document.removeEventListener('visibilitychange', surVisibilite)
+      window.removeEventListener('focus', rappel)
+    }
   },
 }

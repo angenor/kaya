@@ -15,8 +15,9 @@
  * compare le client généré au client commité, et la rupture était un cran plus loin.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
 export type { ContexteAppel }
@@ -52,7 +53,7 @@ export async function chargerOffre(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<DonneesOffre> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const headers = enTetesAuth(contexte)
 
   const [categories, formules] = await Promise.all([
@@ -83,7 +84,7 @@ export async function chargerFormules(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<FormuleVue[]> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.GET(
     '/api/v1/etablissements/{etablissement_id}/hebergement/formules',
     {
@@ -103,7 +104,7 @@ export async function chargerChambres(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<DonneesChambres> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const headers = enTetesAuth(contexte)
 
   const [categories, unites] = await Promise.all([
@@ -129,7 +130,7 @@ export async function chargerUnites(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<UniteVue[]> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.GET(
     '/api/v1/etablissements/{etablissement_id}/hebergement/unites',
     {
@@ -149,7 +150,7 @@ export async function chargerCategories(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<CategorieVue[]> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.GET(
     '/api/v1/etablissements/{etablissement_id}/hebergement/categories',
     {

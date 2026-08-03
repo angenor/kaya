@@ -42,8 +42,8 @@
  * générique honnête plutôt que sur une clé i18n manquante affichée en brut.
  */
 
-import { creerClientKaya } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import { uuidV7 } from '~/core/sync/uuid-v7'
 import type { EtatReseau } from '~/core/platform'
@@ -144,7 +144,7 @@ export async function basculerService(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
 
   // **Appel typé par le client généré, jamais un `fetch` écrit à la main.** Le chemin, la forme du
   // corps et celle de la réponse viennent de `clients/ts/types.gen.ts`, dérivé du contrat OpenAPI

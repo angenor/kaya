@@ -17,8 +17,9 @@
  * mettre dans une requête, et il n'y a plus rien à choisir.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
 import type { EntreeReferentiel, ServiceActif } from './services-visibles'
@@ -64,7 +65,7 @@ export async function chargerEcran(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<DonneesEcran> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const headers = enTetesAuth(contexte)
 
   const etablissement = await client.GET('/api/v1/etablissements/{etablissement_id}', {
@@ -125,7 +126,7 @@ export async function chargerServices(
   contexte: ContexteAppel,
   etablissementId: string,
 ): Promise<ServiceActif[]> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
 
   const services = await client.GET('/api/v1/etablissements/{etablissement_id}/services', {
     params: { path: { etablissement_id: etablissementId } },

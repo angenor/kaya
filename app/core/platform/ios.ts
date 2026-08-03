@@ -12,6 +12,7 @@ import {
   indisponible,
   stockageSecuriseAbsent,
   type ChampsPieceIdentite,
+  type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
   type Notification,
@@ -50,5 +51,32 @@ export const adaptateurIos: PlatformAdapter = {
     // plan, sur toutes les plateformes (principe VI) — c'est iOS qui impose cette règle aux
     // autres, et non l'inverse.
     return etatReseauNavigateur()
+  },
+
+  /**
+   * **Le retour au premier plan**, dès que la coquille iOS existe.
+   *
+   * `BGTaskScheduler` **n'est pas ici**, et pour une raison plus forte qu'une priorité :
+   * **iOS n'a pas de synchronisation en arrière-plan** dont on puisse dépendre. Le système décide
+   * quand — ou si — il réveille une application. C'est précisément pourquoi le retour au premier
+   * plan est le déclencheur qui doit suffire seul.
+   *
+   * **Provisoire nommé** : la coquille Tauri iOS n'est pas construite.
+   */
+  surRetourPremierPlan(rappel: () => void): Desabonnement {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return () => {}
+    }
+    const surVisibilite = (): void => {
+      if (document.visibilityState === 'visible') {
+        rappel()
+      }
+    }
+    document.addEventListener('visibilitychange', surVisibilite)
+    window.addEventListener('focus', rappel)
+    return () => {
+      document.removeEventListener('visibilitychange', surVisibilite)
+      window.removeEventListener('focus', rappel)
+    }
   },
 }

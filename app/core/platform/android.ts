@@ -12,6 +12,7 @@ import {
   indisponible,
   stockageSecuriseAbsent,
   type ChampsPieceIdentite,
+  type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
   type Notification,
@@ -49,5 +50,32 @@ export const adaptateurAndroid: PlatformAdapter = {
 
   etatReseau(): EtatReseau {
     return etatReseauNavigateur()
+  },
+
+  /**
+   * **La reprise d'activité**, dès que la coquille mobile existe.
+   *
+   * `WorkManager` **n'est pas ici** : il est MOB-06, une optimisation. La file est conçue pour se
+   * vider au retour au premier plan, et le produit doit être complet sans tâche de fond — c'est
+   * la cible d'Aminata, un Android d'entrée de gamme dont la batterie doit tenir un service.
+   *
+   * **Provisoire nommé** : la coquille Tauri mobile n'est pas construite, les signaux du moteur de
+   * rendu font le travail en attendant.
+   */
+  surRetourPremierPlan(rappel: () => void): Desabonnement {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return () => {}
+    }
+    const surVisibilite = (): void => {
+      if (document.visibilityState === 'visible') {
+        rappel()
+      }
+    }
+    document.addEventListener('visibilitychange', surVisibilite)
+    window.addEventListener('focus', rappel)
+    return () => {
+      document.removeEventListener('visibilitychange', surVisibilite)
+      window.removeEventListener('focus', rappel)
+    }
   },
 }

@@ -26,7 +26,9 @@
  * mieux à faire, et c'est aussi ce qui rend le vol visible à la victime.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
+
+import { clientKaya } from '~/core/api/client'
 
 import type { EtatReseau } from '~/core/platform'
 import {
@@ -147,7 +149,7 @@ export async function ouvrirSession(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(baseUrl)
+  const client = clientKaya(baseUrl)
   const reponse = await client.POST('/api/v1/session', {
     body: {
       identifiant: identifiants.identifiant,
@@ -195,7 +197,7 @@ export async function rafraichirSession(
     return { issue: 'refus', cle: REFUS_SESSION_EXPIREE }
   }
 
-  const client = creerClientKaya(baseUrl)
+  const client = clientKaya(baseUrl)
   const reponse = await client.POST('/api/v1/session/rafraichir', {
     body: { rafraichissement, etablissement_id: etablissementId ?? null },
   })
@@ -240,7 +242,7 @@ export async function reprendreSession(baseUrl: string, reseau: EtatReseau): Pro
 export async function fermerSession(baseUrl: string): Promise<void> {
   const contexte = contexteAppel(baseUrl)
   if (contexte) {
-    const client = creerClientKaya(baseUrl)
+    const client = clientKaya(baseUrl)
     try {
       await client.DELETE('/api/v1/session', { headers: enTetesAuth(contexte) })
     }

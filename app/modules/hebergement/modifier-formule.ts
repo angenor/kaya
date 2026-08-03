@@ -37,8 +37,9 @@
  * de l'exploitant. Le contrat ne les porte pas ; ce fichier ne les invente pas.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import type { EtatReseau } from '~/core/platform'
 
@@ -159,7 +160,7 @@ export async function modifierFormule(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
 
   const reponse = await client.PUT(
     '/api/v1/etablissements/{etablissement_id}/hebergement/formules/{formule_id}',

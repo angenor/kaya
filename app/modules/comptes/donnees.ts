@@ -24,8 +24,9 @@
  * comptes, la même clé partirait deux cents fois.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
 /** Un rôle porté par un compte, tel que l'API le rend. */
@@ -53,7 +54,7 @@ export async function chargerComptes(
   contexte: ContexteAppel,
   etablissementId?: string,
 ): Promise<DonneesComptes> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const headers = enTetesAuth(contexte)
 
   const [comptes, roles] = await Promise.all([

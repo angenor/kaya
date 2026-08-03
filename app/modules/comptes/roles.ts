@@ -27,8 +27,8 @@
  * unique en cacherait une des deux.
  */
 
-import { creerClientKaya } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import { cleDeRefus } from '~/core/erreurs/codes'
 import type { EtatReseau } from '~/core/platform'
@@ -120,7 +120,7 @@ export async function attribuerRole(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.POST('/api/v1/comptes/{compte_id}/roles', {
     params: { path: { compte_id: compteId } },
     // UUID v7 **généré côté client** : c'est lui qui rend le rejeu inoffensif (principe VI).
@@ -152,7 +152,7 @@ export async function retirerRole(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.DELETE('/api/v1/comptes/{compte_id}/roles/{role_code}', {
     params: {
       path: { compte_id: compteId, role_code: roleCode },

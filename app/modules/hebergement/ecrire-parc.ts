@@ -24,8 +24,8 @@
  * un numéro de chambre n'est pas un écran de gestion.
  */
 
-import { creerClientKaya } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 import { uuidV7 } from '~/core/sync/uuid-v7'
 import type { EtatReseau } from '~/core/platform'
@@ -108,7 +108,7 @@ export async function creerUnite(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.POST(
     '/api/v1/etablissements/{etablissement_id}/hebergement/unites',
     {
@@ -144,7 +144,7 @@ export async function corrigerUnite(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.PUT(
     '/api/v1/etablissements/{etablissement_id}/hebergement/unites/{unite_id}',
     {
@@ -186,7 +186,7 @@ export async function creerCategorie(
     return { issue: 'refus', cle: REFUS_RESEAU, reseau: true }
   }
 
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
   const reponse = await client.POST(
     '/api/v1/etablissements/{etablissement_id}/hebergement/categories',
     {

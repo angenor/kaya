@@ -16,6 +16,8 @@
  * n'échoue jamais en silence.
  */
 
+import { reseauMauvais } from './observateur-appels'
+
 /** Motif d'indisponibilité d'une capacité. */
 export type CapaciteIndisponible =
   /** La plateforme ne fournit pas cette capacité — un navigateur n'imprime pas en thermique. */
@@ -117,6 +119,14 @@ export interface StockageSecurise {
   purger(): Promise<ResultatCapacite>
 }
 
+/**
+ * Se désabonner d'un signal de plateforme.
+ *
+ * **Rendue par tout abonnement, jamais `void`.** Un écouteur qu'on ne peut pas retirer fait fuir
+ * la mémoire à chaque navigation — sur des terminaux qui n'en ont pas.
+ */
+export type Desabonnement = () => void
+
 /** Capacités natives, vues par le métier. */
 export interface PlatformAdapter {
   readonly nom: 'desktop' | 'android' | 'ios' | 'web'
@@ -128,6 +138,27 @@ export interface PlatformAdapter {
   notifier(notification: Notification): Promise<ResultatCapacite>
   geolocaliser(): Promise<ResultatCapacite<Position>>
   etatReseau(): EtatReseau
+
+  /**
+   * S'abonne au retour de l'application **au premier plan**.
+   *
+   * # Pourquoi c'est une capacité de plateforme, et non un écouteur posé dans un composant
+   *
+   * Le principe VII range le cycle de vie parmi ce qui passe par l'adaptateur, au même titre que
+   * l'impression et la géolocalisation. Un composant qui poserait lui-même `visibilitychange`
+   * marcherait — dans un navigateur — et devrait être rouvert le jour où Tauri fournit un signal
+   * de fenêtre plus fin, ce qu'il fait déjà sur desktop.
+   *
+   * # Il n'y a PAS de `ResultatCapacite` ici, et c'est délibéré
+   *
+   * La file est **conçue pour se vider au retour au premier plan, sur toutes les plateformes** ;
+   * tout le reste est optimisation. Un adaptateur qui ne saurait pas signaler ce retour rendrait
+   * le produit inutilisable sur sa cible : ce n'est pas une commodité dont on annonce l'absence,
+   * c'est un socle. Une capacité absente **le dit** ; celle-ci ne peut pas l'être.
+   *
+   * @returns La fonction de désabonnement. **Jamais `void`** — voir {@link Desabonnement}.
+   */
+  surRetourPremierPlan(rappel: () => void): Desabonnement
 }
 
 /** Raccourci pour déclarer une capacité absente. */
@@ -168,17 +199,36 @@ export const stockageSecuriseAbsent: StockageSecurise = {
 }
 
 /**
- * État du réseau, tel que le navigateur le rapporte.
+ * État du réseau, **plateforme et appels réels combinés**.
  *
  * **`navigator.onLine` ne dit pas si le serveur est joignable** — seulement si une interface
  * réseau est active. À Abengourou, une connexion 3G qui affiche « en ligne » sans porter la
- * moindre requête est le cas courant, pas l'exception. D'où l'état intermédiaire `degrade`, que
- * le cycle SYN alimentera depuis les échecs réels de requête. Le rapporter comme `connecte`
- * produirait exactement l'échec après coup que le principe VI interdit.
+ * moindre requête est le cas courant, pas l'exception. Le rapporter comme `connecte` produirait
+ * exactement l'échec après coup que le principe VI interdit.
+ *
+ * D'où l'état intermédiaire `degrade`, **enfin alimenté par le cycle SYN** :
+ *
+ * ```text
+ * plateforme dit « hors ligne »                        → hors_ligne
+ * plateforme dit « en ligne » ET dernier appel KO      → degrade
+ * plateforme dit « en ligne » ET dernier appel > seuil → degrade
+ * sinon                                                → connecte
+ * ```
+ *
+ * L'ordre compte : **hors ligne l'emporte sur dégradé**. Un terminal sans réseau dont le dernier
+ * appel avait mis quatre secondes est hors ligne, pas « en connexion faible ».
+ *
+ * `connecte` continue de vouloir dire « rien ne dit que c'est coupé », **jamais** « ça marche ».
+ * Une opération de classe C peut encore échouer après coup, et son message d'erreur doit rester
+ * lisible : ce n'est pas parce que la garde hors-ligne existe qu'elle dispense du traitement
+ * d'erreur.
  */
 export function etatReseauNavigateur(): EtatReseau {
   if (typeof navigator === 'undefined') {
     return 'connecte'
   }
-  return navigator.onLine ? 'connecte' : 'hors_ligne'
+  if (!navigator.onLine) {
+    return 'hors_ligne'
+  }
+  return reseauMauvais() ? 'degrade' : 'connecte'
 }

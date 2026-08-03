@@ -12,6 +12,7 @@ import {
   etatReseauNavigateur,
   indisponible,
   type ChampsPieceIdentite,
+  type Desabonnement,
   type DocumentImprimable,
   type EtatReseau,
   type Notification,
@@ -57,5 +58,37 @@ export const adaptateurWeb: PlatformAdapter = {
 
   etatReseau(): EtatReseau {
     return etatReseauNavigateur()
+  },
+
+  /**
+   * **Les deux signaux, et pas un seul.**
+   *
+   * `visibilitychange` couvre le changement d'onglet ; `focus` couvre le retour sur une fenêtre
+   * qui était derrière une autre sans avoir jamais été cachée. Aminata fait les deux : elle passe
+   * de l'application au clavier de la caisse, puis revient. N'écouter que le premier laisserait la
+   * file pleine dans le second cas, et le défaut ne se verrait qu'au comptoir.
+   */
+  surRetourPremierPlan(rappel: () => void): Desabonnement {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      // Rendu côté serveur ou environnement de test sans DOM : rien à écouter, et surtout rien à
+      // faire échouer. Le désabonnement reste une fonction — l'appelant n'a pas à vérifier.
+      return () => {}
+    }
+
+    const surVisibilite = (): void => {
+      // Seul le passage VERS `visible` compte. Réagir au départ déclencherait un envoi au moment
+      // précis où l'utilisateur quitte l'application, c'est-à-dire au pire moment.
+      if (document.visibilityState === 'visible') {
+        rappel()
+      }
+    }
+
+    document.addEventListener('visibilitychange', surVisibilite)
+    window.addEventListener('focus', rappel)
+
+    return () => {
+      document.removeEventListener('visibilitychange', surVisibilite)
+      window.removeEventListener('focus', rappel)
+    }
   },
 }

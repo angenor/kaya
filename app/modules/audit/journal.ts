@@ -14,8 +14,9 @@
  * le pire résultat possible pour un registre.
  */
 
-import { creerClientKaya, type components } from '@kaya/client'
+import type { components } from '@kaya/client'
 
+import { clientKaya } from '~/core/api/client'
 import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 
 /**
@@ -94,7 +95,7 @@ export async function chargerJournal(
   filtres: FiltresJournal = {},
   curseur?: Curseur,
 ): Promise<PageJournal> {
-  const client = creerClientKaya(contexte.baseUrl)
+  const client = clientKaya(contexte.baseUrl)
 
   const reponse = await client.GET('/api/v1/journal-audit', {
     params: {
