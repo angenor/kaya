@@ -684,16 +684,24 @@ async fn seeder_residence_test(pool: &PgPool) -> Result<(), Box<dyn std::error::
 /// dans les archives de tous les postes ayant cloné le projet — et il finirait employé sur un
 /// serveur de démonstration joignable depuis internet.
 ///
-/// # Le condensat est recalculé à chaque exécution, et ce n'est PAS une non-idempotence
+/// # ★ Le condensat est VÉRIFIÉ, et réécrit seulement s'il ne concorde plus
 ///
 /// Argon2 tire un sel aléatoire : deux exécutions produisent deux condensats différents pour le
-/// même mot de passe. C'est exactement ce qu'on veut, et c'est pourquoi l'`INSERT` porte
-/// `ON CONFLICT (id) DO NOTHING` **et non `DO UPDATE`** : la ligne existante n'est pas réécrite,
-/// donc l'état final est identique à la troisième exécution comme à la première.
+/// même mot de passe. Le seed **ne compare donc pas des condensats** — il **vérifie** le condensat
+/// existant contre `KAYA_SEEDS_MOT_DE_PASSE`. S'il concorde, rien n'est écrit, et l'état final est
+/// identique à la troisième exécution comme à la première.
 ///
-/// La distinction avec l'identité des établissements — qui, elle, est réappliquée par `DO UPDATE`
-/// — tient en une phrase : une commune est une **valeur de référence** que le seed déclare, un
-/// condensat est une **donnée de travail** dont la valeur exacte n'a pas d'importance.
+/// **S'il ne concorde pas, il est réécrit** — cycle 006, et ce n'est pas une préférence de style.
+/// L'ancienne rédaction posait `DO NOTHING` au motif qu'un condensat est « une donnée de travail
+/// dont la valeur exacte n'a pas d'importance ». C'est vrai de sa *valeur*, faux de ce qu'il
+/// **ouvre** : sur une base où les comptes existaient d'une exécution antérieure, changer
+/// `KAYA_SEEDS_MOT_DE_PASSE` ne changeait rien, et la connexion échouait sur « Identifiant ou mot
+/// de passe incorrect » — message **indiscernable d'une faute de frappe** (FR-012). Le fichier de
+/// seed déclarait pourtant le bon mot de passe, deux lignes plus haut.
+///
+/// C'est le raisonnement de `le_seed_applique_reellement_l_identite_qu_il_declare`, appliqué au
+/// mot de passe : **un seed qui n'applique pas ce qu'il déclare donne un état faux**, et personne
+/// ne pense à le soupçonner parce que le fichier dit la bonne chose.
 ///
 /// # `DO NOTHING` sur les rôles, et pourquoi c'est le couple qui compte
 ///
@@ -744,17 +752,39 @@ async fn seeder_comptes_deloria(
         .execute(&mut *tx)
         .await?;
 
-        // Le condensat n'est calculé que si le compte n'existe pas — un hachage Argon2 coûte
-        // 19 Mio et des dizaines de millisecondes, et le recalculer à chaque exécution pour le
-        // jeter aussitôt serait du travail pur.
-        let deja_present: bool = sqlx::query_scalar!(
-            r#"SELECT EXISTS (SELECT 1 FROM comptes.compte WHERE id = $1) AS "existe!""#,
+        // ★ **Le seed APPLIQUE le mot de passe qu'il déclare — mais seulement s'il ne l'est pas
+        //    déjà.**
+        //
+        // Le condensat existant est **vérifié** contre `KAYA_SEEDS_MOT_DE_PASSE`. S'il concorde,
+        // rien n'est écrit : le seed reste rejouable au sens strict, et l'objection d'origine —
+        // *« recalculer un hachage à chaque exécution pour le jeter aussitôt serait du travail
+        // pur »* — est respectée, une vérification coûtant ce qu'aurait coûté le hachage évité.
+        //
+        // ⚠️ **S'il ne concorde pas, il est RÉÉCRIT.** C'est le défaut trouvé au cycle 006, et il
+        // a coûté une session : les comptes existaient d'une exécution antérieure, la variable
+        // avait changé depuis, et la connexion échouait sur « Identifiant ou mot de passe
+        // incorrect » — message **indiscernable d'une faute de frappe** (FR-012), sur une base
+        // dont le fichier de seed déclarait pourtant le bon mot de passe deux lignes plus haut.
+        // C'est exactement le raisonnement de `le_seed_applique_reellement_l_identite_qu_il_
+        // declare` : un seed qui n'applique pas ce qu'il déclare donne un état faux, et personne
+        // ne pense à le soupçonner parce que le fichier dit la bonne chose.
+        let condensat_actuel: Option<String> = sqlx::query_scalar!(
+            "SELECT condensat_mot_de_passe FROM comptes.compte WHERE id = $1",
             compte_id
         )
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
 
-        if !deja_present {
+        let a_reecrire = match &condensat_actuel {
+            None => true,
+            Some(condensat) => !kaya_comptes::authentification::verifier(condensat, mot_de_passe)
+                .map(|v| v.valide)
+                // Un condensat illisible est réécrit : le refuser laisserait un compte de
+                // démonstration définitivement inaccessible.
+                .unwrap_or(false),
+        };
+
+        if a_reecrire {
             let condensat = kaya_comptes::authentification::hacher(mot_de_passe)?;
 
             sqlx::query!(
@@ -762,7 +792,9 @@ async fn seeder_comptes_deloria(
                 INSERT INTO comptes.compte
                     (id, tenant_id, personne_id, identifiant_email, condensat_mot_de_passe)
                 VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT (id) DO UPDATE
+                SET condensat_mot_de_passe = EXCLUDED.condensat_mot_de_passe,
+                    modifie_le = now()
                 "#,
                 compte_id,
                 TENANT_DELORIA,
@@ -772,6 +804,14 @@ async fn seeder_comptes_deloria(
             )
             .execute(&mut *tx)
             .await?;
+
+            if condensat_actuel.is_some() {
+                tracing::warn!(
+                    identifiant,
+                    "le compte existait avec un AUTRE mot de passe — condensat réécrit depuis \
+                     KAYA_SEEDS_MOT_DE_PASSE"
+                );
+            }
         }
     }
 

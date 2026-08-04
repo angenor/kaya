@@ -27,8 +27,9 @@ import fr from '../core/i18n/fr.json'
 //  Doublures
 // =================================================================================================
 
-vi.mock('~/core/platform', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('~/core/platform')>()),
+// ⚠️ Le double porte sur `~/core/platform/reseau`, PAS sur le baril — `useEtatReseau` vit là, et
+// le baril ne le réexporte pas. Voir `tests/imports-barils.spec.ts`.
+vi.mock('~/core/platform/reseau', () => ({
   useEtatReseau: () => ({ value: 'connecte' as const }),
 }))
 

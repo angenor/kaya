@@ -53,7 +53,7 @@
  */
 import { computed, ref } from 'vue'
 
-import { useEtatReseau } from '~/core/platform'
+import { useEtatReseau } from '~/core/platform/reseau'
 import type { Permissions } from '~/core/rbac'
 import { detient } from '~/core/rbac'
 import ChoixDuree from './ChoixDuree.vue'
@@ -113,6 +113,23 @@ const categoriePassage = computed(() => {
   return formule?.categorie_id ?? null
 })
 
+/**
+ * ★ **Les chambres de la catégorie servie — les autres n'ont rien à faire ici.**
+ *
+ * ⚠️ **Défaut réel, trouvé par la porte de temps machine au cycle 006.** La grille rendait
+ * **toutes** les unités de l'établissement alors que l'écran n'applique **qu'une** formule de
+ * passage : toucher une chambre d'une autre catégorie produisait
+ * `formule_hors_categorie` — « Cette formule ne s'applique pas à cette chambre » — un refus que Yao
+ * subissait **après** le geste, devant le client, sur une chambre que l'écran venait de lui
+ * présenter comme libre.
+ *
+ * Aucun test unitaire ne pouvait le voir : ils fournissent une seule catégorie. Il fallait un parc
+ * réel à six catégories, c'est-à-dire les seeds.
+ */
+const unitesDeLaCategorie = computed(() =>
+  etat.value.etatDesUnites.unites.filter((u) => u.categorie_id === categoriePassage.value),
+)
+
 const paliers = computed<PalierAffichable[]>(() => {
   if (!categoriePassage.value) return []
   return paliersAffichables(
@@ -134,14 +151,14 @@ const clePalierChoisi = computed(() =>
  * répond : Yao peut dire au client « dans vingt minutes », au lieu de « je n'ai rien ».
  */
 const complet = computed(() =>
-  etat.value.etatDesUnites.unites.length > 0
-  && !etat.value.etatDesUnites.unites.some(
+  unitesDeLaCategorie.value.length > 0
+  && !unitesDeLaCategorie.value.some(
     (u) => u.etat === 'libre' && u.statut_menage !== 'a_nettoyer',
   ),
 )
 
 const prochainesLiberations = computed(() =>
-  etat.value.etatDesUnites.unites
+  unitesDeLaCategorie.value
     .filter((u) => u.etat !== 'libre')
     .map((u) => ({
       unite: u,
@@ -153,7 +170,7 @@ const prochainesLiberations = computed(() =>
 )
 
 const chambresPrises = computed(() =>
-  etat.value.etatDesUnites.unites.filter((u) => u.etat === 'occupee').length,
+  unitesDeLaCategorie.value.filter((u) => u.etat === 'occupee').length,
 )
 
 const heureDe = (instant: string): string =>
@@ -354,7 +371,7 @@ function clientSuivant(): void {
       -->
       <GrilleUnites
         v-if="peutOuvrir"
-        :unites="etat.etatDesUnites.unites"
+        :unites="unitesDeLaCategorie"
         :choisie="null"
         :hors-ligne="horsLigne"
         :en-cours="uniteEnCours"

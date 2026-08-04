@@ -39,7 +39,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import ChampSaisie from '~/core/design-system/ChampSaisie.vue'
-import { useEtatReseau } from '~/core/platform'
+import { useEtatReseau } from '~/core/platform/reseau'
 import type { Permissions } from '~/core/rbac'
 import { detient } from '~/core/rbac'
 import FicheClient from './FicheClient.vue'

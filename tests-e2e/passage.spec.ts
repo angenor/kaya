@@ -44,18 +44,25 @@
 
 import { expect, test } from '@playwright/test'
 
+import { COMPTE_DEMONSTRATION as COMPTE } from './routes'
+
 /**
- * Le compte de démonstration, tel que les seeds le posent.
+ * ★ **Le compte vient de `routes.ts`, une seule fois pour tout le e2e.**
+ *
+ * ⚠️ Ce fichier en portait une **copie**, avec un identifiant **téléphonique** —
+ * `+2250700000002` — que les seeds ne posent pas : ils créent les comptes avec un
+ * `identifiant_email`, et rien d'autre. Le symptôme était « Identifiant ou mot de passe
+ * incorrect », **indiscernable d'un mot de passe faux** (FR-012), sur une variable
+ * `KAYA_SEEDS_MOT_DE_PASSE` pourtant correcte. Cherché du mauvais côté pendant une session.
+ *
+ * Le repli littéral de mot de passe était de la même famille : il rendait le test **vert-muet**
+ * quand la variable manquait, au lieu de dire ce qui manquait. `COMPTE_DEMONSTRATION` lève.
  *
  * ⚠️ **`receptionniste`, et pas `proprietaire`.** Depuis la migration `0030`, le propriétaire ne
  * reçoit que les **lectures** du séjour : avec son compte, la grille des chambres serait
  * **absente** du HTML — ce qui est le comportement voulu, et ferait échouer ce test sur un
- * symptôme qui n'a rien à voir avec la vitesse.
+ * symptôme qui n'a rien à voir avec la vitesse. Adjoua porte les trois rôles, dont celui-là.
  */
-const COMPTE = {
-  identifiant: process.env.KAYA_E2E_IDENTIFIANT ?? '+2250700000002',
-  motDePasse: process.env.KAYA_SEEDS_MOT_DE_PASSE ?? 'kaya-demo-2026',
-}
 
 /**
  * Le budget de temps **machine**, en millisecondes, du premier tap à « C'est fait ».
@@ -101,7 +108,11 @@ test.describe('SC-004 — la part machine du parcours de passage', () => {
     expect(
       disponibles,
       'aucune chambre libre dans les données de démonstration : ce test n\'aurait rien à '
-      + 'mesurer. Recharger les seeds avant de conclure à une régression.',
+      + 'mesurer.\n'
+      + '⚠️ RECHARGER LES SEEDS NE SUFFIT PAS — ils ajoutent, ils n\'effacent jamais, et chaque '
+      + 'exécution de ce test CONSOMME une chambre. La commande qui remet le parc à neuf est :\n'
+      + '    bash scripts/dev/charger-seeds.sh --remettre-a-neuf\n'
+      + 'Ne conclure à une régression qu\'APRÈS l\'avoir lancée.',
     ).toBeGreaterThan(0)
 
     // ── ★ LE CHRONOMÈTRE — il part au PREMIER GESTE ──────────────────────────────────────

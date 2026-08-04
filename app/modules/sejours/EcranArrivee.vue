@@ -48,7 +48,7 @@ import { computed, ref, watch } from 'vue'
 
 import ChampSaisie from '~/core/design-system/ChampSaisie.vue'
 import { formaterMontant } from '~/core/format/montant'
-import { useEtatReseau } from '~/core/platform'
+import { useEtatReseau } from '~/core/platform/reseau'
 import type { Permissions } from '~/core/rbac'
 import { detient } from '~/core/rbac'
 import GrilleUnites from './GrilleUnites.vue'

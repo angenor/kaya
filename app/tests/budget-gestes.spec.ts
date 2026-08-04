@@ -48,13 +48,13 @@ import fr from '../core/i18n/fr.json'
 /**
  * Le réseau est **connecté** : ce test mesure le parcours nominal.
  *
- * ⚠️ **Double PARTIEL, et pas total.** `~/core/platform` réexporte tout l'adaptateur — dont
- * `stockagePersistantMoteur`, que la file hors-ligne importe. Un double total le ferait
- * disparaître du graphe, et le fichier entier échouerait au chargement **avant d'exécuter la
- * moindre assertion** — un fichier qui ne s'exécute pas est indistinguable d'un fichier qui passe.
+ * ⚠️ **Le double porte sur `~/core/platform/reseau`, PAS sur le baril.** C'est la seule forme
+ * juste : `useEtatReseau` vit dans ce module, et `~/core/platform/index.ts` **ne le réexporte
+ * pas**. Ce fichier doublait le baril, ce qui **fournissait** un export inexistant — le test était
+ * vert et l'écran ne se montait pas en navigateur. Le défaut a été trouvé par P-22 au cycle 006 ;
+ * `tests/imports-barils.spec.ts`, né de là, le rend désormais visible en millisecondes.
  */
-vi.mock('~/core/platform', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('~/core/platform')>()),
+vi.mock('~/core/platform/reseau', () => ({
   useEtatReseau: () => ({ value: 'connecte' as const }),
 }))
 

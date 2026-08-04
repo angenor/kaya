@@ -30,12 +30,12 @@ import fr from '../core/i18n/fr.json'
 const etatReseau = { value: 'connecte' as 'connecte' | 'hors_ligne' }
 
 /**
- * ⚠️ **Double PARTIEL, jamais total.** `~/core/platform` réexporte tout l'adaptateur — dont
- * `stockagePersistantMoteur`, que la file hors-ligne importe. Un double total le ferait disparaître
- * du graphe et le fichier entier échouerait au chargement, avant la moindre assertion.
+ * ⚠️ **Le double porte sur `~/core/platform/reseau`, PAS sur le baril** — `useEtatReseau` vit là,
+ * et le baril ne le réexporte pas. Ce fichier doublait le baril, ce qui **fournissait** un export
+ * inexistant : le test était vert et l'écran ne se montait pas en navigateur. Voir
+ * `tests/imports-barils.spec.ts`, né de ce défaut.
  */
-vi.mock('~/core/platform', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('~/core/platform')>()),
+vi.mock('~/core/platform/reseau', () => ({
   useEtatReseau: () => etatReseau,
 }))
 

@@ -37,7 +37,7 @@
 import { computed, ref } from 'vue'
 
 import { formaterMontant } from '~/core/format/montant'
-import { useEtatReseau } from '~/core/platform'
+import { useEtatReseau } from '~/core/platform/reseau'
 import type { Permissions } from '~/core/rbac'
 import { detient } from '~/core/rbac'
 import NoteSejour from './NoteSejour.vue'
