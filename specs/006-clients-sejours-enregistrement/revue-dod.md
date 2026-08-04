@@ -75,6 +75,19 @@ texte des fichiers — et il rougit quand on réintroduit le défaut, vérifié.
 | La grille du passage rendait **toutes** les unités de l'établissement alors que l'écran n'applique **qu'une** formule | `formule_hors_categorie` — un refus subi **après** le geste, devant le client, sur une chambre présentée comme libre | Les tests fournissent **une seule** catégorie ; il fallait le parc réel à six catégories des seeds |
 | `passage.spec.ts` se connectait avec un identifiant **téléphonique** que les seeds ne posent pas | « Identifiant ou mot de passe incorrect » — **indiscernable d'un mot de passe faux** (FR-012) | Le fichier portait une **copie** du compte au lieu de la source unique de `routes.ts` |
 
+### ★ Et la porte P-04 a attrapé une jointure inter-schémas dans mes propres seeds
+
+Le constat de taxe du séjour clos lisait `etablissements.etablissement` **dans son `INSERT`**, par
+un `SELECT … FROM`, pour recopier le classement et la commune. C'est une **jointure entre deux
+schémas de modules** — ce que le principe II interdit et ce qui rend un module extractible en
+service sans réécriture.
+
+**Le produit ne fait pas autrement** : `taxe/repository.rs` **reçoit** ces deux valeurs en
+paramètres, lues par le trait `EstablishmentDirectory`. Le seed n'a pas de trait sous la main, mais
+il a le même devoir — lire d'abord, écrire ensuite. Deux requêtes, aucune jointure.
+
+C'est la **sixième** porte de ce cycle à attraper une addition de ce cycle.
+
 ### Et trois défauts que seule la suite COMPLÈTE a révélés
 
 La suite entière — `cargo test --workspace`, doctests compris — n'avait pas tourné depuis un

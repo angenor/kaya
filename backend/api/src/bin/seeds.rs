@@ -1698,6 +1698,22 @@ async fn seeder_un_sejour(
     // FAITS et un paramétrage recopié, sans dériver d'assiette : la règle fiscale vit dans
     // `JurisdictionAdapter`, et son test doré appartient à FIS-03.
     if seed.clos {
+        // ★ **DEUX requêtes, jamais une jointure — et c'est la porte P-04 qui l'a exigé.**
+        //
+        // La première version lisait `etablissements.etablissement` dans le `INSERT` du constat,
+        // par un `SELECT … FROM`. C'est une **jointure entre deux schémas de modules**, que le
+        // principe II interdit et que P-04 a attrapée sur ce fichier même.
+        //
+        // Le produit ne fait pas autrement : `taxe/repository.rs` **reçoit** le classement et la
+        // commune en paramètres, lus par le trait `EstablishmentDirectory`. Le seed n'a pas de
+        // trait sous la main, mais il a le même devoir — lire d'abord, écrire ensuite.
+        let identite = sqlx::query!(
+            "SELECT classement, commune FROM etablissements.etablissement WHERE id = $1",
+            seed.etablissement_id,
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+
         sqlx::query!(
             r#"
             INSERT INTO hebergement.taxe_sejour_constat
@@ -1705,16 +1721,14 @@ async fn seeder_un_sejour(
                  nuits_constatees, nombre_personnes, periode_debut, periode_fin,
                  formule_id, famille_formule, assujettie_taxe_nuitee, regle_conversion_taxe,
                  classement_etablissement, commune)
-            SELECT $1, $2, $3, $4, $5, $6,
-                   now() + make_interval(mins => $7::INT),
-                   now() + make_interval(mins => $8::INT),
-                   $9, 'NUITEE', true, 'une_nuitee_par_occupation',
-                   -- ★ **RECOPIÉ, jamais référencé.** Le constat doit rester vrai le jour où
-                   -- l'établissement change de classement : une clé étrangère rendrait le passé
-                   -- réécrivable, et un contrôle fiscal porte sur ce qui était vrai ce jour-là.
-                   e.classement, e.commune
-            FROM etablissements.etablissement e
-            WHERE e.id = $3
+            VALUES ($1, $2, $3, $4, $5, $6,
+                    now() + make_interval(mins => $7::INT),
+                    now() + make_interval(mins => $8::INT),
+                    $9, 'NUITEE', true, 'une_nuitee_par_occupation',
+                    -- ★ **RECOPIÉ, jamais référencé.** Le constat doit rester vrai le jour où
+                    -- l'établissement change de classement : une clé étrangère rendrait le passé
+                    -- réécrivable, et un contrôle fiscal porte sur ce qui était vrai ce jour-là.
+                    $10, $11)
             ON CONFLICT DO NOTHING
             "#,
             deriver_seed(seed.sejour_id, 0x06),
@@ -1726,6 +1740,8 @@ async fn seeder_un_sejour(
             seed.debut_minutes as i32,
             seed.fin_minutes as i32,
             seed.formule_id,
+            identite.classement,
+            identite.commune,
         )
         .execute(&mut *tx)
         .await?;
