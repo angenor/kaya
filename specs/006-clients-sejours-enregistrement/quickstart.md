@@ -301,9 +301,27 @@ SQLX_OFFLINE=true DATABASE_URL= cargo check --workspace --all-targets --locked
 > disponibilité empêche tout chevauchement, tout est tracé. »*
 
 ```sh
-bash scripts/dev/charger-seeds.sh          # une commande, idempotente
+bash scripts/dev/charger-seeds.sh --remettre-a-neuf   # une commande, idempotente
 pnpm --filter @kaya/app dev
 ```
+
+⚠️ **`--remettre-a-neuf`, et pas seulement `charger-seeds.sh`.** Les seeds **ajoutent**, ils
+n'effacent jamais : chaque déroulé de la démo — comme chaque exécution de P-22 — **consomme une
+chambre**. Sans l'option, la deuxième démonstration bute sur « toutes les chambres sont prises »,
+et l'on cherche une régression là où il n'y a qu'un parc rempli.
+
+**La démo est aussi SCRIPTÉE** — `tests-e2e/demo-t1.spec.ts`, les six étapes sur **Chromium et
+WebKit**, en clair **et** en sombre :
+
+```sh
+bash scripts/dev/charger-seeds.sh --remettre-a-neuf
+pnpm exec playwright test tests-e2e/demo-t1.spec.ts
+```
+
+Une démo qu'on décrit dans un document se périme au premier renommage de bouton ; une démo qui
+s'exécute rougit. Le fichier déclare en tête ce qu'il **ne** vérifie pas : l'étape 6 est partielle,
+le parcours de démonstration n'engendrant aucune des trois entrées d'audit que le tableau ci-dessous
+cite.
 
 | Étape | Écran | Ce qu'on vérifie |
 |---|---|---|
