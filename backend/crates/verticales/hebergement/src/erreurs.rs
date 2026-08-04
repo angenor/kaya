@@ -58,9 +58,11 @@ pub const SQLSTATE_INTERBLOCAGE: &str = "40P01";
 ///  Deux arrivées concurrentes sur la **même chambre** ne produisent pas toujours une violation
 ///  d'exclusion propre : elles peuvent **s'interbloquer**, et PostgreSQL en abat une avec `40P01`.
 ///
-///      Process A waits for ShareLock on transaction B
-///      Process B waits for ShareLock on speculative token of transaction A
-///      … while checking exclusion constraint on relation "occupation"
+///  ```text
+///  Process A waits for ShareLock on transaction B
+///  Process B waits for ShareLock on speculative token of transaction A
+///  … while checking exclusion constraint on relation "occupation"
+///  ```
 ///
 ///  La cause est l'**insertion spéculative** — `INSERT … ON CONFLICT (id) DO NOTHING` — combinée à
 ///  une contrainte d'exclusion. Chaque transaction pose son tuple spéculatif, puis vérifie

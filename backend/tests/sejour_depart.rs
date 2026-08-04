@@ -581,12 +581,22 @@ async fn un_passage_de_deux_heures_ne_constate_aucune_nuit() {
     let app = monter_application!(pool_app().await);
 
     let sejour_id = Uuid::now_v7();
-    // Deux heures **dans la même journée** : aucune frontière de jour franchie.
-    let debut = time::OffsetDateTime::now_utc()
-        .replace_hour(10)
-        .expect("heure")
-        .replace_minute(0)
-        .expect("minute");
+
+    // ⚠️ **Le début est RELATIF à maintenant, jamais posé à une heure fixe de la journée.**
+    //
+    // La version d'origine écrivait `replace_hour(10)` : elle plaçait le début à 10 h du jour
+    // courant, ce qui est **dans le futur** avant 10 h UTC. Le départ, lui, mesure la durée réelle
+    // depuis `now()` de la base (P-23) — il calculait donc une période dont la fin précède le
+    // début, et la contrainte `constat_periode_coherente` rendait `500`. Le test était **vert de
+    // 10 h à minuit et rouge de minuit à 10 h**, sans que rien ne désigne l'heure comme cause.
+    //
+    // Cinq minutes en arrière garantissent deux choses à la fois : le séjour est **en cours**, et
+    // aucune frontière de jour n'est franchie — sauf à lancer la suite dans les cinq minutes qui
+    // suivent minuit, cas où l'assertion resterait juste pour une raison différente.
+    let debut = time::OffsetDateTime::now_utc() - time::Duration::minutes(5);
+
+    // La durée **vendue** reste de deux heures ; la durée **réelle** au départ est de cinq
+    // minutes. C'est la seconde qui décide du nombre de nuits, et c'est le sujet du test.
     assert_eq!(ouvrir!(app, cx.bearer, decor, sejour_id, debut, 2).status(), 201);
     assert_eq!(clore!(app, cx.bearer, decor, sejour_id).status(), 200);
 

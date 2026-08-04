@@ -1,6 +1,6 @@
 # Revue Definition of Done — cycle 006 · Fiches clients, arrivée, départ et prolongation
 
-**Date** : 2026-08-03 · **Branche** : `006-clients-sejours-enregistrement`
+**Date** : 2026-08-03, **révisée le 2026-08-04** · **Branche** : `006-clients-sejours-enregistrement`
 **Référence** : `docs/user-stories-v1.md` §0.4, les dix points.
 
 > **Ce document dit ce qui n'est pas satisfait avant de dire ce qui l'est.** Une revue qui
@@ -9,47 +9,14 @@
 
 ---
 
-## ⛔ Ce qui n'est PAS conforme — trois manques, nommés
+## ⛔ Ce qui n'est PAS conforme — **un** manque, nommé
 
-### 1 · Trois écrans sur quatre ne sont pas codés
+> **Révision du 2026-08-04.** La première version de cette revue en listait **trois**. Deux sont
+> soldés : les quatre écrans sont codés, et les quatre tâches de fin de cycle sont exécutées. Le
+> texte d'origine est conservé plus bas, sous « Ce qui a été soldé », parce qu'un manque effacé se
+> relit comme un manque qui n'a jamais existé.
 
-| Écran | État | Ce qui existe déjà |
-|---|---|---|
-| `R4` Le passage | ✅ **codé**, cinq états, route `/passage` | Tout |
-| `R3` Arrivée | ⛔ **non codé** | Son API : opérations 7 à 12, testées |
-| `R7` La note et le départ | ⛔ **non codé** | Son API **complète** : départ, prolongation, changement d'unité, constat figé |
-| `R5` Fiche client et recherche | ⛔ **non codé** | Son API : recherche trois formes, fiche, historique, préférences |
-
-**Ce que cela veut dire concrètement** : Yao peut enregistrer un passage en deux gestes sur un vrai
-navigateur, et **ne peut pas** faire partir un client autrement que par l'API. La démonstration de
-fin de tranche T1 (T084) n'est donc **pas déroulable en l'état** — elle demande l'arrivée d'un
-client en chambre pour deux nuits, puis un passage.
-
-⚠️ **`docs/design/derivation.md` n'a PAS été mis à « codé »** pour ces trois écrans, et c'est
-délibéré : ce document est **opposable** — la porte P-19 s'en sert pour autoriser un écran sans
-maquette. Y inscrire « codé » sur un écran qui n'existe pas ferait mentir le seul document qui dise
-ce qui a le droit d'être codé, et le mensonge serait invisible : rien ne relit ce tableau contre le
-système de fichiers.
-
-**Le cycle a livré le fond avant la forme**, ce qui est l'inverse de son ordre habituel. C'est un
-état inhabituel et il vaut d'être nommé plutôt que découvert.
-
-### 2 · Quatre tâches de fin de cycle ne sont pas exécutées
-
-| Tâche | Ce qui manque | Conséquence |
-|---|---|---|
-| **T077** — seeds | 12 fiches, 3 séjours, dont un clos avec son constat figé | La démo n'a pas de données |
-| **T082** — balayage hors ligne | Les quatre routes du cycle dans `tests-e2e/hors-ligne.spec.ts` | Le versant **écran** de P-13 ne couvre pas ce cycle |
-| **T083** — mesure terrain | `mesures-terrain.md` — chronométrage humain de FR-106 | La cible des 30 s / 60 s n'est pas mesurée |
-| **T084** — démo T1 | Les six étapes de `quickstart.md` §9 | Dépend des écrans manquants |
-
-⚠️ **T082 est le plus coûteux des quatre à laisser en l'état.** Le versant *type* de P-13 est
-couvert — `sejour_hors_ligne.rs` inspecte les quinze opérations servies — mais le versant *écran*,
-celui qui vérifie que l'indisponibilité est annoncée **avant la saisie**, ne voit pas `/passage`.
-Le cycle 005 a montré qu'un balayage hors ligne peut passer au vert en n'inspectant **rien** :
-neuf cas verts, neuf fois le même écran de connexion.
-
-### 3 · Une dépendance nouvelle, contre l'annonce du plan
+### 1 · Une dépendance nouvelle, contre l'annonce du plan
 
 `aes-gcm =0.11.0`. Le plan annonçait « aucune dépendance nouvelle » — **cette phrase est antérieure
 à la tâche T018a**, ajoutée après la conception parce que le plan écrivait que le numéro de pièce
@@ -61,14 +28,106 @@ mémoire. **À porter au gel §3.1 à la revue mensuelle du 2026-08-31** — c'e
 cette revue aura à trancher du fait de ce cycle. Deux voies écartées, avec leurs motifs, au
 `Cargo.toml` du workspace.
 
+### Et deux réserves qui ne sont pas des manques, mais qui se disent
+
+| Réserve | Portée |
+|---|---|
+| **Le chronométrage humain de SC-002 et SC-003 n'est pas relevé** | Il exige un opérateur et le matériel de référence. Le **protocole** est écrit et versionné (FR-106), le tableau des valeurs reste **vide** — le remplir depuis un poste de développement produirait un chiffre flatteur et faux. Voir `mesures-terrain.md` |
+| **L'étape 6 de la démo est partielle** | Le parcours de démonstration n'engendre aucune des trois entrées d'audit que le quickstart cite. Les fabriquer pour remplir l'écran ferait passer le cas au vert sur une démonstration que personne ne déroulera ainsi |
+
+---
+
+## ✅ Ce qui a été soldé, et ce que le solde a coûté
+
+### Les quatre écrans sont codés
+
+| Écran | Route | Nature |
+|---|---|---|
+| `R4` Le passage | `/passage` | **maquetté**, cinq états |
+| `R3` Arrivée | `/arrivee` | **dérivé** de `R4` — parcours long, même grammaire |
+| `R7` La note et le départ | `/depart` | **maquetté** |
+| `R5` Fiche client et recherche | `/clients` | **dérivé** de `R7` — liste + fiche, sans le bloc de total |
+
+`docs/design/derivation.md` porte « CODÉ » sur les quatre, **inscrit dans le même changement que
+chaque fichier, jamais avant**.
+
+### ★ Ce que la porte P-22 a trouvé, et qui vaut plus que les écrans
+
+**`/passage` ne se montait pas en navigateur.** L'écran dont le cadrage §5.6 fait une *condition
+d'existence du produit* portait :
+
+```ts
+import { useEtatReseau } from '~/core/platform'
+// → The requested module does not provide an export named 'useEtatReseau'
+```
+
+La fonction vit dans `core/platform/reseau.ts` ; le baril ne la réexporte pas. **Aucun des 581
+tests unitaires ne pouvait le voir, et c'est structurel** : ils doublaient `~/core/platform` et
+**fournissaient** l'export manquant. *Le double rendait vrai ce que le baril rendait faux.*
+
+`app/tests/imports-barils.spec.ts` rend désormais le même verdict en millisecondes, sur le seul
+texte des fichiers — et il rougit quand on réintroduit le défaut, vérifié.
+
+**Deux autres défauts sont tombés dans la même session :**
+
+| Défaut | Ce qu'il produisait | Pourquoi aucun test unitaire ne le voyait |
+|---|---|---|
+| La grille du passage rendait **toutes** les unités de l'établissement alors que l'écran n'applique **qu'une** formule | `formule_hors_categorie` — un refus subi **après** le geste, devant le client, sur une chambre présentée comme libre | Les tests fournissent **une seule** catégorie ; il fallait le parc réel à six catégories des seeds |
+| `passage.spec.ts` se connectait avec un identifiant **téléphonique** que les seeds ne posent pas | « Identifiant ou mot de passe incorrect » — **indiscernable d'un mot de passe faux** (FR-012) | Le fichier portait une **copie** du compte au lieu de la source unique de `routes.ts` |
+
+### Et trois défauts que seule la suite COMPLÈTE a révélés
+
+La suite entière — `cargo test --workspace`, doctests compris — n'avait pas tourné depuis un
+moment ; les exécutions ciblées (`--test <fichier>`) la remplaçaient. Elle a rendu trois choses :
+
+| Défaut | Ce qui le cachait |
+|---|---|
+| **Un test des seeds assertait sur *tous* les séjours du tenant** | Il passait tant qu'aucun e2e n'avait tourné. La base de développement est partagée : un test des seeds doit parler **des seeds**, et il compare désormais sur les quatre identifiants littéraux |
+| **`un_passage_de_deux_heures_ne_constate_aucune_nuit` était vert de 10 h à minuit et rouge de minuit à 10 h** | `replace_hour(10)` plaçait le début **dans le futur** avant 10 h UTC ; le départ calculait alors une période dont la fin précède le début, et la contrainte rendait `500`. Trouvé à 1 h 39 du matin, pas autrement |
+| **Un bloc indenté dans un commentaire de doc était compilé comme du Rust** | `cargo test --test <fichier>` n'exécute **aucun** doctest. Le bloc contenait `…` et ne compilait pas |
+
+### Et deux défauts d'outillage, sans lesquels rien n'était exécutable
+
+- **Les seeds n'appliquaient pas le mot de passe qu'ils déclaraient.** `ON CONFLICT DO NOTHING` :
+  sur une base où les comptes existaient, changer `KAYA_SEEDS_MOT_DE_PASSE` ne changeait **rien**.
+  Le condensat est maintenant **vérifié** et réécrit s'il ne concorde plus — le raisonnement exact
+  de `le_seed_applique_reellement_l_identite_qu_il_declare`, appliqué au mot de passe.
+- **`scripts/dev/charger-seeds.sh` était promis par le quickstart et n'existait pas.** Son option
+  `--remettre-a-neuf` répare FR-105 : chaque exécution du e2e **consomme une chambre**, et
+  recharger les seeds n'en libère aucune.
+
+★ **La remise à neuf a d'abord été écrite dans le binaire, et la base l'a refusée** —
+`permission denied for table ligne_sejour`. **Le modèle de privilèges avait raison** : une
+correction sur une note est une **ligne d'ajustement**, jamais une suppression. Accorder le
+`DELETE` pour faire tenir un script de développement aurait ouvert dans le produit un chemin que le
+produit refuse. L'opération est donc ce qu'elle est : de l'**administration de base**, sous le rôle
+propriétaire, hors de l'application.
+
+### Les quatre tâches de fin de cycle sont exécutées
+
+| Tâche | Résultat |
+|---|---|
+| **T077** — seeds | 12 fiches Deloria, 2 sur Résidence Test, **4 séjours** dont un clos avec son constat figé, `nuitees_assujetties` et `montant_mineur` à **`NULL`** |
+| **T082** — balayage hors ligne | **28 cas verts**, 12 routes protégées dont les quatre du cycle, sur les deux moteurs |
+| **T083** — mesure terrain | Protocole écrit et versionné ; le tableau des temps humains reste **vide**, et le document le dit en tête |
+| **T084** — démo T1 | **Scriptée et déroulée** — `tests-e2e/demo-t1.spec.ts`, 24 cas verts, deux moteurs, clair **et** sombre |
+
+**Mesures relevées** : part machine du passage **131 ms** (Chromium) et **223 ms** (WebKit), pour
+un budget de 6 000 ms. P-22 : **123 cas verts**.
+
 ---
 
 ## Les dix points de la Definition of Done
 
-### 1 · Critères d'acceptation couverts par des tests ⚠️ **partiel**
+### 1 · Critères d'acceptation couverts par des tests ✅
 
-**455 tests backend verts**, dont neuf fichiers écrits par ce cycle. Les critères **serveur** sont
-couverts ; les critères **d'écran** des trois écrans manquants ne le sont pas.
+**472 tests backend verts**, dont dix fichiers écrits par ce cycle, et **581 tests front**. Les
+critères **serveur** et les critères **d'écran** sont couverts ; s'y ajoutent 123 cas de P-22,
+28 du balayage hors ligne et 24 de la démo scriptée, sur **deux moteurs**.
+
+⚠️ **Ce décompte ne dit rien de ce que les tests unitaires ne peuvent pas voir.** Trois défauts de
+ce cycle sont passés sous 581 tests verts et n'ont été trouvés qu'en navigateur — voir « Ce que la
+porte P-22 a trouvé » ci-dessus. Un nombre de tests n'est pas une mesure de couverture.
 
 | Fichier | Ce qu'il couvre |
 |---|---|

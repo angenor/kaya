@@ -820,8 +820,10 @@ async fn le_sejour_clos_porte_un_constat_fige_dont_le_montant_est_nul() {
         SELECT nuits_constatees, nombre_personnes, assujettie_taxe_nuitee,
                nuitees_assujetties, montant_mineur, commune
         FROM hebergement.taxe_sejour_constat
+        WHERE sejour_id = ANY($1)
         "#,
     )
+    .bind(SEJOURS_SEEDES.as_slice())
     .fetch_all(&mut *tx)
     .await
     .expect("lecture des constats");
@@ -853,7 +855,9 @@ async fn le_sejour_clos_porte_un_constat_fige_dont_le_montant_est_nul() {
 
     // Et la note du séjour clos est **arrêtée**, pas simplement fermée.
     let arretees: i64 = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "c!" FROM hebergement.note_sejour WHERE statut = 'arretee'"#
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.note_sejour
+           WHERE statut = 'arretee' AND sejour_id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
     )
     .fetch_one(&mut *tx)
     .await
@@ -863,7 +867,20 @@ async fn le_sejour_clos_porte_un_constat_fige_dont_le_montant_est_nul() {
     tx.rollback().await.expect("rollback");
 }
 
-/// **Trois séjours sur Deloria, dont un passage SANS fiche cliente.**
+/// Les quatre séjours **seedés**, littéralement — les mêmes identifiants que `seeds.rs`.
+///
+/// ⚠️ **Les assertions de ce fichier portent sur EUX, jamais sur « tous les séjours du tenant ».**
+/// La base de développement est partagée avec le e2e, qui **crée des séjours** : une assertion sur
+/// un décompte global rougirait après chaque exécution de P-22 ou de la démo, pour une raison sans
+/// rapport avec les seeds. Un test des seeds doit parler des seeds.
+const SEJOURS_SEEDES: [Uuid; 4] = [
+    uuid!("0198c4a0-0000-7000-8000-000000000411"),
+    uuid!("0198c4a0-0000-7000-8000-000000000412"),
+    uuid!("0198c4a0-0000-7000-8000-000000000413"),
+    uuid!("0198c4a0-0000-7000-8000-000000000461"),
+];
+
+/// **Trois séjours seedés sur Deloria, dont un passage SANS fiche cliente.**
 ///
 /// Le passage sans fiche est ce qui rend la démonstration honnête : la pièce vient **après** la
 /// clé (FR-023), et sa fiche de police est **numérotée et déclarée incomplète** — jamais fabriquée
@@ -881,8 +898,10 @@ async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue()
         .expect("pose du tenant");
 
     let statuts: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT statut, COUNT(*) FROM hebergement.sejour GROUP BY statut ORDER BY statut",
+        "SELECT statut, COUNT(*) FROM hebergement.sejour WHERE id = ANY($1) \
+         GROUP BY statut ORDER BY statut",
     )
+    .bind(SEJOURS_SEEDES.as_slice())
     .fetch_all(&mut *tx)
     .await
     .expect("lecture des séjours");
@@ -893,7 +912,9 @@ async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue()
     );
 
     let sans_client: i64 = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour WHERE client_id IS NULL"#
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour
+           WHERE client_id IS NULL AND id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
     )
     .fetch_one(&mut *tx)
     .await
@@ -906,7 +927,9 @@ async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue()
 
     // La fiche de ce séjour existe, est numérotée, et est **déclarée** incomplète.
     let incompletes: Vec<i64> = sqlx::query_scalar!(
-        r#"SELECT numero FROM hebergement.fiche_police WHERE NOT complete ORDER BY numero"#
+        r#"SELECT numero FROM hebergement.fiche_police
+           WHERE NOT complete AND sejour_id = ANY($1) ORDER BY numero"#,
+        SEJOURS_SEEDES.as_slice(),
     )
     .fetch_all(&mut *tx)
     .await
@@ -919,11 +942,14 @@ async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue()
     );
 
     // ★ Numérotation CONTINUE par établissement, sans trou.
-    let numeros: Vec<i64> =
-        sqlx::query_scalar!(r#"SELECT numero FROM hebergement.fiche_police ORDER BY numero"#)
-            .fetch_all(&mut *tx)
-            .await
-            .expect("lecture des numéros");
+    let numeros: Vec<i64> = sqlx::query_scalar!(
+        r#"SELECT numero FROM hebergement.fiche_police
+           WHERE sejour_id = ANY($1) ORDER BY numero"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des numéros");
     assert_eq!(
         numeros,
         vec![1, 2, 3],
@@ -933,7 +959,9 @@ async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue()
 
     // Deux accompagnants, donc trois personnes sur le séjour de nuitée.
     let accompagnants: i64 = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) AS "c!" FROM hebergement.accompagnant WHERE retire_le IS NULL"#
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.accompagnant
+           WHERE retire_le IS NULL AND sejour_id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
     )
     .fetch_one(&mut *tx)
     .await
@@ -958,13 +986,17 @@ async fn residence_test_porte_son_sejour_et_ne_voit_pas_ceux_de_deloria() {
         .await
         .expect("pose du tenant");
 
-    let sejours: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour"#)
-        .fetch_one(&mut *tx)
-        .await
-        .expect("comptage");
+    let sejours: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour WHERE id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage");
     assert_eq!(
         sejours, 1,
-        "Résidence Test doit voir exactement son séjour, et rien des trois de Deloria"
+        "Résidence Test doit voir exactement son séjour seedé, et rien des trois de Deloria — \
+         l'isolation vaut aussi pour les données de démonstration"
     );
 
     let fiches: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM comptes.client"#)
