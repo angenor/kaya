@@ -4,10 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle, les établissements, les comptes, l'hébergement et la synchronisation sont en place** —
-cycles 001 (TRX), 002 (ETB), 003 (CPT), 004 (HEB) et 005 (SYN) livrés : 18 crates Rust,
-28 migrations, 362 tests backend, 522 tests front, 12 portes scriptées, huit écrans, et une image
-de production construite et exercée.
+**La tranche T1 est COMPLÈTE** — cycles 001 (TRX), 002 (ETB), 003 (CPT), 004 (HEB), 005 (SYN) et
+006 (SEJ) livrés. Le socle, les établissements, les comptes, l'hébergement, la synchronisation, et
+désormais **les clients et les séjours** : arrivée, passage, note, départ, fiche client.
+
+Les décomptes de tests et de tâches **ne sont pas tenus ici** — ils changent à chaque commit, et un
+nombre recopié dans ce fichier est faux avant d'être lu. `git log` et les revues de fin de cycle
+(`specs/*/revue-dod.md`) font foi.
 
 **Ce que le cycle 005 change, et qu'il faut savoir avant de coder :**
 
@@ -329,6 +332,35 @@ Ceux-ci coûtent une migration ou une refonte s'ils sont manqués. Ils ne se dev
 - **Épinglage exact** — jamais `^`, `~` ou un intervalle. Lockfiles commités, `Cargo.lock`
   inclus même pour un binaire.
 
+**AJOUTER UNE DÉPENDANCE EST LIBRE. IL N'Y A PAS DE PERMISSION À DEMANDER.** Depuis le gel 1.0.14,
+un cycle qui a besoin d'une bibliothèque absente l'ajoute, **en cours de cycle**, et l'inscrit au
+§3.1 ou §3.2 **dans le même changement** — jamais reportée à une revue. Trois obligations, aucune
+n'étant une autorisation :
+
+1. **épinglage exact et lockfile commité** — la règle ne connaît aucune exception ;
+2. **un commentaire au-dessus de la ligne du manifeste** : le rôle, l'URL du registre interrogé, la
+   date. Les cycles le font déjà spontanément et bien ;
+3. **dire pourquoi ce qui est déjà là ne suffit pas.** Pas pour obtenir un accord — pour que la
+   question soit posée. L'arbitrage `aes-gcm` du cycle 006, qui a examiné et écarté `ring` pourtant
+   déjà présent transitivement, est le modèle.
+
+**Ce qui n'est PAS libre**, et la distinction est nette :
+
+- **monter une version déjà gelée** — groupé, mensuel, hors incrément (principe XI) ;
+- **toucher aux dix briques du §2** (Rust, Actix, sqlx, utoipa, Nuxt, Tailwind, Tauri, PostgreSQL,
+  Redis, Garage) — y compris en mineur : monter `sqlx` réécrit les macros de chaque requête ;
+- **introduire un second membre d'une famille déjà pourvue** — `chrono` quand `time` est là,
+  `anyhow` dans un crate de bibliothèque quand `thiserror` est là. Le tableau est au **§3.4**, et
+  une famille qui n'y figure pas est une famille **non encore rencontrée** : le cycle qui l'ouvre
+  tranche pour tout le dépôt et inscrit sa ligne.
+
+**Pourquoi ce changement.** L'ancienne règle — *« la revue est mensuelle et groupée, jamais au fil
+de l'eau »* — était plus stricte que le principe XI, qui ne parle que de **montées**. Elle a produit
+deux dégâts : sept crates épinglées dans les manifestes et absentes du gel pendant six semaines
+(gel 1.0.13), et une contrainte de gouvernance entrée dans un raisonnement de **conception** —
+`client/repli.rs` cite en premier argument le fait qu'`unicode-normalization` « n'est pas au gel ».
+Une règle qui produit la dette qu'elle prétend organiser se change ; elle ne se respecte pas mieux.
+
 Deux points à connaître pour ne pas perdre une journée :
 
 - **sqlx 0.9.0** impose `AssertSqlSafe` sur toute requête non littérale et modifie la sortie des
@@ -473,8 +505,9 @@ actif — il n'existe pas sur macOS.
 
 ## Décisions ouvertes qui bloqueraient si elles étaient ignorées
 
-- **O-01** — `client` / `personne` sont en classe C, ce qui rend le check-in d'un **client
-  inconnu** impossible hors ligne, même en mode nœud de site. À trancher **avant SEJ-02**.
+- ~~**O-01**~~ — **TRANCHÉE le 2026-08-03, option (a)** : `client` reste en **classe C**, le réseau
+  est exigé pour créer une fiche nouvelle. La friction résiduelle est **écrite** au §12 du registre
+  plutôt que tue — l'arrivée d'un client inconnu hors ligne reste impossible, et c'est assumé.
 - **O-02** — classe de `mouvement_stock` (A ou B), décision B-05 du cadrage, à trancher avec le
   pilote.
 - **O-03** — crate d'accueil de la surface QR, transverse à `restauration` et `bar`, absente des
