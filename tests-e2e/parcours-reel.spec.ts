@@ -91,6 +91,27 @@
  *
  * La porte l'exerce donc avec `KAYA_STYLEGUIDE=1`, la variable qui monte sa route.
  *
+ * ⚠️ **ET CETTE VARIABLE N'ARRIVE PAS TOUJOURS.** `playwright.config.ts` la pose dans
+ * `webServer.env` — qui ne s'applique **que si Playwright démarre le serveur**. Avec
+ * `reuseExistingServer: true`, un serveur de développement déjà lancé est réutilisé **et l'`env`
+ * est ignoré en silence**. Les deux lignes se contredisent, et le verdict de la porte dépendait
+ * alors de qui avait lancé le serveur :
+ *
+ * | Serveur | Effet |
+ * |---|---|
+ * | démarré par Playwright | la variable est là, la porte est juste |
+ * | réutilisé, **sans** la variable | **faux rouge** — 404 sur une route qui devrait exister |
+ * | réutilisé, **avec** la variable | **faux vert POSSIBLE** — voir ci-dessous |
+ *
+ * Le troisième cas est le plus grave : il ferait passer au vert un dépôt où la route du
+ * styleguide aurait cessé d'être retirée en production. Ce versant-là n'est pas gardé ici mais
+ * par `app/tests/styleguide.spec.ts`, qui vérifie que la décision de montage est **fausse par
+ * défaut** et que la route est retirée du routeur — pas cachée derrière une garde de rendu.
+ *
+ * `exigerStyleguideServi()` referme le deuxième cas : il constate, **avant la connexion**, que la
+ * route est bien montée, et échoue en disant **le geste** — pas seulement le constat. Une porte
+ * qui refuse sans dire quoi faire finit par être ignorée, et une porte ignorée ne garde rien.
+ *
  * ═══════════════════════════════════════════════════════════════════════════════════════════
  *  UN SEUL CONTEXTE DE NAVIGATEUR, ET C'EST LE PRODUIT QUI L'IMPOSE
  * ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -114,6 +135,7 @@
 
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test'
 
+import { BASE_APP, PORT_APP } from './adresses'
 import { COMPTE_DEMONSTRATION, ROUTES, type Route } from './routes'
 
 // Un contexte partagé impose l'ordre : deux tests concurrents sur la même page se marcheraient
@@ -164,6 +186,57 @@ const PROTEGEE = routeDeLaPorte(
   'protégée autre que la racine',
 )
 
+/**
+ * Le port exercé — **lu de `./adresses`**, avec les deux autres fichiers de portes.
+ *
+ * Il était écrit `3000` en dur ici alors que `playwright.config.ts` honore `KAYA_PORT_E2E` depuis
+ * le cycle 004. La correction a d'abord été faite ICI SEULEMENT, et le défaut a été reproduit le
+ * jour même dans un fichier neuf : d'où la source unique, et le contrôle qui la rend opposable.
+ */
+const PORT = PORT_APP
+
+/**
+ * **Le serveur exercé sert-il bien la route du styleguide ?** — à appeler AVANT la connexion.
+ *
+ * Voir la section « Le styleguide est couvert » en tête de fichier : `webServer.env` n'a aucun
+ * effet sur un serveur réutilisé, et la porte rendait alors un faux rouge sur `/styleguide` pour
+ * une raison d'environnement — le genre d'échec qui fait ignorer une porte.
+ *
+ * Le contrôle passe par le **navigateur** et non par une requête HTTP : en développement, Nuxt
+ * rend le même squelette de 3,5 ko pour une page servie et pour sa page d'erreur, et l'écart
+ * n'apparaît qu'après hydratation. Une sonde `curl` aurait validé les deux cas indifféremment —
+ * ce qui est la définition d'un contrôle qui ne contrôle rien.
+ *
+ * ⚠️ **Il est appelé avant la connexion, et c'est délibéré.** Le limiteur compte dix tentatives
+ * par identifiant sur cinq minutes glissantes, **réussies comprises** : échouer après s'être
+ * connecté consommerait une tentative à chaque essai de diagnostic, et le refus qui s'ensuivrait
+ * est indiscernable d'un mot de passe faux (FR-012).
+ */
+async function exigerStyleguideServi(page: Page): Promise<void> {
+  await page.goto('/styleguide')
+  await page.waitForLoadState('networkidle')
+
+  const monte = await page.locator('main').count() > 0
+  if (monte) return
+
+  throw new Error(
+    'P-22 — le serveur qui tourne sur :' + PORT + ' ne sert PAS « /styleguide ».\n'
+    + '\n'
+    + 'Ce n’est pas un défaut du produit : c’est `KAYA_STYLEGUIDE=1` qui manque au serveur.\n'
+    + '`playwright.config.ts` pose la variable dans `webServer.env`, et `webServer.env` ne\n'
+    + 's’applique QUE si Playwright démarre le serveur. Avec `reuseExistingServer: true`, un\n'
+    + 'serveur de développement déjà lancé est réutilisé et la variable est ignorée en silence.\n'
+    + '\n'
+    + 'DEUX GESTES, AU CHOIX :\n'
+    + `  1. arrêter le serveur — PAR PORT, jamais par nom : lsof -ti:${PORT} | xargs kill\n`
+    + '     puis relancer la porte : Playwright démarrera le sien, avec la variable ;\n'
+    + `  2. ou le relancer avec : KAYA_STYLEGUIDE=1 pnpm --filter @kaya/app dev --port ${PORT}\n`
+    + '\n'
+    + '⚠️ NE JAMAIS employer `pkill -f "nuxt"` : un pkill a déjà tué le serveur de\n'
+    + '   développement d’un AUTRE projet de ce poste.',
+  )
+}
+
 let contexte: BrowserContext
 let page: Page
 /** Rempli par le collecteur, vidé avant chaque contrôle. */
@@ -172,7 +245,7 @@ let erreurs: string[] = []
 test.beforeAll(async ({ browser }: { browser: Browser }) => {
   contexte = await browser.newContext({
     locale: 'fr-FR',
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_APP,
   })
   page = await contexte.newPage()
 
@@ -184,6 +257,11 @@ test.beforeAll(async ({ browser }: { browser: Browser }) => {
     }
   })
   page.on('pageerror', erreur => erreurs.push(`pageerror: ${erreur.message}`))
+
+  // L'environnement AVANT le compte : un serveur mal configuré ferait échouer treize routes sur
+  // une cause unique, et consommerait le limiteur à chaque tentative de diagnostic.
+  await exigerStyleguideServi(page)
+  erreurs = []
 
   // **La connexion, une fois, par le vrai formulaire.** Poser un jeton forgé dans le stockage
   // irait plus vite et ne prouverait rien : c'est le raisonnement d'`isolation_tenant.rs`, dont

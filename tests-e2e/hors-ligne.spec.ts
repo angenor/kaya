@@ -80,6 +80,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { BASE_API, BASE_APP } from './adresses'
 import { ROUTES } from './routes'
 
 const ICI = dirname(fileURLToPath(import.meta.url))
@@ -91,7 +92,8 @@ const COMPTE_DEMONSTRATION = {
   motDePasse: process.env.KAYA_SEEDS_MOT_DE_PASSE ?? '',
 }
 
-const API = process.env.KAYA_API_BASE_URL ?? 'http://localhost:8080'
+/** L'API — voir `./adresses` : ni ce port ni celui de l'application ne sont écrits ici. */
+const API = BASE_API
 
 // =================================================================================================
 //  Source 1 — le contrat OpenAPI, servi par l'API
@@ -212,7 +214,9 @@ async function ouvrirSession(browser: Browser): Promise<void> {
     'KAYA_SEEDS_MOT_DE_PASSE n’est pas défini — la porte ne pourrait pas se connecter.',
   ).not.toBe('')
 
-  contexte = await browser.newContext({ locale: 'fr-FR', baseURL: 'http://localhost:3000' })
+  // Voir `./adresses` : trois fichiers écrivaient cette adresse en dur, et le port n'est
+  // pas garanti libre sur un poste partagé.
+  contexte = await browser.newContext({ locale: 'fr-FR', baseURL: BASE_APP })
   page = await contexte.newPage()
   page.on('pageerror', erreur => erreurs.push(`pageerror: ${erreur.message}`))
 

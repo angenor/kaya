@@ -133,7 +133,13 @@ const arretee = computed(() => props.note.statut === 'arretee')
           class="flex items-center gap-3.5 border-t border-line px-5.5 py-2.5"
           data-ligne
         >
-          <span class="h-[3px] w-2.5 shrink-0 rounded-xs bg-line-2" />
+          <!-- Le filet de ligne de la maquette `R7` — `w-2.5 h-[3px]`. Écrit `h-0.75` et non
+               `h-[3px]` : l'échelle de Tailwind 4 est `calc(var(--spacing) * n)`, et 0,75 × 4 px
+               donne EXACTEMENT les 3 px de la maquette. Ce n'est pas un arrondi, c'est la même
+               valeur exprimée par le jeton — ce que P-17 exige, et ce que la maquette voulait
+               dire. Le dépôt emploie déjà `size-9.5`, `py-5.5` et `w-2.5` : les décimales de
+               l'échelle sont l'usage, pas une astuce. -->
+          <span class="h-0.75 w-2.5 shrink-0 rounded-xs bg-line-2" />
           <span class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="font-titre text-action font-medium text-ink">
               {{ t(ligne.libelle_cle) }}
