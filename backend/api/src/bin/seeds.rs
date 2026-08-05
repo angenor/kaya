@@ -376,11 +376,45 @@ const COMPTE_ADJOUA: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000074");
 const PERSONNE_YAO: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000075");
 const COMPTE_YAO: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000076");
 
+/// **Aminata — serveuse.** Le rôle le PLUS ÉTROIT du produit, et il manquait.
+///
+/// # Ce qu'aucun autre compte ne permettait de montrer
+///
+/// Les trois comptes précédents portent **toutes** les lectures du métier : `heb.offre.lire`,
+/// `heb.sejour.lire`, `sej.client.lire`. Le jeu de démonstration ne contenait donc **aucun compte
+/// qui se voie refuser quoi que ce soit** — sauf Adjoua sur le registre des actions, par effet de
+/// bord plutôt que par intention. Cela coûtait deux fois :
+///
+/// - **aux portes** : le refus d'accès de FR-029 n'était exerçable de bout en bout par aucun
+///   compte réel. Le vérifier aurait demandé de forger une session amputée, c'est-à-dire de
+///   prouver le produit contre un jeton que le produit n'émet pas ;
+/// - **à la démonstration client**, et c'est le plus cher. « Un module inactif est absent, jamais
+///   grisé » et « l'action est absente sans permission » sont deux promesses centrales du produit,
+///   et rien ne permettait de les **montrer**. Un propriétaire à qui l'on explique que sa serveuse
+///   ne verra pas la caisse veut le voir, pas l'entendre.
+///
+/// # Pourquoi Aminata, et pas un nom inventé
+///
+/// C'est **la** persona serveuse du projet — `docs/user-stories-v1.md` §0.2 : « Android d'entrée
+/// de gamme, réseau intermittent, saisit debout ». Elle porte le hors-ligne dans tout le corpus,
+/// le témoin de synchronisation est écrit pour elle, et elle n'existait dans aucune base.
+///
+/// # Son accueil, et c'est la scène
+///
+/// `serveur` porte les cinq lectures transverses — établissement, points de vente, configuration,
+/// identité visuelle, notes internes — et **aucune permission d'hébergement ni de séjour**. Son
+/// accueil rend donc **trois** tuiles : « Notes internes », « Mes envois » et « Votre
+/// établissement ». Ni passage, ni arrivée, ni départ, ni clients, ni formules, ni chambres, ni
+/// comptes, ni registre. **Absentes, jamais grisées** (principe VII) — côte à côte avec les onze
+/// d'Adjoua, sur la même application.
+const PERSONNE_AMINATA: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000077");
+const COMPTE_AMINATA: Uuid = uuid!("0198c4a0-0000-7000-8000-000000000078");
+
 /// Les attributions de rôles, identifiants fixes — `(id, compte, rôle)`.
 ///
 /// L'établissement est toujours celui de Deloria : les huit rôles sauf `admin_editeur` sont de
 /// portée `ETABLISSEMENT` et en exigent un.
-const ROLES_DELORIA: [(Uuid, Uuid, &str); 5] = [
+const ROLES_DELORIA: [(Uuid, Uuid, &str); 6] = [
     (
         uuid!("0198c4a0-0000-7000-8000-000000000081"),
         COMPTE_KOFFI,
@@ -405,6 +439,13 @@ const ROLES_DELORIA: [(Uuid, Uuid, &str); 5] = [
         uuid!("0198c4a0-0000-7000-8000-000000000085"),
         COMPTE_YAO,
         "receptionniste",
+    ),
+    // Le rôle le plus étroit du produit — voir la note d'`Aminata` : c'est le seul compte du jeu
+    // qui se voie refuser quelque chose, et donc le seul qui permette de le MONTRER.
+    (
+        uuid!("0198c4a0-0000-7000-8000-000000000086"),
+        COMPTE_AMINATA,
+        "serveur",
     ),
 ];
 
@@ -446,10 +487,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Résidence Test  : 4 meublés, au mois et à la nuitée — aucun passage, aucune plage."
     );
     println!();
-    println!("Trois comptes sur Deloria — le mot de passe vient de KAYA_SEEDS_MOT_DE_PASSE :");
+    println!("Quatre comptes sur Deloria — le mot de passe vient de KAYA_SEEDS_MOT_DE_PASSE :");
     println!("  koffi@deloria.test    propriétaire");
     println!("  adjoua@deloria.test   gérante + caissière + réceptionniste  ← le cumul");
     println!("  yao@deloria.test      réceptionniste");
+    println!("  aminata@deloria.test  serveuse  ← le rôle le plus ÉTROIT : 3 tuiles à l'accueil,");
+    println!("                        et huit ABSENTES. C'est le compte qui MONTRE le RBAC.");
     println!();
     println!();
     println!("Fiches clientes : 12 sur Deloria, 2 sur Résidence Test — aucune pièce d'identité.");
@@ -732,6 +775,13 @@ async fn seeder_comptes_deloria(
             "adjoua@deloria.test",
         ),
         (PERSONNE_YAO, COMPTE_YAO, "Kouassi", Some("Yao"), "yao@deloria.test"),
+        (
+            PERSONNE_AMINATA,
+            COMPTE_AMINATA,
+            "Traoré",
+            Some("Aminata"),
+            "aminata@deloria.test",
+        ),
     ];
 
     for (personne_id, compte_id, nom, prenoms, identifiant) in gens {

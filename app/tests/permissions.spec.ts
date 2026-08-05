@@ -33,7 +33,9 @@ import { join } from 'node:path'
 
 import { PERMISSION_ATTRIBUER } from '../modules/comptes/roles'
 import { PERMISSION_BASCULER } from '../modules/etablissements/bascule-service'
+import { ACCES_ECRANS } from '../core/acces/ecrans'
 import { CATALOGUE_TUILES } from '../core/accueil/tuiles'
+import { codesPermissions } from './commun/referentiel-permissions'
 import {
   CLES_ERREUR_METIER,
   CLES_MOTIF_MOT_DE_PASSE,
@@ -46,48 +48,28 @@ import fr from '../core/i18n/fr.json'
 
 const RACINE = process.cwd()
 
-/**
- * **Le répertoire des migrations, pas un fichier.**
- *
- * Ce test lisait `0016_roles_permissions.sql` seul. Il suffisait tant que ce fichier portait
- * toutes les permissions du produit ; le cycle 004 en ajoute cinq dans `0022`, et le message
- * d'échec disait pourtant « ne figurent dans aucune migration » — au pluriel, pour un test qui
- * n'en lisait qu'une.
- *
- * Le périmètre est donc le **répertoire**. Une permission ajoutée dans une migration future entre
- * dans le référentiel sans qu'on ait à revenir ici : c'est ce qui distingue une porte d'une liste.
- */
-const MIGRATIONS = join(RACINE, '../backend/migrations')
-
 /** Les arbres réellement balayés. Déclarés, et leur non-vacuité est vérifiée. */
 const ARBRES = ['core', 'modules', 'pages']
 
-/** Nomenclature `<module>.<objet>.<action>` — celle des migrations `0016` et `0022`. */
-const FORME_PERMISSION = /'((?:etb|cpt|pdv|heb|cai|stk|fis)\.[a-z_]+\.[a-z_]+)'/g
+/** Nomenclature `<module>.<objet>.<action>` — celle des migrations `0016`, `0022` et `0030`. */
+const FORME_PERMISSION = /'((?:etb|cpt|pdv|heb|sej|cai|stk|fis)\.[a-z_]+\.[a-z_]+)'/g
 
 /**
  * Les codes du référentiel, lus de **toutes** les migrations qui les insèrent.
  *
- * Le motif accepte les deux formes réelles : `module_code` à `NULL` (cycle 003) et `module_code`
- * renseigné entre apostrophes (cycle 004, les premières permissions rattachées à un module).
+ * ⚠️ **La lecture a déménagé dans `commun/referentiel-permissions.ts`.** Elle vivait ici, et
+ * `catalogue-accueil.spec.ts` en a eu besoin d'une seconde — avec le `module_code` en plus. Deux
+ * extractions sur la même source divergent : celle qui était ici énumérait les préfixes reconnus,
+ * et l'arrivée de `sej` au cycle 006 y aurait été **silencieuse** si le décompte ne l'avait pas
+ * rattrapée. La version commune borne au bloc `INSERT` et accepte n'importe quel préfixe.
+ *
+ * ⚠️ **Le motif de BALAYAGE ci-dessus, lui, énumère toujours les préfixes** — et il le doit : il
+ * cherche des permissions dans du code source quelconque, où une forme trop large attraperait
+ * n'importe quelle chaîne pointée. C'est le même piège dans l'autre sens, et il est ouvert : un
+ * cycle qui introduirait le préfixe `rh` devrait l'ajouter ici. Le contrôle de non-vacuité par
+ * arbre ne le dirait pas ; le décompte du référentiel, si.
  */
-function referentiel(): Set<string> {
-  const codes = new Set<string>()
-  for (const fichier of readdirSync(MIGRATIONS).filter(f => f.endsWith('.sql')).sort()) {
-    const sql = readFileSync(join(MIGRATIONS, fichier), 'utf8')
-    if (!sql.includes('INSERT INTO comptes.permission')) {
-      continue
-    }
-    // ⚠️ **`sej` entre ici au cycle 006, et l'oubli aurait été SILENCIEUX** : le motif ne
-    // reconnaît que les préfixes énumérés, et deux permissions non reconnues auraient fait
-    // échouer le seul décompte — sans dire lequel des deux manquait.
-    const motif = /\('((?:etb|cpt|pdv|heb|sej|cai|stk|fis)\.[a-z_]+\.[a-z_]+)',\s+(?:NULL|'[A-Z_]+')/g
-    for (const trouve of sql.matchAll(motif)) {
-      codes.add(trouve[1]!)
-    }
-  }
-  return codes
-}
+const referentiel = codesPermissions
 
 /** Tous les fichiers source d'un arbre. */
 function fichiers(relatif: string): string[] {
@@ -139,11 +121,20 @@ describe('toute permission nommée par le front existe au référentiel', () => 
     expect(codes, 'PERMISSION_BASCULER').toContain(PERMISSION_BASCULER)
   })
 
-  it('les permissions du catalogue de tuiles', () => {
+  it('les permissions qui ouvrent chaque écran', () => {
     const codes = referentiel()
-
+    // ⚠️ La source est `core/acces/ecrans.ts`, la MÊME que consultent l'accueil et chaque page :
+    // le catalogue de tuiles ne déclare plus les siennes. Un écran en exige parfois PLUSIEURS —
+    // `/passage` lit l'état des unités ET les formules au montage —, et le champ était au
+    // singulier, ce qui obligeait à élire une permission « principale ».
+    for (const [route, acces] of Object.entries(ACCES_ECRANS)) {
+      for (const permission of acces.permissions) {
+        expect(codes, `l'écran « ${route} »`).toContain(permission)
+      }
+    }
+    // Le catalogue reste vérifié — par sa route, qui est ce qu'il déclare désormais.
     for (const tuile of CATALOGUE_TUILES) {
-      expect(codes, `la tuile « ${tuile.code} »`).toContain(tuile.permission)
+      expect(Object.keys(ACCES_ECRANS), `la tuile « ${tuile.code} »`).toContain(tuile.route)
     }
   })
 

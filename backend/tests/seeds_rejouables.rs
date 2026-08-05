@@ -441,6 +441,60 @@ async fn adjoua_porte_les_trois_roles_et_personne_n_est_admin_editeur() {
         "Adjoua doit porter les trois rôles — c'est la figure que US3 démontre. Obtenu : {roles:?}"
     );
 
+    // ★ **Aminata — le rôle le PLUS ÉTROIT, et le seul compte qui se voie refuser quelque chose.**
+    //
+    // Les trois autres portent toutes les lectures du métier. Le jeu de démonstration ne
+    // contenait donc aucun compte permettant d'exercer le refus d'accès de FR-029 — ni de le
+    // MONTRER à un client, alors que « absent, jamais grisé » est une promesse centrale du
+    // produit. `tests-e2e/refus-acces.spec.ts` s'appuie sur ce compte ; le vérifier ici évite
+    // qu'un cycle l'élargisse sans voir ce qu'il casse.
+    let roles_aminata: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT cr.role_code
+        FROM comptes.compte_role cr
+        JOIN comptes.compte c   ON c.id = cr.compte_id
+        JOIN comptes.personne p ON p.id = c.personne_id
+        WHERE p.prenoms = 'Aminata'
+        ORDER BY cr.role_code
+        "#,
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des rôles d'Aminata");
+
+    assert_eq!(
+        roles_aminata,
+        vec!["serveur".to_owned()],
+        "Aminata doit porter le SEUL rôle `serveur` : c'est son étroitesse qui rend le refus \
+         d'accès exerçable de bout en bout, et démontrable devant un client. Obtenu : \
+         {roles_aminata:?}"
+    );
+
+    // Et le versant qui compte vraiment : elle n'a AUCUNE permission d'hébergement ni de séjour.
+    // Un cycle qui en ajouterait une au rôle `serveur` viderait `refus-acces.spec.ts` de son
+    // objet — le test passerait au vert en n'exerçant plus aucun refus.
+    let permissions_verticales: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM comptes.compte_role cr
+        JOIN comptes.compte c        ON c.id = cr.compte_id
+        JOIN comptes.personne p      ON p.id = c.personne_id
+        JOIN comptes.role_permission rp ON rp.role_code = cr.role_code
+        WHERE p.prenoms = 'Aminata'
+          AND (rp.permission_code LIKE 'heb.%' OR rp.permission_code LIKE 'sej.%')
+        "#,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des permissions verticales d'Aminata");
+
+    assert_eq!(
+        permissions_verticales, 0,
+        "Aminata a gagné {permissions_verticales} permission(s) d'hébergement ou de séjour. \
+         Son accueil cesserait de montrer huit tuiles ABSENTES, et le seul compte du jeu qui \
+         démontre le RBAC deviendrait un compte de plus."
+    );
+
     let admins: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM comptes.compte_role WHERE role_code = 'admin_editeur'",
     )
@@ -696,7 +750,15 @@ async fn les_condensats_sont_argon2id_et_tous_differents() {
             .await
             .expect("lecture des condensats");
 
-    assert_eq!(condensats.len(), 3, "trois comptes attendus sur Deloria");
+    // **Quatre depuis l'ajout d'Aminata** — la serveuse, rôle `serveur`, le plus étroit du
+    // produit. Elle n'est pas là pour ce test : elle est le seul compte du jeu qui se voie
+    // refuser quelque chose, donc le seul qui rende exerçable le refus d'accès de FR-029 — et le
+    // seul qui permette de MONTRER « absent, jamais grisé » à un client.
+    //
+    // Le décompte reste en dur, et c'est assumé : il tient lieu de garde de cible non vide
+    // (exigence 4). Sans lui, un seed qui cesserait de créer des comptes ferait passer les trois
+    // assertions suivantes sur une liste vide.
+    assert_eq!(condensats.len(), 4, "quatre comptes attendus sur Deloria");
 
     for condensat in &condensats {
         assert!(

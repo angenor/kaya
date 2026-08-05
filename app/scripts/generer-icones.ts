@@ -105,13 +105,43 @@ function fichiers(repertoire: string, extensions: RegExp): string[] {
 }
 
 /**
+ * ⚠️ **Un glyphe NOMMÉ EN DONNÉE échappait au relevé, et le produit rendait une case vide.**
+ *
+ * L'accueil ne code pas ses icônes dans son gabarit : le catalogue les nomme
+ * (`icone: 'ph-storefront'`) et `EcranAccueil.vue` les rend par `:class="tuile.icone"`. Le nom
+ * n'apparaît donc **dans aucun attribut de classe**, et le relevé ne le voyait pas.
+ *
+ * Trois des cinq glyphes de tuiles étaient embarqués **par coïncidence** — `ph-bed`,
+ * `ph-storefront` et `ph-users-three` sont aussi employés en clair ailleurs. Le quatrième ne
+ * l'était pas : **`ph-list-magnifying-glass` manquait au woff2 depuis le cycle 003**, et la tuile
+ * « Registre des actions » s'affichait sans son icône chez le propriétaire — sans qu'aucune porte
+ * ne le dise, puisque P-21b vérifie que *ce qui est déclaré* est embarqué, jamais que ce qui est
+ * *rendu* est déclaré.
+ *
+ * D'où ce second motif. Il reste **étroit à dessein** : il exige la forme
+ * `icone: 'ph-quelque-chose'`, c'est-à-dire une propriété nommée `icone` valuée par un littéral.
+ * Un `ph-` cité dans une prose ou un commentaire n'est toujours pas relevé, et le gain du
+ * sous-réglage est intact — le catalogue en apporte huit.
+ *
+ * `app/tests/catalogue-accueil.spec.ts` tient l'autre bout : il refuse une tuile dont l'icône n'a
+ * pas de règle dans `assets/css/icones.css`. C'est lui le filet qui tourne en CI ; celui-ci
+ * décide seulement de ce qui entre dans la police.
+ */
+const MOTIFS_GLYPHES: readonly RegExp[] = [
+  // 1. Le cas ordinaire — un attribut de classe, statique ou lié.
+  /(?::?class\s*=\s*)(["'])([\s\S]*?)\1/g,
+  // 2. Le cas en donnée — `icone: 'ph-lightning'`, rendu plus loin par `:class`.
+  /\bicone\s*:\s*(["'])(ph-[a-z0-9-]+)\1/g,
+]
+
+/**
  * Relève les noms de glyphe d'un jeu de fichiers, **par variante**.
  *
- * On cherche le nom **dans un attribut de classe**, pas n'importe où dans le fichier : un
- * `ph-quelque-chose` cité dans un commentaire ou une prose n'est pas un glyphe rendu, et
+ * On cherche le nom dans les formes de {@link MOTIFS_GLYPHES}, pas n'importe où dans le fichier :
+ * un `ph-quelque-chose` cité dans un commentaire ou une prose n'est pas un glyphe rendu, et
  * l'embarquer gonflerait la police sans raison.
  *
- * La variante se lit dans le même attribut : `class="ph-fill ph-warning"` demande le glyphe
+ * La variante se lit dans le même fragment : `class="ph-fill ph-warning"` demande le glyphe
  * **plein**, `class="ph ph-warning"` le glyphe **au trait**. Les deux polices sont distinctes,
  * et sous-régler les deux sur l'union ferait porter à chacune des glyphes que personne ne
  * demande — la moitié du gain du sous-réglage.
@@ -122,19 +152,21 @@ function releverGlyphes(chemins: string[]): Map<string, Map<string, string[]>> {
   )
   for (const chemin of chemins) {
     const contenu = readFileSync(chemin, 'utf8')
-    for (const attribut of contenu.matchAll(/(?::?class\s*=\s*)(["'])([\s\S]*?)\1/g)) {
-      const classes = attribut[2]
-      const prefixe = /\bph-fill\b/.test(classes) ? 'ph-fill' : 'ph'
-      for (const glyphe of classes.matchAll(/\bph-[a-z0-9-]+\b/g)) {
-        const nom = glyphe[0]
-        if (STYLES.has(nom)) continue
-        const source = relative(RACINE, chemin)
-        const parVariante = trouves.get(prefixe)!
-        const liste = parVariante.get(nom)
-        if (liste) {
-          if (!liste.includes(source)) liste.push(source)
-        } else {
-          parVariante.set(nom, [source])
+    for (const motif of MOTIFS_GLYPHES) {
+      for (const fragment of contenu.matchAll(motif)) {
+        const classes = fragment[2]
+        const prefixe = /\bph-fill\b/.test(classes) ? 'ph-fill' : 'ph'
+        for (const glyphe of classes.matchAll(/\bph-[a-z0-9-]+\b/g)) {
+          const nom = glyphe[0]
+          if (STYLES.has(nom)) continue
+          const source = relative(RACINE, chemin)
+          const parVariante = trouves.get(prefixe)!
+          const liste = parVariante.get(nom)
+          if (liste) {
+            if (!liste.includes(source)) liste.push(source)
+          } else {
+            parVariante.set(nom, [source])
+          }
         }
       }
     }

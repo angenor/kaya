@@ -28,7 +28,7 @@
  */
 import { computed } from 'vue'
 
-import { tuilesVisibles } from '~/core/accueil/tuiles'
+import { aucunAccesAccorde, tuilesVisibles } from '~/core/accueil/tuiles'
 import type { Permissions } from '~/core/rbac'
 
 const { t } = useI18n()
@@ -43,6 +43,20 @@ const props = defineProps<{
 }>()
 
 const tuiles = computed(() => tuilesVisibles(props.permissions, props.modulesActifs))
+
+/**
+ * Personne ne lui a encore donné accès à quoi que ce soit.
+ *
+ * ⚠️ **Ce n'est plus « aucune tuile »**, et la distinction s'est mise à compter le jour où « Mes
+ * envois » est entré au catalogue : cette tuile-là n'est gardée par aucune permission, donc le
+ * décompte ne vaut jamais zéro pour une session ouverte. Un compte tout neuf aurait obtenu une
+ * tuile solitaire, sans un mot d'explication, et aurait cherché ce qu'il avait fait de travers.
+ *
+ * L'explication s'affiche donc **au-dessus** des tuiles ouvertes à toute session, jamais à leur
+ * place — les deux sont vraies en même temps : il n'a pas d'accès, et ses envois le regardent
+ * quand même.
+ */
+const aucunAcces = computed(() => aucunAccesAccorde(props.permissions, props.modulesActifs))
 
 /** L'initiale de la pastille d'identité. Décorative — le nom complet est à côté. */
 const initiale = computed(() => props.nomAffichage.trim().charAt(0).toUpperCase() || '?')
@@ -68,9 +82,12 @@ const initiale = computed(() => props.nomAffichage.trim().charAt(0).toUpperCase(
       </h1>
 
       <!-- ÉTAT VIDE EXPLICITE — un compte sans aucun rôle. Ce n'est pas une erreur : il n'y a rien
-           à réessayer, il y a quelqu'un à prévenir. Un écran blanc laisserait croire à une panne. -->
+           à réessayer, il y a quelqu'un à prévenir. Un écran blanc laisserait croire à une panne.
+
+           Il n'est PLUS exclusif de la liste : « Mes envois » n'exige aucune permission et reste
+           donc affichée. Les deux énoncés sont vrais ensemble — voir `aucunAcces`. -->
       <div
-        v-if="tuiles.length === 0"
+        v-if="aucunAcces"
         class="flex flex-col items-start gap-2 rounded-xl border border-line bg-surf p-6"
       >
         <i
@@ -86,7 +103,7 @@ const initiale = computed(() => props.nomAffichage.trim().charAt(0).toUpperCase(
       </div>
 
       <ul
-        v-else
+        v-if="tuiles.length > 0"
         class="flex flex-col gap-2.5"
       >
         <li

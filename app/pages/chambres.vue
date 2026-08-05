@@ -19,6 +19,7 @@
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
 import type { Permissions } from '~/core/rbac'
 import type { CategorieVue, DonneesChambres, UniteVue } from '~/modules/hebergement/donnees'
 
@@ -53,9 +54,28 @@ function remplacerCategories(categories: CategorieVue[]): void {
   }
 }
 
+/**
+ * **Sans la permission, la tuile est absente ET l'accès direct refusé** — FR-026 + FR-029.
+ *
+ * La question et sa réponse viennent de `core/acces/ecrans.ts`, la MÊME table que consulte
+ * l'accueil pour décider d'afficher la tuile. Les écrire des deux côtés produirait deux vérités
+ * qui divergent : une tuile qui ouvre sur un refus, ou un écran caché mais atteignable par l'URL.
+ *
+ * Le serveur refuserait de toute façon en `403`. Ce que la garde ajoute n'est pas la sécurité,
+ * c'est **la langue** : sans elle, l'écran affichait « hebergement.chambres.chargement_impossible » — un message d'échec
+ * technique, qui envoie chercher un problème de réseau qui n'existe pas.
+ */
+const peutOuvrir = computed(() => peutOuvrirEcran('/chambres', permissions.value))
+
 onMounted(async () => {
   if (!contexte.value) {
     erreur.value = t('connexion.requise')
+    return
+  }
+  // AVANT l'appel, jamais après : un refus obtenu au bout de trente secondes d'attente
+  // réseau est un refus que l'utilisateur a déjà cessé de lire.
+  if (!peutOuvrir.value) {
+    erreur.value = t('hebergement.chambres.acces_refuse')
     return
   }
 

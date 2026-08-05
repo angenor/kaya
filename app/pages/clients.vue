@@ -26,10 +26,17 @@
  * L'écran s'ouvre **vide**, sur son champ de recherche. Précharger « les derniers clients »
  * paraîtrait accueillant et ferait lire des fiches que personne n'a demandées — donc journaliser
  * des consultations de pièces d'identité que personne n'a voulues (FR-012).
+ *
+ * # Sa garde est donc dans le RENDU, et non dans un `onMounted`
+ *
+ * Les cinq autres écrans du comptoir refusent **avant leur appel**. Celui-ci n'en fait aucun : il
+ * n'y a rien à devancer, et la question se pose au moment de monter le champ de recherche. C'est
+ * la même table — `core/acces/ecrans.ts` —, posée à l'endroit où cet écran décide.
  */
 import { computed, defineAsyncComponent } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
 import type { Permissions } from '~/core/rbac'
 
 const EcranClients = defineAsyncComponent(
@@ -41,12 +48,27 @@ const config = useRuntimeConfig()
 
 const contexte = computed<ContexteAppel | null>(() => contexteAppel(config.public.apiBaseUrl))
 const permissions = computed<Permissions>(() => sessionCourante()?.permissions ?? [])
+
+/**
+ * **Sans la permission, la tuile est absente ET l'accès direct refusé** — FR-026 + FR-029.
+ *
+ * `sej.client.lire` garde la LECTURE ; `sej.client.gerer` garde le geste, dans `EcranClients.vue`.
+ * Le propriétaire cherche une fiche sans pouvoir en créer une : les deux gardes sont distinctes et
+ * le restent.
+ */
+const peutOuvrir = computed(() => peutOuvrirEcran('/clients', permissions.value))
+
+/** Le message affiché quand l'écran ne se monte pas — la cause décide de la phrase. */
+const refus = computed(() => {
+  if (!contexte.value) return t('connexion.requise')
+  return peutOuvrir.value ? null : t('sejours.clients.acces_refuse')
+})
 </script>
 
 <template>
   <div class="flex flex-1 flex-col p-4 sm:p-6">
     <EcranClients
-      v-if="contexte"
+      v-if="contexte && peutOuvrir"
       :contexte="contexte"
       :permissions="permissions"
     />
@@ -55,7 +77,7 @@ const permissions = computed<Permissions>(() => sessionCourante()?.permissions ?
       class="flex flex-1 items-center justify-center p-6"
     >
       <p class="font-texte text-corps text-ink-2">
-        {{ t('connexion.requise') }}
+        {{ refus }}
       </p>
     </div>
   </div>

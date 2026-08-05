@@ -12,9 +12,41 @@
       "explication": "Your account exists, but nobody has given it access to anything yet. Ask whoever manages access."
     },
     "tuiles": {
+      "passage": {
+        "libelle": "A short stay",
+        "description": "The room and the key. ID comes afterwards."
+      },
+      "arrivee": {
+        "libelle": "An arrival",
+        "description": "The guest is staying: record and room."
+      },
+      "depart": {
+        "libelle": "A departure",
+        "description": "The bill closed, the room handed back."
+      },
+      "clients": {
+        "libelle": "Your guests",
+        "description": "Their records, and what each has had here."
+      },
+      "notes": {
+        "libelle": "Internal notes",
+        "description": "What the team leaves for the next shift."
+      },
+      "mes_envois": {
+        "libelle": "My uploads",
+        "description": "What has not been sent, and what was refused."
+      },
+      "hebergement_offre": {
+        "libelle": "Your rate plans",
+        "description": "How you let your rooms, prices and tax."
+      },
+      "hebergement_chambres": {
+        "libelle": "Your rooms",
+        "description": "All your rooms, grouped by type."
+      },
       "etablissement": {
         "libelle": "Your establishment",
-        "description": "What you offer, and what the tax office sees of you"
+        "description": "Your services, and what the tax office sees."
       },
       "comptes": {
         "libelle": "What each person can do",
@@ -23,14 +55,6 @@
       "journal": {
         "libelle": "Activity log",
         "description": "Who did what, on what, and when"
-      },
-      "hebergement_offre": {
-        "libelle": "Your rate plans",
-        "description": "How your rooms are let, their prices and their tax."
-      },
-      "hebergement_chambres": {
-        "libelle": "Your rooms",
-        "description": "Your establishment's rooms, grouped by type."
       }
     }
   },
@@ -205,7 +229,8 @@
       "action_apercu": "See how it looks"
     },
     "chargement": "Loading…",
-    "chargement_impossible": "Cannot display your establishment. Check your connection, then try again."
+    "chargement_impossible": "Cannot display your establishment. Check your connection, then try again.",
+    "acces_refuse": "You do not have access to this establishment's settings."
   },
   "journal": {
     "sur_titre": "Establishment settings",
@@ -366,7 +391,8 @@
         "famille_inconnue": "This way of letting does not exist.",
         "regle_conversion_inconnue": "This way of counting the tax does not exist.",
         "inattendue": "The operation did not complete. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rate plans."
     },
     "chambres": {
       "titre": "Your rooms",
@@ -405,7 +431,8 @@
         "service_inactif": "Accommodation is not offered in this establishment yet.",
         "champ_non_modifiable": "This setting is changed elsewhere.",
         "inattendue": "The operation did not complete. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
     },
     "disponibilite": {
       "refus": {
@@ -498,7 +525,8 @@
         "permission": "This action is not available to you.",
         "reseau": "This action requires an internet connection.",
         "inattendue": "This entry was refused. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
     },
     "grille": {
       "les_chambres": "Rooms",
@@ -546,7 +574,8 @@
         "retirer": "Remove",
         "total_personnes": "{n} person(s) in total, including the main guest.",
         "capacite_depassee": "This room is intended for {n} person(s). You can continue."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
     },
     "note": {
       "titre": "The room bill",
@@ -600,7 +629,8 @@
         "permission": "This action is not available to you.",
         "reseau": "This action requires the internet.",
         "inattendue": "This departure was refused. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's stays."
     },
     "fiche": {
       "telephone": "Phone",
@@ -625,7 +655,8 @@
       "recherche_impossible": "The search did not complete. Try again in a moment.",
       "hors_ligne": "Without a connection, guest records cannot be consulted.",
       "fiche_illisible": "This record could not be read. Try again in a moment.",
-      "choisir_une_fiche": "Search for a guest to see their record."
+      "choisir_une_fiche": "Search for a guest to see their record.",
+      "acces_refuse": "You do not have access to this establishment's guest records."
     }
   },
   "documents": {

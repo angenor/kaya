@@ -12,9 +12,41 @@
       "explication": "Votre compte existe, mais personne ne lui a encore donné accès à quoi que ce soit. Demandez à la personne qui gère les accès."
     },
     "tuiles": {
+      "passage": {
+        "libelle": "Un passage",
+        "description": "La chambre et la clé. La pièce vient après."
+      },
+      "arrivee": {
+        "libelle": "Une arrivée",
+        "description": "Le client reste : sa fiche et sa chambre."
+      },
+      "depart": {
+        "libelle": "Un départ",
+        "description": "La note arrêtée, la chambre rendue."
+      },
+      "clients": {
+        "libelle": "Vos clients",
+        "description": "Les fiches, et ce que chacun a déjà pris."
+      },
+      "notes": {
+        "libelle": "Notes internes",
+        "description": "Ce que l'équipe se laisse d'un service à l'autre."
+      },
+      "mes_envois": {
+        "libelle": "Mes envois",
+        "description": "Ce qui n'est pas parti, et ce qui a été refusé."
+      },
+      "hebergement_offre": {
+        "libelle": "Vos formules",
+        "description": "Vos façons de louer, leurs prix, leur taxe."
+      },
+      "hebergement_chambres": {
+        "libelle": "Vos chambres",
+        "description": "Toutes vos chambres, rangées par type."
+      },
       "etablissement": {
         "libelle": "Votre établissement",
-        "description": "Ce que vous proposez, et ce que les impôts voient de vous"
+        "description": "Vos services, et ce que les impôts voient."
       },
       "comptes": {
         "libelle": "Ce que chacun peut faire",
@@ -23,14 +55,6 @@
       "journal": {
         "libelle": "Registre des actions",
         "description": "Qui a fait quoi, sur quoi, et quand"
-      },
-      "hebergement_offre": {
-        "libelle": "Vos formules",
-        "description": "Les façons de louer vos chambres, leurs prix et leur taxe."
-      },
-      "hebergement_chambres": {
-        "libelle": "Vos chambres",
-        "description": "Les chambres de votre établissement, rangées par type."
       }
     }
   },
@@ -205,7 +229,8 @@
       "action_apercu": "Voir ce que ça donne"
     },
     "chargement": "Chargement…",
-    "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez."
+    "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez.",
+    "acces_refuse": "Vous n'avez pas accès aux réglages de cet établissement."
   },
   "journal": {
     "sur_titre": "Réglages de l'établissement",
@@ -366,7 +391,8 @@
         "famille_inconnue": "Cette façon de louer n'existe pas.",
         "regle_conversion_inconnue": "Cette façon de compter la taxe n'existe pas.",
         "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux formules de cet établissement."
     },
     "chambres": {
       "titre": "Vos chambres",
@@ -405,7 +431,8 @@
         "service_inactif": "L'hébergement n'est pas encore proposé dans cet établissement.",
         "champ_non_modifiable": "Ce réglage se modifie ailleurs.",
         "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
     },
     "disponibilite": {
       "refus": {
@@ -498,7 +525,8 @@
         "permission": "Cette action ne vous est pas accessible.",
         "reseau": "Cette action nécessite internet.",
         "inattendue": "Cette saisie a été refusée. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
     },
     "grille": {
       "les_chambres": "Les chambres",
@@ -546,7 +574,8 @@
         "retirer": "Retirer",
         "total_personnes": "{n} personne(s) au total, vous compris le titulaire.",
         "capacite_depassee": "Cette chambre est prévue pour {n} personne(s). Vous pouvez continuer."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
     },
     "note": {
       "titre": "La note de la chambre",
@@ -600,7 +629,8 @@
         "permission": "Cette action ne vous est pas accessible.",
         "reseau": "Cette action nécessite internet.",
         "inattendue": "Ce départ a été refusé. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux séjours de cet établissement."
     },
     "fiche": {
       "telephone": "Téléphone",
@@ -625,7 +655,8 @@
       "recherche_impossible": "La recherche n'a pas abouti. Réessayez dans un instant.",
       "hors_ligne": "Sans connexion, les fiches clients ne peuvent pas être consultées.",
       "fiche_illisible": "Cette fiche n'a pas pu être lue. Réessayez dans un instant.",
-      "choisir_une_fiche": "Cherchez un client pour voir sa fiche."
+      "choisir_une_fiche": "Cherchez un client pour voir sa fiche.",
+      "acces_refuse": "Vous n'avez pas accès aux fiches clients de cet établissement."
     }
   },
   "documents": {

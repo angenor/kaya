@@ -116,5 +116,5 @@ echo "── Chargement des données de démonstration ────────�
 (cd backend && cargo run --quiet -p kaya-api --bin seeds)
 
 echo
-echo "✓ Deux tenants, trois comptes, 21 unités, 14 fiches clientes, 4 séjours."
+echo "✓ Deux tenants, quatre comptes, 21 unités, 14 fiches clientes, 4 séjours."
 echo "  Rejouable : relancer cette commande laisse exactement le même état."
