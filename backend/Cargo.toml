@@ -165,13 +165,14 @@ argon2 = { version = "=0.5.3" }
 # n'est ajoutée. Voir `crates/socle/comptes/src/client/coffre.rs`.
 #
 # Version vérifiée sur https://crates.io/api/v1/crates/aes-gcm le 2026-08-03 (`max_stable_version`
-# = 0.11.0), **jamais proposée de mémoire**. À porter au gel §3.1 à la revue mensuelle du
-# 2026-08-31 — c'est la seule entrée que cette revue aura à trancher du fait de ce cycle.
+# = 0.11.0), **jamais proposée de mémoire**. INSCRITE au gel §3.1 le 2026-08-04 (gel 1.0.13).
 aes-gcm = { version = "=0.11.0" }
 
-# --- Extensions du gel introduites par ce cycle (voir docs/module-dore.md § « Écarts au gel ») ---
-# Vérifiées sur https://crates.io/api/v1/crates/<nom> le 2026-07-30, à porter au gel §3.1 à la
-# revue mensuelle du 2026-08-31.
+# --- Crates inscrites au gel §3.1 le 2026-08-04 (gel 1.0.13) ---
+# Vérifiées sur https://crates.io/api/v1/crates/<nom> le 2026-07-30. Elles ont attendu six
+# semaines sous une mention « à porter au gel » que rien n'exécutait : une échéance sans porte est
+# un rappel, pas un contrôle. Le complément du §4.3 — comparer les manifestes au gel, dans les
+# deux sens — est ce qui empêcherait la prochaine.
 serde_json = { version = "=1.0.151" }
 time = { version = "=0.3.54", features = ["serde", "macros", "formatting", "parsing"] }
 thiserror = { version = "=2.0.19" }
