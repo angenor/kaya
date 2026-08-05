@@ -23,6 +23,8 @@
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
+import type { Permissions } from '~/core/rbac'
 import type { PageNotes } from '~/modules/etablissements/notes'
 
 const EcranNotes = defineAsyncComponent(
@@ -37,14 +39,31 @@ const erreur = ref<string | null>(null)
 
 const contexte = computed<ContexteAppel | null>(() => contexteAppel(config.public.apiBaseUrl))
 const session = computed(() => sessionCourante())
+const permissions = computed<Permissions>(() => sessionCourante()?.permissions ?? [])
 const etablissementId = computed(
   () => session.value?.etablissementId ?? String(config.public.etablissementId),
 )
 const tenantId = computed(() => session.value?.tenantId ?? '')
 
+/**
+ * **Sans la permission, la tuile est absente ET l'accès direct refusé** — FR-026 + FR-029.
+ *
+ * ⚠️ Cet écran n'avait **aucune** garde de lecture. Les huit rôles portent la permission,
+ * donc l'effet était nul aujourd'hui — et c'est précisément ce qui l'a laissé passer : un
+ * défaut sans symptôme n'est pas un défaut absent, c'est un défaut qui attend un rôle de
+ * plus. La question vient de `core/acces/ecrans.ts`, la même table que consulte l'accueil.
+ */
+const peutOuvrir = computed(() => peutOuvrirEcran('/notes', permissions.value))
+
 onMounted(async () => {
   if (!contexte.value) {
     erreur.value = t('connexion.requise')
+    return
+  }
+  // AVANT l'appel, jamais après : un refus obtenu au bout de trente secondes d'attente
+  // réseau est un refus que l'utilisateur a déjà cessé de lire.
+  if (!peutOuvrir.value) {
+    erreur.value = t('notes.acces_refuse')
     return
   }
 

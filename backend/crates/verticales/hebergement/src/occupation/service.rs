@@ -378,6 +378,26 @@ where
         ))
     }
 
+    /// L'état de **toutes** les unités d'un établissement — opération 17, cycle 006.
+    ///
+    /// Rend aussi l'instant d'autorité, parce que la réponse est vraie **à un instant** : le
+    /// client en a besoin pour situer sa lecture, et **il ne doit surtout pas employer le sien**.
+    pub async fn etat_des_unites(
+        &self,
+        etablissement_id: Uuid,
+    ) -> Result<(Vec<repository::EtatUnite>, OffsetDateTime), ErreurAttribution> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let unites = repository::etat_des_unites(&mut tx, etablissement_id).await?;
+        let instant = repository::maintenant(&mut tx).await?;
+        // Lecture : la transaction est annulée.
+        tx.rollback().await?;
+
+        Ok((unites, instant))
+    }
+
     /// Lit une occupation — employée par la tarification et les tests.
     pub async fn lire(
         &self,

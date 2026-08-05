@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT ON (u.id)\n               u.id            AS unite_id,\n               u.code,\n               u.categorie_id,\n               u.etage,\n               u.statut_menage,\n               o.fin_client    AS \"fin_client?\",\n               o.periode       AS \"periode?: sqlx::postgres::types::PgRange<time::OffsetDateTime>\",\n               o.sejour_id     AS \"sejour_id?\",\n               now()           AS \"maintenant!\"\n        FROM hebergement.unite u\n        LEFT JOIN hebergement.occupation o\n               ON o.unite_id = u.id\n              AND o.statut = 'active'\n              AND o.periode @> now()\n        WHERE u.etablissement_id = $1\n        ORDER BY u.id, o.cree_le DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "unite_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "categorie_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "etage",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "etage"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "statut_menage",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "statut_menage"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "fin_client?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "fin_client"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "periode?: sqlx::postgres::types::PgRange<time::OffsetDateTime>",
+        "type_info": "TstzRange",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "periode"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "sejour_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.occupation",
+            "name": "sejour_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "maintenant!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "b3290116f38b4a462009ecc972b4d36cf44561039799efffaf4b8baa5e24daf9"
+}

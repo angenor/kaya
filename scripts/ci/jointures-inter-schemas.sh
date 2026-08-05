@@ -50,6 +50,32 @@ cd "$racine"
 # regarde tout*.
 SCHEMAS=(etablissements synchronisation fiscalite comptes caisse documents pilotage editeur metriques stocks hebergement restauration bar pressing)
 
+# ═════════════════════════════════════════════════════════════════════════════════════════════
+#  PAIRES SENSIBLES — les couples dont la jointure serait ÉCRITE SPONTANÉMENT
+# ═════════════════════════════════════════════════════════════════════════════════════════════
+#
+# La détection ci-dessous est **générique** : elle attrape n'importe quel couple de schémas nommés
+# dans une même requête, et l'a toujours fait. Ces déclarations n'ajoutent donc **aucune détection
+# nouvelle** — elles ajoutent la **preuve que la cible n'est pas vide**, qui est une exigence
+# distincte de la section « Couverture des portes » de la constitution :
+#
+#   > *Un test négatif prouve qu'une porte sait échouer ; il ne prouve pas qu'elle regarde tout.
+#   > Une porte dont la cible est vide passe toujours.*
+#
+# Une paire déclarée ici fait **échouer la porte** si l'un de ses deux schémas n'a **aucune**
+# requête dans le périmètre inspecté. Le mode d'échec visé est précis : si `hebergement` cessait
+# d'avoir des requêtes — un crate renommé, un chemin de recherche cassé —, P-04 resterait verte en
+# ne regardant rien, et son vert serait indiscernable d'un vert mérité.
+#
+# **`comptes hebergement` est la paire de ce cycle**, et c'est la première fois que deux schémas
+# se parlent sur le **chemin chaud** : un séjour affiche toujours le nom de son client. C'est la
+# jointure que tout le monde écrirait. Elle n'existe pas, et trois mécanismes le garantissent —
+# aucune clé étrangère (`sejour.client_id` est un UUID nu), le trait `AnnuaireClients`, et cette
+# porte-ci. Le sens inverse est le plus dangereux : l'historique des séjours d'un client est servi
+# **depuis `hebergement`**, jamais depuis `comptes`, sans quoi ce serait une jointure inter-schémas
+# **et** une arête `socle/ → verticales/` — P-04 et P-03 d'un coup.
+PAIRES_SENSIBLES=("comptes hebergement")
+
 echo "── P-04 — jointures entre schémas de modules ─────────────────────────────────"
 echo "  heuristique assumée — voir l'en-tête de ce script"
 
@@ -141,6 +167,43 @@ for schema in "${SCHEMAS[@]}"; do
         printf '    %-16s    · aucune requête — schéma sans code, la porte ne peut rien y trouver\n' "$schema"
     fi
     i=$((i + 1))
+done
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════
+#  3. LES PAIRES SENSIBLES ONT-ELLES DEUX CÔTÉS NON VIDES ?
+# ═════════════════════════════════════════════════════════════════════════════════════════════
+#
+# Un schéma sans requête ne peut produire aucune jointure : la porte le laisserait passer sans
+# rien avoir regardé. Pour les couples déclarés ci-dessus, ce silence est un échec.
+compte_du_schema() {
+    local cherche="$1" i=0
+    for schema in "${SCHEMAS[@]}"; do
+        if [[ "$schema" == "$cherche" ]]; then
+            echo "${compte_par_schema[$i]}"
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    echo "0"
+}
+
+echo
+echo "  paires sensibles — les deux côtés doivent être non vides :"
+for paire in "${PAIRES_SENSIBLES[@]}"; do
+    gauche="${paire%% *}"
+    droite="${paire##* }"
+    n_gauche="$(compte_du_schema "$gauche")"
+    n_droite="$(compte_du_schema "$droite")"
+
+    if [[ "$n_gauche" -eq 0 || "$n_droite" -eq 0 ]]; then
+        printf '    ✗ %-12s × %-12s  %d / %d requête(s)\n' "$gauche" "$droite" "$n_gauche" "$n_droite" >&2
+        echo "        un côté est VIDE : la porte ne peut trouver aucune jointure entre ces deux" >&2
+        echo "        schémas, et son vert ne dirait rien de plus que « je n'ai rien regardé »." >&2
+        echec=1
+    else
+        printf '    ✓ %-12s × %-12s  %d / %d requête(s) — la paire est réellement inspectée\n' \
+            "$gauche" "$droite" "$n_gauche" "$n_droite"
+    fi
 done
 
 # Une porte qui n'analyse rien passe toujours au vert. Le cas s'est produit au cycle 001 sur

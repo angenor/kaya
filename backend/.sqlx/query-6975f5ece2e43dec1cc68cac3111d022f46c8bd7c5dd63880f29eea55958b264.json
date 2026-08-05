@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT statut, clos_le FROM hebergement.sejour WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "statut",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.sejour",
+            "name": "statut"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "clos_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.sejour",
+            "name": "clos_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "6975f5ece2e43dec1cc68cac3111d022f46c8bd7c5dd63880f29eea55958b264"
+}

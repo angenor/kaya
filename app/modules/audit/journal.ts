@@ -29,7 +29,7 @@ import { enTetesAuth, type ContexteAppel } from '~/core/auth'
 export type TypeAction = components['schemas']['TypeActionAudit']
 
 /**
- * Les **onze** familles, dans l'ordre d'affichage du filtre.
+ * Les **douze** familles, dans l'ordre d'affichage du filtre.
  *
  * Le type ne suffit pas : une union n'est pas énumérable à l'exécution, et l'écran a besoin de la
  * liste pour composer son sélecteur. `satisfies` relie les deux — une famille **renommée ou
@@ -53,6 +53,15 @@ export const TYPES_ACTION = [
   // les dix autres, parce que c'est exactement ce qu'un propriétaire vient chercher au registre
   // après un service où les horaires paraissaient faux.
   'derive_horloge_constatee',
+  // Cycle 006 (SEJ-01) — la première famille qui trace une **LECTURE** et non une modification.
+  // FR-012 exige un journal d'accès à la pièce d'identité ; aucune des onze ne couvrait une
+  // consultation — `suppression` trace une mise hors service, `changement_role` une attribution,
+  // toutes tracent un geste qui MODIFIE.
+  //
+  // ⚠️ Le contexte de l'entrée ne porte **jamais la valeur lue** : recopier un numéro de pièce
+  // dans un registre immuable et à rétention illimitée créerait la fuite que ce journal existe
+  // pour surveiller.
+  'consultation_piece_identite',
 ] as const satisfies readonly TypeAction[]
 
 /** L'auteur d'une entrée. **`nom` absent = compte illisible**, jamais un identifiant en repli. */

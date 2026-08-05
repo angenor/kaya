@@ -4,7 +4,7 @@
 Référencé par le principe VI de `.specify/memory/constitution.md` et par le point 5 de la
 Definition of Done (`docs/user-stories-v1.md` §0.4).*
 
-**Version 1.3.0 — 2026-08-02**
+**Version 1.4.0 — 2026-08-03**
 
 ---
 
@@ -130,7 +130,8 @@ saisie et B à l'annulation après envoi. Le registre classe **l'opération**, e
 
 > **Point de vigilance — client inconnu en mode C.** `personne` est C, donc un check-in
 > (classe B, autorisé hors ligne en mode C) portant un **client jamais vu** exige le cloud pour
-> créer sa fiche. Voir §12, décision ouverte O-01.
+> créer sa fiche. **Tranché le 2026-08-03 — option (a), la classe C est maintenue** ; la friction
+> résiduelle est décrite au §12, sous la décision O-01 close.
 
 ### 5.3 `socle/caisse`
 
@@ -321,15 +322,19 @@ Trois précisions que l'implémentation a values, et qui ne changent aucune clas
 |---|---|---|---|
 | `client` — création, modification de fiche | **C** | C2 — partagé entre les établissements du tenant | SEJ-01 |
 | `client.preferences`, note interne, photo | **A** | A4 — explicitement A au cadrage §11.3 | SEJ-01, §11.3 |
+| `preference_personne` — enregistrement d'une préférence | **A** | A4 — append-only, commutative, sans effet monétaire | SEJ-01 |
 | Extraction OCR d'une pièce d'identité | **A** | A4 — explicitement A ; **entièrement dégradable** | SEJ-06, §11.3 |
 | `sejour` — **check-in**, attribution d'unité | **B** | B3 — ressource unique | SEJ-02, §11.3 |
 | `accompagnant` — ajout | **A** | A4 — explicitement A au cadrage §11.3 | SEJ-02, §11.3 |
 | `fiche_police` — génération | **B** | B3 — dérivée du check-in, numérotée | SEJ-02 |
+| `numerotation_fiche_police` — incrément du compteur par établissement | **B** | B3 — numérotation continue, sérialisée par verrou de ligne | SEJ-02 |
+| `note_sejour` — ouverture, arrêt de la note | **B** | B3 — effet monétaire, clôt avec le séjour | SEJ-02, SEJ-04 |
 | `ligne_sejour` — hébergement, extras | **B** | B3 — effet monétaire sur la note | SEJ-03 |
 | `ligne_sejour` — consommation venue d'un point de vente | **classe de la ligne d'origine** | — | §8 |
 | **Transfert de charges** entre séjours | **B** | B3 — effet monétaire, tracé | SEJ-03, §11.3 |
 | Remise sur la note | **B** | B3 — effet monétaire, journal d'audit | SEJ-03, §11.3 |
 | `sejour` — **check-out**, taxe de nuitée **figée** | **B** | B3 — clôt la note, déclenche le document fiscal | SEJ-04, §11.3 |
+| `taxe_sejour_constat` — figeage du constat au départ | **B** | B3 — clôt la note ; **immuable par privilège** (`SELECT, INSERT` seuls) | SEJ-04 |
 | **Prolongation** | **B** | B3 — étend l'intervalle, conflit possible | SEJ-04, §11.3 |
 | **Départ anticipé** — recalcul, régularisation | **B** | B3 — effet monétaire | SEJ-04, §11.3 |
 | **Changement d'unité** en cours de séjour | **B** | B3 — deux intervalles, ressource unique | SEJ-04, §11.3 |
@@ -545,12 +550,28 @@ revue mensuelle demeure.
 
 | # | Décision | Effet si tranchée autrement | Échéance |
 |---|---|---|---|
-| **O-01** | **`client` / `personne` en C** rend le check-in d'un **client inconnu** impossible hors ligne, y compris en mode C. Options : (a) maintenir C et exiger le réseau pour une fiche nouvelle ; (b) descendre `client` en B avec unicité par établissement et fusion au cloud ; (c) accepter un « client provisoire » local de classe A, promu en C à la synchronisation. | Option (a) = friction au comptoir en coupure ; (b) = doublons inter-établissements ; (c) = complexité de promotion | Avant SEJ-02 (tranche T1) |
+| ~~**O-01**~~ | ✅ **TRANCHÉE le 2026-08-03 — option (a)** : `client` reste en **C**, le réseau est exigé pour créer une fiche nouvelle. Les options (b) et (c) achetaient une friction de comptoir au prix de doublons inter-établissements ou d'un mécanisme de promotion — **trop cher pour un cas que le MVP ne produit pas** (voir la friction résiduelle ci-dessous). | — | **CLOSE — 2026-08-03** |
 | **O-02** | **`mouvement_stock` en A ou en B** — décision B-05 du cadrage. Si le stock sert à détecter le vol, il reste B ; s'il ne sert qu'à réapprovisionner, il passe en A. | A = saisie hors ligne possible, tout se simplifie ; B = sérialisation stricte | S4, avec le pilote (avant tranche T5) |
 | **O-03** | **Crate d'accueil de la surface QR.** Le principe II de la constitution ne liste que `hebergement`, `restauration`, `bar`, `pressing` dans `verticales/`. La commande QR est transverse à `restauration` et `bar`. | Un crate `capacites/` dédié, ou un partage entre les deux verticales | Avant QRC-01 (tranche T4) |
 
 > Les décisions ouvertes n'autorisent aucun contournement : jusqu'à leur arbitrage, **la classe
 > inscrite dans ce registre s'applique** — c'est toujours la plus stricte des options.
+
+> **⚠️ La friction résiduelle d'O-01, écrite plutôt que tue.** L'option (a) n'est pas sans coût, et
+> le taire ferait redécouvrir le problème au mauvais moment.
+>
+> **Au MVP, la décision est sans effet visible** : l'arrivée elle-même (`sejour` — check-in) est de
+> **classe B**, donc déjà inatteignable hors ligne. Un client inconnu et un client connu sont
+> logés à la même enseigne — le réseau est requis dans les deux cas, et personne ne remarquera que
+> `client` est plus strict que `sejour`.
+>
+> **En mode nœud de site (incrément 3), l'écart devient réel et visible.** Une opération de
+> classe B redevient possible en coupure, le nœud faisant autorité : Yao pourra **enregistrer une
+> arrivée** hors du cloud, mais **pas créer la fiche** d'un client jamais vu, `client` étant en C.
+> Le parcours du passage l'absorbe — la pièce d'identité vient **après** la clé (SEJ-02, FR-023),
+> et la fiche de police naît légitimement `complete = false`. Le parcours long de l'arrivée, lui,
+> devra dire à Yao ce qu'il peut faire quand même. **C'est ce que l'incrément 3 aura à traiter**,
+> et c'est un travail d'interface, pas un changement de classe.
 
 ---
 
@@ -558,6 +579,7 @@ revue mensuelle demeure.
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.4.0 | 2026-08-03 | **Le §7.3 devient effectif** — les entités du cycle 006 (SEJ) qu'il déclarait d'avance depuis le 2026-07-30 reçoivent leurs tables. Comme aux cycles 003 et 004, les lignes existantes sont **honorées, pas réécrites** : `client`, `sejour`, `accompagnant`, `ligne_sejour` et `fiche_police` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe. **Quatre lignes ajoutées**, correspondant à quatre tables que le registre ne nommait pas : `preference_personne` (**A**, A4 — le registre écrivait « `client.preferences` », sans nom de table ; devenue table append-only sur le patron exact de `note_etablissement`, elle se déclare pour elle-même), `note_sejour` (**B**, B3 — le registre nommait `ligne_sejour`, pas la note qui les porte ; la note a son propre cycle de vie, `ouverte → arretee`, qu'une ligne ne porte pas), `numerotation_fiche_police` (**B**, B3 — compteur par établissement, sérialisé par verrou de ligne, et **non une `SEQUENCE`** : une séquence est globale au schéma et laisse des trous, deux propriétés fatales à une numérotation continue) et `taxe_sejour_constat` (**B**, B3 — le registre parlait de « `sejour` — check-out, taxe figée » sans nommer de table ; **immuable par privilège**, `GRANT SELECT, INSERT` seuls). ⚠️ **Le nom retenu est `taxe_sejour_constat`, jamais `assiette_taxe_sejour_figee`** que la spécification emploie dans ses « Key Entities » : ce cycle fige un **constat** — des faits et un paramétrage recopié —, il ne dérive aucune assiette, laquelle est la sortie de FIS-03. `classes_offline.rs` compare des **noms de table** aux entités déclarées ici : y inscrire l'autre nom ferait échouer le build sans dire pourquoi. **La décision O-01 est tranchée**, option (a) : `client` reste en **C**, avec sa friction résiduelle écrite au §12 plutôt que tue. `reconciliation_orpheline` **cesse d'être une provision** — elle reçoit son `INSERT`, un accompagnant de classe A arrivant après la clôture, et le décompte de `provisions_sans_logique.rs` passe de six à cinq ; sa **résolution** reste SYN-03, tranche T3, l'`UPDATE` n'étant pas accordé. `PLANCHER_TABLES` passe de 35 à 44 dans `classes_offline.rs` **et** dans `rls_catalogue.rs` — deux constantes homonymes et indépendantes : un plancher laissé à 35 rendrait P-07 verte en inspectant moins de tables qu'attendu. |
 | 1.3.0 | 2026-08-02 | **Le §5.6 devient effectif** — les entités que le cycle 005 (SYN) implémente y figuraient depuis le 2026-07-30, et **aucune ligne n'a été ajoutée**. C'est le premier cycle du produit dont le registre sort inchangé sur ses lignes, et le dire est nécessaire : une relecture y verrait un oubli. `reconciliation_orpheline` reçoit sa table, avec `GRANT SELECT` **seul** à `kaya_app` — les deux classes déclarées (création **A**, résolution **B**) restent justes et attendent SYN-03, tranche T3 ; ce n'est pas la classe qui est différée mais l'implémentation, et le privilège absent est ce qui **prouve** la provision (`provisions_sans_logique.rs`, décompte porté de cinq à six). La ligne « Horodatage d'autorité — attribution : serveur uniquement » **cesse d'être une convention** : la porte **P-23** de la constitution 1.8.0 refuse désormais tout calcul métier, fiscal, de clôture ou de durée appuyé sur `horodatage_client`, sur un périmètre **découvert** et non énuméré. **Le §11 est le vrai changement de ce cycle** : les tests qu'il impose existent maintenant sous forme d'**outillage instancié** — `tester_classe_a!`, `tester_classe_bcd!`, `tester_classe_d!` et leur pendant TypeScript — au lieu d'être recopiés une fois par entité, ce qui avait déjà été fait trois fois avec trois formulations. `backend/tests/outillage_classes.rs` échoue en **nommant** l'entité qui aurait une table sans instanciation : pendant exact de `classes_offline.rs`, qui vérifie qu'une classe est *déclarée* quand celui-ci vérifie qu'elle est *exercée*. À partir de ce cycle enfin, `classes_offline.rs` cesse d'énumérer ses schémas et lit `perimetre::schemas_applicatifs()` — la liste écrite à la main avait laissé un trou à chacun des trois cycles précédents. |
 | 1.2.0 | 2026-08-02 | **Le §7 devient effectif** — les entités du cycle 004 (HEB) qu'il déclarait d'avance depuis le 2026-07-30 reçoivent leurs tables. Comme au cycle 003, les lignes existantes sont **honorées, pas réécrites** : `categorie`, `unite`, `formule`, `bareme_palier` et `occupation` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe. **Deux lignes ajoutées au §7.1**, correspondant à deux tables que le registre ne nommait pas : `temps_remise_en_etat` (**C**, branche C2, sur le régime de sa catégorie — le registre le mentionnait comme *attribut* de `categorie`, « temps de remise en état par formule » ; il varie par catégorie **et** par formule, ce qu'une colonne ne porte pas, et devenu table il se déclare pour lui-même, précédent exact de `profil_stock` au cycle 002) et `plage_demi_journee` (la ligne « Plages de demi-journée » existait **sans nom de table** — elle est honorée, le nom précisé). **`prestation_incluse` n'a PAS été redéclarée** au §7.1 bien que sa table naisse ici : elle figure déjà au §10 des provisions, et la redéclarer lui donnerait deux entrées donc un jour deux classes — raisonnement identique à celui qui a écarté `employe` du §5.2 au cycle précédent. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `hebergement` : **sans cet ajout, les huit tables du cycle échappaient entièrement au balayage**, exactement le trou trouvé sur le schéma `comptes` au cycle 003. |
 | 1.1.0 | 2026-08-01 | **Le §5.2 devient effectif** — les neuf entités qu'il déclarait d'avance depuis le 2026-07-30 sont implémentées par le cycle 003 (CPT). Ses lignes existantes sont **honorées, pas réécrites** : `personne`, `compte`, `compte_role`, `role`, `permission`, `appareil_enrole` et `journal_audit` gardent la classe et la branche qui leur avaient été données avant qu'aucune table n'existe — c'était tout l'objet de les écrire d'avance. **Trois lignes ajoutées**, correspondant à trois tables que le registre ne nommait pas : `methode_authentification` (référentiel global, **C**, branche C2, sur le régime de `module_activite`), `role_permission` (jointure de référentiel, rattachée à la ligne de `role` et `permission` plutôt que déclarée seule — elle n'a pas de cycle de vie propre) — `employe`, lui, était **déjà** déclaré au §10 des provisions et n'a pas été redéclaré : une entité qui figure à deux endroits finit par y porter deux classes. Consigné aussi : **les sessions ne figurent pas à ce registre**, étant éphémères reconstructibles — écrit pour qu'une relecture n'y voie pas un oubli. À partir de ce cycle, `backend/tests/classes_offline.rs` couvre le schéma `comptes` et compte les tables inspectées face au total attendu : une porte dont la cible est vide passe toujours. |

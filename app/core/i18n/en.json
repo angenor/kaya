@@ -12,9 +12,41 @@
       "explication": "Your account exists, but nobody has given it access to anything yet. Ask whoever manages access."
     },
     "tuiles": {
+      "passage": {
+        "libelle": "A short stay",
+        "description": "The room and the key. ID comes afterwards."
+      },
+      "arrivee": {
+        "libelle": "An arrival",
+        "description": "The guest is staying: record and room."
+      },
+      "depart": {
+        "libelle": "A departure",
+        "description": "The bill closed, the room handed back."
+      },
+      "clients": {
+        "libelle": "Your guests",
+        "description": "Their records, and what each has had here."
+      },
+      "notes": {
+        "libelle": "Internal notes",
+        "description": "What the team leaves for the next shift."
+      },
+      "mes_envois": {
+        "libelle": "My uploads",
+        "description": "What has not been sent, and what was refused."
+      },
+      "hebergement_offre": {
+        "libelle": "Your rate plans",
+        "description": "How you let your rooms, prices and tax."
+      },
+      "hebergement_chambres": {
+        "libelle": "Your rooms",
+        "description": "All your rooms, grouped by type."
+      },
       "etablissement": {
         "libelle": "Your establishment",
-        "description": "What you offer, and what the tax office sees of you"
+        "description": "Your services, and what the tax office sees."
       },
       "comptes": {
         "libelle": "What each person can do",
@@ -23,14 +55,6 @@
       "journal": {
         "libelle": "Activity log",
         "description": "Who did what, on what, and when"
-      },
-      "hebergement_offre": {
-        "libelle": "Your rate plans",
-        "description": "How your rooms are let, their prices and their tax."
-      },
-      "hebergement_chambres": {
-        "libelle": "Your rooms",
-        "description": "Your establishment's rooms, grouped by type."
       }
     }
   },
@@ -205,7 +229,8 @@
       "action_apercu": "See how it looks"
     },
     "chargement": "Loading…",
-    "chargement_impossible": "Cannot display your establishment. Check your connection, then try again."
+    "chargement_impossible": "Cannot display your establishment. Check your connection, then try again.",
+    "acces_refuse": "You do not have access to this establishment's settings."
   },
   "journal": {
     "sur_titre": "Establishment settings",
@@ -238,7 +263,8 @@
       "rebascule_palier_passage": "Moved to the higher rate",
       "forcage_disponibilite": "Forced assignment",
       "derive_horloge_constatee": "A device's clock is wrong",
-      "inconnu": "Unrecognised action"
+      "inconnu": "Unrecognised action",
+      "consultation_piece_identite": "ID document viewed"
     }
   },
   "services": {
@@ -365,7 +391,8 @@
         "famille_inconnue": "This way of letting does not exist.",
         "regle_conversion_inconnue": "This way of counting the tax does not exist.",
         "inattendue": "The operation did not complete. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rate plans."
     },
     "chambres": {
       "titre": "Your rooms",
@@ -404,7 +431,8 @@
         "service_inactif": "Accommodation is not offered in this establishment yet.",
         "champ_non_modifiable": "This setting is changed elsewhere.",
         "inattendue": "The operation did not complete. Try again in a moment."
-      }
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
     },
     "disponibilite": {
       "refus": {
@@ -413,6 +441,15 @@
         "plage_non_fractionnable": "A half-day is booked in full: {plages}.",
         "intervalle_invalide": "The end must be after the start.",
         "duree_hors_contrainte": "This rate plan is booked from {min} to {max}."
+      }
+    },
+    "note": {
+      "ligne": {
+        "hebergement": "Accommodation",
+        "rebascule_palier": "Tier change",
+        "depart_anticipe": "Early departure",
+        "prolongation": "Extension",
+        "changement_unite": "Room change"
       }
     }
   },
@@ -455,5 +492,174 @@
     "champ_vide": "Write the note before adding it.",
     "champ_trop_long": "A note cannot exceed {max} characters.",
     "en_attente_envoi": "Saved on this device, pending send."
+  },
+  "sejours": {
+    "passage": {
+      "chargement": "Loading rooms…",
+      "chargement_impossible": "Rooms could not be loaded.",
+      "combien_de_temps": "How long?",
+      "prix_sur_le_bouton": "The price is on the button. Tap the grid to pick the room.",
+      "duree_heures": "{n} h",
+      "duree_heures_minutes": "{h} h {m}",
+      "jusqu_a": "until {heure}",
+      "hors_ligne_tarifs": "Without a connection, the rates shown are from the last update.",
+      "piece_apres_la_cle": "ID: after the key, not before",
+      "piece_a_completer": "You can hand over the room right away. The form stays to be completed.",
+      "c_est_fait": "Done",
+      "a_redire_au_client": "Tell the guest",
+      "fiche_a_completer": "Police registration form no. {numero} — identity to be completed.",
+      "client_suivant": "Next guest",
+      "enieme_passage": "stay no. {n}",
+      "ce_n_est_pas_lui": "That's not them",
+      "complet": "Every room is taken ({n} occupied).",
+      "se_libere_a": "frees up at {heure}",
+      "refus": {
+        "unite_deja_occupee": "This room is already taken for this period.",
+        "service_inactif": "This establishment does not offer accommodation.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "client_inconnu": "This guest record cannot be found.",
+        "formule_hors_categorie": "This rate plan does not apply to this room.",
+        "plage_non_fractionnable": "A half-day is booked in full.",
+        "intervalle_invalide": "The end must be after the start.",
+        "duree_hors_contrainte": "This rate plan does not offer that duration.",
+        "permission": "This action is not available to you.",
+        "reseau": "This action requires an internet connection.",
+        "inattendue": "This entry was refused. Try again in a moment."
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
+    },
+    "grille": {
+      "les_chambres": "Rooms",
+      "un_tap": "One tap to change. Nothing else to do.",
+      "libre": "Free",
+      "occupee": "Occupied · {heure}",
+      "legende_occupee": "Occupied",
+      "remise_en_etat": "Available at {heure}",
+      "a_nettoyer": "To clean",
+      "en_cours": "Saving",
+      "hors_ligne_attribution": "Without a connection, a room cannot be assigned. Reconnect to record this stay."
+    },
+    "arrivee": {
+      "chargement": "Loading the arrival screen…",
+      "chargement_impossible": "The arrival screen could not be loaded.",
+      "le_client": "Guest",
+      "chercher_client": "Search for a guest record",
+      "chercher_client_aide": "A name, a phone number or an ID number — the same field serves all three.",
+      "chercher_client_invite": "Bakayoko, 07 07 12 34 56…",
+      "chercher": "Search",
+      "resultats_tronques": "More records match. Narrow the search to see them.",
+      "recherche_impossible": "The search did not complete. Try again in a moment.",
+      "recherche_hors_ligne": "Without a connection, guest records cannot be consulted.",
+      "sans_fiche_possible": "Without a record you can hand over the room right away. The record will stay to be completed.",
+      "ce_n_est_pas_lui": "Not this guest",
+      "combien_de_nuits": "How many nights?",
+      "heure_arrivee": "Arrival time",
+      "heure_depart": "Departure time",
+      "heure_format": "24-hour format, for example 14:00.",
+      "heure_invalide": "Enter a time in 24-hour format, for example 14:00.",
+      "heures_non_reglees": "Standard arrival and departure times are not set for this establishment. Enter them here, then set them once and for all in the accommodation offer.",
+      "recapitulatif": "From {arrivee} to {depart}",
+      "total_prevu": "{montant} for {n} night(s)",
+      "c_est_fait": "Done",
+      "depart_prevu": "Expected departure",
+      "fiche_numero": "Police record no. {numero}.",
+      "client_suivant": "Next guest",
+      "accompagnants": {
+        "titre": "Additional guests",
+        "un_nom_suffit": "A name is enough. Nothing else is asked.",
+        "nom": "Additional guest name",
+        "nom_invite": "Aya",
+        "nom_requis": "Enter a name.",
+        "ajouter": "Add",
+        "retirer": "Remove",
+        "total_personnes": "{n} person(s) in total, including the main guest.",
+        "capacite_depassee": "This room is intended for {n} person(s). You can continue."
+      },
+      "acces_refuse": "You do not have access to this establishment's rooms."
+    },
+    "note": {
+      "titre": "The room bill",
+      "chambre_et_client": "Room {chambre} · {client}",
+      "client_sans_fiche": "Guest without a record",
+      "sous_titre": "Arrival {arrivee} · departure {depart} · {personnes} person(s)",
+      "du_au": "from {debut} to {fin}",
+      "section": {
+        "hebergement": "Accommodation",
+        "restaurant": "Restaurant",
+        "bar": "Bar",
+        "autres_frais": "Other charges",
+        "taxes": "Taxes"
+      },
+      "section_a_venir": "No consumption can be added to this bill yet: points of sale are not open on this device.",
+      "taxes_a_venir": "Taxes are not yet computed on this bill. The elements of the calculation are recorded when the guest leaves.",
+      "sous_total_hebergement": "Accommodation subtotal",
+      "total_provisoire": "Provisional total",
+      "total_provisoire_aide": "The stay is ongoing: this amount can still change, and taxes are not included.",
+      "total_arrete": "Final total",
+      "total_arrete_aide": "This amount will not change. Taxes are not included.",
+      "motif": {
+        "rebascule_palier": "The duration exceeds the tier: the rate changed.",
+        "depart_anticipe": "Departure before the expected time.",
+        "prolongation": "Night or hour added.",
+        "changement_unite": "Room change."
+      }
+    },
+    "depart": {
+      "chargement": "Loading stays…",
+      "chargement_impossible": "Stays could not be loaded.",
+      "en_cours": "Ongoing stays",
+      "aucun_sejour": "No ongoing stay in this establishment.",
+      "choisir_un_sejour": "Choose a stay to see its bill.",
+      "personnes_et_fin": "{n} person(s) · expected end {heure}",
+      "note_illisible": "This bill could not be read. Try again in a moment.",
+      "fiche_police": "Police record",
+      "fiche_numero": "no. {numero}",
+      "fiche_complete": "Identity recorded",
+      "fiche_incomplete": "Identity to be completed",
+      "faire_partir": "Check the guest out",
+      "ce_que_fait_le_depart": "Departure closes the bill and frees the room. No payment is recorded and no invoice is produced.",
+      "c_est_fait": "The guest has left",
+      "note_non_reglee": "The bill is closed and unpaid. Collect the amount outside the application, then write it in your cash book.",
+      "hors_ligne": "Without a connection, a guest cannot be checked out. Reconnect to close this bill.",
+      "refus": {
+        "sejour_deja_clos": "This stay is already over.",
+        "sejour_inconnu": "This stay cannot be found.",
+        "service_inactif": "Accommodation is not offered by this establishment.",
+        "etablissement_inconnu": "This establishment cannot be found.",
+        "permission": "This action is not available to you.",
+        "reseau": "This action requires the internet.",
+        "inattendue": "This departure was refused. Try again in a moment."
+      },
+      "acces_refuse": "You do not have access to this establishment's stays."
+    },
+    "fiche": {
+      "telephone": "Phone",
+      "email": "Email",
+      "nationalite": "Nationality",
+      "sans_coordonnees": "No contact details recorded.",
+      "piece_enregistree": "Identity document recorded on {date}.",
+      "piece_absente": "No identity document recorded.",
+      "preferences": "Preferences",
+      "sans_preference": "No preference recorded.",
+      "historique": "Stays",
+      "personnes": "{n} person(s)",
+      "sans_sejour": "No stay recorded for this guest."
+    },
+    "clients": {
+      "chercher": "Search for a guest",
+      "chercher_aide": "A name, a phone number or an ID number — the same field serves all three.",
+      "chercher_invite": "Bakayoko, 07 07 12 34 56…",
+      "creer": "New record",
+      "aucun_resultat": "No record matches this search.",
+      "resultats_tronques": "More records match. Narrow the search to see them.",
+      "recherche_impossible": "The search did not complete. Try again in a moment.",
+      "hors_ligne": "Without a connection, guest records cannot be consulted.",
+      "fiche_illisible": "This record could not be read. Try again in a moment.",
+      "choisir_une_fiche": "Search for a guest to see their record.",
+      "acces_refuse": "You do not have access to this establishment's guest records."
+    }
+  },
+  "documents": {
+    "mention_non_fiscale": "Non-fiscal document — does not serve as an invoice"
   }
 }

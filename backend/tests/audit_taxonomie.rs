@@ -59,7 +59,13 @@ const TAXONOMIE: &str = include_str!("../../docs/taxonomie-audit.md");
 /// est la première famille qui ne trace aucun geste d'utilisateur — elle constate qu'une horloge
 /// de terminal s'écarte de celle du serveur. Le document dit pourquoi elle est ici plutôt qu'au
 /// grand livre.
-const FAMILLES_ATTENDUES: usize = 11;
+///
+/// **Douze depuis le cycle 006** : `consultation_piece_identite` (SEJ-01) est la première famille
+/// qui trace une **lecture**. Aucune des onze ne couvrait une consultation — `suppression` trace
+/// une mise hors service, `changement_role` une attribution, **toutes tracent un geste qui
+/// modifie**. FR-012 exige un journal d'accès à la pièce d'identité, et la ranger sous une famille
+/// existante rendrait le registre illisible au propriétaire, qui est son public.
+const FAMILLES_ATTENDUES: usize = 12;
 
 /// Le fichier de **définition** de l'énumération — exclu du balayage, voir le commentaire de tête.
 ///
@@ -80,7 +86,7 @@ fn definition() -> String {
 /// toucher au titre laisserait le document se contredire lui-même. Le contrepoids est ici — la
 /// constante et [`FAMILLES_ATTENDUES`] changent dans le même geste, sans quoi l'extraction panique
 /// au lieu de rendre une liste vide qui passerait au vert.
-const TITRE_SECTION: &str = "## Les onze familles";
+const TITRE_SECTION: &str = "## Les douze familles";
 
 /// État déclaré d'une famille au document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

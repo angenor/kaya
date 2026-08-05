@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hebergement.accompagnant (id, tenant_id, sejour_id, nom)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8ef4202b787bb8edb6fa4e9b4a45e9f968d0711be3940c7883e8d6fed14654e4"
+}

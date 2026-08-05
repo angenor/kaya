@@ -127,8 +127,12 @@ fn executer_seeds(passage: u32) {
 /// dupliquer 17 unités sans que rien ne le dise : le décompte des établissements, lui, serait resté
 /// à 1.
 ///
+/// Le cycle 006 y a ajouté les **fiches clientes et les séjours**, pour la même raison : trois
+/// exécutions auraient pu dupliquer douze fiches et quatre séjours sans que le décompte des unités
+/// ne bouge d'une ligne.
+///
 /// Trié, pour que la comparaison ne dépende pas de l'ordre de lecture.
-async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64, i64, i64)> {
+async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64, i64, i64, i64, i64)> {
     let mut etat = Vec::new();
 
     for tenant_id in [TENANT_DELORIA, TENANT_RESIDENCE_TEST] {
@@ -169,7 +173,25 @@ async fn lire_etat(pool: &sqlx::PgPool) -> Vec<(Uuid, String, i64, i64, i64)> {
                 .await
                 .expect("comptage des formules");
 
-        etat.push((tenant_id, ligne.nom, etablissements, unites, formules));
+        let clients: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM comptes.client"#)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage des fiches clientes");
+
+        let sejours: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour"#)
+            .fetch_one(&mut *tx)
+            .await
+            .expect("comptage des séjours");
+
+        etat.push((
+            tenant_id,
+            ligne.nom,
+            etablissements,
+            unites,
+            formules,
+            clients,
+            sejours,
+        ));
         tx.rollback().await.expect("rollback");
     }
 
@@ -417,6 +439,60 @@ async fn adjoua_porte_les_trois_roles_et_personne_n_est_admin_editeur() {
             "receptionniste".to_owned()
         ],
         "Adjoua doit porter les trois rôles — c'est la figure que US3 démontre. Obtenu : {roles:?}"
+    );
+
+    // ★ **Aminata — le rôle le PLUS ÉTROIT, et le seul compte qui se voie refuser quelque chose.**
+    //
+    // Les trois autres portent toutes les lectures du métier. Le jeu de démonstration ne
+    // contenait donc aucun compte permettant d'exercer le refus d'accès de FR-029 — ni de le
+    // MONTRER à un client, alors que « absent, jamais grisé » est une promesse centrale du
+    // produit. `tests-e2e/refus-acces.spec.ts` s'appuie sur ce compte ; le vérifier ici évite
+    // qu'un cycle l'élargisse sans voir ce qu'il casse.
+    let roles_aminata: Vec<String> = sqlx::query_scalar(
+        r#"
+        SELECT cr.role_code
+        FROM comptes.compte_role cr
+        JOIN comptes.compte c   ON c.id = cr.compte_id
+        JOIN comptes.personne p ON p.id = c.personne_id
+        WHERE p.prenoms = 'Aminata'
+        ORDER BY cr.role_code
+        "#,
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des rôles d'Aminata");
+
+    assert_eq!(
+        roles_aminata,
+        vec!["serveur".to_owned()],
+        "Aminata doit porter le SEUL rôle `serveur` : c'est son étroitesse qui rend le refus \
+         d'accès exerçable de bout en bout, et démontrable devant un client. Obtenu : \
+         {roles_aminata:?}"
+    );
+
+    // Et le versant qui compte vraiment : elle n'a AUCUNE permission d'hébergement ni de séjour.
+    // Un cycle qui en ajouterait une au rôle `serveur` viderait `refus-acces.spec.ts` de son
+    // objet — le test passerait au vert en n'exerçant plus aucun refus.
+    let permissions_verticales: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM comptes.compte_role cr
+        JOIN comptes.compte c        ON c.id = cr.compte_id
+        JOIN comptes.personne p      ON p.id = c.personne_id
+        JOIN comptes.role_permission rp ON rp.role_code = cr.role_code
+        WHERE p.prenoms = 'Aminata'
+          AND (rp.permission_code LIKE 'heb.%' OR rp.permission_code LIKE 'sej.%')
+        "#,
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des permissions verticales d'Aminata");
+
+    assert_eq!(
+        permissions_verticales, 0,
+        "Aminata a gagné {permissions_verticales} permission(s) d'hébergement ou de séjour. \
+         Son accueil cesserait de montrer huit tuiles ABSENTES, et le seul compte du jeu qui \
+         démontre le RBAC deviendrait un compte de plus."
     );
 
     let admins: i64 = sqlx::query_scalar(
@@ -674,7 +750,15 @@ async fn les_condensats_sont_argon2id_et_tous_differents() {
             .await
             .expect("lecture des condensats");
 
-    assert_eq!(condensats.len(), 3, "trois comptes attendus sur Deloria");
+    // **Quatre depuis l'ajout d'Aminata** — la serveuse, rôle `serveur`, le plus étroit du
+    // produit. Elle n'est pas là pour ce test : elle est le seul compte du jeu qui se voie
+    // refuser quelque chose, donc le seul qui rende exerçable le refus d'accès de FR-029 — et le
+    // seul qui permette de MONTRER « absent, jamais grisé » à un client.
+    //
+    // Le décompte reste en dur, et c'est assumé : il tient lieu de garde de cible non vide
+    // (exigence 4). Sans lui, un seed qui cesserait de créer des comptes ferait passer les trois
+    // assertions suivantes sur une liste vide.
+    assert_eq!(condensats.len(), 4, "quatre comptes attendus sur Deloria");
 
     for condensat in &condensats {
         assert!(
@@ -694,6 +778,294 @@ async fn les_condensats_sont_argon2id_et_tous_differents() {
         "deux comptes partagent le même condensat : le sel n'est pas aléatoire, et une \
          comparaison de la colonne dirait qui partage son mot de passe avec qui"
     );
+
+    tx.rollback().await.expect("rollback");
+}
+
+// =================================================================================================
+//  Cycle 006 — les fiches clientes et les séjours de démonstration
+// =================================================================================================
+
+/// **Douze fiches sur Deloria, deux sur Résidence Test — et le personnel n'en fait pas partie.**
+///
+/// La seconde moitié est celle qui compte. Une fiche client **est une personne qualifiée** par
+/// `comptes.client`, jamais une seconde identité : si le seed qualifiait aussi les trois comptes du
+/// pilote — ou si la recherche lisait `personne` sans passer par `client` — Koffi, Adjoua et Yao
+/// apparaîtraient dans les résultats du comptoir. Le défaut ne se verrait qu'à la démonstration.
+#[tokio::test]
+async fn douze_fiches_clientes_sur_deloria_et_aucun_membre_du_personnel() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let fiches: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM comptes.client"#)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("comptage des fiches");
+    assert_eq!(
+        fiches, 12,
+        "douze fiches — assez pour que la recherche par nom rende plusieurs résultats et que la \
+         troncature se voie"
+    );
+
+    // ★ Aucun compte n'est qualifié client.
+    let personnel_qualifie: i64 = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*) AS "c!"
+        FROM comptes.client cl
+        JOIN comptes.compte c ON c.personne_id = cl.personne_id
+        "#
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage croisé");
+
+    assert_eq!(
+        personnel_qualifie, 0,
+        "un membre du personnel est qualifié client : il apparaîtra dans la recherche du comptoir. \
+         Une fiche client EST une personne qualifiée, jamais une seconde identité — et c'est la \
+         qualification, pas la table `personne`, qui décide de ce que la recherche rend."
+    );
+
+    // Le repli des diacritiques est celui du produit : « Kone » doit retrouver « Koné ».
+    let replis: Vec<String> = sqlx::query_scalar!(
+        // ⚠️ **Jointure sur `comptes.client`, et ce n'est pas une précaution de style.** Adjoua
+        // N'Guessan est un membre du PERSONNEL, homonyme de la cliente Affoué N'Guessan : sa
+        // ligne `personne` n'a pas de `nom_repli` — le repli sert la recherche cliente, et le
+        // personnel n'y figure pas. Sans la jointure, le test lit sa colonne nulle et échoue sur
+        // un message qui accuse le seed.
+        r#"SELECT p.nom_repli AS "nom_repli!"
+           FROM comptes.personne p
+           JOIN comptes.client c ON c.personne_id = p.id
+           WHERE p.nom IN ('Koné', 'N''Guessan')
+           ORDER BY p.nom"#
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des replis");
+    assert_eq!(
+        replis,
+        vec!["kone".to_owned(), "nguessan".to_owned()],
+        "le seed doit employer la MÊME fonction de repli que le produit. Deux replis divergents \
+         rendraient introuvables des fiches pourtant créées, et la divergence ne se verrait qu'à \
+         la recherche."
+    );
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// ★ **Le séjour clos porte son constat FIGÉ — et le montant y est `NULL`.**
+///
+/// C'est le seul endroit du jeu de données qui rend visible, **en base et sans lire une ligne de
+/// code**, que ce cycle a laissé le calcul à FIS-03 : il fige des **faits** — nuits, personnes,
+/// période — et un **paramétrage recopié**, sans dériver aucune assiette.
+///
+/// Un seed qui aurait « rempli » `nuitees_assujetties` et `montant_mineur` pour faire complet
+/// aurait fait croire à un calcul qui n'existe pas, et le premier écran qui les lirait aurait
+/// affiché un montant de taxe inventé.
+#[tokio::test]
+async fn le_sejour_clos_porte_un_constat_fige_dont_le_montant_est_nul() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let constats: Vec<(i32, i32, bool, Option<i32>, Option<i64>, String)> = sqlx::query_as(
+        r#"
+        SELECT nuits_constatees, nombre_personnes, assujettie_taxe_nuitee,
+               nuitees_assujetties, montant_mineur, commune
+        FROM hebergement.taxe_sejour_constat
+        WHERE sejour_id = ANY($1)
+        "#,
+    )
+    .bind(SEJOURS_SEEDES.as_slice())
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des constats");
+
+    assert_eq!(
+        constats.len(),
+        1,
+        "un seul séjour est clos, donc un seul constat : le figeage a lieu AU DÉPART, jamais avant"
+    );
+    let (nuits, personnes, assujettie, nuitees, montant, commune) = &constats[0];
+    assert_eq!(*nuits, 2, "deux nuits constatées");
+    assert!(*personnes >= 1);
+    assert!(*assujettie, "la nuitée de Deloria est assujettie");
+
+    assert!(
+        nuitees.is_none() && montant.is_none(),
+        "le constat porte un montant ou un nombre de nuitées assujetties. Ce cycle fige des FAITS \
+         et un paramétrage RECOPIÉ ; décider quelles nuits sont assujetties est une règle fiscale, \
+         et elle ne vit que dans `JurisdictionAdapter` (principe V, porte P-12). Obtenu : \
+         nuitees={nuitees:?}, montant={montant:?}"
+    );
+
+    assert_eq!(
+        commune, "Abengourou",
+        "la commune est RECOPIÉE dans le constat, jamais référencée : il doit rester vrai le jour \
+         où l'établissement en change, parce qu'un contrôle fiscal porte sur ce qui était vrai ce \
+         jour-là"
+    );
+
+    // Et la note du séjour clos est **arrêtée**, pas simplement fermée.
+    let arretees: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.note_sejour
+           WHERE statut = 'arretee' AND sejour_id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des notes arrêtées");
+    assert_eq!(arretees, 1, "la note du séjour clos doit être arrêtée");
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// Les quatre séjours **seedés**, littéralement — les mêmes identifiants que `seeds.rs`.
+///
+/// ⚠️ **Les assertions de ce fichier portent sur EUX, jamais sur « tous les séjours du tenant ».**
+/// La base de développement est partagée avec le e2e, qui **crée des séjours** : une assertion sur
+/// un décompte global rougirait après chaque exécution de P-22 ou de la démo, pour une raison sans
+/// rapport avec les seeds. Un test des seeds doit parler des seeds.
+const SEJOURS_SEEDES: [Uuid; 4] = [
+    uuid!("0198c4a0-0000-7000-8000-000000000411"),
+    uuid!("0198c4a0-0000-7000-8000-000000000412"),
+    uuid!("0198c4a0-0000-7000-8000-000000000413"),
+    uuid!("0198c4a0-0000-7000-8000-000000000461"),
+];
+
+/// **Trois séjours seedés sur Deloria, dont un passage SANS fiche cliente.**
+///
+/// Le passage sans fiche est ce qui rend la démonstration honnête : la pièce vient **après** la
+/// clé (FR-023), et sa fiche de police est **numérotée et déclarée incomplète** — jamais fabriquée
+/// avec « M. X », qui serait un document légal faux.
+///
+/// La numérotation est vérifiée **continue** : un trou ne se verrait qu'au contrôle.
+#[tokio::test]
+async fn trois_sejours_dont_un_passage_sans_fiche_et_une_numerotation_continue() {
+    let pool = commun::pool_owner().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_DELORIA)
+        .await
+        .expect("pose du tenant");
+
+    let statuts: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT statut, COUNT(*) FROM hebergement.sejour WHERE id = ANY($1) \
+         GROUP BY statut ORDER BY statut",
+    )
+    .bind(SEJOURS_SEEDES.as_slice())
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des séjours");
+    assert_eq!(
+        statuts,
+        vec![("clos".to_owned(), 1), ("en_cours".to_owned(), 2)],
+        "deux séjours en cours et un clos — sans le clos, rien ne montre le constat figé"
+    );
+
+    let sans_client: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour
+           WHERE client_id IS NULL AND id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage");
+    assert_eq!(
+        sans_client, 1,
+        "un séjour SANS fiche cliente : la pièce vient après la clé (FR-023), et un jeu de données \
+         où tout le monde aurait sa fiche cacherait le parcours réel du passage"
+    );
+
+    // La fiche de ce séjour existe, est numérotée, et est **déclarée** incomplète.
+    let incompletes: Vec<i64> = sqlx::query_scalar!(
+        r#"SELECT numero FROM hebergement.fiche_police
+           WHERE NOT complete AND sejour_id = ANY($1) ORDER BY numero"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des fiches incomplètes");
+    assert_eq!(
+        incompletes.len(),
+        1,
+        "la fiche du passage sans client doit EXISTER, numérotée, et être déclarée incomplète — \
+         ni omise, ni fabriquée"
+    );
+
+    // ★ Numérotation CONTINUE par établissement, sans trou.
+    let numeros: Vec<i64> = sqlx::query_scalar!(
+        r#"SELECT numero FROM hebergement.fiche_police
+           WHERE sejour_id = ANY($1) ORDER BY numero"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture des numéros");
+    assert_eq!(
+        numeros,
+        vec![1, 2, 3],
+        "la numérotation des fiches de police est CONTINUE par établissement, sans trou. Une \
+         `SEQUENCE` en laisserait, et le trou ne se verrait qu'au contrôle."
+    );
+
+    // Deux accompagnants, donc trois personnes sur le séjour de nuitée.
+    let accompagnants: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.accompagnant
+           WHERE retire_le IS NULL AND sejour_id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage des accompagnants");
+    assert_eq!(accompagnants, 2, "deux accompagnants sur le séjour de nuitée");
+
+    tx.rollback().await.expect("rollback");
+}
+
+/// **Résidence Test porte son propre séjour, et ne voit pas ceux de Deloria.**
+///
+/// L'isolation des données seedées vaut aussi pour les séjours. Un test d'isolation qui n'aurait
+/// qu'un tenant peuplé ne distinguerait pas « la politique RLS filtre » de « l'autre tenant est
+/// vide » — c'est la raison d'être des deux fiches et de l'unique séjour de ce tenant.
+#[tokio::test]
+async fn residence_test_porte_son_sejour_et_ne_voit_pas_ceux_de_deloria() {
+    let pool = commun::pool_app().await;
+    executer_seeds(1);
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, TENANT_RESIDENCE_TEST)
+        .await
+        .expect("pose du tenant");
+
+    let sejours: i64 = sqlx::query_scalar!(
+        r#"SELECT COUNT(*) AS "c!" FROM hebergement.sejour WHERE id = ANY($1)"#,
+        SEJOURS_SEEDES.as_slice(),
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("comptage");
+    assert_eq!(
+        sejours, 1,
+        "Résidence Test doit voir exactement son séjour seedé, et rien des trois de Deloria — \
+         l'isolation vaut aussi pour les données de démonstration"
+    );
+
+    let fiches: i64 = sqlx::query_scalar!(r#"SELECT COUNT(*) AS "c!" FROM comptes.client"#)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("comptage");
+    assert_eq!(fiches, 2, "deux fiches clientes sur Résidence Test");
 
     tx.rollback().await.expect("rollback");
 }

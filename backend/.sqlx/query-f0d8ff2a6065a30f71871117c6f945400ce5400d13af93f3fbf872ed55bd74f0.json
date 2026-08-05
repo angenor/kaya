@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.client (personne_id, tenant_id, date_naissance, nationalite,\n                                    horodatage_client)\n        VALUES ($1, $2, $3, $4, $5)\n        ON CONFLICT (personne_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f0d8ff2a6065a30f71871117c6f945400ce5400d13af93f3fbf872ed55bd74f0"
+}

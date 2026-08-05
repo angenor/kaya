@@ -151,3 +151,100 @@ pub struct ParametrageFiscal {
 pub trait ParametrageFiscalHebergement: Send + Sync {
     async fn parametrage(&self, formule_id: Uuid) -> Result<ParametrageFiscal, ErreurReferentiel>;
 }
+
+// =================================================================================================
+//  4. LecteurSejour — exposé, consommé par SEJ-03 (T2) et FIS-03 (T3)
+// =================================================================================================
+
+/// Ce qu'un séjour est, **pour un consommateur qui n'est pas la verticale hébergement**.
+#[derive(Debug, Clone)]
+pub struct SejourResume {
+    pub id: Uuid,
+    pub etablissement_id: Uuid,
+    pub client_id: Option<Uuid>,
+    pub statut: crate::sejour::StatutSejour,
+    pub note_id: Uuid,
+    pub devise: String,
+    /// **Entier d'unité mineure** (principe V, porte P-10). **Somme des lignes**, jamais une
+    /// colonne totalisatrice — une colonne se désynchronise en silence.
+    pub total_mineur: i64,
+}
+
+/// Le constat de taxe **figé**, tel que `JurisdictionAdapter` le lira en T3.
+///
+/// ═══════════════════════════════════════════════════════════════════════════════════════════════
+///  ★ C'EST LA FRONTIÈRE DU PRINCIPE V, ET ELLE EST ICI
+/// ═══════════════════════════════════════════════════════════════════════════════════════════════
+///
+/// Cette structure porte des **faits** et un **paramétrage recopié**. Elle ne porte **aucun montant
+/// de taxe** : `nuitees_assujetties` et `montant_mineur` sont posés au schéma et **jamais
+/// alimentés** par ce cycle.
+///
+/// Décider quelles nuits sont assujetties est une **règle fiscale** — `une_nuitee_par_occupation`
+/// réduit trois nuits à une —, et la porte **P-12** fait échouer le build sur une règle fiscale
+/// trouvée hors de `JurisdictionAdapter`.
+///
+/// Écrit explicitement parce que c'est la confusion la plus tentante du cycle : **le crate qui
+/// détient le constat semble être celui qui doit en tirer le montant. Il ne l'est pas** —
+/// exactement comme [`ParametrageFiscalHebergement`].
+///
+/// > ⚠️ **Le risque de ce trait est qu'il tente FIS de recalculer.** `constat_taxe` rend un
+/// > paramétrage, pas un montant. Le jour où FIS-03 sera écrit, la tentation sera de rappeler la
+/// > formule **vivante** plutôt que la copie **figée** — ce qui ferait bouger un séjour clos. Le
+/// > constat est la seule source légitime, et son immuabilité est portée par le **privilège**
+/// > (`GRANT SELECT, INSERT` seuls), pas par cette phrase.
+#[derive(Debug, Clone)]
+pub struct ConstatTaxeSejour {
+    pub sejour_id: Uuid,
+    /// **Arithmétique** : le nombre de nuits calendaires. **Trois pour trois nuits**, jamais un.
+    pub nuits_constatees: i32,
+    /// **Indicatif** depuis la décision B-10 (2026-08-03) : la taxe est due par nuitée et par
+    /// **séjour**, jamais par personne. Documente le séjour, n'entre dans aucun calcul.
+    pub nombre_personnes: i32,
+    pub assujettie_taxe_nuitee: bool,
+    pub regle_conversion_taxe: Option<RegleConversionTaxe>,
+    pub classement_etablissement: String,
+    pub commune: String,
+    /// Horodatage d'**autorité** du figeage.
+    pub fige_le: OffsetDateTime,
+}
+
+/// Ce que `hebergement` expose du séjour aux **autres crates**.
+///
+/// # Pourquoi il existe AVANT son consommateur
+///
+/// Contrairement à [`MoteurDisponibilite`], il n'a **aucun appelant à ce cycle**. Sa raison est de
+/// **forme**, et elle est écrite ici plutôt que supposée :
+///
+/// | Consommateur | Quand | Ce qu'il ferait sans ce trait |
+/// |---|---|---|
+/// | **SEJ-03** | T2 | Rattacher une consommation de bar à un séjour → `restauration` ou `bar` lirait `hebergement.sejour` |
+/// | **FIS-03** | T3 | Lire le constat figé pour produire le montant → `fiscalite` lirait `hebergement.taxe_sejour_constat` |
+///
+/// Les deux seraient des **jointures inter-schémas** (porte P-04), la seconde sur la donnée la
+/// plus sensible du produit.
+///
+/// C'est le raisonnement de [`ParametrageFiscalHebergement`] au cycle 004, mot pour mot : *une
+/// alternative qui existe se prend ; une alternative à construire se contourne*. Deux
+/// consommateurs sont **nommés et datés** — ce n'est pas une abstraction à un implémenteur
+/// imaginaire.
+#[async_trait::async_trait]
+pub trait LecteurSejour: Send + Sync {
+    async fn resume(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<SejourResume>, crate::erreurs::ErreurSejour>;
+
+    /// Les séjours **ouverts** d'un établissement — ce dont SEJ-03 aura besoin pour proposer
+    /// « porter cette consommation sur une chambre ».
+    async fn ouverts(
+        &self,
+        etablissement_id: Uuid,
+    ) -> Result<Vec<SejourResume>, crate::erreurs::ErreurSejour>;
+
+    /// Le constat **figé** d'un séjour clos. `None` si le séjour est encore ouvert.
+    async fn constat_taxe(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<ConstatTaxeSejour>, crate::erreurs::ErreurSejour>;
+}

@@ -18,7 +18,8 @@
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
-import { detient, type Permissions } from '~/core/rbac'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
+import type { Permissions } from '~/core/rbac'
 import type { PageJournal } from '~/modules/audit/journal'
 
 const EcranJournalAudit = defineAsyncComponent(
@@ -37,7 +38,11 @@ const etablissementId = computed(
   () => sessionCourante()?.etablissementId ?? String(config.public.etablissementId),
 )
 
-const peutConsulter = computed(() => detient(permissions.value, 'cpt.audit.consulter'))
+// ⚠️ La permission n'est plus écrite ici. Elle vient de `core/acces/ecrans.ts`, la MÊME
+// table que consulte l'accueil pour décider d'afficher la tuile : deux déclarations
+// divergent au premier cycle, et la divergence donne soit une tuile qui ouvre sur un
+// refus, soit un écran caché mais atteignable.
+const peutConsulter = computed(() => peutOuvrirEcran('/journal-audit', permissions.value))
 
 onMounted(async () => {
   if (!contexte.value) {

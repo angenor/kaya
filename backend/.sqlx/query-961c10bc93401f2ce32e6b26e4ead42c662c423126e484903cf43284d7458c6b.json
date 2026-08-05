@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE comptes.personne\n        SET nom                = $2,\n            prenoms            = $3,\n            telephone          = $4,\n            email              = $5,\n            type_piece         = $6,\n            numero_piece       = $7,\n            piece_capturee_le  = CASE WHEN $7::TEXT IS NULL THEN piece_capturee_le ELSE $8 END,\n            nom_repli          = $9,\n            telephone_repli    = $10,\n            numero_piece_repli = $11,\n            horodatage_client  = $12,\n            modifie_le         = now()\n        WHERE id = $1\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "961c10bc93401f2ce32e6b26e4ead42c662c423126e484903cf43284d7458c6b"
+}

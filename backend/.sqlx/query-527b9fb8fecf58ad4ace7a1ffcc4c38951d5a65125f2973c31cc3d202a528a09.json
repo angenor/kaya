@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT classement, commune FROM etablissements.etablissement WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "classement",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "classement"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "commune",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "etablissements.etablissement",
+            "name": "commune"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "527b9fb8fecf58ad4ace7a1ffcc4c38951d5a65125f2973c31cc3d202a528a09"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE hebergement.sejour\n        SET statut = 'clos', clos_le = now(), modifie_le = now()\n        WHERE id = $1 AND statut = 'en_cours'\n        RETURNING clos_le\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "clos_le",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "hebergement.sejour",
+            "name": "clos_le"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c81ef11de4bad3200bef41b363b5ba57bb637970d8c37753ac0e0a07cfb428a9"
+}

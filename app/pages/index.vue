@@ -23,15 +23,29 @@
  * l'avaient pas. Elle vit désormais dans `middleware/01.session.global.ts`, qui s'exécute avant
  * chaque navigation. La rappeler ici serait une seconde source de la même règle, donc une
  * divergence en attente : quand le middleware a laissé passer, la session existe.
+ *
+ * # ⚠️ LES MODULES ACTIFS ÉTAIENT EN DUR À `[]`, ET DEUX ÉCRANS LIVRÉS ÉTAIENT INVISIBLES
+ *
+ * La ligne — supprimée ci-dessous — disait « vide à ce cycle, et c'est exact », ce qui l'était au
+ * cycle 003 et a cessé de l'être au 004, quand « Vos formules » et « Vos chambres » ont pris
+ * `moduleRequis: 'HEBERGEMENT'`. Personne n'est revenu la lire. Le raisonnement complet est en
+ * tête de `core/accueil/modules-actifs.ts` ; ce qu'il faut retenir ici : **une valeur en dur
+ * accompagnée d'un commentaire qui la justifie ne se relit plus.**
+ *
+ * Le câblage se fait dans la page, et c'est voulu : `core/` tient la règle et le cache,
+ * `modules/etablissements` tient l'appel, et aucun des deux ne dépend de l'autre.
  */
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
-import { sessionCourante } from '~/core/auth'
+import { contexteAppel, sessionCourante } from '~/core/auth'
+import { chargerModulesActifs, modulesEnCache } from '~/core/accueil/modules-actifs'
+import { adaptateurCourant } from '~/core/platform/courant'
 import type { Permissions } from '~/core/rbac'
 
 const EcranAccueil = defineAsyncComponent(() => import('~/modules/accueil/EcranAccueil.vue'))
 
 const { t } = useI18n()
+const config = useRuntimeConfig()
 
 const pret = ref(false)
 const session = ref(sessionCourante())
@@ -39,13 +53,14 @@ const session = ref(sessionCourante())
 const permissions = computed<Permissions>(() => session.value?.permissions ?? [])
 
 /**
- * Les modules d'activité actifs — **vide à ce cycle, et c'est exact**.
+ * Les modules d'activité actifs de l'établissement — **lus, jamais supposés**.
  *
- * Aucune tuile du catalogue n'exige de module : les dix-sept permissions de `0016` sont toutes
- * transverses, et les écrans des verticales n'existent pas. Le jour où `HEBERGEMENT` ouvrira une
- * tuile, cette ligne lira la liste des services actifs — une requête, pas une refonte.
+ * Une tuile de verticale n'existe que si l'établissement propose le service. `HEBERGEMENT` est le
+ * seul module que le produit sache activer aujourd'hui, mais rien ici ne le sait : la liste vient
+ * de l'établissement, et un maquis qui n'ouvre que la restauration verra disparaître les cinq
+ * tuiles d'hébergement sans qu'une ligne change.
  */
-const modulesActifs = computed<readonly string[]>(() => [])
+const modulesActifs = ref<readonly string[]>([])
 
 /**
  * Le nom affiché vient de la session.
@@ -58,12 +73,39 @@ const modulesActifs = computed<readonly string[]>(() => [])
  */
 const nomAffichage = computed(() => t('accueil.utilisateur'))
 
-onMounted(() => {
+onMounted(async () => {
   // Le middleware global a déjà repris la session — ou redirigé vers `R0`. Arriver ici sans
   // session est impossible ; la garde du template le vérifie quand même, parce qu'une invariante
   // qu'on affirme sans la relire finit par être fausse.
   session.value = sessionCourante()
+
+  const etablissementId = session.value?.etablissementId
+  const stockage = adaptateurCourant().stockagePersistant
+
+  if (!etablissementId) {
+    // Un compte sans établissement actif n'a aucun service à lire. Il garde ses tuiles
+    // transverses — dont « Mes envois » — et n'attend pas un appel qui n'a pas de cible.
+    pret.value = true
+    return
+  }
+
+  // 1. Le dernier état connu, **tout de suite**. Sans réseau, c'est déjà l'accueil complet.
+  modulesActifs.value = (await modulesEnCache(stockage, etablissementId)).codes
   pret.value = true
+
+  // 2. Puis l'état réel. Le chargeur ne lève jamais : hors ligne il rend ce que le cache portait,
+  //    donc cette seconde passe ne peut pas vider ce que la première a affiché.
+  const contexte = contexteAppel(config.public.apiBaseUrl)
+  if (!contexte) {
+    return
+  }
+  const { chargerServices } = await import('~/modules/etablissements/donnees')
+  const actifs = await chargerModulesActifs(
+    () => chargerServices(contexte, etablissementId),
+    etablissementId,
+    stockage,
+  )
+  modulesActifs.value = actifs.codes
 })
 </script>
 

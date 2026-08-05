@@ -82,7 +82,21 @@ const REGISTRE: &str = include_str!("../../docs/registre-classes-offline.md");
 /// **Il suit les tables réellement créées, migration par migration**, jamais la cible d'un cycle :
 /// 26 + 6 du référentiel (`0024`) + `occupation` (`0025`) + `prestation_incluse` (`0026`) = 34, et
 /// **35** avec `reconciliation_orpheline` (`0027`), seule table du cycle 005.
-const PLANCHER_TABLES: usize = 35;
+///
+/// **Cycle 006 — 35 + 9 = 44.** Les neuf tables du séjour : `client` et `preference_personne`
+/// (`0029`), `sejour` et `accompagnant` (`0031`), `note_sejour` et `ligne_sejour` (`0032`),
+/// `fiche_police` et `numerotation_fiche_police` (`0033`), `taxe_sejour_constat` (`0034`).
+///
+/// ⚠️ **Relever ce plancher n'est pas une formalité comptable.** Les neuf tables entrent au
+/// balayage **automatiquement**, le périmètre étant découvert par
+/// `commun::perimetre::schemas_applicatifs()` depuis le cycle 005 — le plancher ne les fait pas
+/// entrer. Ce qu'il fait, c'est refuser qu'elles en **sortent** : laissé à 35, il rendrait cette
+/// porte verte en inspectant neuf tables de moins qu'attendu, et le vert serait indiscernable
+/// d'un vert mérité. C'est le mode d'échec exact que la section « Couverture des portes » nomme.
+///
+/// ⚠️ **`rls_catalogue.rs` porte une constante HOMONYME et INDÉPENDANTE.** Relever l'une sans
+/// l'autre laisse P-07 dans l'état que ce commentaire décrit. Les deux se relèvent ensemble.
+const PLANCHER_TABLES: usize = 44;
 
 /// Tables exclues, **nommées une par une**, jamais par motif.
 ///

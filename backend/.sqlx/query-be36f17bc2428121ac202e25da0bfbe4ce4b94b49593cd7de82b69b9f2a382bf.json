@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.fiche_police\n            (id, tenant_id, etablissement_id, sejour_id, numero, complete, completee_le)\n        VALUES ($1, $2, $3, $4, $5, $6,\n                CASE WHEN $6 THEN now() + make_interval(mins => $7::INT) ELSE NULL END)\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "be36f17bc2428121ac202e25da0bfbe4ce4b94b49593cd7de82b69b9f2a382bf"
+}

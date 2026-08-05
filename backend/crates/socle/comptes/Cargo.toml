@@ -23,6 +23,12 @@ kaya-synchronisation = { path = "../synchronisation" }
 argon2 = { workspace = true }
 jsonwebtoken = { workspace = true }
 
+# **Le chiffrement au repos du numéro de pièce d'identité** (FR-012, principe IX, cadrage §12.1).
+# Seule dépendance nouvelle du cycle 006 — sa justification complète est au `Cargo.toml` du
+# workspace, avec les deux voies écartées. `argon2`, déjà là, dérive la clé par tenant : aucune
+# dépendance de dérivation n'est ajoutée.
+aes-gcm = { workspace = true }
+
 # Redis porte les sessions. **Il n'est plus optionnel depuis ce cycle** : la liste de révocation
 # est consultée à chaque requête authentifiée, c'est le prix de la « coupure immédiate au départ
 # d'un employé » du cadrage §12.2. Version épinglée au workspace, comme tout le reste.

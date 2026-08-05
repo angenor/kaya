@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT numero FROM hebergement.fiche_police ORDER BY numero",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numero",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "numero"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a725112ab85b1d45d0948caf86e766fa0dfe0a502edca6ddf2efa98c8daa3a68"
+}

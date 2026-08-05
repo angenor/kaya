@@ -22,7 +22,8 @@
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
-import { detient, type Permissions } from '~/core/rbac'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
+import type { Permissions } from '~/core/rbac'
 import type { CompteVue, DonneesComptes } from '~/modules/comptes/donnees'
 
 const EcranComptes = defineAsyncComponent(() => import('~/modules/comptes/EcranComptes.vue'))
@@ -46,7 +47,11 @@ const etablissementId = computed(
  * n'obtienne pas l'écran. Le serveur refuserait de toute façon en `403`, mais l'utilisateur
  * verrait alors un écran vide sans savoir pourquoi.
  */
-const peutLire = computed(() => detient(permissions.value, 'cpt.compte.lire'))
+// ⚠️ La permission n'est plus écrite ici. Elle vient de `core/acces/ecrans.ts`, la MÊME
+// table que consulte l'accueil pour décider d'afficher la tuile : deux déclarations
+// divergent au premier cycle, et la divergence donne soit une tuile qui ouvre sur un
+// refus, soit un écran caché mais atteignable.
+const peutLire = computed(() => peutOuvrirEcran('/comptes', permissions.value))
 
 function remplacerComptes(comptes: CompteVue[]): void {
   if (donnees.value) {

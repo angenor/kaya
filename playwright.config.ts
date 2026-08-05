@@ -20,6 +20,18 @@
  * l'exclurait. Une porte qui saute une page pour passer au vert est le défaut que le
  * § « Couverture des portes » nomme.
  *
+ * ⚠️ **`env` ET `reuseExistingServer` SE CONTREDISENT, ET CE FICHIER LES DOCUMENTAIT TOUS DEUX
+ * SANS LE VOIR.** Les deux paragraphes ci-dessus étaient exacts séparément et faux ensemble :
+ * `webServer.env` ne s'applique **que si Playwright démarre le serveur**. Quand il en réutilise
+ * un — le cas ordinaire sur un poste de développement —, la variable est ignorée **en silence**,
+ * et le verdict de la porte la plus chère du projet dépendait de qui avait lancé le serveur.
+ *
+ * Le correctif n'est pas `reuseExistingServer: false`, qui coûterait un redémarrage de Nuxt à
+ * chaque exécution locale. C'est `exigerStyleguideServi()`, dans le `beforeAll` de
+ * `parcours-reel.spec.ts` : il **constate** l'état réel du serveur exercé et échoue en disant le
+ * geste — arrêter par port, ou relancer avec la variable. Une porte qui refuse doit dire quoi
+ * faire, pas seulement ce qui ne va pas.
+ *
  * # DEUX moteurs, parce que la cible est Tauri — et Tauri n'embarque pas Chromium
  *
  * Tauri v2 n'embarque **aucun** navigateur : il utilise le moteur du système. Le tableau de

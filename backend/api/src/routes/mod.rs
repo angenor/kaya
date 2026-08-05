@@ -11,6 +11,7 @@
 //! chaque handler porte son propre attribut de routage.
 
 pub mod branding;
+pub mod clients;
 pub mod comptes;
 pub mod configuration;
 pub mod erreurs;
@@ -24,6 +25,7 @@ pub mod personnes;
 pub mod points_de_vente;
 pub mod referentiels;
 pub mod sante;
+pub mod sejours;
 pub mod services;
 pub mod session;
 
@@ -122,6 +124,78 @@ pub fn configurer(config: &mut ServiceConfig) {
             .service(comptes::lister),
     );
 
+    // Fiches clients — SEJ-01. **Aucun `etablissement_id`** : la fiche est du TENANT (FR-002).
+    // Du plus spécifique au plus général, sans quoi `/api/v1/clients` accepterait le préfixe et
+    // rendrait `404` pour les préférences — sans erreur de compilation, et avec un contrat
+    // OpenAPI parfaitement exact.
+    //
+    // ⚠️ **`/clients/{id}/sejours` n'est PAS ici** : l'historique est monté avec les séjours, sur
+    // le crate `hebergement`. Si `socle/comptes` lisait `hebergement.sejour`, ce serait une
+    // jointure inter-schémas (P-04) ET une arête `socle/ → verticales/` (P-03). Le chemin HTTP
+    // cache ce découpage à l'appelant : le contrat est une façade, pas une carte des crates.
+    config.service(
+        scope("/api/v1/clients/{client_id}/preferences")
+            .service(clients::enregistrer_preference),
+    );
+    // ★ L'historique est servi par `sejours.rs`, sur le crate `hebergement` — voir la note de
+    // tête de ce module. Le chemin HTTP cache ce découpage à l'appelant : le contrat est une
+    // façade, pas une carte des crates.
+    config.service(
+        scope("/api/v1/clients/{client_id}/sejours")
+            .service(sejours::historique_du_client),
+    );
+    config.service(
+        scope("/api/v1/clients/{client_id}")
+            .service(clients::lire)
+            .service(clients::modifier),
+    );
+    config.service(
+        scope("/api/v1/clients")
+            .service(clients::rechercher)
+            .service(clients::creer),
+    );
+
+    // ★ Séjours — SEJ-02, le cœur du cycle 006. **Du plus spécifique au plus général**, sans quoi
+    // `.../sejours` accepterait le préfixe et rendrait `404` pour les cinq autres — sans erreur de
+    // compilation, et avec un contrat OpenAPI parfaitement exact (piège du cycle 003).
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants/{accompagnant_id}")
+            .service(sejours::retirer_accompagnant),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/accompagnants")
+            .service(sejours::ajouter_accompagnant),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/fiche-police")
+            .service(sejours::lire_fiche_police),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/depart")
+            .service(sejours::clore),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/prolongation")
+            .service(sejours::prolonger),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/changement-unite")
+            .service(sejours::changer_unite),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}/client")
+            .service(sejours::rattacher_client),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours/{sejour_id}")
+            .service(sejours::lire),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/sejours")
+            .service(sejours::ouvrir)
+            .service(sejours::lister),
+    );
+
     // Registre des actions — CPT-04. **Une seule opération, en lecture** : aucun point d'entrée
     // d'écriture (research R-17). Une entrée voyage toujours avec l'opération qu'elle trace.
     config.service(scope("/api/v1/journal-audit").service(journal_audit::lister));
@@ -170,6 +244,10 @@ pub fn configurer(config: &mut ServiceConfig) {
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/hebergement/occupations")
             .service(hebergement_disponibilite::attribuer),
+    );
+    config.service(
+        scope("/api/v1/etablissements/{etablissement_id}/hebergement/etat-des-unites")
+            .service(hebergement_disponibilite::etat_des_unites),
     );
     config.service(
         scope("/api/v1/etablissements/{etablissement_id}/hebergement/disponibilite")

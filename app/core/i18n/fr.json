@@ -12,9 +12,41 @@
       "explication": "Votre compte existe, mais personne ne lui a encore donné accès à quoi que ce soit. Demandez à la personne qui gère les accès."
     },
     "tuiles": {
+      "passage": {
+        "libelle": "Un passage",
+        "description": "La chambre et la clé. La pièce vient après."
+      },
+      "arrivee": {
+        "libelle": "Une arrivée",
+        "description": "Le client reste : sa fiche et sa chambre."
+      },
+      "depart": {
+        "libelle": "Un départ",
+        "description": "La note arrêtée, la chambre rendue."
+      },
+      "clients": {
+        "libelle": "Vos clients",
+        "description": "Les fiches, et ce que chacun a déjà pris."
+      },
+      "notes": {
+        "libelle": "Notes internes",
+        "description": "Ce que l'équipe se laisse d'un service à l'autre."
+      },
+      "mes_envois": {
+        "libelle": "Mes envois",
+        "description": "Ce qui n'est pas parti, et ce qui a été refusé."
+      },
+      "hebergement_offre": {
+        "libelle": "Vos formules",
+        "description": "Vos façons de louer, leurs prix, leur taxe."
+      },
+      "hebergement_chambres": {
+        "libelle": "Vos chambres",
+        "description": "Toutes vos chambres, rangées par type."
+      },
       "etablissement": {
         "libelle": "Votre établissement",
-        "description": "Ce que vous proposez, et ce que les impôts voient de vous"
+        "description": "Vos services, et ce que les impôts voient."
       },
       "comptes": {
         "libelle": "Ce que chacun peut faire",
@@ -23,14 +55,6 @@
       "journal": {
         "libelle": "Registre des actions",
         "description": "Qui a fait quoi, sur quoi, et quand"
-      },
-      "hebergement_offre": {
-        "libelle": "Vos formules",
-        "description": "Les façons de louer vos chambres, leurs prix et leur taxe."
-      },
-      "hebergement_chambres": {
-        "libelle": "Vos chambres",
-        "description": "Les chambres de votre établissement, rangées par type."
       }
     }
   },
@@ -205,7 +229,8 @@
       "action_apercu": "Voir ce que ça donne"
     },
     "chargement": "Chargement…",
-    "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez."
+    "chargement_impossible": "Impossible d'afficher votre établissement. Vérifiez votre connexion, puis réessayez.",
+    "acces_refuse": "Vous n'avez pas accès aux réglages de cet établissement."
   },
   "journal": {
     "sur_titre": "Réglages de l'établissement",
@@ -238,7 +263,8 @@
       "rebascule_palier_passage": "Passage au tarif supérieur",
       "forcage_disponibilite": "Attribution forcée",
       "derive_horloge_constatee": "L'heure d'un appareil est fausse",
-      "inconnu": "Action non reconnue"
+      "inconnu": "Action non reconnue",
+      "consultation_piece_identite": "Consultation d'une pièce d'identité"
     }
   },
   "services": {
@@ -365,7 +391,8 @@
         "famille_inconnue": "Cette façon de louer n'existe pas.",
         "regle_conversion_inconnue": "Cette façon de compter la taxe n'existe pas.",
         "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux formules de cet établissement."
     },
     "chambres": {
       "titre": "Vos chambres",
@@ -404,7 +431,8 @@
         "service_inactif": "L'hébergement n'est pas encore proposé dans cet établissement.",
         "champ_non_modifiable": "Ce réglage se modifie ailleurs.",
         "inattendue": "L'opération n'a pas abouti. Réessayez dans un instant."
-      }
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
     },
     "disponibilite": {
       "refus": {
@@ -413,6 +441,15 @@
         "plage_non_fractionnable": "Une demi-journée se loue en entier : {plages}.",
         "intervalle_invalide": "La fin doit être après le début.",
         "duree_hors_contrainte": "Cette formule se loue de {min} à {max}."
+      }
+    },
+    "note": {
+      "ligne": {
+        "hebergement": "Hébergement",
+        "rebascule_palier": "Changement de palier",
+        "depart_anticipe": "Départ anticipé",
+        "prolongation": "Prolongation",
+        "changement_unite": "Changement de chambre"
       }
     }
   },
@@ -455,5 +492,174 @@
     "champ_vide": "Écrivez la note avant de l’ajouter.",
     "champ_trop_long": "La note ne peut pas dépasser {max} caractères.",
     "en_attente_envoi": "Enregistrée sur cet appareil, en attente d'envoi."
+  },
+  "sejours": {
+    "passage": {
+      "chargement": "Chargement des chambres…",
+      "chargement_impossible": "Les chambres n'ont pas pu être chargées.",
+      "combien_de_temps": "Combien de temps ?",
+      "prix_sur_le_bouton": "Le prix est sur le bouton. Touchez la grille pour choisir la chambre.",
+      "duree_heures": "{n} h",
+      "duree_heures_minutes": "{h} h {m}",
+      "jusqu_a": "jusqu'à {heure}",
+      "hors_ligne_tarifs": "Sans connexion, les tarifs affichés datent de la dernière mise à jour.",
+      "piece_apres_la_cle": "Pièce d'identité : après la clé, pas avant",
+      "piece_a_completer": "Vous pouvez donner la chambre tout de suite. La fiche restera à compléter.",
+      "c_est_fait": "C'est fait",
+      "a_redire_au_client": "À redire au client",
+      "fiche_a_completer": "Fiche de police n° {numero} — identité à compléter.",
+      "client_suivant": "Client suivant",
+      "enieme_passage": "{n}ᵉ passage",
+      "ce_n_est_pas_lui": "Ce n'est pas lui",
+      "complet": "Toutes les chambres sont prises ({n} occupées).",
+      "se_libere_a": "se libère à {heure}",
+      "refus": {
+        "unite_deja_occupee": "Cette chambre est déjà prise sur cette période.",
+        "service_inactif": "L'hébergement n'est pas proposé par cet établissement.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "client_inconnu": "Cette fiche client est introuvable.",
+        "formule_hors_categorie": "Cette formule ne s'applique pas à cette chambre.",
+        "plage_non_fractionnable": "Une demi-journée se loue en entier.",
+        "intervalle_invalide": "La fin doit être après le début.",
+        "duree_hors_contrainte": "Cette durée n'est pas proposée par cette formule.",
+        "permission": "Cette action ne vous est pas accessible.",
+        "reseau": "Cette action nécessite internet.",
+        "inattendue": "Cette saisie a été refusée. Réessayez dans un instant."
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
+    },
+    "grille": {
+      "les_chambres": "Les chambres",
+      "un_tap": "Un tap pour changer. Rien d'autre à faire.",
+      "libre": "Libre",
+      "occupee": "Occupée · {heure}",
+      "legende_occupee": "Occupée",
+      "remise_en_etat": "Disponible à {heure}",
+      "a_nettoyer": "À nettoyer",
+      "en_cours": "Enregistrement en cours",
+      "hors_ligne_attribution": "Sans connexion, une chambre ne peut pas être attribuée. Reconnectez-vous pour enregistrer ce passage."
+    },
+    "arrivee": {
+      "chargement": "Chargement de l'écran d'arrivée…",
+      "chargement_impossible": "L'écran d'arrivée n'a pas pu être chargé.",
+      "le_client": "Le client",
+      "chercher_client": "Chercher une fiche client",
+      "chercher_client_aide": "Un nom, un numéro de téléphone ou un numéro de pièce — la même entrée sert les trois.",
+      "chercher_client_invite": "Bakayoko, 07 07 12 34 56…",
+      "chercher": "Chercher",
+      "resultats_tronques": "D'autres fiches correspondent. Précisez la recherche pour les voir.",
+      "recherche_impossible": "La recherche n'a pas abouti. Réessayez dans un instant.",
+      "recherche_hors_ligne": "Sans connexion, les fiches clients ne peuvent pas être consultées.",
+      "sans_fiche_possible": "Sans fiche, vous pouvez donner la chambre tout de suite. La fiche restera à compléter.",
+      "ce_n_est_pas_lui": "Ce n'est pas lui",
+      "combien_de_nuits": "Combien de nuits ?",
+      "heure_arrivee": "Heure d'arrivée",
+      "heure_depart": "Heure de départ",
+      "heure_format": "Format 24 h, par exemple 14:00.",
+      "heure_invalide": "Indiquez une heure au format 24 h, par exemple 14:00.",
+      "heures_non_reglees": "Les heures d'arrivée et de départ standard ne sont pas réglées pour cet établissement. Indiquez-les ici, puis réglez-les une fois pour toutes dans l'offre d'hébergement.",
+      "recapitulatif": "Du {arrivee} au {depart}",
+      "total_prevu": "{montant} pour {n} nuit(s)",
+      "c_est_fait": "C'est fait",
+      "depart_prevu": "Départ prévu",
+      "fiche_numero": "Fiche de police n° {numero}.",
+      "client_suivant": "Client suivant",
+      "accompagnants": {
+        "titre": "Les accompagnants",
+        "un_nom_suffit": "Un nom suffit. Rien d'autre n'est demandé.",
+        "nom": "Nom de l'accompagnant",
+        "nom_invite": "Aya",
+        "nom_requis": "Indiquez un nom.",
+        "ajouter": "Ajouter",
+        "retirer": "Retirer",
+        "total_personnes": "{n} personne(s) au total, vous compris le titulaire.",
+        "capacite_depassee": "Cette chambre est prévue pour {n} personne(s). Vous pouvez continuer."
+      },
+      "acces_refuse": "Vous n'avez pas accès aux chambres de cet établissement."
+    },
+    "note": {
+      "titre": "La note de la chambre",
+      "chambre_et_client": "Chambre {chambre} · {client}",
+      "client_sans_fiche": "Client sans fiche",
+      "sous_titre": "Arrivée {arrivee} · départ {depart} · {personnes} personne(s)",
+      "du_au": "du {debut} au {fin}",
+      "section": {
+        "hebergement": "Hébergement",
+        "restaurant": "Restaurant",
+        "bar": "Bar",
+        "autres_frais": "Autres frais",
+        "taxes": "Taxes"
+      },
+      "section_a_venir": "Aucune consommation ne peut encore être portée sur cette note : les points de vente ne sont pas ouverts sur cet appareil.",
+      "taxes_a_venir": "Les taxes ne sont pas encore calculées sur cette note. Les éléments du calcul sont enregistrés au départ du client.",
+      "sous_total_hebergement": "Sous-total hébergement",
+      "total_provisoire": "Total provisoire",
+      "total_provisoire_aide": "Le séjour est en cours : ce montant peut encore changer, et les taxes ne sont pas comprises.",
+      "total_arrete": "Total arrêté",
+      "total_arrete_aide": "Ce montant ne bouge plus. Les taxes ne sont pas comprises.",
+      "motif": {
+        "rebascule_palier": "La durée dépasse le palier : le tarif a changé.",
+        "depart_anticipe": "Départ avant l'heure prévue.",
+        "prolongation": "Nuit ou heure ajoutée.",
+        "changement_unite": "Changement de chambre."
+      }
+    },
+    "depart": {
+      "chargement": "Chargement des séjours…",
+      "chargement_impossible": "Les séjours n'ont pas pu être chargés.",
+      "en_cours": "Séjours en cours",
+      "aucun_sejour": "Aucun séjour en cours dans cet établissement.",
+      "choisir_un_sejour": "Choisissez un séjour pour voir sa note.",
+      "personnes_et_fin": "{n} personne(s) · fin prévue {heure}",
+      "note_illisible": "Cette note n'a pas pu être lue. Réessayez dans un instant.",
+      "fiche_police": "Fiche de police",
+      "fiche_numero": "n° {numero}",
+      "fiche_complete": "Identité enregistrée",
+      "fiche_incomplete": "Identité à compléter",
+      "faire_partir": "Faire partir le client",
+      "ce_que_fait_le_depart": "Le départ arrête la note et libère la chambre. Aucun paiement n'est enregistré et aucune facture n'est produite.",
+      "c_est_fait": "Le client est parti",
+      "note_non_reglee": "La note est arrêtée et n'est pas réglée. Encaissez le montant hors de l'application, puis notez-le sur votre cahier de caisse.",
+      "hors_ligne": "Sans connexion, un client ne peut pas partir. Reconnectez-vous pour arrêter cette note.",
+      "refus": {
+        "sejour_deja_clos": "Ce séjour est déjà terminé.",
+        "sejour_inconnu": "Ce séjour est introuvable.",
+        "service_inactif": "L'hébergement n'est pas proposé par cet établissement.",
+        "etablissement_inconnu": "Cet établissement est introuvable.",
+        "permission": "Cette action ne vous est pas accessible.",
+        "reseau": "Cette action nécessite internet.",
+        "inattendue": "Ce départ a été refusé. Réessayez dans un instant."
+      },
+      "acces_refuse": "Vous n'avez pas accès aux séjours de cet établissement."
+    },
+    "fiche": {
+      "telephone": "Téléphone",
+      "email": "Courriel",
+      "nationalite": "Nationalité",
+      "sans_coordonnees": "Aucune coordonnée enregistrée.",
+      "piece_enregistree": "Pièce d'identité enregistrée le {date}.",
+      "piece_absente": "Aucune pièce d'identité enregistrée.",
+      "preferences": "Préférences",
+      "sans_preference": "Aucune préférence notée.",
+      "historique": "Séjours",
+      "personnes": "{n} personne(s)",
+      "sans_sejour": "Aucun séjour enregistré pour ce client."
+    },
+    "clients": {
+      "chercher": "Chercher un client",
+      "chercher_aide": "Un nom, un numéro de téléphone ou un numéro de pièce — la même entrée sert les trois.",
+      "chercher_invite": "Bakayoko, 07 07 12 34 56…",
+      "creer": "Nouvelle fiche",
+      "aucun_resultat": "Aucune fiche ne correspond à cette recherche.",
+      "resultats_tronques": "D'autres fiches correspondent. Précisez la recherche pour les voir.",
+      "recherche_impossible": "La recherche n'a pas abouti. Réessayez dans un instant.",
+      "hors_ligne": "Sans connexion, les fiches clients ne peuvent pas être consultées.",
+      "fiche_illisible": "Cette fiche n'a pas pu être lue. Réessayez dans un instant.",
+      "choisir_une_fiche": "Cherchez un client pour voir sa fiche.",
+      "acces_refuse": "Vous n'avez pas accès aux fiches clients de cet établissement."
+    }
+  },
+  "documents": {
+    "mention_non_fiscale": "Document non fiscal — ne tient pas lieu de facture"
   }
 }

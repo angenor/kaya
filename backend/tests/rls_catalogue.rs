@@ -43,8 +43,21 @@ use sqlx::{PgPool, Row};
 /// stricte deviendrait rouge à chaque migration — pour une raison qui n'est pas un défaut.
 /// Ce qu'on garde est ce qui compte : **la cible ne rétrécit jamais**.
 ///
-/// 16 au cycle 002, 26 au 003, 34 au terme du 004, **35** avec `reconciliation_orpheline` (`0027`).
-const PLANCHER_TABLES: usize = 35;
+/// 16 au cycle 002, 26 au 003, 34 au terme du 004, **35** avec `reconciliation_orpheline` (`0027`),
+/// et **44** avec les neuf tables du cycle 006 : `client`, `preference_personne` (`0029`),
+/// `sejour`, `accompagnant` (`0031`), `note_sejour`, `ligne_sejour` (`0032`), `fiche_police`,
+/// `numerotation_fiche_police` (`0033`), `taxe_sejour_constat` (`0034`).
+///
+/// ⚠️ **Cette constante est homonyme de celle de `classes_offline.rs` et parfaitement
+/// indépendante d'elle.** Les deux fichiers découvrent les mêmes schémas et comptent les mêmes
+/// tables, mais chacun porte son plancher : relever l'un sans l'autre laisse la seconde porte
+/// verte en inspectant neuf tables de moins qu'attendu. Les deux se relèvent ensemble.
+///
+/// ⚠️ **`REFERENTIELS_GLOBAUX` n'est PAS touché par le cycle 006** — vérifié table par table :
+/// les neuf tables nouvelles portent toutes `tenant_id`, aucune n'est un référentiel global. Un
+/// nom ajouté là par erreur exempterait la table du contrôle d'isolation, ce qui est exactement
+/// l'inverse de ce que ce cycle doit garantir sur des données d'identité.
+const PLANCHER_TABLES: usize = 44;
 
 /// Liste d'exclusion **nommée**, jamais un motif de nom (R-09).
 ///

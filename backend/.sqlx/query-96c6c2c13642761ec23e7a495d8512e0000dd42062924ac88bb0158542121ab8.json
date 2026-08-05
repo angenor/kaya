@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hebergement.taxe_sejour_constat\n                (id, tenant_id, etablissement_id, sejour_id,\n                 nuits_constatees, nombre_personnes, periode_debut, periode_fin,\n                 formule_id, famille_formule, assujettie_taxe_nuitee, regle_conversion_taxe,\n                 classement_etablissement, commune)\n            VALUES ($1, $2, $3, $4, $5, $6,\n                    now() + make_interval(mins => $7::INT),\n                    now() + make_interval(mins => $8::INT),\n                    $9, 'NUITEE', true, 'une_nuitee_par_occupation',\n                    -- ★ **RECOPIÉ, jamais référencé.** Le constat doit rester vrai le jour où\n                    -- l'établissement change de classement : une clé étrangère rendrait le passé\n                    -- réécrivable, et un contrôle fiscal porte sur ce qui était vrai ce jour-là.\n                    $10, $11)\n            ON CONFLICT DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "96c6c2c13642761ec23e7a495d8512e0000dd42062924ac88bb0158542121ab8"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO comptes.personne\n                    (id, tenant_id, nom, prenoms, telephone, nom_repli, telephone_repli)\n                VALUES ($1, $2, $3, $4, $5, $6, $7)\n                ON CONFLICT (id) DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bd72f6abe397854d21250ee3fd70d4f26149d1565de6789c83cc72713023c3c8"
+}

@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT famille, prix_mineur, prix_heure_supplementaire_mineur\n            FROM hebergement.formule\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "famille",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "famille"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "prix_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_mineur"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "prix_heure_supplementaire_mineur",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.formule",
+            "name": "prix_heure_supplementaire_mineur"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "76f215828c3bf5021c95a4c7ea2a9789a4f6fcb11a13e153ac9af77aaf827f6f"
+}

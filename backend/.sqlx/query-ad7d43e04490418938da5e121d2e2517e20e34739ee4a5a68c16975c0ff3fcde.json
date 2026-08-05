@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.nom_repli AS \"nom_repli!\"\n           FROM comptes.personne p\n           JOIN comptes.client c ON c.personne_id = p.id\n           WHERE p.nom IN ('Koné', 'N''Guessan')\n           ORDER BY p.nom",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "nom_repli!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.personne",
+            "name": "nom_repli"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ad7d43e04490418938da5e121d2e2517e20e34739ee4a5a68c16975c0ff3fcde"
+}

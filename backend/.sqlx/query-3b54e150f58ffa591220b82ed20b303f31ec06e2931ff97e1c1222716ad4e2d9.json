@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO comptes.preference_personne (id, tenant_id, personne_id, texte)\n        VALUES ($1, $2, $3, 'Chambre calme, étage bas.')\n        ON CONFLICT (id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b54e150f58ffa591220b82ed20b303f31ec06e2931ff97e1c1222716ad4e2d9"
+}

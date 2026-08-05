@@ -19,8 +19,8 @@ CLAUDE.md                      guide de session — à lire en premier
 docs/
 ├── cadrage-v1.md              source de vérité produit et technique
 ├── user-stories-v1.md         source de vérité fonctionnelle, priorités
-├── registre-classes-offline.md v1.0.0 — 157 opérations classées A/B/C/D
-├── versions-gelees.md         v1.0.4 — versions épinglées + URL des registres
+├── registre-classes-offline.md classes A/B/C/D — une entité absente n'est pas implémentable
+├── versions-gelees.md         versions épinglées + URL des registres ; §1 = régime d'ajout
 ├── Kaya_Prompts_SpecKit.md    ce fichier
 ├── Kaya_Design.md             ✅ présent — matrice de dérivation, lexique
 ├── Kaya_Vision_Plateforme.md  fermé jusqu'au jalon J1
@@ -54,8 +54,10 @@ Ces deux tableaux ont été **déplacés, pas recopiés** : `Kaya_Design.md` §6
 renvoient et ne les dupliquent pas. Une copie aurait divergé — principe I de la constitution.
 
 **Cinq documents ont été ajoutés depuis la rédaction de ce fichier** et font foi :
-`.specify/memory/constitution.md` (**v1.2.0**), `docs/registre-classes-offline.md` (v1.0.0),
-`docs/versions-gelees.md` (**v1.0.4**), `docs/module-dore.md` (patron sqlx 0.9) et `CLAUDE.md`.
+`.specify/memory/constitution.md`, `docs/registre-classes-offline.md`,
+`docs/versions-gelees.md`, `docs/module-dore.md` (patron sqlx 0.9) et `CLAUDE.md`.
+**Aucun numéro de version de ces documents n'est repris ici** : ils ont tous changé plusieurs fois
+depuis, et un numéro recopié dans ce fichier est faux avant d'être lu. Chacun porte le sien.
 
 **Le cycle 001 (TRX) est fusionné** : 18 crates, 6 migrations, 15 tests, 9 portes scriptées, image
 de production exercée. Le cycle 002 (ETB) est spécifié. L'arborescence du §0.1 **existe** — ce
@@ -352,10 +354,26 @@ docs/registre-classes-offline.md.
 ```
 /speckit-plan
 
-VERSIONS : docs/versions-gelees.md FAIT FOI. Ne propose aucun numéro de version, ni
-de mémoire ni par vérification : le gel est fait, daté et sourcé. Reprends ses
-valeurs telles quelles. Si une version te paraît devoir changer, dis-le sans la
-changer — c'est la revue mensuelle qui tranche.
+VERSIONS : docs/versions-gelees.md FAIT FOI, et son §1 distingue DEUX gestes.
+
+REPRENDRE — pour tout ce qui est déjà au gel : reprends ses valeurs telles quelles,
+ne revérifie rien, ne propose aucun numéro de mémoire. Si une version déjà gelée te
+paraît devoir CHANGER, dis-le sans la changer : c'est la revue mensuelle qui tranche,
+et les dix briques du §2 en relèvent toujours, même en mineur.
+
+AJOUTER — pour ce qui MANQUE : tu es LIBRE d'ajouter une dépendance absente du gel,
+en cours de cycle, sans demander la permission. N'écris pas soixante lignes à la main
+pour éviter une bibliothèque : le gel n'est plus un motif de conception. Trois
+obligations, aucune n'étant une autorisation à obtenir :
+  1. épinglage EXACT et lockfile commité — sans exception ;
+  2. la version est vérifiée sur le registre officiel, URL et date en commentaire
+     au-dessus de la ligne du manifeste, avec le rôle. Jamais de mémoire ;
+  3. le commentaire dit POURQUOI ce qui est déjà là ne suffit pas — pour que la
+     question soit posée, pas pour obtenir un accord.
+Puis inscris-la au §3.1 ou §3.2 du gel DANS LE MÊME CHANGEMENT, jamais reportée à une
+revue. Vérifie le §3.4 avant : deux membres d'une même famille ne cohabitent pas, et
+une famille absente de ce tableau est une famille non encore rencontrée — si tu
+l'ouvres, tu tranches pour tout le dépôt et tu inscris sa ligne.
 
 Stack imposée (cadrage v1 §13 + docs/versions-gelees.md — non négociable) :
 - Backend : Rust, Actix Web, sqlx + PostgreSQL (migrations versionnées, un schéma
@@ -484,7 +502,11 @@ Vérifie la cohérence spec ↔ plan ↔ tâches ↔ constitution. Signale :
   d'établissement ;
 - toute porte P-01 à P-20 de la constitution concernée par ce module sans mécanisme
   de vérification dans le plan ou les tâches ;
-- toute version proposée hors de docs/versions-gelees.md.
+- toute MONTÉE d'une version déjà gelée, et tout changement aux dix briques du §2
+  (un AJOUT de dépendance absente n'est PAS un écart : il est libre, voir §1 règle 3
+  du gel — mais il doit porter épinglage exact, URL de registre datée, motif contre
+  l'existant, et son inscription au §3.x dans le même changement) ;
+- tout second membre d'une famille exclusive du §3.4 du gel.
 ```
 
 ### 2.5 `/speckit-implement`
@@ -710,7 +732,7 @@ sous-statut ménage est librement modifiable. La salle de réunion est une unit�
 louable d'une catégorie dédiée, PAS une entité nouvelle.
 ```
 
-### Cycle 5 — SYN(en cours)
+### Cycle 5 — SYN
 
 ```
 /speckit-specify
@@ -746,7 +768,7 @@ de test réutilisables par tous les cycles suivants. Chaque module qui crée une
 entité les instanciera.
 ```
 
-### Cycle 6 — SEJ (partie 1 — T1)
+### Cycle 6 — SEJ (partie 1 — T1)(en cours)
 
 ```
 /speckit-specify

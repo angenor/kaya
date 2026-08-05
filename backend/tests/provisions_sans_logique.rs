@@ -9,7 +9,7 @@
 //!
 //! Ce fichier rend ce glissement bruyant.
 //!
-//! # Périmètre inspecté — **six provisions, quatre cycles**
+//! # Périmètre inspecté — **cinq provisions, trois cycles**
 //!
 //! *§ « Couverture des portes » : une porte dont la cible est vide passe toujours au vert. Le
 //! décompte est donc comparé à [`PROVISIONS`], et la liste est ici.*
@@ -21,13 +21,23 @@
 //! | `comptes.employe` | 003 | CPT-05 — le contrat de travail, la paie |
 //! | `comptes.appareil_enrole` | 003 | CPT-05 / CPT-06 — l'enrôlement par paire de clés |
 //! | `hebergement.prestation_incluse` | 004 | HEB-09 — le petit-déjeuner inclus, incrément 2 |
-//! | `synchronisation.reconciliation_orpheline` | 005 | SYN-03 — l'écriture arrivée sur un agrégat déjà clos et facturé |
 //!
-//! **Les six ne portent pas le même régime de privilège, et la différence est le sujet.** Cinq
-//! n'accordent RIEN à `kaya_app`, pas même `SELECT`. La sixième accorde `SELECT` **seul** — parce
-//! qu'elle a un lecteur légitime avant son cycle (le récapitulatif de fin de journée doit pouvoir
-//! dire « trois constats attendent »), et aucun écrivain. Ce qui prouve une provision n'est pas
-//! l'absence de tout droit : c'est l'absence du droit d'**écrire**.
+//! **Les cinq n'accordent RIEN à `kaya_app`**, pas même `SELECT`. Ce qui prouve une provision
+//! n'est pas l'absence de tout droit : c'est l'absence du droit d'**écrire**.
+//!
+//! # ★ `reconciliation_orpheline` CESSE d'être une provision au cycle 006
+//!
+//! Elle en était la sixième, avec `GRANT SELECT` **seul** : un lecteur légitime avant son cycle —
+//! le récapitulatif de fin de journée doit pouvoir dire « trois constats attendent » — et aucun
+//! écrivain.
+//!
+//! **Elle reçoit son premier écrivain** : un accompagnant de classe A arrivant après la clôture
+//! d'un séjour (SEJ-02). C'est le premier cas réel d'écriture orpheline du produit.
+//!
+//! ⚠️ **Elle ne sort pas pour autant de ce fichier.** Sa *résolution* reste **SYN-03, tranche
+//! T3** : `UPDATE` et `DELETE` demeurent interdits, et un contrôle dédié le vérifie plus bas. Une
+//! table à moitié construite est exactement ce que ce fichier existe pour surveiller — et la
+//! surveiller sur ce qui reste dû vaut mieux que de la retirer parce qu'une part est livrée.
 //!
 //! **N'est PAS inspecté** : ce que ferait un binaire de maintenance sous `kaya_owner`. Le
 //! propriétaire des tables peut tout écrire, par construction — c'est le rôle applicatif qui est
@@ -56,14 +66,9 @@ const PROVISIONS: &[(&str, &str, &str)] = &[
         "prestation_incluse",
         "cycle 004 — HEB-09, petit-déjeuner inclus",
     ),
-    (
-        "synchronisation",
-        "reconciliation_orpheline",
-        "cycle 005 — SYN-03, écriture arrivée sur un agrégat clos",
-    ),
 ];
 
-/// Les six tables existent, avec leurs contraintes.
+/// Les cinq tables existent, avec leurs contraintes.
 #[tokio::test]
 async fn les_tables_de_provision_existent() {
     let pool = commun::pool_owner().await;
@@ -434,19 +439,28 @@ async fn le_role_applicatif_n_a_aucun_privilege_sur_la_prestation_incluse() {
 //  Cycle 005 — SYN-03, la provision qui accorde `SELECT` et RIEN d'autre
 // =================================================================================================
 
-/// **`kaya_app` ne peut ni insérer, ni modifier, ni supprimer dans `reconciliation_orpheline`.**
+/// ★ **`kaya_app` peut INSÉRER dans `reconciliation_orpheline`, mais ni MODIFIER ni SUPPRIMER.**
 ///
 /// # Ce que ce test prouve, et qui n'est pas ce qu'on croit
 ///
-/// Il ne prouve pas qu'aucun code n'écrit dans cette table : il prouve qu'**aucun code ne le
-/// pourra**. La distinction compte, parce que le premier énoncé se vérifie par relecture — donc
-/// mal — et le second par la base, à chaque appel.
+/// Il ne prouve pas qu'aucun code ne résout une écriture orpheline : il prouve qu'**aucun code ne
+/// le pourra**. La distinction compte, parce que le premier énoncé se vérifie par relecture —
+/// donc mal — et le second par la base, à chaque appel.
 ///
-/// La provision accorde `SELECT`, contrairement aux cinq autres, et son motif est écrit dans
-/// `0027`. C'est précisément pourquoi ce test ne peut pas se contenter de compter les privilèges :
-/// il doit nommer les trois verbes interdits.
+/// # ⚠️ Le privilège a changé au cycle 006, et l'asymétrie EST la règle
+///
+/// | Verbe | Cycle 005 | Cycle 006 | Pourquoi |
+/// |---|---|---|---|
+/// | `SELECT` | ✅ | ✅ | Le récapitulatif de fin de journée compte les constats en attente |
+/// | `INSERT` | ⛔ | ✅ | **SEJ-02** — un accompagnant de classe A arrivant après la clôture |
+/// | `UPDATE` | ⛔ | ⛔ | La **résolution** est SYN-03, tranche T3 |
+/// | `DELETE` | ⛔ | ⛔ | Une écriture orpheline ne s'efface pas : elle se tranche |
+///
+/// **Accorder `UPDATE` maintenant ferait croire à une résolution qui n'existe pas**, et ce fichier
+/// ne pourrait plus dire ce qui est construit de ce qui est promis. C'est exactement le glissement
+/// — « juste un petit endpoint » — qu'il existe pour rendre bruyant.
 #[tokio::test]
-async fn le_role_applicatif_ne_peut_pas_ecrire_dans_la_reconciliation_orpheline() {
+async fn le_role_applicatif_peut_alimenter_la_reconciliation_mais_pas_la_resoudre() {
     let pool = commun::pool_owner().await;
 
     let privileges: Vec<(String, String)> = sqlx::query_as(
@@ -461,34 +475,43 @@ async fn le_role_applicatif_ne_peut_pas_ecrire_dans_la_reconciliation_orpheline(
     .await
     .expect("lecture des privilèges");
 
-    let ecritures: Vec<&(String, String)> = privileges
-        .iter()
-        .filter(|(table, privilege)| {
-            table == "reconciliation_orpheline"
-                && matches!(privilege.as_str(), "INSERT" | "UPDATE" | "DELETE")
-        })
-        .collect();
-
-    assert!(
-        ecritures.is_empty(),
-        "le rôle applicatif peut ÉCRIRE dans `synchronisation.reconciliation_orpheline` : \
-         {ecritures:?}\n\
-         C'est l'« ajout d'un petit endpoint » que ce fichier existe pour rendre bruyant. Le \
-         registre classe la création en A et la résolution en B ; les deux classes sont justes et \
-         attendent SYN-03. Ce n'est pas la classe qui est différée, c'est l'implémentation."
-    );
-
-    // **Le versant positif** : la lecture, elle, est accordée. Sans cette assertion, un `REVOKE`
-    // massif sur tout le schéma rendrait la précédente vraie pour la mauvaise raison — et la
-    // provision serait devenue illisible sans que rien ne le dise.
-    assert!(
+    let sur_la_table = |verbe: &str| {
         privileges
             .iter()
-            .any(|(table, privilege)| table == "reconciliation_orpheline" && privilege == "SELECT"),
-        "`kaya_app` n'a même pas `SELECT` sur `synchronisation.reconciliation_orpheline`. La \
-         migration `0027` l'accorde délibérément : le récapitulatif de fin de journée doit pouvoir \
-         compter les constats en attente avant que SYN-03 ne livre l'écran qui les tranche. \
-         Obtenu : {privileges:?}"
+            .any(|(table, privilege)| table == "reconciliation_orpheline" && privilege == verbe)
+    };
+
+    // ── Ce qui est DÛ et ne l'est pas encore ──────────────────────────────────────────────────
+    for verbe in ["UPDATE", "DELETE"] {
+        assert!(
+            !sur_la_table(verbe),
+            "le rôle applicatif peut `{verbe}` sur `synchronisation.reconciliation_orpheline`.\n\
+             La RÉSOLUTION d'une écriture orpheline est **SYN-03, tranche T3** : le cycle 006 \
+             alimente la file, il ne la vide pas. Accorder ce droit maintenant ferait croire à \
+             une résolution qui n'existe pas, et ce fichier ne pourrait plus dire ce qui est \
+             construit de ce qui est promis.\n\
+             Privilèges observés : {privileges:?}"
+        );
+    }
+
+    // ── Le versant POSITIF, et il compte double ici ───────────────────────────────────────────
+    //
+    // Sans lui, un `REVOKE` massif rendrait les assertions précédentes vraies pour la mauvaise
+    // raison — et la file, devenue inalimentable, perdrait silencieusement chaque accompagnant
+    // arrivé après un départ.
+    assert!(
+        sur_la_table("SELECT"),
+        "`kaya_app` n'a même pas `SELECT` : la migration `0027` l'accorde délibérément, pour que \
+         le récapitulatif de fin de journée compte les constats en attente. Obtenu : {privileges:?}"
+    );
+    assert!(
+        sur_la_table("INSERT"),
+        "★ `kaya_app` ne peut PAS insérer dans `synchronisation.reconciliation_orpheline`.\n\
+         Depuis SEJ-02 (migration `0031`), un accompagnant de classe A arrivant après la clôture \
+         d'un séjour DOIT y être inscrit — c'est le premier cas réel d'écriture orpheline du \
+         produit. Sans ce droit, l'écriture est perdue en silence : ni sur le séjour, ni en file, \
+         et Adjoua ne saura jamais que sa saisie n'a pas compté.\n\
+         Privilèges observés : {privileges:?}"
     );
 }
 

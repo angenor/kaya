@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.occupation\n            (id, tenant_id, etablissement_id, unite_id, formule_id, sejour_id,\n             periode, debut_client, fin_client, statut, libere_le)\n        VALUES ($1, $2, $3, $4, $5, $6,\n                tstzrange(now() + make_interval(mins => $7::INT),\n                          now() + make_interval(mins => $8::INT), '[)'),\n                now() + make_interval(mins => $7::INT),\n                now() + make_interval(mins => $9::INT),\n                CASE WHEN $10 THEN 'liberee' ELSE 'active' END,\n                CASE WHEN $10 THEN now() + make_interval(mins => $9::INT) ELSE NULL END)\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f5d963f4a5af98f781fd355acb7513facb28f226302e2525d48f3ee3cf20edd1"
+}

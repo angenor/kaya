@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT condensat_mot_de_passe FROM comptes.compte WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "condensat_mot_de_passe",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "comptes.compte",
+            "name": "condensat_mot_de_passe"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "afc108ba816a3979c5394e4708d48578cf0154074915a2e06d3c31d0c4106b58"
+}

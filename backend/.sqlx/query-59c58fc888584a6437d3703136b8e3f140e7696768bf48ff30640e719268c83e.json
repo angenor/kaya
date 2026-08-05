@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.taxe_sejour_constat\n            (id, tenant_id, etablissement_id, sejour_id,\n             nuits_constatees, nombre_personnes, periode_debut, periode_fin,\n             formule_id, famille_formule, assujettie_taxe_nuitee, regle_conversion_taxe,\n             classement_etablissement, commune)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n        ON CONFLICT (sejour_id) DO NOTHING\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.taxe_sejour_constat",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
+        "Text",
+        "Bool",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "59c58fc888584a6437d3703136b8e3f140e7696768bf48ff30640e719268c83e"
+}

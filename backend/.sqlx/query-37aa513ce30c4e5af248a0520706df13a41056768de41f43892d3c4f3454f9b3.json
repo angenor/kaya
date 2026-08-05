@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO hebergement.ligne_sejour\n            (id, tenant_id, note_id, occupation_id, nature, libelle_cle,\n             quantite, prix_unitaire_mineur, montant_mineur, devise,\n             periode_debut, periode_fin)\n        VALUES ($1, $2, $3, $4, 'hebergement', 'hebergement.note.ligne.hebergement',\n                $5::TEXT::NUMERIC, $6, $7, $8,\n                now() + make_interval(mins => $9::INT),\n                now() + make_interval(mins => $10::INT))\n        ON CONFLICT DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Int8",
+        "Int8",
+        "Text",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "37aa513ce30c4e5af248a0520706df13a41056768de41f43892d3c4f3454f9b3"
+}

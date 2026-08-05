@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO synchronisation.reconciliation_orpheline\n            (id, tenant_id, etablissement_id, ecriture_id, ecriture_type,\n             agregat_type, agregat_id, charge_utile, motif, horodatage_client)\n        VALUES ($1, $2, $3, $4, $5, 'sejour', $6, $7, $8, $9)\n        ON CONFLICT (id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Jsonb",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "46c3e2e7033bfca4ac42142385644ed32bfc39d75abcc831b04cdee90f73e23b"
+}

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE hebergement.note_sejour\n        SET statut = 'arretee', arretee_le = now(), modifie_le = now()\n        WHERE id = $1 AND statut = 'ouverte'\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.note_sejour",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b6439dad04825d52bcaffd9417e61b2a3af1ce4813e1c1cfabedbcbbc71954d4"
+}

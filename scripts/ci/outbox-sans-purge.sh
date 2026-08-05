@@ -53,6 +53,21 @@ echec=0
 REGISTRES=(
     "synchronisation.evenement_outbox|backend/tests/outbox_immuabilite.rs"
     "comptes.journal_audit|backend/tests/audit_immuabilite.rs"
+    # ── Cycle 006 (SEJ-04) — le TROISIÈME registre immuable du produit ──────────────────────
+    #
+    # `hebergement.taxe_sejour_constat` porte l'**assiette figée** d'un séjour clos. Elle est
+    # immuable **par privilège** — `GRANT SELECT, INSERT` seuls —, ce qui transforme SC-007,
+    # « l'assiette est immuable après le départ », d'une promesse en une propriété de la base.
+    #
+    # ⚠️ **Ce n'est pas un ajout de confort : c'est le registre dont une purge coûterait le plus.**
+    # L'outbox et le journal d'audit se reconstitueraient partiellement depuis les tables métier ;
+    # un constat de taxe effacé, lui, ne se reconstitue **d'aucune façon** — le barème, le
+    # classement et la commune qu'il a recopiés auront changé, et c'est précisément pourquoi il
+    # les recopie.
+    #
+    # La porte porte sur la **catégorie**, pas sur une liste : le commentaire de tête l'annonçait
+    # — « un troisième s'ajoute au tableau ci-dessous ; rien d'autre ne bouge ». C'est vérifié ici.
+    "hebergement.taxe_sejour_constat|backend/tests/sejour_depart.rs"
 )
 
 echo "  ${#REGISTRES[@]} registre(s) inspecté(s) :"

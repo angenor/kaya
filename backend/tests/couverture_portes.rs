@@ -174,6 +174,28 @@ const TYPES_EVENEMENTS: &[&str] = &[
     "heb.formule.modifiee",
     "heb.occupation.attribuee",
     "heb.occupation.liberee",
+    // ── Cycle 006 (SEJ) — NEUF types, sur DEUX schémas et DEUX crates ──────────────────────
+    //
+    // C'est le premier cycle dont les événements naissent dans **deux crates** : `socle/comptes`
+    // pour la fiche client, `verticales/hebergement` pour le séjour. Le balayage des crates
+    // découverts, construit au cycle 005, les voit tous les deux sans qu'on l'énumère — c'est
+    // exactement ce pour quoi il a été fait.
+    //
+    // ⚠️ **`sej.` et `heb.` cohabitent, et le préfixe suit la STORY, pas le crate.** La fiche
+    // client et l'accompagnant relèvent de SEJ, la fiche de police et le séjour d'HEB — alors que
+    // les trois derniers vivent dans le même crate. Le préfixe dit **qui doit se soucier de
+    // l'événement**, pas où le code se trouve.
+    //
+    // Total du produit : **36 types**, 13 + 9 + 5 + 9.
+    "sej.client.cree",
+    "sej.client.modifie",
+    "sej.preference.enregistree",
+    "sej.accompagnant.ajoute",
+    "heb.sejour.ouvert",
+    "heb.sejour.prolonge",
+    "heb.sejour.unite_changee",
+    "heb.sejour.clos",
+    "heb.fiche_police.generee",
 ];
 
 /// Les types déclarés au modèle de données **sans émetteur**, nommés un par un.
@@ -530,6 +552,21 @@ fn p08_le_nombre_d_operations_servies_correspond_a_ce_qui_est_annonce() {
         ("cycle 004 — référentiel d'hébergement (HEB-01/03/04/05, opérations 1-9)", 9),
         ("cycle 004 — disponibilité et occupation (HEB-02, opérations 10-12)", 3),
         ("cycle 004 — tarification du passage (HEB-04, opération 13)", 1),
+        // ── Cycle 006 (SEJ) — dix-sept opérations, ventilées par lot de livraison ────────────
+        //
+        // ⚠️ **Le lot « fiches clients » compte SIX opérations pour TROIS chemins** :
+        // `/clients` sert la recherche et la création, `/clients/{id}` la lecture et la
+        // modification. Compter les chemins donnerait quatre, et l'écart de deux serait
+        // attribué à un oubli — alors qu'il vient de la forme du contrat.
+        //
+        // ⚠️ **L'historique des séjours est compté au lot SÉJOURS**, bien que son chemin
+        // commence par `/clients` : il lit `hebergement.sejour` et se monte sur le crate
+        // `hebergement`. Le ranger avec les fiches clientes ferait croire que `socle/comptes` le
+        // sert — ce qui serait une jointure inter-schémas (P-04) ET une arête
+        // `socle/ → verticales/` (P-03).
+        ("cycle 006 — fiches clients (SEJ-01, opérations 1-4 et 6)", 5),
+        ("cycle 006 — séjours (SEJ-02/04, opérations 5 et 7-16)", 11),
+        ("cycle 006 — état des unités (opération 17)", 1),
     ];
     let operations_attendues: usize = LOTS.iter().map(|(_, n)| n).sum();
 
@@ -702,6 +739,7 @@ const AUDIT_CLASSE_A: &str = include_str!("audit_classe_a.rs");
 const HEBERGEMENT_TARIFICATION: &str = include_str!("hebergement_tarification.rs");
 /// Le cycle 005 (SYN-04) — la dérive d'horloge, exercée par le chemin réel d'écriture d'une note.
 const DERIVE_HORLOGE: &str = include_str!("derive_horloge.rs");
+const CLIENT_JOURNAL_ACCES: &str = include_str!("client_journal_acces.rs");
 
 /// **Les fichiers de tests qui exercent le registre des actions, nommés un par un.**
 ///
@@ -723,12 +761,19 @@ const TESTS_QUI_EXERCENT_L_AUDIT: &[(&str, &str)] = &[
     ("audit_classe_a.rs", AUDIT_CLASSE_A),
     ("hebergement_tarification.rs", HEBERGEMENT_TARIFICATION),
     ("derive_horloge.rs", DERIVE_HORLOGE),
+    // ── Cycle 006 (SEJ-01) — la consultation d'un numéro de pièce d'identité ────────────────
+    //
+    // La famille naît « branchée » : son chemin de code existe dès T018a. Ce fichier l'exerce —
+    // sans quoi la porte dirait vrai sur le chemin et faux sur son usage.
+    ("client_journal_acces.rs", CLIENT_JOURNAL_ACCES),
 ];
 
 /// Nombre de familles au document, repris de `audit_taxonomie.rs`.
 ///
 /// Dix au cycle 003, **onze depuis le cycle 005** — `derive_horloge_constatee` (SYN-04).
-const FAMILLES_ATTENDUES: usize = 11;
+/// Onze au cycle 005, **douze depuis le cycle 006** : `consultation_piece_identite`
+/// (SEJ-01) est la première famille qui trace une **lecture** et non une modification.
+const FAMILLES_ATTENDUES: usize = 12;
 
 /// Le titre de la section du document où vit le tableau des familles.
 ///
@@ -736,7 +781,7 @@ const FAMILLES_ATTENDUES: usize = 11;
 /// côté. **La duplication est délibérée** — les deux fichiers sont des binaires de test distincts,
 /// et un module partagé ferait qu'une extraction cassée casserait les deux du même coup, donc
 /// silencieusement.
-const TITRE_SECTION_TAXONOMIE: &str = "## Les onze familles";
+const TITRE_SECTION_TAXONOMIE: &str = "## Les douze familles";
 
 /// `changement_role` → `ChangementRole`.
 fn variante_rust(code: &str) -> String {

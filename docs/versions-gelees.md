@@ -4,8 +4,10 @@
 **vérifiées sur les registres officiels avec l'URL citée**, puis **épinglées exactement** et
 figées par lockfiles.*
 
-**Version du gel : 1.0.12 — vérifié le 2026-08-02**
-**Prochaine revue : 2026-08-31** (revue mensuelle groupée)
+**Version du gel : 1.0.14 — vérifié le 2026-08-04**
+**Prochaine revue : 2026-08-31** (revue mensuelle groupée) — elle traite les **montées** de version
+et les dix briques du §2. Depuis le gel 1.0.14, elle n'est plus le passage obligé d'un **ajout** :
+voir §1, règle 3.
 
 **Cible de déploiement retenue : Docker sur VPS Contabo** (mode A du cadrage §10.1, SaaS
 mutualisé). Toutes les versions ci-dessous sont vérifiées disponibles pour cette cible (§4.2).
@@ -17,15 +19,55 @@ GiST/`tstzrange`** de la phase 0 (cadrage §16). Tout le reste est arrêté.
 
 ## 1. Règles d'usage de ce document
 
-1. **Aucun numéro de version de ce tableau n'a été écrit de mémoire.** Chaque ligne porte
-   l'URL du registre officiel interrogé et la date de vérification.
+**AJOUTER EST LIBRE. MONTER NE L'EST PAS.** Les deux gestes ont été confondus jusqu'au gel
+1.0.13, et cette confusion a produit la seule dérive que ce document ait connue — sept crates
+épinglées dans les manifestes, absentes d'ici, en attente d'une revue mensuelle que la règle
+elle-même leur imposait d'attendre.
+
+**Le principe XI ne l'exigeait pas, il disait le contraire.** Ses termes exacts : les versions sont
+vérifiées sur les registres officiels *« avec l'URL citée **dans le changement qui les introduit** ou
+les met à jour »*, et ce qui est proscrit en cours d'incrément est *« aucune **montée majeure** »*.
+Le principe prévoit donc explicitement qu'une version entre par un changement ; c'est le §1.4 de ce
+document — *« jamais au fil de l'eau »* — qui avait durci au-delà de lui. La préséance tranche
+(constitution avant document de référence), et le durcissement tombe.
+
+1. **Aucun numéro de version n'est écrit de mémoire.** Chaque version porte l'URL du registre
+   officiel interrogé et la date de vérification — dans ce fichier pour le §2, **en commentaire du
+   manifeste** pour les §3.x. Une version non vérifiée est une version inconnue (principe XI).
 2. **Épinglage exact obligatoire** : `= 4.14.0` ou `4.14.0`, jamais `^4.14`, `~4.14` ni `4.*`.
    La porte de CI **P-20** échoue sur tout intervalle et sur tout lockfile absent ou périmé.
-3. **Aucune montée majeure pendant un incrément.** Une faille de sécurité est la seule
-   exception, et elle est consignée au §6.
-4. **La revue est mensuelle et groupée**, jamais au fil de l'eau. Elle met à jour ce fichier,
-   les manifestes et les lockfiles dans un seul changement.
-5. Reproduire la vérification : les commandes exactes sont au §5.
+   **Cette règle ne connaît aucune exception** — c'est elle qui rend une reconstruction
+   reproductible, et rien de ce qui suit ne l'assouplit.
+3. **AJOUTER une dépendance absente est libre, en cours de cycle, sans autorisation.** Trois
+   obligations, aucune n'étant une permission à demander :
+   - l'épinglage est exact et le lockfile est commité (règle 2) ;
+   - le manifeste porte, **en commentaire au-dessus de la ligne**, le rôle, l'URL du registre
+     interrogé et la date — ce que les cycles font déjà spontanément et bien ;
+   - le commentaire dit **pourquoi les dépendances déjà présentes ne suffisent pas**. Pas pour
+     obtenir un accord : pour que la question soit posée. L'arbitrage `aes-gcm` du cycle 006 —
+     qui a examiné et écarté `ring`, déjà là transitivement — est le modèle.
+
+   **L'inscription aux tableaux §3.x se fait DANS LE CHANGEMENT QUI AJOUTE**, jamais reportée à
+   une revue. Une échéance sans porte est un rappel, pas un contrôle : c'est la leçon exacte des
+   sept crates, et la règle qui les avait égarées est celle-ci, dans sa version d'avant.
+4. **MONTER une version déjà gelée reste groupé et mensuel.** Aucune montée majeure pendant un
+   incrément ; une faille de sécurité est la seule exception, consignée au §6. Motif : une montée
+   touche du code qui marche, un ajout ne touche rien.
+5. **Les dix briques du §2 ne se touchent qu'à la revue, y compris en mineur.** Rust, Actix Web,
+   sqlx, utoipa, Nuxt, Tailwind, Tauri, PostgreSQL, Redis, Garage. Elles ne sont pas des
+   dépendances parmi d'autres : monter `sqlx` de 0.9 à 1.0 réécrit les macros de chaque requête du
+   dépôt. Le §2 reste tenu à la main et **opposable** — un écart y échoue, il ne se régularise pas.
+6. **Deux crates de la même famille fonctionnelle ne cohabitent pas** — `time` et `chrono`,
+   `thiserror` et `anyhow` en bibliothèque, deux clients HTTP, deux moteurs de chiffrement. La
+   liberté d'ajouter ne vaut que pour ce qui manque, et la liste des familles exclusives est au
+   §3.4.
+7. Reproduire la vérification : les commandes exactes sont au §5.
+
+> **Les tableaux §3.x sont destinés à être GÉNÉRÉS depuis les manifestes**, `docs/versions-gelees.md`
+> devenant le miroir vérifié du code plutôt qu'un document parallèle qui en dévie. Le contrôle
+> devient alors trivial et complet dans les deux sens : *le gel commité est-il celui que les
+> manifestes engendrent ?* Tant que le générateur n'existe pas, les tableaux §3.x s'écrivent à la
+> main **dans le même changement que le manifeste** — ce que la règle 3 impose déjà. Voir §4.3.
 
 ---
 
@@ -132,7 +174,21 @@ entrent dans le lockfile et la porte P-20 les couvre.
 | `tracing` | **0.1.44** | Logs structurés corrélés (principe VIII) | — |
 | `tracing-subscriber` | **0.3.23** | Souscripteur de logs | — |
 | `jsonwebtoken` | **11.0.0** | JWT court + refresh révocable (CPT-01) | — |
-| `argon2` | **0.5.3** | Hachage de mot de passe (CPT-01) | — |
+| `argon2` | **0.5.3** | Hachage de mot de passe (CPT-01) **et dérivation de la clé de tenant** | — |
+| `aes-gcm` | **0.11.0** | **Chiffrement au repos des pièces d'identité clients** (SEJ-01, transfert ARTCI) | RustCrypto, **Rust pur** — aucune chaîne C, comme `argon2`. Vérifiée le 2026-08-03 |
+| `serde_json` | **1.0.151** | Charges utiles JSONB — outbox, contexte d'audit | dernière `1.x` de `serde`, alignée sur `serde` 1.0.229 |
+| `time` | **0.3.54** | `timestamptz` et `tstzrange` (principe IV, occupations) | features `serde` `macros` `formatting` `parsing` **vérifiées présentes** |
+| `thiserror` | **2.0.19** | Types d'erreur de domaine | — |
+| `async-trait` | **0.1.91** | Traits d'abstraction asynchrones (principe III) | — |
+| `futures` | **0.3.33** | Combinateurs du worker outbox | — |
+| `dotenvy` | **0.15.7** | Variables d'environnement en développement | jamais chargé en production — l'image lit l'environnement du conteneur |
+
+> **Les sept dernières lignes régularisent l'existant, elles ne choisissent rien.** Ces versions
+> étaient épinglées exactement dans `backend/Cargo.toml` — six depuis les cycles 001 à 005, une
+> depuis le cycle 006 — avec leur date de vérification en commentaire, et **aucune n'était au
+> gel**. Le §4.3 avait annoncé ce trou mot pour mot : *« une version du code absente du gel est
+> aussi un défaut qu'une version du gel absente du code »*. C'est la **deuxième** fois qu'il
+> s'ouvre — le gel 1.0.5 l'a comblé côté npm, personne ne l'a fait côté Rust.
 
 > **`uuid` avec la feature `v7` est un prérequis du principe VI**, pas un détail : toute
 > écriture porte un UUID v7 généré côté client. La présence de la feature dans `1.24.0` a été
@@ -423,6 +479,30 @@ reconstruction soit reproductible.
 > dérogation raisonnée au « dernière stable » du principe XI, consignée ici comme telle.
 > À figer par `.nvmrc` **et** par le champ `engines` du `package.json`.
 
+### 3.4 Familles exclusives — le seul garde-fou de la liberté d'ajouter
+
+La règle 3 du §1 rend l'ajout libre. Son unique limite : **une famille, une implémentation.** Deux
+crates qui font la même chose ne cohabitent pas — c'est ce qui produit deux formats de date dans un
+même dépôt, ou deux moteurs de chiffrement dont un seul est audité.
+
+| Famille | Retenu | Écartés — ne pas introduire |
+|---|---|---|
+| Date et heure (Rust) | `time` | `chrono` |
+| Erreurs de bibliothèque (Rust) | `thiserror` | `anyhow`, `eyre` — acceptables dans un **binaire**, jamais dans un crate de `crates/` |
+| Chiffrement symétrique | `aes-gcm` (RustCrypto) | `ring`, `aws-lc-rs`, `openssl`, `pgcrypto` — motif au §6, gel 1.0.13 |
+| Dérivation de clé et hachage | `argon2` | `bcrypt`, `scrypt`, `pbkdf2` |
+| Décimales exactes | `rust_decimal` | `bigdecimal`, et **tout flottant** sur une quantité (principe V) |
+| Client HTTP sortant | *aucun encore* | dès qu'un cycle en a besoin, **il tranche pour tout le dépôt** et l'inscrit ici |
+| Sérialisation | `serde` / `serde_json` | — |
+| Accès base | `sqlx` | `diesel`, `sea-orm` — brique du §2, hors ajout libre |
+
+**Une famille absente de ce tableau n'est pas une famille libre : c'est une famille non encore
+rencontrée.** Le cycle qui l'ouvre choisit pour tout le dépôt et inscrit sa ligne — c'est le
+moment où le choix coûte le moins, et le seul où il est encore réversible.
+
+**Ce tableau se tient à la main, et c'est assumé** : il porte des arbitrages, pas des versions.
+Aucun générateur ne peut décider que `chrono` est écarté.
+
 ---
 
 ## 4. Où l'épinglage est matérialisé
@@ -474,18 +554,37 @@ registres officiels ferait de la CI une dépendance réseau.
 
 **Mais le gel est un fichier du dépôt.** Comparer les manifestes à `docs/versions-gelees.md` ne
 demande aucun réseau, et comble le trou qui a laissé passer `typescript 7.0.2` puis sa correction
-silencieuse en `5.9.3` :
+silencieuse en `5.9.3`, puis les sept crates du gel 1.0.13.
 
-- lire les tableaux §2, §3.1, §3.2, §3.3 et §4.2 de ce fichier comme source ;
-- comparer aux `Cargo.toml`, `package.json`, `compose.yml`, `.nvmrc`, `rust-toolchain.toml` ;
-- **échouer sur tout écart**, dans les deux sens — une version du code absente du gel est aussi
-  un défaut qu'une version du gel absente du code ;
-- **et vérifier les `peerDependencies` des paquets gelés**, ce qui aurait attrapé la
-  contradiction `openapi-typescript ^5.x` ↔ `typescript 7.0.2` à la source.
+**Depuis le gel 1.0.14, le complément a deux régimes, parce que les deux moitiés du document ne
+sont pas de même nature :**
+
+| | §2 · dix briques, §3.3, §4.2 | §3.1 et §3.2 · dépendances directes |
+|---|---|---|
+| **Qui écrit** | la revue mensuelle, à la main | **le générateur**, depuis les manifestes |
+| **Régime** | **opposable** — l'écart échoue | **miroir** — l'écart se régularise |
+| **Ce que la porte fait** | compare et **refuse** | régénère et refuse **si le commité diffère** |
+| **Motif** | monter une brique réécrit du code qui marche | ajouter est libre (§1, règle 3) ; le gel doit suivre, pas autoriser |
+
+Le contrôle du régime miroir est **plus simple et plus complet** que la comparaison bilatérale
+décrite ci-dessus : si le gel est engendré depuis les manifestes, il ne peut par construction ni
+omettre une dépendance du code, ni en inventer une que le code n'a pas. Une seule question suffit —
+*le gel commité est-il celui que les manifestes engendrent ?* — et un seul mode de réparation :
+relancer le générateur.
+
+Ce qui reste à vérifier dans les deux régimes :
+
+- **les `peerDependencies` des paquets gelés**, ce qui aurait attrapé la contradiction
+  `openapi-typescript ^5.x` ↔ `typescript 7.0.2` à la source ;
+- **les familles exclusives du §3.4** — deux membres d'une même famille dans les manifestes est un
+  échec, et c'est le seul garde-fou de la liberté d'ajouter ;
+- **la présence du commentaire de justification** au-dessus de chaque ligne ajoutée (§1, règle 3).
+  Un ajout sans motif écrit passe la porte de la forme et perd celui de l'intention.
 
 Sans ce complément, le gel est un document que rien n'oppose au code. C'est l'illustration
 exacte de la leçon du cycle 1 : *un test négatif prouve qu'une porte sait échouer, il ne prouve
-pas qu'elle regarde tout.*
+pas qu'elle regarde tout.* Et l'illustration du gel 1.0.13 : *une échéance sans porte est un
+rappel, pas un contrôle.*
 
 ## 5. Reproduire la vérification
 
@@ -580,6 +679,8 @@ curl -sS -H "User-Agent: $UA" \
 
 | Version | Date | Modification |
 |---|---|---|
+| 1.0.14 | 2026-08-04 | **CHANGEMENT DE RÉGIME — ajouter une dépendance devient libre, monter reste groupé.** Le §1 est réécrit, le §3.4 (familles exclusives) est créé, le §4.3 distingue deux régimes de contrôle. **Aucun amendement de la constitution n'a été requis, et c'est le cœur de l'affaire** : le principe XI proscrit « aucune montée majeure pendant un incrément » et prescrit une « revue de mise à jour groupée, mensuelle » — il ne dit rien des **ajouts**. C'est le §1.4 de ce document, plus strict que le principe qu'il applique, qui étendait la règle des montées aux ajouts : *« La revue est mensuelle et groupée, jamais au fil de l'eau. »* **Cette règle est la cause directe de la dérive du gel 1.0.13** — elle ordonnait aux sept crates d'attendre une revue, et six l'ont attendue six semaines. Une règle qui produit la dette qu'elle prétend organiser doit changer, pas être mieux respectée. **Ce que le régime nouveau conserve intact** : épinglage exact sans exception, aucun numéro écrit de mémoire, URL et date de vérification, lockfiles commités — P-20 est inchangée, et rien de ce gel ne l'assouplit. **Ce qu'il déplace** : l'inscription aux tableaux §3.x se fait dans le changement qui ajoute, jamais reportée ; les dix briques du §2 restent hors ajout libre, y compris en mineur, parce que monter `sqlx` réécrit les macros de chaque requête du dépôt. **Ce qu'il ajoute** : le §3.4, seul garde-fou de la liberté — une famille, une implémentation, et une famille absente du tableau est une famille non encore rencontrée, pas une famille libre. **Le coût de l'ancien régime était déjà payé** : `backend/crates/socle/comptes/src/client/repli.rs` — 286 lignes, table de correspondances écrite à la main — motive son existence en citant *en premier* le fait qu'`unicode-normalization` « n'est pas au gel » et que l'ajouter « imposerait une décision de revue mensuelle ». Le second motif de ce fichier est **techniquement juste et le sauve** (NFD ne décompose ni `Ø` ni `Đ`, lettres à barre sans décomposition canonique, et le produit gagne à décider de ce qu'il replie) — mais l'ordre des arguments dit lequel a déclenché la réflexion. **Une contrainte de gouvernance des versions n'a pas à entrer dans un raisonnement de conception** ; c'est ce que ce gel corrige. Le fichier n'est pas modifié : sa décision reste défendable, et le prochain cycle qui touche à la recherche de noms est libre de la reprendre — ou de la garder pour son bon motif, désormais le seul. |
+| 1.0.13 | 2026-08-04 | **Sept crates Rust inscrites au §3.1 — dont une seule est du cycle 006.** `aes-gcm` **0.11.0** (cycle 006), `serde_json` **1.0.151**, `time` **0.3.54**, `thiserror` **2.0.19**, `async-trait` **0.1.91**, `futures` **0.3.33**, `dotenvy` **0.15.7** (cycles 001 à 005). Toutes étaient **déjà épinglées exactement** dans `backend/Cargo.toml`, avec leur date de vérification de registre en commentaire — 2026-07-30 pour six, 2026-08-03 pour `aes-gcm`. **Aucune valeur n'est choisie ici** : le gel rattrape le code, ce que le §4.3 prescrit dans les deux sens. **Motif de l'inscription anticipée** : la revue mensuelle du 2026-08-31 était l'échéance consignée, et le rapport du cycle 006 n'annonçait qu'**une** entrée à trancher — juste pour son cycle, faux pour la revue, qui en aurait découvert sept le jour même. Le `Cargo.toml` portait la mention « à porter au gel §3.1 » **au-dessus des six autres**, écrite six semaines plus tôt et jamais exécutée : une échéance sans porte est un rappel, pas un contrôle. **Le seul arbitrage du lot** est celui d'`aes-gcm`, et il est écrit dans `backend/Cargo.toml` : `pgcrypto` écartée (la clé voyagerait dans `pg_stat_statements` et les journaux de la base — chiffrer au repos en publiant la clé n'est pas chiffrer), `ring` écartée **bien qu'à coût nul en chaîne d'approvisionnement**, déjà transitive de `rustls`, pour le motif qui avait écarté `aws_lc_rs` : chaîne `cmake`/`nasm`, et « une chaîne de construction C de plus est une panne de plus chez un client sans administrateur » (cadrage §10.1, mode B). **Ce que ce gel ne fait pas** : le complément du §4.3 reste à écrire, et c'est lui qui aurait trouvé les six — **deuxième occurrence du même trou après le gel 1.0.5**, côté Rust cette fois. Tant qu'il manque, l'écart se rouvrira au prochain cycle qui ajoute un crate. |
 | 1.0.12 | 2026-08-02 | **WebKit ajouté aux navigateurs de la porte P-22 — aucun paquet nouveau, une cible de plus.** `@playwright/test` reste en **1.62.1** : ce qui change est le jeu de moteurs que la porte exerce, pas une version. **Motif** : la cible du produit est Tauri, qui n'embarque aucun navigateur et emprunte celui du système — **WKWebView** sur macOS et iOS, **WebKitGTK** sur Linux, **WebView2** (Chromium) sur Windows, **Android System WebView** (Chromium) sur Android. Trois cibles sur cinq sont WebKit, à commencer par le poste de développement : Chromium seul validait le moteur que le produit n'utilise pas sur la majorité de ses cibles. ⚠️ **La révision n'est pas épinglable séparément, et elle pèse trois fois Chromium** : `playwright-core@1.62.1` impose WebKit **rev 2336** (version 26.5), relevée sur `https://cdn.jsdelivr.net/npm/playwright-core@1.62.1/browsers.json` le 2026-08-02 — **294 Mio sur le poste, mesurés**, contre 94,7 pour Chromium. Une CI qui ne met en cache que `chromium-1234` retéléchargera 294 Mio à chaque exécution ; la clé doit porter les deux révisions. La commande de vérification du §5 relève désormais les deux, et l'étape 3/5 de la porte **compte les cas par projet et refuse si un moteur n'en a aucun** — un moteur absent retirerait trois cibles sans changer le verdict. **Limite écrite dans la porte** : le `webkit` de Playwright **n'est pas WKWebView**, seulement plus proche de la cible que Chromium ; le contrôle réel de macOS et d'iOS viendra avec la coquille Tauri. **Hors P-21** pour le même motif que Chromium : un navigateur de test n'entre ni dans le paquet Nuxt, ni dans l'image `linux/amd64`. |
 | 1.0.11 | 2026-08-01 | **`@playwright/test` `1.62.1` inscrit — le harnais de la porte P-22.** Apache-2.0, publiée le 2026-07-30, aucune `peerDependency`, vérifiée sur `https://registry.npmjs.org/@playwright%2Ftest/latest` le 2026-08-01. **Motif** : le cycle 003 a été livré avec 24 portes vertes et 652 tests, et deux des quatre écrans du produit étaient inatteignables en navigateur — aucun outil du dépôt ne savait ouvrir une page. **Une ligne épingle la chaîne entière** : `@playwright/test` → `playwright` → `playwright-core`, toutes trois en `1.62.1` **exact**, aucun intervalle. Le paquet retenu est celui qui **embarque le runner**. ⚠️ **La révision de navigateur n'est pas épinglable séparément** : `1.62.1` impose Chromium **1234** (Chrome 151.0.7922.34) par son `browsers.json`, et le cache du poste (`1217`, `1228`) ne servait pas — 94,7 Mio téléchargés, constaté. **Hors P-21** : la porte ne vise que ce que l'application charge à l'exécution, et un navigateur de test n'entre ni dans le paquet ni dans l'image de production ; pour la même raison, Apache-2.0 n'entre pas à l'inventaire des licences tierces, réservé aux œuvres embarquées — précédent `subset-font`. Déclaré à la **racine** et non dans `app/`, comme ESLint et pour le même motif : la porte exerce `app/`, et `web/qr` et `web/console` dès qu'elles auront des écrans. |
 | 1.0.10 | 2026-07-31 | **Archivo et Chivo Mono embarquées — dernière dette du cycle 002 soldée, portes P-21 et P-21b.** `@fontsource-variable/archivo` **5.3.0** et `@fontsource-variable/chivo-mono` **5.3.0**, OFL-1.1, publiées le 2026-07-19, aucune dépendance ni `peerDependency`, vérifiées sur `https://registry.npmjs.org/@fontsource-variable%2Farchivo` et `https://registry.npmjs.org/@fontsource-variable%2Fchivo-mono` le 2026-07-31. L'application tournait sur les polices système de repli, alors que `theme.css` prescrit le local et que `tokens.md` §2 confie l'alignement des colonnes de montants à Chivo Mono tabulaire. **Variable retenue sur mesure** : 4 fichiers / 114,0 ko contre 12 fichiers / 152,7 ko en statique, pour les quatre graisses d'Archivo et les deux de Chivo Mono réellement employées. **Aucun sous-réglage de caractères** — le texte est dynamique, contrairement aux icônes : `latin` **et** `latin-ext`, sous-ensembles de script entiers. ⚠️ **U+202F absent de la source, ajouté à la `cmap`** (associé au dessin de U+2009, chasse mesurée : 193 en Archivo, 600 en Chivo Mono donc cellule pleine) : le caractère n'existe ni dans les `woff2` de Fontsource ni dans les `ttf` amont de Google Fonts, ce que seule la lecture de la table révèle — la `unicode-range` déclarée annonce `U+2000-206F`. Déterminisme à l'octet vérifié ; validité confirmée par harfbuzz, qui a d'abord **refusé** les fichiers auxquels manquait le complément d'alignement sur quatre octets. |

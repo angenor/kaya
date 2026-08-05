@@ -1,0 +1,63 @@
+# Contexte de construction de `infra/Dockerfile.api`.
+#
+# ⚠️ **Ce fichier n'exclut AUCUN chemin que le Dockerfile copie.** Les `COPY` de
+# `infra/Dockerfile.api` portent sur `backend/Cargo.toml`, `backend/Cargo.lock`,
+# `backend/rust-toolchain.toml`, `backend/.cargo`, `backend/crates`, `backend/api`,
+# `backend/node`, `backend/src`, `backend/migrations` et `backend/.sqlx` — tous conservés.
+# En particulier **`backend/.sqlx` n'est jamais exclu** : sans lui la construction hors ligne
+# échoue sur `no cached data for this query`, et le message ne désigne pas ce fichier-ci.
+#
+# Ce qui suit ne retire que des artefacts reconstructibles ou du contexte inutile au binaire.
+
+# --- Artefacts de compilation Rust ------------------------------------------------------------
+# `target/` sur un poste arm64 contient des objets d'une AUTRE architecture que la cible : les
+# envoyer au moteur coûte des gigaoctets et ne sert jamais (gel §4.2).
+target/
+backend/target/
+app/src-tauri/target/
+app/src-tauri/gen/
+**/*.rs.bk
+
+# --- Node / pnpm ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+dist/
+.output/
+.nuxt/
+.nitro/
+.cache/
+*.tsbuildinfo
+
+# --- Historique et outillage de dépôt ---------------------------------------------------------
+.git/
+.github/
+.specify/
+.claude/
+
+# --- Artefacts de la porte P-22 ---------------------------------------------------------------
+# `test-results/` porte un état de session avec un jeton de rafraîchissement VALIDE.
+test-results/
+playwright-report/
+.playwright-artifacts-*/
+
+# --- Secrets et environnement -----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Sauvegardes locales ----------------------------------------------------------------------
+infra/backup/local/
+*.dump
+*.sql.gz
+*.sql.age
+
+# --- Journaux, temporaires, systèmes de fichiers ----------------------------------------------
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

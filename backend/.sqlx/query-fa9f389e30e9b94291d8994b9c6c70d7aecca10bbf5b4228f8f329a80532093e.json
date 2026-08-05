@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT categorie_id FROM hebergement.unite WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "categorie_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "hebergement.unite",
+            "name": "categorie_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "fa9f389e30e9b94291d8994b9c6c70d7aecca10bbf5b4228f8f329a80532093e"
+}

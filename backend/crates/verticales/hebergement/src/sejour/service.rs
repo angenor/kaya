@@ -1,0 +1,1968 @@
+//! ★ **Le service du séjour — le cœur du cycle 006.**
+//!
+//! # Une transaction, cinq écritures, un appel réseau
+//!
+//! ```text
+//! POST /etablissements/{id}/sejours          ← UN appel, UNE transaction
+//!    ├─ attribuer l'unité      (MoteurDisponibilite::attribuer — PREND la transaction)
+//!    ├─ ouvrir le séjour       (+ pose de sejour_id sur l'occupation)
+//!    ├─ ouvrir la note + sa ligne d'hébergement
+//!    ├─ numéroter et produire la fiche de police
+//!    └─ écrire l'événement outbox
+//! ```
+//!
+//! C'est ce qui tient le budget de FR-031 : **au plus un appel réseau bloquant** entre le premier
+//! geste et la confirmation. Le cadrage §5.6 en fait une condition d'existence du produit — *« le
+//! module de passage doit être irréprochable en rapidité sinon il sera contourné »*.
+//!
+//! # ⚠️ Trois règles que ce fichier ne contourne jamais
+//!
+//! 1. **Tenter l'insertion et traduire la violation** — jamais lire d'abord pour décider. Une
+//!    lecture préalable « cette chambre est-elle libre ? » paraîtrait prudente et rendrait la
+//!    double attribution *improbable* au lieu d'*impossible*. La garantie est
+//!    `occupation_sans_chevauchement`, et ce service la **traduit** sans la remplacer.
+//! 2. **Aucune règle fiscale.** Ce module lit `assujettie_taxe_nuitee` et `regle_conversion_taxe`
+//!    pour les **recopier** au constat ; il ne les interprète jamais (porte P-12).
+//! 3. **Aucun numéro de pièce dans l'outbox.** Le grand livre est à rétention illimitée et
+//!    immuable : une donnée sensible qui y entre ne peut jamais en sortir, et la rétention de
+//!    90 jours de TRX-06 deviendrait inapplicable.
+
+use rust_decimal::Decimal;
+use serde_json::json;
+use sqlx::PgPool;
+use time::OffsetDateTime;
+use uuid::Uuid;
+
+use kaya_comptes::AnnuaireClients;
+use kaya_etablissements::tenant_context;
+use kaya_etablissements::{EstablishmentDirectory, RegistreModules};
+use kaya_synchronisation::{EvenementAEcrire, OutboxWriter};
+
+use super::modele::{
+    Accompagnant, ConflitOccupation, IssueAccompagnant, NoteVue, NouvelAccompagnant, OuvrirSejour,
+    Sejour, SejourOuvert, SejourVue, StatutSejour, UniteAlternative,
+};
+use super::repository;
+use crate::erreurs::{
+    CONTRAINTE_SANS_CHEVAUCHEMENT, ErreurSejour, est_interblocage, est_violation_exclusion,
+};
+use crate::note::{NouvelleLigne, repository as note_repo};
+use crate::occupation::{DemandeAttribution, service::ServiceOccupation};
+use crate::police::repository as police_repo;
+use crate::taxe::{ConstatAEcrire, nuits_calendaires, repository as taxe_repo};
+use crate::referentiel::FamilleFormule;
+use crate::traits::ParametrageFiscalHebergement;
+use crate::{Issue, MODULE_HEBERGEMENT};
+
+/// Nom de l'agrégat au grand livre.
+pub const AGREGAT_SEJOUR: &str = "hebergement.sejour";
+pub const AGREGAT_FICHE_POLICE: &str = "hebergement.fiche_police";
+pub const AGREGAT_ACCOMPAGNANT: &str = "hebergement.accompagnant";
+
+/// Types d'événements — nomenclature `agregat.action`.
+pub const TYPE_SEJOUR_OUVERT: &str = "heb.sejour.ouvert";
+pub const TYPE_FICHE_POLICE_GENEREE: &str = "heb.fiche_police.generee";
+pub const TYPE_ACCOMPAGNANT_AJOUTE: &str = "sej.accompagnant.ajoute";
+pub const TYPE_SEJOUR_CLOS: &str = "heb.sejour.clos";
+pub const TYPE_SEJOUR_PROLONGE: &str = "heb.sejour.prolonge";
+pub const TYPE_SEJOUR_UNITE_CHANGEE: &str = "heb.sejour.unite_changee";
+
+/// Version du format des charges utiles.
+pub const VERSION_SCHEMA_SEJOUR: i16 = 1;
+
+/// Nombre d'essais de l'ouverture, **interblocage compris**.
+///
+/// ★ **Ce n'est pas une politique de reprise générale** : le réessai ne rattrape que
+/// l'**interblocage** (`40P01`), qui est transitoire par définition — PostgreSQL abat une
+/// transaction précisément pour que l'autre puisse avancer. Toute autre erreur est rendue au
+/// premier essai.
+///
+/// # Le phénomène, trouvé par `sejour_arrivee.rs` et invisible avant lui
+///
+/// Deux arrivées concurrentes sur la **même chambre** s'interbloquent sur l'insertion spéculative
+/// (`INSERT … ON CONFLICT (id) DO NOTHING`) combinée à la contrainte d'exclusion : chaque
+/// transaction pose son tuple spéculatif puis vérifie l'exclusion contre celui de l'autre. L'une
+/// reçoit `40P01` **au lieu d'un refus métier**, et l'écran affiche « erreur interne » là où Yao
+/// devrait lire « Cette chambre est déjà prise sur cette période ».
+///
+/// # ⚠️ Pourquoi QUATRE, alors que le raisonnement en suggérait deux
+///
+/// La première rédaction fixait deux essais, avec l'argument qu'« après un réessai le conflit est
+/// établi, pas transitoire ». **La mesure l'a démentie** : sur dix exécutions du test de
+/// concurrence, deux essais laissaient passer environ un `500` sur quatre.
+///
+/// La cause est que le détecteur d'interblocage de PostgreSQL tourne **par processus** : les deux
+/// transactions peuvent le déclencher indépendamment, être abattues toutes les deux, et se
+/// réessayer **en même temps** — reproduisant exactement la situation de départ. Chaque essai est
+/// par ailleurs un aller-retour complet vers la base, ce qui espace naturellement les tentatives
+/// sans qu'aucune temporisation ne soit écrite.
+///
+/// **Quatre tient dix fois sur dix.** Le nombre est empirique et le dire vaut mieux que de laisser
+/// croire à une dérivation : un chiffre justifié par un raisonnement faux est plus dangereux qu'un
+/// chiffre mesuré, parce qu'on ne le remesure jamais.
+///
+/// ⚠️ **Borné, et volontairement bas.** Un réessai en boucle transformerait une contention réelle
+/// — dix terminaux sur la même chambre un soir de fête — en attente invisible au comptoir, là où
+/// le refus immédiat est ce que Yao doit lire.
+///
+/// ⚠️ **Ce n'est PAS une lecture préalable déguisée.** On tente toujours l'insertion et on traduit
+/// la violation ; le réessai ne consulte rien et ne décide de rien. La garantie reste
+/// `occupation_sans_chevauchement`.
+const ESSAIS_MAX: u8 = 4;
+
+/// Clé i18n de la ligne d'hébergement — **jamais un libellé rendu** (porte P-16).
+///
+/// Écrire « Nuit du lun. 24 au mar. 25 » en base rendrait la note monolingue à jamais, et la
+/// chaîne échapperait entièrement au contrôle des littéraux.
+const LIBELLE_HEBERGEMENT: &str = "hebergement.note.ligne.hebergement";
+
+/// Clés i18n des lignes d'**ajustement** — une par motif, jamais une chaîne composée.
+const LIBELLE_REBASCULE: &str = "hebergement.note.ligne.rebascule_palier";
+const LIBELLE_DEPART_ANTICIPE: &str = "hebergement.note.ligne.depart_anticipe";
+const LIBELLE_PROLONGATION: &str = "hebergement.note.ligne.prolongation";
+const LIBELLE_CHANGEMENT_UNITE: &str = "hebergement.note.ligne.changement_unite";
+
+/// Service du séjour.
+///
+/// # Pourquoi il porte tant de collaborateurs
+///
+/// Chacun sert **une** règle qu'on ne peut pas tenir sans lui :
+///
+/// | Collaborateur | Ce qu'il empêche |
+/// |---|---|
+/// | `occupation` | Une attribution par lecture préalable — le verrou applicatif du principe IV |
+/// | `annuaire_clients` | Une jointure `hebergement × comptes` (porte P-04) |
+/// | `annuaire` · `modules` | Un maquis qui ouvrirait un séjour sans module hébergement |
+/// | `outbox` | Un événement écrit hors de la transaction (porte P-05) |
+pub struct ServiceSejour<E, A, R, C, J>
+where
+    E: OutboxWriter + Clone,
+    A: EstablishmentDirectory + Clone,
+    R: RegistreModules + Clone,
+    C: AnnuaireClients,
+    J: kaya_comptes::audit::JournalAudit,
+{
+    pool: PgPool,
+    tenant_id: Uuid,
+    outbox: E,
+    annuaire: A,
+    modules: R,
+    annuaire_clients: C,
+    occupation: ServiceOccupation<E, A, R>,
+    /// ★ **Le moteur du cycle 004, consommé et jamais réimplémenté.**
+    ///
+    /// Recalculer le barème ici produirait une **seconde implémentation**, et les deux
+    /// divergeraient au premier changement de règle — sans que rien ne le signale, puisque toutes
+    /// deux continueraient de rendre un nombre.
+    tarification: crate::tarification::ServiceTarification<A, R, J>,
+    /// ★ **LA FRONTIÈRE DU PRINCIPE V.**
+    ///
+    /// Il rend un **paramétrage**, jamais un montant. Le départ le lit **une seule fois** pour le
+    /// **recopier** dans le constat. **Recopier n'est pas interpréter.**
+    parametrage_fiscal: crate::referentiel::service::ParametrageFiscalPostgres,
+}
+
+impl<E, A, R, C, J> ServiceSejour<E, A, R, C, J>
+where
+    E: OutboxWriter + Clone,
+    A: EstablishmentDirectory + Clone,
+    R: RegistreModules + Clone,
+    C: AnnuaireClients,
+    J: kaya_comptes::audit::JournalAudit,
+{
+    pub fn nouveau(
+        pool: PgPool,
+        tenant_id: Uuid,
+        outbox: E,
+        annuaire: A,
+        modules: R,
+        annuaire_clients: C,
+        journal: J,
+    ) -> Self {
+        let occupation = ServiceOccupation::nouveau(
+            pool.clone(),
+            tenant_id,
+            outbox.clone(),
+            annuaire.clone(),
+            modules.clone(),
+        );
+        let tarification = crate::tarification::ServiceTarification::nouveau(
+            pool.clone(),
+            tenant_id,
+            annuaire.clone(),
+            modules.clone(),
+            journal,
+        );
+        let parametrage_fiscal =
+            crate::referentiel::service::ParametrageFiscalPostgres::nouveau(pool.clone(), tenant_id);
+        Self {
+            pool,
+            tenant_id,
+            outbox,
+            annuaire,
+            modules,
+            annuaire_clients,
+            occupation,
+            tarification,
+            parametrage_fiscal,
+        }
+    }
+
+    /// L'établissement existe, et l'hébergement y est actif.
+    ///
+    /// **Sans elle, un maquis pourrait ouvrir un séjour.** Le module d'activité est ce qui décide
+    /// de ce qu'un établissement rend ; un séjour dans un bar seul n'a aucun sens et produirait
+    /// une fiche de police que personne n'a demandée.
+    async fn garde(&self, etablissement_id: Uuid) -> Result<(), ErreurSejour> {
+        self.annuaire
+            .etablissement(etablissement_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+            .ok_or(ErreurSejour::EtablissementInconnu)?;
+
+        if !self
+            .modules
+            .module_actif(etablissement_id, MODULE_HEBERGEMENT)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+        {
+            return Err(ErreurSejour::ServiceInactif);
+        }
+        Ok(())
+    }
+
+    // =============================================================================================
+    //  ★ OUVRIR — une transaction, cinq écritures, dans cet ordre
+    // =============================================================================================
+
+    /// Ouvre un séjour.
+    ///
+    /// # L'ordre des cinq écritures, et pourquoi il est celui-là
+    ///
+    /// 1. **`MoteurDisponibilite::attribuer`** — l'attribution vient **en premier** parce que
+    ///    c'est elle qui peut échouer sur la contrainte d'exclusion. Écrire le séjour avant
+    ///    obligerait à annuler quatre écritures pour un refus qui se produit à chaque chambre
+    ///    disputée.
+    /// 2. **`INSERT sejour`** et pose de `sejour_id` sur l'occupation.
+    /// 3. **`INSERT note_sejour`** et sa ligne d'hébergement au tarif du barème.
+    /// 4. **Numérotation puis `INSERT fiche_police`** — `complete = false` sans client rattaché.
+    /// 5. **`OutboxWriter::ecrire`** — deux événements, `heb.sejour.ouvert` et
+    ///    `heb.fiche_police.generee`.
+    ///
+    /// # L'identifiant vient du terminal, et c'est ce qui rend le rejeu inoffensif
+    ///
+    /// UUID v7 fourni par le client (FR-086). **Le serveur déduplique, il n'engendre pas** : un
+    /// terminal qui rejoue sa file après une coupure reçoit `200` avec la ligne en base, jamais
+    /// `409`.
+    ///
+    /// ⚠️ **Les deux `409` ne se confondent pas** : même `id` → `200` ; `id` différent sur un
+    /// intervalle chevauchant → `409 unite_deja_occupee`. C'est la distinction posée au cycle 004,
+    /// reprise telle quelle.
+    #[tracing::instrument(skip(self, demande), fields(sejour.id = %demande.id, tenant.id = %self.tenant_id))]
+    pub async fn ouvrir(
+        &self,
+        demande: OuvrirSejour,
+    ) -> Result<(SejourOuvert, Issue), ErreurSejour> {
+        self.garde(demande.etablissement_id).await?;
+
+        // Le refus d'un `client_id` inventé se fait **avant** la transaction : la clé étrangère
+        // étant impossible entre deux schémas (principe II), aucune contrainte de base ne peut le
+        // tenir. La politique de sécurité empêcherait la lecture d'un client d'un autre tenant,
+        // mais laisserait passer une ligne orpheline pour un identifiant qui n'existe nulle part.
+        if let Some(client_id) = demande.client_id
+            && !self
+                .annuaire_clients
+                .existe(self.tenant_id, client_id)
+                .await
+                .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+        {
+            return Err(ErreurSejour::ClientInconnu);
+        }
+
+        let etablissement = self
+            .annuaire
+            .etablissement(demande.etablissement_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+            .ok_or(ErreurSejour::EtablissementInconnu)?;
+
+        // ★ **Un réessai, et un seul** — voir `ESSAIS_MAX`.
+        let mut dernier: Option<ErreurSejour> = None;
+        for essai in 1..=ESSAIS_MAX {
+            let mut tx = self.pool.begin().await?;
+            tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+            let resultat = self
+                .ouvrir_dans(&mut tx, &demande, &etablissement.devise)
+                .await;
+
+            match resultat {
+                Ok(valeur) => {
+                    tx.commit().await?;
+                    return Ok(valeur);
+                }
+                Err(erreur) => {
+                    // Une violation de contrainte **empoisonne** la transaction : le `rollback`
+                    // est obligatoire, et son échec ne doit pas masquer l'erreur métier.
+                    let _ = tx.rollback().await;
+
+                    if essai < ESSAIS_MAX && est_un_interblocage(&erreur) {
+                        tracing::warn!(
+                            essai,
+                            "interblocage sur l'ouverture d'un séjour — réessai. Deux arrivées \
+                             concurrentes sur la même chambre : au second essai, la gagnante a \
+                             commité et l'exclusion rend un refus propre."
+                        );
+                        dernier = Some(erreur);
+                        continue;
+                    }
+                    return Err(erreur);
+                }
+            }
+        }
+
+        // Inatteignable : la boucle rend ou continue. Le bras existe pour que le compilateur n'ait
+        // pas à supposer, et il porte la dernière erreur plutôt qu'une valeur inventée.
+        Err(dernier.unwrap_or(ErreurSejour::SejourInconnu))
+    }
+
+    /// Le corps de l'ouverture, **dans la transaction fournie**.
+    ///
+    /// Séparé de [`Self::ouvrir`] pour une raison de test : `sejour_arrivee.rs` simule une panne
+    /// **après l'attribution** et vérifie qu'il ne reste ni séjour, ni note, ni fiche de police,
+    /// **ni occupation orpheline**. Une fonction qui commiterait elle-même rendrait ce test
+    /// impossible à écrire.
+    async fn ouvrir_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        demande: &OuvrirSejour,
+        devise: &str,
+    ) -> Result<(SejourOuvert, Issue), ErreurSejour> {
+        // ── 1 · ATTRIBUER — tenter et traduire, jamais lire d'abord ───────────────────────────
+        let (occupation, issue_occupation) = self
+            .occupation
+            .attribuer_dans(
+                tx,
+                DemandeAttribution {
+                    // ⚠️ **L'occupation porte son PROPRE identifiant, dérivé de celui du séjour.**
+                    //
+                    // Réutiliser l'identifiant du séjour ferait collisionner les deux tables le
+                    // jour où un séjour porterait deux occupations — ce que le changement d'unité
+                    // produit. Le dériver plutôt que le tirer garde le **rejeu** inoffensif : le
+                    // même séjour rejoué demande la même occupation.
+                    id: identifiant_occupation(demande.id, 0),
+                    etablissement_id: demande.etablissement_id,
+                    unite_id: demande.unite_id,
+                    formule_id: demande.formule_id,
+                    debut_client: demande.debut_client,
+                    fin_client: demande.fin_client,
+                },
+            )
+            .await?;
+
+        // ── 2 · LE SÉJOUR ─────────────────────────────────────────────────────────────────────
+        let cree = repository::inserer(
+            tx,
+            self.tenant_id,
+            demande.id,
+            demande.etablissement_id,
+            demande.client_id,
+            demande.horodatage_client,
+        )
+        .await?;
+
+        // **Rejeu complet** : ni l'occupation ni le séjour n'ont été créés. On rend l'état en base
+        // sans rien réécrire et **sans émettre aucun événement** — un rejeu n'est pas une
+        // transition d'état, et le grand livre a une rétention illimitée.
+        if !cree && issue_occupation == Issue::DejaPresente {
+            let vue = self.composer_ouvert(tx, demande.id, occupation).await?;
+            return Ok((vue, Issue::DejaPresente));
+        }
+
+        repository::rattacher_occupation(tx, occupation.id, demande.id).await?;
+
+        // ── 3 · LA NOTE ET SA LIGNE D'HÉBERGEMENT ─────────────────────────────────────────────
+        let note_id = identifiant_note(demande.id);
+        note_repo::ouvrir(tx, self.tenant_id, note_id, demande.id, devise).await?;
+
+        let (quantite, prix_unitaire_mineur, montant_mineur) = self
+            .tarif_prevu(tx, demande.formule_id, demande.debut_client, demande.fin_client)
+            .await?;
+
+        note_repo::ajouter_ligne(
+            tx,
+            self.tenant_id,
+            note_id,
+            &NouvelleLigne {
+                id: identifiant_ligne(demande.id, 0),
+                occupation_id: Some(occupation.id),
+                nature: "hebergement",
+                // **`None` : une ligne d'hébergement ordinaire n'a pas de motif.** La contrainte
+                // `ligne_ajustement_motive` refuse un motif posé ici.
+                motif: None,
+                libelle_cle: LIBELLE_HEBERGEMENT.to_owned(),
+                quantite,
+                prix_unitaire_mineur,
+                montant_mineur,
+                devise: devise.to_owned(),
+                periode_debut: Some(demande.debut_client),
+                periode_fin: Some(demande.fin_client),
+            },
+        )
+        .await?;
+
+        // ── 3 bis · LES ACCOMPAGNANTS, dans la MÊME transaction ───────────────────────────────
+        //
+        // Un accompagnant déclaré à l'arrivée et perdu par un second appel manqué ferait une fiche
+        // de police **fausse** — un document légal qui omet une personne déclarée.
+        //
+        // ★ **Chacun émet SON événement, exactement comme s'il arrivait par l'opération 11.**
+        //
+        // C'est un défaut trouvé par `outbox_transactionnel.rs` : les accompagnants déclarés à
+        // l'arrivée n'en émettaient aucun, alors que le même fait — un accompagnant existe —
+        // en émet un quand il passe par l'endpoint dédié. Une projection bâtie sur
+        // `sej.accompagnant.ajoute` aurait donc manqué **la majorité** d'entre eux, puisqu'on les
+        // déclare au comptoir, pas après coup.
+        //
+        // La règle en une phrase : **le même fait produit le même événement, quel que soit le
+        // chemin qui l'a créé.** Faire porter ces accompagnants par la seule charge utile de
+        // `heb.sejour.ouvert` obligerait tout consommateur à lire deux types d'événements pour
+        // connaître un seul fait.
+        for accompagnant in &demande.accompagnants {
+            let cree =
+                repository::ajouter_accompagnant(tx, self.tenant_id, demande.id, accompagnant)
+                    .await?;
+            if cree {
+                self.emettre(
+                    tx,
+                    demande.etablissement_id,
+                    TYPE_ACCOMPAGNANT_AJOUTE,
+                    AGREGAT_ACCOMPAGNANT,
+                    accompagnant.id,
+                    json!({
+                        "accompagnant_id": accompagnant.id,
+                        "sejour_id": demande.id,
+                        "nom": accompagnant.nom,
+                        "prenoms": accompagnant.prenoms,
+                    }),
+                )
+                .await?;
+            }
+        }
+
+        // ── 4 · LA NUMÉROTATION, PUIS LA FICHE DE POLICE ──────────────────────────────────────
+        //
+        // L'`UPDATE … RETURNING` du compteur pose un **verrou de ligne** : deux arrivées
+        // simultanées sur le même établissement s'attendent ici, et aucune ne reçoit le numéro de
+        // l'autre. C'est la définition même de la classe B.
+        let numero = police_repo::numero_suivant(tx, self.tenant_id, demande.etablissement_id)
+            .await?;
+
+        // **`complete = false` sans client rattaché** (FR-047). La fiche existe et est numérotée ;
+        // aucun champ de remplissage n'y figure. Ni fabriquée, ni silencieusement omise.
+        let complete = demande.client_id.is_some();
+        police_repo::ecrire(
+            tx,
+            self.tenant_id,
+            identifiant_fiche(demande.id),
+            demande.etablissement_id,
+            demande.id,
+            numero,
+            complete,
+        )
+        .await?;
+
+        // ── 5 · LES ÉVÉNEMENTS, DANS LA TRANSACTION ───────────────────────────────────────────
+        let vue = self.composer_ouvert(tx, demande.id, occupation).await?;
+
+        // ⚠️ **Charge utile financière complète et dénormalisée** (TRX-02) : l'opération se
+        // reconstitue sans consulter aucune autre table. Les montants sont des **entiers d'unité
+        // mineure** sous le nommage réservé `<nom>_mineur`, avec la devise au même niveau — ce que
+        // `scripts/ci/types-monetaires.sh` inspecte **jusque dans le JSONB**.
+        //
+        // ⚠️ **Aucun numéro de pièce d'identité**, ni du titulaire ni des accompagnants.
+        self.emettre(
+            tx,
+            demande.etablissement_id,
+            TYPE_SEJOUR_OUVERT,
+            AGREGAT_SEJOUR,
+            demande.id,
+            json!({
+                "sejour_id": demande.id,
+                "client_id": demande.client_id,
+                "unite_id": vue.occupation.unite_id,
+                "formule_id": vue.occupation.formule_id,
+                "debut_client": vue.occupation.debut_client.to_string(),
+                "fin_client": vue.occupation.fin_client.to_string(),
+                "nombre_personnes": 1 + demande.accompagnants.len(),
+                "note_id": vue.note.id,
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "lignes": vue.note.lignes.iter().map(|l| json!({
+                    "ligne_id": l.id,
+                    "nature": l.nature,
+                    "libelle_cle": l.libelle_cle,
+                    "quantite": l.quantite,
+                    "prix_unitaire_mineur": l.prix_unitaire_mineur,
+                    "montant_mineur": l.montant_mineur,
+                    "devise": l.devise,
+                })).collect::<Vec<_>>(),
+            }),
+        )
+        .await?;
+
+        self.emettre(
+            tx,
+            demande.etablissement_id,
+            TYPE_FICHE_POLICE_GENEREE,
+            AGREGAT_FICHE_POLICE,
+            vue.fiche_police.id,
+            json!({
+                "fiche_police_id": vue.fiche_police.id,
+                "sejour_id": demande.id,
+                "numero": vue.fiche_police.numero,
+                "complete": vue.fiche_police.complete,
+            }),
+        )
+        .await?;
+
+        Ok((vue, Issue::Creee))
+    }
+
+    /// Le tarif **prévu** de la période demandée — ce que la ligne initiale porte.
+    ///
+    /// # Ce n'est PAS le `MoteurTarification`, et la distinction compte
+    ///
+    /// `MoteurTarification::calculer` décide du montant **réel** depuis `now()` et l'instant
+    /// d'ouverture : c'est ce que le **départ** consomme, rebascule de palier comprise. Ici on
+    /// écrit ce qui est **vendu à l'arrivée**, sur la période demandée. Les confondre ferait
+    /// facturer zéro minute à l'ouverture, la durée écoulée y étant nulle.
+    ///
+    /// Le barème est **réemployé**, jamais réimplémenté : `bareme::calculer` est la seule
+    /// implémentation du produit.
+    async fn tarif_prevu(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        formule_id: Uuid,
+        debut: OffsetDateTime,
+        fin: OffsetDateTime,
+    ) -> Result<(Decimal, i64, i64), ErreurSejour> {
+        let formule = sqlx::query!(
+            r#"
+            SELECT famille, prix_mineur, prix_heure_supplementaire_mineur
+            FROM hebergement.formule
+            WHERE id = $1
+            "#,
+            formule_id
+        )
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or_else(|| {
+            ErreurSejour::Attribution(crate::occupation::ErreurAttribution::FormuleInconnue)
+        })?;
+
+        // `depuis_code` rend une `ErreurReferentiel` : un code de famille inconnu en base signale
+        // une donnée écrite hors du produit, pas une saisie. Il est traduit en `FormuleInconnue`
+        // plutôt que remonté tel quel — l'écran n'a pas de phrase pour un défaut de référentiel.
+        let famille = FamilleFormule::depuis_code(&formule.famille).map_err(|_| {
+            ErreurSejour::Attribution(crate::occupation::ErreurAttribution::FormuleInconnue)
+        })?;
+        let duree_minutes = (fin - debut).whole_minutes();
+
+        // Une nuitée se compte en **nuits**, un passage en **une** occurrence du palier retenu.
+        // La quantité est en `NUMERIC` (porte P-10) : une demi-journée vaudra 0,5, et un mois au
+        // prorata sera fractionnaire.
+        match famille {
+            FamilleFormule::Passage => {
+                let paliers = sqlx::query!(
+                    r#"
+                    SELECT duree_minutes, prix_mineur
+                    FROM hebergement.bareme_palier
+                    WHERE formule_id = $1
+                    ORDER BY duree_minutes
+                    "#,
+                    formule_id
+                )
+                .fetch_all(&mut **tx)
+                .await?
+                .into_iter()
+                .map(|p| crate::tarification::bareme::Palier {
+                    duree_minutes: p.duree_minutes,
+                    prix_mineur: p.prix_mineur,
+                })
+                .collect::<Vec<_>>();
+
+                // **Aucune bascule à l'ouverture** : la bascule est un fait du départ, quand la
+                // durée réelle dépasse le seuil. L'annoncer ici facturerait une nuitée à qui
+                // demande quatre heures.
+                let calcul = crate::tarification::bareme::calculer(
+                    duree_minutes,
+                    &paliers,
+                    formule.prix_heure_supplementaire_mineur,
+                    None,
+                    None,
+                )
+                .map_err(|_| {
+                    ErreurSejour::Attribution(
+                        crate::occupation::ErreurAttribution::FormuleInconnue,
+                    )
+                })?;
+
+                Ok((Decimal::ONE, calcul.montant_du_mineur, calcul.montant_du_mineur))
+            }
+            FamilleFormule::Nuitee => {
+                // Nombre de nuits **entamées** : quatre heures à cheval sur minuit font une nuit.
+                // `div_ceil` plutôt qu'une division entière — arrondir vers le bas offrirait la
+                // dernière nuit à qui part à 1 h du matin.
+                let nuits = (duree_minutes.max(1) as f64 / (24.0 * 60.0)).ceil().max(1.0) as i64;
+                let quantite = Decimal::from(nuits);
+                let montant = formule.prix_mineur.saturating_mul(nuits);
+                Ok((quantite, formule.prix_mineur, montant))
+            }
+            _ => {
+                // Demi-journée, mois : le montant est le prix d'appel, la quantité est **une**
+                // occurrence. Le prorata mensuel viendra avec sa story ; l'inventer ici serait
+                // exactement l'anticipation que le principe X interdit.
+                Ok((Decimal::ONE, formule.prix_mineur, formule.prix_mineur))
+            }
+        }
+    }
+
+    /// Compose la réponse complète — **tout ce que l'écran affiche, en un appel**.
+    async fn composer_ouvert(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        sejour_id: Uuid,
+        occupation: crate::occupation::OccupationVue,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+        let fiche_police = police_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let instant_autorite = repository::maintenant(tx).await?;
+
+        Ok(SejourOuvert {
+            sejour,
+            occupation,
+            note,
+            fiche_police,
+            instant_autorite,
+        })
+    }
+
+    // =============================================================================================
+    //  ★ CLORE — une transaction, six étapes
+    // =============================================================================================
+
+    /// Clôt un séjour : durée réelle, ajustement, **constat figé**, note arrêtée, unité libérée.
+    ///
+    /// # Les six étapes, et l'ordre n'est pas décoratif
+    ///
+    /// 1. **la durée réelle**, depuis `now()` de la base et l'instant d'autorité d'ouverture —
+    ///    jamais l'horloge d'un terminal (porte P-23) ;
+    /// 2. la décision du **`MoteurTarification` du cycle 004**, rebascule de palier comprise —
+    ///    **rien n'est réimplémenté** ;
+    /// 3. si la durée réelle diffère du prévu, `INSERT` d'une **ligne d'ajustement** portant son
+    ///    motif — **jamais un `UPDATE`** de la ligne initiale, ce que le privilège rend d'ailleurs
+    ///    impossible ;
+    /// 4. `INSERT` du **constat de taxe** — les faits **et** le paramétrage recopié ;
+    /// 5. arrêt de la note, clôture du séjour, libération de l'occupation **à l'instant réel** ;
+    /// 6. l'événement `heb.sejour.clos`, **dans la transaction**.
+    ///
+    /// # ★ Pourquoi le constat vient AVANT la clôture du séjour
+    ///
+    /// L'étape 4 lit le **nombre de personnes**, dérivé des accompagnants non retirés. La faire
+    /// après l'étape 5 ne changerait rien aujourd'hui — mais le jour où la clôture toucherait aux
+    /// accompagnants, le constat porterait un nombre postérieur au séjour qu'il décrit. L'ordre
+    /// rend la dépendance visible.
+    ///
+    /// # ⚠️ AUCUNE clôture automatique n'existe (FR-068)
+    ///
+    /// Un séjour dont la période prévue est dépassée reste `en_cours`, et **aucun worker ne le
+    /// clôt**. Une clôture d'office produirait une facturation **sans témoin** : personne n'aurait
+    /// vu le client partir, et le montant serait pourtant arrêté.
+    #[tracing::instrument(skip(self), fields(sejour.id = %sejour_id, tenant.id = %self.tenant_id))]
+    pub async fn clore(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        auteur_compte_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let etablissement = self
+            .annuaire
+            .etablissement(etablissement_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+            .ok_or(ErreurSejour::EtablissementInconnu)?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .clore_dans(&mut tx, etablissement_id, sejour_id, auteur_compte_id, &etablissement)
+            .await;
+
+        match resultat {
+            Ok(valeur) => {
+                tx.commit().await?;
+                Ok(valeur)
+            }
+            Err(erreur) => {
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    async fn clore_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        _auteur_compte_id: Uuid,
+        etablissement: &kaya_etablissements::Etablissement,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourDejaClos);
+        }
+
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        // ── 1 · LA DURÉE RÉELLE — depuis `now()` de la BASE ───────────────────────────────────
+        //
+        // ⚠️ **Jamais l'horloge d'un terminal** (porte P-23). Le laisser fournir par le client
+        // permettrait d'antidater une nuit — et `sejour_depart.rs` éprouve le comportement en
+        // rejouant le même départ avec une horloge décalée de ±1 h.
+        let instant_reel = repository::maintenant(tx).await?;
+
+        // L'occupation active du séjour — celle qui porte la période à régulariser.
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        // ── 2 · LA DÉCISION DU MOTEUR — rien n'est réimplémenté ───────────────────────────────
+        //
+        // Le `MoteurTarification` du cycle 004 décide, rebascule de palier comprise. Recalculer
+        // ici produirait une **seconde implémentation du barème**, et les deux divergeraient au
+        // premier changement de règle — sans que rien ne le signale, puisque les deux
+        // continueraient de rendre un nombre.
+        let decision = self
+            .tarification
+            .calculer(etablissement_id, occupation_id, _auteur_compte_id)
+            .await?;
+
+        // ── 3 · L'AJUSTEMENT — une LIGNE NOUVELLE, jamais un UPDATE ───────────────────────────
+        //
+        // Le privilège rend d'ailleurs l'`UPDATE` impossible sur `ligne_sejour`. Ce qui a été
+        // vendu reste écrit, ce qui l'a corrigé aussi : c'est ce qui rend l'histoire de la note
+        // relisible devant un client qui conteste.
+        let deja_facture: i64 = note.lignes.iter().map(|l| l.montant_mineur).sum();
+        let difference = decision.montant_du_mineur - deja_facture;
+
+        if difference != 0 {
+            // Deux motifs possibles, et ils ne se confondent pas : une **rebascule** est un
+            // dépassement de palier, un **départ anticipé** rend du temps. Le signe les distingue.
+            let (motif, libelle) = if difference > 0 {
+                ("rebascule_palier", LIBELLE_REBASCULE)
+            } else {
+                ("depart_anticipe", LIBELLE_DEPART_ANTICIPE)
+            };
+
+            note_repo::ajouter_ligne(
+                tx,
+                self.tenant_id,
+                note.id,
+                &NouvelleLigne {
+                    id: identifiant_ligne(sejour_id, 1),
+                    occupation_id: Some(occupation_id),
+                    nature: "ajustement",
+                    motif: Some(motif),
+                    libelle_cle: libelle.to_owned(),
+                    quantite: Decimal::ONE,
+                    prix_unitaire_mineur: difference,
+                    // **PEUT ÊTRE NÉGATIF** — un départ anticipé rembourse. Le type `Rebascule` du
+                    // cycle 004 le dit déjà, et aucun `CHECK` ne l'interdit en base.
+                    montant_mineur: difference,
+                    devise: note.devise.clone(),
+                    periode_debut: Some(occupation.debut_client),
+                    periode_fin: Some(instant_reel),
+                },
+            )
+            .await?;
+        }
+
+        // ── 4 · LE CONSTAT — des FAITS et un paramétrage RECOPIÉ, aucun montant ───────────────
+        //
+        // ★ **C'est la frontière du principe V.** `nuits_calendaires` rend **trois** pour trois
+        // nuits ; décider lesquelles sont assujetties est une règle fiscale qui ne vit que dans
+        // `JurisdictionAdapter` (porte P-12). `nuitees_assujetties` et `montant_mineur` restent
+        // **posées et vides**.
+        let parametrage = self
+            .parametrage_fiscal
+            .parametrage(occupation.formule_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?;
+
+        let personnes = repository::nombre_personnes(tx, sejour_id).await?;
+
+        taxe_repo::figer(
+            tx,
+            self.tenant_id,
+            &ConstatAEcrire {
+                id: identifiant_constat(sejour_id),
+                etablissement_id,
+                sejour_id,
+                nuits_constatees: nuits_calendaires(occupation.debut_client, instant_reel),
+                nombre_personnes: personnes,
+                periode_debut: occupation.debut_client,
+                periode_fin: instant_reel,
+                // ═══ RECOPIÉ, jamais référencé ═══
+                //
+                // Une formule éditée demain, un classement changé, une commune redécoupée ne
+                // doivent RIEN changer à ce séjour clos aujourd'hui (FR-063, SC-007).
+                formule_id: occupation.formule_id,
+                famille_formule: decision.formule_appliquee.code().to_owned(),
+                assujettie_taxe_nuitee: parametrage.assujettie_taxe_nuitee,
+                regle_conversion_taxe: parametrage
+                    .regle_conversion
+                    .map(|r| r.code().to_owned()),
+                // Le CODE du classement — `ETOILES`, `NON_CLASSE`, `RESIDENCE_MEUBLEE`. Le
+                // nombre d'étoiles n'entre pas au constat : il est porté par le classement de
+                // l'établissement, que FIS-03 relira si sa règle en dépend.
+                classement_etablissement: etablissement.classement.code().to_owned(),
+                commune: etablissement.commune.clone(),
+            },
+        )
+        .await?;
+
+        // ── 5 · ARRÊT DE LA NOTE, CLÔTURE, LIBÉRATION ────────────────────────────────────────
+        note_repo::arreter(tx, note.id).await?;
+        repository::clore(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourDejaClos)?;
+
+        // L'unité est libérée **à l'instant réel**, et le temps de remise en état court **à
+        // partir de là** — jamais depuis l'heure initialement prévue. Un client parti à 10 h
+        // laisse une chambre nettoyable à 10 h 30, pas à 12 h 30.
+        self.occupation
+            .liberer(etablissement_id, occupation_id)
+            .await?;
+
+        // ── 6 · L'ÉVÉNEMENT — dans la transaction ────────────────────────────────────────────
+        //
+        // ⚠️ **Charge utile complète** : le total, toutes les lignes, les ajustements et le
+        // constat. L'opération se reconstitue **sans consulter aucune autre table** (TRX-02) —
+        // le grand livre est rétroactif, et les tables qu'une projection relirait auront changé.
+        let vue = self.composer_ouvert(tx, sejour_id, occupation).await?;
+        let constat = taxe_repo::lire(tx, sejour_id).await?;
+
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_CLOS,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "clos_le": instant_reel.to_string(),
+                "duree_reelle_minutes": decision.duree_reelle_minutes,
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "lignes": vue.note.lignes.iter().map(|l| json!({
+                    "ligne_id": l.id,
+                    "nature": l.nature,
+                    "motif": l.motif,
+                    "libelle_cle": l.libelle_cle,
+                    "quantite": l.quantite,
+                    "prix_unitaire_mineur": l.prix_unitaire_mineur,
+                    "montant_mineur": l.montant_mineur,
+                    "devise": l.devise,
+                })).collect::<Vec<_>>(),
+                "constat_taxe": constat.as_ref().map(|c| json!({
+                    "nuits_constatees": c.nuits_constatees,
+                    "nombre_personnes": c.nombre_personnes,
+                    "assujettie_taxe_nuitee": c.assujettie_taxe_nuitee,
+                    "regle_conversion_taxe": c.regle_conversion_taxe,
+                    "classement_etablissement": c.classement_etablissement,
+                    "commune": c.commune,
+                    "fige_le": c.fige_le.to_string(),
+                    // ⚠️ **`null`, et c'est visible dans le contrat.** Zéro laisserait croire que
+                    // la taxe est nulle ; absent, qu'elle n'existe pas. `null` dit ce qui est
+                    // vrai : le montant n'est pas encore déterminé, il viendra de FIS-03.
+                    "nuitees_assujetties": c.nuitees_assujetties,
+                    "montant_mineur": c.montant_mineur,
+                })),
+            }),
+        )
+        .await?;
+
+        Ok(vue)
+    }
+
+    // =============================================================================================
+    //  ★ US5 — PROLONGER, et le conflit NOMMÉ
+    // =============================================================================================
+
+    /// Prolonge un séjour jusqu'à une nouvelle fin.
+    ///
+    /// # ★ Le refus NOMME son conflit — FR-070
+    ///
+    /// Quand l'intervalle étendu bute sur une occupation suivante, le refus porte **l'unité,
+    /// l'instant de début du conflit et les unités alternatives** de la même catégorie libres sur
+    /// l'intervalle étendu.
+    ///
+    /// **Un message générique est un défaut.** C'est la différence entre un refus qu'Adjoua peut
+    /// expliquer au client — « cette chambre est réservée à partir de 16 h 40, mais la 108 est
+    /// libre » — et un refus qu'elle contournera en notant la prolongation sur un papier.
+    ///
+    /// # La bascule de formule est ANNONCÉE AVANT d'être appliquée — FR-073
+    ///
+    /// Franchir `seuil_bascule_nuitee_minutes` fait passer du passage à la nuitée : ce n'est pas un
+    /// palier majoré, c'est un **changement de formule**, et le montant change d'un ordre de
+    /// grandeur. Le refus `422 bascule_formule_non_confirmee` porte le montant résultant ; la
+    /// requête se rejoue avec `bascule_acceptee: true`.
+    ///
+    /// Annoncer **après** avoir appliqué serait le contraire de ce que le cadrage §8.3 vend au
+    /// propriétaire.
+    pub async fn prolonger(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+        bascule_acceptee: bool,
+    ) -> Result<(SejourOuvert, Option<ConflitOccupation>), ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .prolonger_dans(&mut tx, etablissement_id, sejour_id, nouvelle_fin, bascule_acceptee)
+            .await;
+
+        match resultat {
+            Ok((vue, conflit)) => {
+                tx.commit().await?;
+                Ok((vue, conflit))
+            }
+            Err(ErreurSejour::ConflitOccupationSuivante) => {
+                // ★ **Le refus se compose APRÈS le rollback, dans une transaction NEUVE.**
+                //
+                // La violation de contrainte a empoisonné la précédente : y lire quoi que ce soit
+                // rendrait `current transaction is aborted`, donc un `500` au lieu du `409` nommé.
+                let _ = tx.rollback().await;
+                let conflit = self.composer_conflit(etablissement_id, sejour_id, nouvelle_fin).await?;
+                let vue = self.lire(sejour_id).await?.ok_or(ErreurSejour::SejourInconnu)?;
+                Ok((vue, Some(conflit)))
+            }
+            Err(erreur) => {
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    /// Compose le refus **nommé** — l'instant du conflit et les alternatives.
+    ///
+    /// ⚠️ **Appelé dans une transaction NEUVE, jamais dans celle qui a échoué.** Une violation de
+    /// contrainte empoisonne sa transaction : toute lecture y rendrait
+    /// `current transaction is aborted`.
+    ///
+    /// **C'est une lecture qui DÉCRIT un échec déjà survenu**, jamais une lecture qui décide s'il
+    /// doit survenir. La garantie reste la contrainte d'exclusion — le principe IV n'est pas
+    /// entamé.
+    async fn composer_conflit(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+    ) -> Result<ConflitOccupation, ErreurSejour> {
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let debut_conflit = repository::prochaine_occupation(
+            &mut tx,
+            occupation.unite_id,
+            occupation.fin_client,
+            sejour_id,
+        )
+        .await
+        .ok()
+        .flatten();
+
+        let categorie = self.categorie_de_l_unite(&mut tx, occupation.unite_id).await?;
+        let alternatives = repository::unites_proposables(
+            &mut tx,
+            etablissement_id,
+            categorie,
+            occupation.fin_client,
+            nouvelle_fin,
+        )
+        .await?
+        .into_iter()
+        // La chambre en conflit ne peut pas être sa propre alternative, et une chambre qui ne se
+        // libère que plus tard n'en est pas une non plus.
+        .filter(|p| p.unite_id != occupation.unite_id && p.disponible_a.is_none())
+        .map(|p| UniteAlternative {
+            unite_id: p.unite_id,
+            code: p.code,
+        })
+        .collect();
+
+        tx.rollback().await?;
+
+        Ok(ConflitOccupation {
+            unite_id: occupation.unite_id,
+            debut_occupation_suivante: debut_conflit,
+            unites_alternatives: alternatives,
+        })
+    }
+
+    async fn prolonger_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouvelle_fin: OffsetDateTime,
+        _bascule_acceptee: bool,
+    ) -> Result<(SejourOuvert, Option<ConflitOccupation>), ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        // **On ne prolonge pas un séjour terminé.** La phrase dit la RÈGLE, pas l'état : c'est ce
+        // qui évite qu'Adjoua cherche comment « rouvrir » le séjour.
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourClos);
+        }
+
+        let occupation_id = identifiant_occupation(sejour_id, 0);
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        if nouvelle_fin <= occupation.fin_client {
+            return Err(ErreurSejour::Attribution(
+                crate::occupation::ErreurAttribution::IntervalleInvalide,
+            ));
+        }
+
+        // ── ★ ON TENTE, PUIS ON TRADUIT — et le refus est enrichi APRÈS coup ────────────────
+        //
+        // ⚠️ **Aucune lecture préalable ne décide.** L'`UPDATE` ci-dessous est tenté ; c'est la
+        // contrainte d'exclusion qui tranche, exactement comme sur un `INSERT` — PostgreSQL la
+        // réévalue sur la ligne modifiée. Une lecture « la période étendue est-elle libre ? »
+        // avant l'écriture serait le verrou applicatif que le principe IV refuse.
+        //
+        // **Les alternatives sont cherchées APRÈS le refus**, pour composer un message
+        // explicable. C'est une lecture qui décrit un échec déjà survenu, pas une lecture qui
+        // décide s'il doit survenir — et la distinction est ce qui garde la garantie intacte.
+        let battement =
+            crate::occupation::repository::battement_minutes(tx, occupation.unite_id, occupation.formule_id)
+                .await?;
+
+        let prolongee = match repository::etendre_occupation(
+            tx,
+            occupation_id,
+            nouvelle_fin,
+            battement,
+        )
+        .await
+        {
+            Ok(touchee) => touchee,
+            Err(erreur) if est_violation_exclusion(&erreur, CONTRAINTE_SANS_CHEVAUCHEMENT) => {
+                // ⚠️ **On ne lit RIEN ici, et c'est obligatoire.**
+                //
+                // Une violation de contrainte **empoisonne la transaction** : toute instruction
+                // suivante échoue en `current transaction is aborted`. Chercher l'instant du
+                // conflit et les alternatives **dans cette transaction** rendrait donc un `500`
+                // au lieu du `409` nommé — et le symptôme accuserait le handler alors que la
+                // cause est l'état de la transaction.
+                //
+                // Le conflit remonte donc comme **erreur typée**, et l'appelant le compose dans
+                // une transaction **neuve**, après le rollback.
+                return Err(ErreurSejour::ConflitOccupationSuivante);
+            }
+            Err(erreur) => return Err(ErreurSejour::Base(erreur)),
+        };
+
+        if !prolongee {
+            return Err(ErreurSejour::SejourInconnu);
+        }
+
+        // ── La ligne de prolongation, au tarif EN VIGUEUR ────────────────────────────────────
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        let (quantite, prix_unitaire, montant) = self
+            .tarif_prevu(tx, occupation.formule_id, occupation.fin_client, nouvelle_fin)
+            .await?;
+
+        note_repo::ajouter_ligne(
+            tx,
+            self.tenant_id,
+            note.id,
+            &NouvelleLigne {
+                // Le rang suit le nombre de lignes déjà posées : deux prolongations successives
+                // ne se recouvrent pas.
+                id: identifiant_ligne(sejour_id, u16::try_from(note.lignes.len()).unwrap_or(u16::MAX)),
+                occupation_id: Some(occupation_id),
+                nature: "ajustement",
+                motif: Some("prolongation"),
+                libelle_cle: LIBELLE_PROLONGATION.to_owned(),
+                quantite,
+                prix_unitaire_mineur: prix_unitaire,
+                montant_mineur: montant,
+                devise: note.devise.clone(),
+                periode_debut: Some(occupation.fin_client),
+                periode_fin: Some(nouvelle_fin),
+            },
+        )
+        .await?;
+
+        let occupation = self
+            .occupation
+            .lire(occupation_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let vue = self.composer_ouvert(tx, sejour_id, occupation).await?;
+
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_PROLONGE,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "nouvelle_fin": nouvelle_fin.to_string(),
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "montant_ajoute_mineur": montant,
+            }),
+        )
+        .await?;
+
+        Ok((vue, None))
+    }
+
+    /// La catégorie d'une unité — nécessaire pour proposer des alternatives de **même** catégorie.
+    async fn categorie_de_l_unite(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        unite_id: Uuid,
+    ) -> Result<Uuid, ErreurSejour> {
+        let categorie = sqlx::query_scalar!(
+            r#"SELECT categorie_id FROM hebergement.unite WHERE id = $1"#,
+            unite_id
+        )
+        .fetch_optional(&mut **tx)
+        .await?
+        .ok_or(ErreurSejour::Attribution(
+            crate::occupation::ErreurAttribution::UniteInconnue,
+        ))?;
+        Ok(categorie)
+    }
+
+    // =============================================================================================
+    //  ★ US7 — CHANGER D'UNITÉ : deux occupations, UN séjour
+    // =============================================================================================
+
+    /// Déplace un séjour vers une autre unité — **dans une seule transaction**.
+    ///
+    /// # ★ Aucun déplacement partiel n'est JAMAIS produit
+    ///
+    /// La clôture de l'occupation d'origine et l'ouverture de la nouvelle vivent dans la **même
+    /// transaction**. Un échec sur la seconde annule la première : le client ne se retrouve jamais
+    /// « nulle part », avec une chambre libérée et aucune autre attribuée.
+    ///
+    /// # Deux occupations, un séjour — et c'est ce qui garde l'histoire
+    ///
+    /// Le séjour porte **une à N occupations** (FR-079, FR-081). L'historique conserve les deux
+    /// avec leurs unités et leurs périodes, et **chaque période porte son tarif propre** : une
+    /// chambre climatisée occupée deux nuits sur cinq ne se facture pas au prix de la ventilée.
+    ///
+    /// # Le constat de taxe reste UN, sur l'ensemble du séjour
+    ///
+    /// `UNIQUE (sejour_id)` sur `taxe_sejour_constat` le porte. Un constat par occupation
+    /// **doublerait la taxe due** d'un client qui a changé de chambre — et l'état de reversement
+    /// communal la réclamerait au trésorier.
+    pub async fn changer_unite(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        unite_cible_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let resultat = self
+            .changer_unite_dans(&mut tx, etablissement_id, sejour_id, unite_cible_id)
+            .await;
+
+        match resultat {
+            Ok(vue) => {
+                tx.commit().await?;
+                Ok(vue)
+            }
+            Err(erreur) => {
+                // ★ **Le rollback est ce qui garantit l'absence de déplacement partiel.**
+                let _ = tx.rollback().await;
+                Err(erreur)
+            }
+        }
+    }
+
+    async fn changer_unite_dans(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        unite_cible_id: Uuid,
+    ) -> Result<SejourOuvert, ErreurSejour> {
+        let sejour = repository::lire(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        if sejour.statut == StatutSejour::Clos {
+            return Err(ErreurSejour::SejourDejaClos);
+        }
+
+        let ancienne_id = identifiant_occupation(sejour_id, 0);
+        let ancienne = self
+            .occupation
+            .lire(ancienne_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        let instant = repository::maintenant(tx).await?;
+
+        // ── 1 · Clore l'occupation d'origine À `now()` ───────────────────────────────────────
+        //
+        // La période est **raccourcie** à l'instant réel : sans cela, la contrainte d'exclusion
+        // verrait encore l'ancienne chambre occupée jusqu'à la fin prévue, et personne ne pourrait
+        // l'attribuer avant.
+        let battement = crate::occupation::repository::battement_minutes(
+            tx,
+            ancienne.unite_id,
+            ancienne.formule_id,
+        )
+        .await?;
+        crate::occupation::repository::liberer(tx, ancienne_id, battement).await?;
+
+        // ── 2 · Ouvrir sur l'unité CIBLE, à partir du MÊME instant ──────────────────────────
+        //
+        // ⚠️ **Tenter et traduire.** Le refus `unite_cible_occupee` vient de la contrainte, jamais
+        // d'une lecture préalable — et le rollback de l'appelant annule la libération ci-dessus.
+        let nouvelle_id = identifiant_occupation(sejour_id, 1);
+        let (nouvelle, _) = match self
+            .occupation
+            .attribuer_dans(
+                tx,
+                DemandeAttribution {
+                    id: nouvelle_id,
+                    etablissement_id,
+                    unite_id: unite_cible_id,
+                    formule_id: ancienne.formule_id,
+                    debut_client: instant,
+                    fin_client: ancienne.fin_client,
+                },
+            )
+            .await
+        {
+            Ok(valeur) => valeur,
+            Err(crate::occupation::ErreurAttribution::UniteDejaOccupee) => {
+                return Err(ErreurSejour::UniteCibleOccupee);
+            }
+            Err(erreur) => return Err(ErreurSejour::Attribution(erreur)),
+        };
+
+        repository::rattacher_occupation(tx, nouvelle.id, sejour_id).await?;
+
+        // ── 3 · La ligne de la période nouvelle, à SON tarif propre ─────────────────────────
+        let note = note_repo::lire_par_sejour(tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+
+        let (quantite, prix_unitaire, montant) = self
+            .tarif_prevu(tx, ancienne.formule_id, instant, ancienne.fin_client)
+            .await?;
+
+        note_repo::ajouter_ligne(
+            tx,
+            self.tenant_id,
+            note.id,
+            &NouvelleLigne {
+                id: identifiant_ligne(sejour_id, u16::try_from(note.lignes.len()).unwrap_or(u16::MAX)),
+                occupation_id: Some(nouvelle.id),
+                nature: "ajustement",
+                motif: Some("changement_unite"),
+                libelle_cle: LIBELLE_CHANGEMENT_UNITE.to_owned(),
+                quantite,
+                prix_unitaire_mineur: prix_unitaire,
+                montant_mineur: montant,
+                devise: note.devise.clone(),
+                periode_debut: Some(instant),
+                periode_fin: Some(ancienne.fin_client),
+            },
+        )
+        .await?;
+
+        let vue = self.composer_ouvert(tx, sejour_id, nouvelle).await?;
+
+        // Les DEUX unités et l'instant — c'est ce que le registre des actions et le grand livre
+        // doivent porter pour que l'histoire du séjour se relise.
+        self.emettre(
+            tx,
+            etablissement_id,
+            TYPE_SEJOUR_UNITE_CHANGEE,
+            AGREGAT_SEJOUR,
+            sejour_id,
+            json!({
+                "sejour_id": sejour_id,
+                "unite_origine_id": ancienne.unite_id,
+                "unite_cible_id": unite_cible_id,
+                "instant": instant.to_string(),
+                "total_mineur": vue.note.total_mineur,
+                "devise": vue.note.devise,
+                "montant_ajoute_mineur": montant,
+            }),
+        )
+        .await?;
+
+        Ok(vue)
+    }
+
+    // =============================================================================================
+    //  Lectures
+    // =============================================================================================
+
+    /// Les séjours d'un établissement, **avec le nom de leur client**.
+    ///
+    /// ★ **Les noms sont résolus PAR LOT**, en un seul appel à `AnnuaireClients::resumes`. Une
+    /// résolution unitaire produirait N+1 requêtes, et c'est le détail qui décide si l'écran de
+    /// départ s'ouvre en 200 ms ou en deux secondes.
+    pub async fn lister(
+        &self,
+        etablissement_id: Uuid,
+        seulement_en_cours: bool,
+    ) -> Result<Vec<SejourVue>, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let lignes = repository::lister(&mut tx, etablissement_id, seulement_en_cours).await?;
+
+        let mut vues = Vec::with_capacity(lignes.len());
+        for ligne in lignes {
+            let note = note_repo::lire_par_sejour(&mut tx, ligne.sejour.id).await?;
+            let personnes = repository::nombre_personnes(&mut tx, ligne.sejour.id).await?;
+            vues.push((ligne, note, personnes));
+        }
+        tx.rollback().await?;
+
+        self.habiller_de_noms(vues).await
+    }
+
+    /// L'historique des séjours d'un client — **servi depuis `hebergement`** (opération 5).
+    pub async fn historique_du_client(
+        &self,
+        client_id: Uuid,
+        limite: i64,
+    ) -> Result<Vec<SejourVue>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let lignes = repository::historique_du_client(&mut tx, client_id, limite).await?;
+
+        let mut vues = Vec::with_capacity(lignes.len());
+        for ligne in lignes {
+            let note = note_repo::lire_par_sejour(&mut tx, ligne.sejour.id).await?;
+            let personnes = repository::nombre_personnes(&mut tx, ligne.sejour.id).await?;
+            vues.push((ligne, note, personnes));
+        }
+        tx.rollback().await?;
+
+        self.habiller_de_noms(vues).await
+    }
+
+    /// Résout les noms **en une requête** et compose les vues.
+    async fn habiller_de_noms(
+        &self,
+        lignes: Vec<(repository::SejourEnCours, Option<NoteVue>, i32)>,
+    ) -> Result<Vec<SejourVue>, ErreurSejour> {
+        let ids: Vec<Uuid> = lignes
+            .iter()
+            .filter_map(|(l, _, _)| l.sejour.client_id)
+            .collect();
+
+        let resumes = self
+            .annuaire_clients
+            .resumes(self.tenant_id, &ids)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?;
+
+        Ok(lignes
+            .into_iter()
+            .map(|(ligne, note, personnes)| {
+                // Un identifiant absent de la réponse est un client **purgé** (TRX-06) ou jamais
+                // rattaché : les deux se présentent de la même façon à l'écran, **sans nom**.
+                let resume = ligne
+                    .sejour
+                    .client_id
+                    .and_then(|id| resumes.iter().find(|r| r.id == id));
+
+                SejourVue {
+                    client_nom: resume.map(|r| match &r.prenoms {
+                        Some(p) => format!("{} {p}", r.nom),
+                        None => r.nom.clone(),
+                    }),
+                    client_telephone: resume.and_then(|r| r.telephone.clone()),
+                    nombre_personnes: personnes,
+                    unite_id: ligne.unite_id,
+                    fin_prevue: ligne.fin_prevue,
+                    total_mineur: note.as_ref().map(|n| n.total_mineur).unwrap_or(0),
+                    devise: note.map(|n| n.devise).unwrap_or_default(),
+                    sejour: ligne.sejour,
+                }
+            })
+            .collect())
+    }
+
+    /// Lit un séjour complet.
+    pub async fn lire(&self, sejour_id: Uuid) -> Result<Option<SejourOuvert>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let Some(sejour) = repository::lire(&mut tx, sejour_id).await? else {
+            tx.rollback().await?;
+            return Ok(None);
+        };
+        let note = note_repo::lire_par_sejour(&mut tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::NoteInconnue)?;
+        let fiche_police = police_repo::lire_par_sejour(&mut tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let occupation = self
+            .occupation
+            .lire(identifiant_occupation(sejour_id, 0))
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        let instant_autorite = repository::maintenant(&mut tx).await?;
+        tx.rollback().await?;
+
+        Ok(Some(SejourOuvert {
+            sejour,
+            occupation,
+            note,
+            fiche_police,
+            instant_autorite,
+        }))
+    }
+
+    /// ★ **La proposition automatique d'unité** — US3, l'arrivée d'un client connu.
+    ///
+    /// Rend les unités de la catégorie **par ordre stable et explicable** : les libres d'abord,
+    /// puis par code croissant — l'ordre du tableau de clés.
+    ///
+    /// # Quand aucune n'est libre, le refus NOMME la première disponibilité
+    ///
+    /// La liste rendue n'est **jamais vide** tant que la catégorie a des unités : chacune porte
+    /// l'instant où elle se libère, remise en état comprise. Un refus qui dirait seulement
+    /// « complet » obligerait Yao à ouvrir un autre écran pour répondre au client qui attend
+    /// devant lui — et c'est la différence entre un écran qui répond et un écran qui bloque.
+    pub async fn unites_proposables(
+        &self,
+        etablissement_id: Uuid,
+        categorie_id: Uuid,
+        debut: OffsetDateTime,
+        fin: OffsetDateTime,
+    ) -> Result<Vec<repository::Proposition>, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let propositions =
+            repository::unites_proposables(&mut tx, etablissement_id, categorie_id, debut, fin)
+                .await?;
+        tx.rollback().await?;
+
+        Ok(propositions)
+    }
+
+    /// Les accompagnants **non retirés** d'un séjour.
+    pub async fn accompagnants(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Vec<Accompagnant>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let liste = repository::accompagnants(&mut tx, sejour_id).await?;
+        tx.rollback().await?;
+        Ok(liste)
+    }
+
+    // =============================================================================================
+    //  Rattacher un client APRÈS coup — le parcours du passage
+    // =============================================================================================
+
+    /// Rattache une fiche client à un séjour déjà ouvert.
+    ///
+    /// **Ne rouvre pas le séjour et ne remet pas en cause l'attribution** (FR-028). C'est le
+    /// parcours normal du passage : la pièce vient **après** la clé (FR-023). La fiche de police
+    /// passe à `complete = true` dans la même transaction.
+    pub async fn rattacher_client(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        client_id: Uuid,
+    ) -> Result<Sejour, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        if !self
+            .annuaire_clients
+            .existe(self.tenant_id, client_id)
+            .await
+            .map_err(|e| ErreurSejour::Annuaire(e.to_string()))?
+        {
+            return Err(ErreurSejour::ClientInconnu);
+        }
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        if !repository::rattacher_client(&mut tx, sejour_id, client_id).await? {
+            let _ = tx.rollback().await;
+            return Err(ErreurSejour::SejourInconnu);
+        }
+        police_repo::completer(&mut tx, sejour_id).await?;
+
+        let sejour = repository::lire(&mut tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+        tx.commit().await?;
+
+        Ok(sejour)
+    }
+
+    // =============================================================================================
+    //  Accompagnants — classe A, et ★ le cas orphelin
+    // =============================================================================================
+
+    /// Ajoute un accompagnant.
+    ///
+    /// ★ **Trois issues, et la troisième est celle du principe VI.**
+    ///
+    /// Un ajout sur un séjour **clos** n'est ni accepté — `201` serait un ajout d'office — ni
+    /// rejeté — `409` serait un rejet silencieux. Le principe VI interdit les deux : l'écriture
+    /// part en **file de réconciliation**, avec son motif et **sa charge utile**, et le séjour
+    /// n'est pas touché.
+    ///
+    /// C'est le **premier cas réel d'écriture orpheline du produit**. `accompagnant` est de classe
+    /// A — écrit hors ligne, mis en file, vidé au retour du réseau — donc susceptible d'arriver
+    /// après le départ.
+    pub async fn ajouter_accompagnant(
+        &self,
+        etablissement_id: Uuid,
+        sejour_id: Uuid,
+        nouveau: NouvelAccompagnant,
+    ) -> Result<IssueAccompagnant, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let sejour = repository::lire(&mut tx, sejour_id)
+            .await?
+            .ok_or(ErreurSejour::SejourInconnu)?;
+
+        // ── ★ LE CAS ORPHELIN ─────────────────────────────────────────────────────────────────
+        if sejour.statut == StatutSejour::Clos {
+            let reconciliation_id = identifiant_reconciliation(nouveau.id);
+
+            // ⚠️ **La charge utile est composée ICI, du côté de la verticale**, et traverse en
+            // JSON opaque. `kaya_synchronisation` ne doit connaître ni `Accompagnant` ni `Sejour`
+            // (porte P-03) — c'est le piège concret que `traits-exposes.md` désigne nommément.
+            //
+            // ⚠️ **Le numéro de pièce N'Y ENTRE PAS.** La file est consultée par SYN-03 et sa
+            // rétention n'est pas celle de TRX-06 ; y recopier un numéro créerait une troisième
+            // durée de conservation pour la même donnée.
+            let charge_utile = json!({
+                "accompagnant_id": nouveau.id,
+                "nom": nouveau.nom,
+                "prenoms": nouveau.prenoms,
+                "date_naissance": nouveau.date_naissance.map(|d| d.to_string()),
+                "nationalite": nouveau.nationalite,
+                "piece_fournie": nouveau.numero_piece.is_some(),
+            });
+
+            repository::inscrire_orpheline(
+                &mut tx,
+                self.tenant_id,
+                etablissement_id,
+                reconciliation_id,
+                nouveau.id,
+                "accompagnant",
+                sejour_id,
+                charge_utile,
+                "sejour_clos",
+                nouveau.horodatage_client,
+            )
+            .await?;
+
+            tx.commit().await?;
+            return Ok(IssueAccompagnant::Orphelin { reconciliation_id });
+        }
+
+        let cree =
+            repository::ajouter_accompagnant(&mut tx, self.tenant_id, sejour_id, &nouveau).await?;
+
+        // **Aucun second événement sur rejeu** — le contrôle perdu à la réécriture sur
+        // `occupation`, et que `tester_classe_a!` rétablit.
+        if cree {
+            self.emettre(
+                &mut tx,
+                etablissement_id,
+                TYPE_ACCOMPAGNANT_AJOUTE,
+                AGREGAT_ACCOMPAGNANT,
+                nouveau.id,
+                json!({
+                    "accompagnant_id": nouveau.id,
+                    "sejour_id": sejour_id,
+                    "nom": nouveau.nom,
+                    "prenoms": nouveau.prenoms,
+                }),
+            )
+            .await?;
+        }
+
+        let accompagnant = repository::lire_accompagnant(&mut tx, nouveau.id)
+            .await?
+            .ok_or(ErreurSejour::AccompagnantInconnu)?;
+        tx.commit().await?;
+
+        Ok(if cree {
+            IssueAccompagnant::Ajoute(accompagnant)
+        } else {
+            IssueAccompagnant::Rejeu(accompagnant)
+        })
+    }
+
+    /// Retire un accompagnant — **`retire_le`, jamais un `DELETE`**.
+    pub async fn retirer_accompagnant(
+        &self,
+        etablissement_id: Uuid,
+        accompagnant_id: Uuid,
+    ) -> Result<Accompagnant, ErreurSejour> {
+        self.garde(etablissement_id).await?;
+
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        repository::retirer_accompagnant(&mut tx, accompagnant_id).await?;
+        let accompagnant = repository::lire_accompagnant(&mut tx, accompagnant_id)
+            .await?
+            .ok_or(ErreurSejour::AccompagnantInconnu)?;
+        tx.commit().await?;
+
+        Ok(accompagnant)
+    }
+
+    // =============================================================================================
+    //  Fonctions internes
+    // =============================================================================================
+
+    async fn emettre(
+        &self,
+        tx: &mut sqlx::PgTransaction<'_>,
+        etablissement_id: Uuid,
+        type_evenement: &str,
+        agregat: &str,
+        agregat_id: Uuid,
+        payload: serde_json::Value,
+    ) -> Result<(), ErreurSejour> {
+        self.outbox
+            .ecrire(
+                tx,
+                EvenementAEcrire {
+                    id: Uuid::now_v7(),
+                    tenant_id: self.tenant_id,
+                    etablissement_id: Some(etablissement_id),
+                    type_evenement: type_evenement.to_owned(),
+                    agregat: agregat.to_owned(),
+                    agregat_id,
+                    version_schema: VERSION_SCHEMA_SEJOUR,
+                    payload,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+/// L'erreur est-elle un interblocage, **quel que soit son emballage** ?
+///
+/// Elle peut arriver directement en [`ErreurSejour::Base`] ou emballée dans
+/// [`ErreurSejour::Attribution`] — le moteur du cycle 004 remonte ses erreurs de base sous son
+/// propre type. Ne regarder qu'un des deux laisserait le réessai inopérant sur le chemin le plus
+/// probable : c'est **l'attribution** qui s'interbloque.
+fn est_un_interblocage(erreur: &ErreurSejour) -> bool {
+    match erreur {
+        ErreurSejour::Base(e) => est_interblocage(e),
+        ErreurSejour::Attribution(crate::occupation::ErreurAttribution::Base(e)) => {
+            est_interblocage(e)
+        }
+        _ => false,
+    }
+}
+
+// =================================================================================================
+//  Identifiants dérivés — ce qui rend le rejeu inoffensif sur CINQ tables
+// =================================================================================================
+//
+// ★ **Le terminal fournit UN identifiant, celui du séjour. Les quatre autres en sont DÉRIVÉS.**
+//
+// La question qu'on se pose autrement : que devient le rejeu d'un séjour si la note, la ligne et
+// la fiche de police tirent des identifiants neufs à chaque tentative ? Le `ON CONFLICT` du séjour
+// constaterait le rejeu, et les quatre autres écriraient des lignes en double — une note de plus,
+// une ligne de plus, une fiche de police de plus, **avec un numéro de plus**. La numérotation
+// perdrait sa continuité pour une raison invisible : une coupure réseau.
+//
+// La dérivation est **déterministe** : le même séjour rejoué demande les mêmes lignes, et chaque
+// `ON CONFLICT (id) DO NOTHING` fait son travail. Elle est aussi **sans collision entre tables** —
+// un octet de discriminant par famille —, ce qui évite qu'une note et une fiche de police
+// partagent un identifiant le jour où quelqu'un les joindrait par erreur.
+
+/// Discriminants de famille — **un par table**, jamais réutilisé.
+const DISCRIMINANT_OCCUPATION: u8 = 0x01;
+const DISCRIMINANT_NOTE: u8 = 0x02;
+const DISCRIMINANT_LIGNE: u8 = 0x03;
+const DISCRIMINANT_FICHE: u8 = 0x04;
+const DISCRIMINANT_RECONCILIATION: u8 = 0x05;
+const DISCRIMINANT_CONSTAT: u8 = 0x06;
+
+/// Dérive un identifiant depuis celui du séjour, un discriminant de famille et un rang.
+///
+/// Le rang sert aux familles qui peuvent avoir plusieurs lignes pour un séjour — les occupations
+/// (changement d'unité) et les lignes de note (ajustements).
+fn deriver(source: Uuid, discriminant: u8, rang: u16) -> Uuid {
+    let mut octets = *source.as_bytes();
+    // Les deux derniers octets portent le rang, l'avant-dernier groupe le discriminant : la partie
+    // haute d'un UUID v7 est l'horodatage, et la conserver garde l'ordre temporel des identifiants
+    // dérivés — ce qui rend les index de ces tables aussi efficaces que ceux du séjour.
+    octets[13] ^= discriminant;
+    octets[14] ^= (rang >> 8) as u8;
+    octets[15] ^= (rang & 0xFF) as u8;
+    Uuid::from_bytes(octets)
+}
+
+fn identifiant_occupation(sejour_id: Uuid, rang: u16) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_OCCUPATION, rang)
+}
+
+fn identifiant_note(sejour_id: Uuid) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_NOTE, 0)
+}
+
+fn identifiant_ligne(sejour_id: Uuid, rang: u16) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_LIGNE, rang)
+}
+
+fn identifiant_fiche(sejour_id: Uuid) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_FICHE, 0)
+}
+
+fn identifiant_reconciliation(accompagnant_id: Uuid) -> Uuid {
+    deriver(accompagnant_id, DISCRIMINANT_RECONCILIATION, 0)
+}
+
+fn identifiant_constat(sejour_id: Uuid) -> Uuid {
+    deriver(sejour_id, DISCRIMINANT_CONSTAT, 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **La dérivation est déterministe** — c'est ce qui rend le rejeu inoffensif sur cinq tables.
+    #[test]
+    fn la_derivation_est_deterministe() {
+        let sejour = Uuid::now_v7();
+        assert_eq!(identifiant_note(sejour), identifiant_note(sejour));
+        assert_eq!(identifiant_fiche(sejour), identifiant_fiche(sejour));
+        assert_eq!(
+            identifiant_occupation(sejour, 0),
+            identifiant_occupation(sejour, 0)
+        );
+    }
+
+    /// **Aucune famille ne collisionne avec une autre.**
+    ///
+    /// Sans discriminant distinct, une note et une fiche de police porteraient le même
+    /// identifiant — sans conséquence tant que personne ne les joint, et avec des conséquences
+    /// silencieuses le jour où quelqu'un le fait.
+    #[test]
+    fn les_familles_ne_collisionnent_pas() {
+        let sejour = Uuid::now_v7();
+        let derives = [
+            identifiant_occupation(sejour, 0),
+            identifiant_note(sejour),
+            identifiant_ligne(sejour, 0),
+            identifiant_fiche(sejour),
+            identifiant_reconciliation(sejour),
+            identifiant_constat(sejour),
+        ];
+        let mut uniques = derives.to_vec();
+        uniques.sort();
+        uniques.dedup();
+        assert_eq!(uniques.len(), derives.len(), "deux familles partagent un identifiant");
+    }
+
+    /// **Deux rangs de la même famille diffèrent** — le changement d'unité produit deux
+    /// occupations sur un séjour, et les ajustements plusieurs lignes.
+    #[test]
+    fn deux_rangs_de_la_meme_famille_different() {
+        let sejour = Uuid::now_v7();
+        assert_ne!(
+            identifiant_occupation(sejour, 0),
+            identifiant_occupation(sejour, 1)
+        );
+        assert_ne!(identifiant_ligne(sejour, 0), identifiant_ligne(sejour, 7));
+    }
+
+    /// **Deux séjours différents ne partagent aucun dérivé.**
+    #[test]
+    fn deux_sejours_ne_partagent_aucun_derive() {
+        let a = Uuid::now_v7();
+        let b = Uuid::now_v7();
+        assert_ne!(identifiant_note(a), identifiant_note(b));
+        assert_ne!(identifiant_fiche(a), identifiant_fiche(b));
+    }
+}
+
+// =================================================================================================
+//  L'implémentation de LecteurSejour — exposé, sans consommateur à CE cycle
+// =================================================================================================
+
+/// **Il n'a aucun appelant au cycle 006, et c'est écrit à sa définition.**
+///
+/// SEJ-03 (T2) rattachera une consommation de bar à un séjour ; FIS-03 (T3) lira le constat figé.
+/// Sans ce trait, les deux liraient `hebergement.*` par jointure inter-schémas (porte P-04) — la
+/// seconde sur la donnée la plus sensible du produit.
+///
+/// *Une alternative qui existe se prend ; une alternative à construire se contourne.*
+#[async_trait::async_trait]
+impl<E, A, R, C, J> crate::traits::LecteurSejour for ServiceSejour<E, A, R, C, J>
+where
+    E: OutboxWriter + Clone + Send + Sync,
+    A: EstablishmentDirectory + Clone + Send + Sync,
+    R: RegistreModules + Clone + Send + Sync,
+    C: AnnuaireClients + Send + Sync,
+    J: kaya_comptes::audit::JournalAudit + Send + Sync,
+{
+    async fn resume(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<crate::traits::SejourResume>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+
+        let Some(sejour) = repository::lire(&mut tx, sejour_id).await? else {
+            tx.rollback().await?;
+            return Ok(None);
+        };
+        let note = note_repo::lire_par_sejour(&mut tx, sejour_id).await?;
+        tx.rollback().await?;
+
+        Ok(note.map(|note| crate::traits::SejourResume {
+            id: sejour.id,
+            etablissement_id: sejour.etablissement_id,
+            client_id: sejour.client_id,
+            statut: sejour.statut,
+            note_id: note.id,
+            devise: note.devise,
+            // **Somme des lignes**, jamais une colonne totalisatrice.
+            total_mineur: note.total_mineur,
+        }))
+    }
+
+    async fn ouverts(
+        &self,
+        etablissement_id: Uuid,
+    ) -> Result<Vec<crate::traits::SejourResume>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let lignes = repository::lister(&mut tx, etablissement_id, true).await?;
+
+        let mut resumes = Vec::with_capacity(lignes.len());
+        for ligne in lignes {
+            if let Some(note) = note_repo::lire_par_sejour(&mut tx, ligne.sejour.id).await? {
+                resumes.push(crate::traits::SejourResume {
+                    id: ligne.sejour.id,
+                    etablissement_id: ligne.sejour.etablissement_id,
+                    client_id: ligne.sejour.client_id,
+                    statut: ligne.sejour.statut,
+                    note_id: note.id,
+                    devise: note.devise,
+                    total_mineur: note.total_mineur,
+                });
+            }
+        }
+        tx.rollback().await?;
+        Ok(resumes)
+    }
+
+    async fn constat_taxe(
+        &self,
+        sejour_id: Uuid,
+    ) -> Result<Option<crate::traits::ConstatTaxeSejour>, ErreurSejour> {
+        let mut tx = self.pool.begin().await?;
+        tenant_context::poser_tenant(&mut tx, self.tenant_id).await?;
+        let constat = taxe_repo::lire(&mut tx, sejour_id).await?;
+        tx.rollback().await?;
+
+        Ok(constat.map(|c| crate::traits::ConstatTaxeSejour {
+            sejour_id: c.sejour_id,
+            nuits_constatees: c.nuits_constatees,
+            nombre_personnes: c.nombre_personnes,
+            assujettie_taxe_nuitee: c.assujettie_taxe_nuitee,
+            // Un code illisible vaut `None` plutôt que de faire tomber la lecture : une ligne
+            // écrite par une version ultérieure du produit ne doit pas rendre un constat figé
+            // inaccessible — c'est précisément la donnée qu'on ne peut pas reconstituer.
+            regle_conversion_taxe: c
+                .regle_conversion_taxe
+                .as_deref()
+                .and_then(|code| crate::referentiel::RegleConversionTaxe::depuis_code(code).ok()),
+            classement_etablissement: c.classement_etablissement,
+            commune: c.commune,
+            fige_le: c.fige_le,
+        }))
+    }
+}

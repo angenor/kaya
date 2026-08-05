@@ -100,11 +100,53 @@ pub const PERMUTATIONS: [[usize; 3]; 6] = [
 /// ```
 #[macro_export]
 macro_rules! tester_classe_a {
+    // ── Forme COURTE — celle des cycles 001 à 005, conservée telle quelle ─────────────────────
+    //
+    // Elle délègue à la forme longue avec les deux valeurs par défaut. Les instanciations
+    // existantes ne sont pas touchées : une macro qui aurait changé de signature aurait imposé de
+    // rouvrir chaque appelant, ce qui est exactement le coût que l'outillage existe pour éviter.
     (
         $entite:ident,
         schema = $schema:literal,
         table = $table:literal,
         agregat = $agregat:literal,
+        chemin = $chemin:expr,
+        corps = $corps:expr $(,)?
+    ) => {
+        $crate::tester_classe_a!(
+            $entite,
+            schema = $schema,
+            table = $table,
+            agregat = $agregat,
+            role = "proprietaire",
+            preparation = |_pool: &sqlx::PgPool, jeu: $crate::commun::JeuTenant| {
+                std::boxed::Box::pin(async move { jeu.etablissement_id })
+                    as std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = uuid::Uuid> + Send>>
+            },
+            chemin = $chemin,
+            corps = $corps,
+        );
+    };
+
+    // ── Forme LONGUE — rôle explicite et préparation asynchrone ───────────────────────────────
+    //
+    // ⚠️ **Elle est née d'une hypothèse que le cycle 006 a cassée.** La forme courte fixait le
+    // rôle à `proprietaire`, « qui porte toutes les permissions » — vrai jusqu'à la migration
+    // `0030`, où le propriétaire ne reçoit plus que les **lectures** de la fiche client. Le
+    // symptôme était un `403` sur une écriture, message qui accuse le handler alors que la cause
+    // est le rôle choisi par le harnais.
+    //
+    // La `preparation` répond à un second manque : le chemin d'écriture d'une préférence a besoin
+    // d'une **personne cliente préexistante dans le tenant du test**, que la forme courte ne
+    // pouvait pas créer — sa fermeture de chemin est synchrone. La préparation rend un `Uuid` que
+    // la fermeture de chemin reçoit à la place de `etablissement_id`.
+    (
+        $entite:ident,
+        schema = $schema:literal,
+        table = $table:literal,
+        agregat = $agregat:literal,
+        role = $role:literal,
+        preparation = $preparation:expr,
         chemin = $chemin:expr,
         corps = $corps:expr $(,)?
     ) => {
@@ -114,14 +156,22 @@ macro_rules! tester_classe_a {
             use actix_web::test;
             use uuid::Uuid;
 
-            /// Le rôle qui a le droit d'écrire. `proprietaire` porte toutes les permissions : les
-            /// tests de classe A mesurent le rejeu et la commutativité, pas les permissions — leur
-            /// donner tous les droits isole la variable observée.
-            const ROLE: &str = "proprietaire";
+            /// Le rôle qui a le droit d'écrire.
+            ///
+            /// Les tests de classe A mesurent le rejeu et la commutativité, **pas** les
+            /// permissions : le rôle choisi doit donc porter le droit d'écrire, sans quoi le test
+            /// échoue sur un `403` qui ne dit rien de ce qu'il mesure.
+            const ROLE: &str = $role;
 
-            fn chemin_ecriture(etablissement_id: Uuid) -> String {
+            /// Prépare ce dont le chemin a besoin, et rend l'identifiant qu'il consomme.
+            async fn preparer(pool: &sqlx::PgPool, jeu: $crate::commun::JeuTenant) -> Uuid {
+                let composer = $preparation;
+                composer(pool, jeu).await
+            }
+
+            fn chemin_ecriture(contexte: Uuid) -> String {
                 let composer: fn(Uuid) -> String = $chemin;
-                composer(etablissement_id)
+                composer(contexte)
             }
 
             fn corps_ecriture(id: Uuid, rang: usize) -> serde_json::Value {
@@ -193,7 +243,7 @@ macro_rules! tester_classe_a {
                 .await;
 
                 let app = monter_application!(commun::pool_app().await);
-                let chemin = chemin_ecriture(jeu.etablissement_id);
+                let chemin = chemin_ecriture(preparer(&pool_owner, jeu).await);
                 let id = Uuid::now_v7();
 
                 let mut statuts = Vec::new();
@@ -260,7 +310,7 @@ macro_rules! tester_classe_a {
                 .await;
 
                 let app = monter_application!(commun::pool_app().await);
-                let chemin = chemin_ecriture(jeu.etablissement_id);
+                let chemin = chemin_ecriture(preparer(&pool_owner, jeu).await);
 
                 // Identifiants figés par permutation : les trois écritures sont **les mêmes**,
                 // seul leur ordre d'arrivée change. Des identifiants tirés à chaque envoi

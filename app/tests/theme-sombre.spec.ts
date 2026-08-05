@@ -65,6 +65,10 @@ const REPERTOIRES_INSPECTES = [
   // autres, et l'un d'eux — `G5` — est **composé** : il n'a pas de maquette contre laquelle
   // comparer un rendu, donc le contrôle mécanique des jetons y compte davantage encore.
   'modules/hebergement',
+  // Cycle 006 — le passage. **Zone de vitesse** : ses composants portent l'état d'une chambre en
+  // trois tons, et c'est exactement le genre d'endroit où une seconde palette se glisserait —
+  // la tentation d'écrire `dark:bg-vert-800` « juste pour ce cas ».
+  'modules/sejours',
   'core/design-system',
   'pages',
 ] as const
@@ -214,18 +218,37 @@ describe('G1 — mode clair et mode sombre', () => {
       // ── Cycle 004 — la première verticale ──────────────────────────────────────────────
       'CarteFormule.vue', // le motif central de `G2`
       'ChampSaisie.vue',
+      // ── Cycle 006 — le passage, ZONE DE VITESSE ────────────────────────────────────────
+      //
+      // `ChoixDuree` et `GrilleUnites` portent l'état d'une chambre en trois tons — libre,
+      // occupée, à nettoyer. C'est exactement le genre de composant où une seconde palette se
+      // glisserait : la tentation est d'écrire `dark:bg-vert-800` « juste pour ce cas ».
+      'ChoixDuree.vue',
       // ── Cycle 003 — les quatre écrans ──────────────────────────────────────────────────
       'EcranAccueil.vue', // `R1`
+      // ── Cycle 006 — l'arrivée, écran DÉRIVÉ de `R4` ────────────────────────────────────
+      'EcranArrivee.vue', // `R3` — le parcours long, même grammaire
       'EcranChambres.vue', // `G5` — écran COMPOSÉ, sans maquette
+      'EcranClients.vue', // `R5` — dérivé de `R7` : liste + fiche, sans le bloc de total
       'EcranComptes.vue', // `G3`
+      // ── Cycle 006 — le départ, écran MAQUETTÉ (`R7-note-depart.html`) ──────────────────
+      'EcranDepart.vue',
       'EcranEtablissement.vue',
       'EcranJournalAudit.vue', // `G4`
       // ── Cycle 005 — l'écran composé de la note interne, premier passager de la file ────
       'EcranNotes.vue',
       'EcranOffre.vue', // `G2` — écran maquetté, deux états
+      'EcranPassage.vue', // `R4` — écran MAQUETTÉ, cinq états, zone de vitesse
+      // `R5` — la fiche. Elle ne dépend d'AUCUN module d'activité : la fiche est du tenant.
+      'FicheClient.vue',
       'FormulaireCategorie.vue',
       'FormulaireUnite.vue',
+      'GrilleUnites.vue', // `R4` — l'attribution d'un seul tap
+      'ListeAccompagnants.vue', // `R3` — un nom suffit par accompagnant
       'ListeUnites.vue',
+      // `R7` — la note. Elle porte l'ocre des en-têtes de section et la mention obligatoire :
+      // trois tons distincts sur un document, donc un endroit où une seconde palette se glisserait.
+      'NoteSejour.vue',
       'SectionIdentite.vue',
       'SectionIdentiteVisuelle.vue',
       // L'attribution des polices et des icônes — clause 2 de l'OFL, clause du MIT. Elle est dans
@@ -246,9 +269,12 @@ describe('G1 — mode clair et mode sombre', () => {
       // Ce sont des coquilles, et elles rendent quand même quelque chose : le fond et le texte de
       // « chargement… » et du message d'erreur. C'est l'écran qu'on voit quand quelque chose ne va
       // pas — celui où un texte illisible en mode sombre coûte le plus cher.
+      'arrivee.vue', // `R3` — jamais « /check-in » : le mot est écarté du lexique
       'chambres.vue', // `G5`
+      'clients.vue', // `R5` — disponible sans module hébergement
       'comptes.vue', // `G3`
       'connexion.vue', // `R0`
+      'depart.vue', // `R7`
       'etablissement.vue', // `G1`
       'hebergement.vue', // `G2`
       'index.vue', // `R1`
@@ -257,6 +283,12 @@ describe('G1 — mode clair et mode sombre', () => {
       'mes-envois.vue', // `S1`, écran DÉRIVÉ du composant 10 — le mot « synchronisation » est
                         // proscrit du visible, URL comprise
       'notes.vue', // écran COMPOSÉ, cas (c)
+      // ── Cycle 006 — la route est `/passage`, jamais `/check-in` ───────────────────────
+      //
+      // Le mot « check-in » est **écarté du lexique** v1.6.0, et une URL est visible dans la
+      // barre d'adresse : il serait rentré par la porte du nom de fichier, sans qu'aucune porte
+      // i18n ne le voie. C'est la leçon `S1` du cycle 005, appliquée avant de la réapprendre.
+      'passage.vue', // `R4`, écran MAQUETTÉ, zone de vitesse
     ])
   })
 })

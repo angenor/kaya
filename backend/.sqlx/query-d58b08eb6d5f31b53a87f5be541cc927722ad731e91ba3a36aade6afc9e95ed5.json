@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT ecriture_id, ecriture_type, agregat_type, agregat_id, etat,\n               charge_utile, motif\n        FROM synchronisation.reconciliation_orpheline\n        WHERE ecriture_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ecriture_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "ecriture_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ecriture_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "ecriture_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "agregat_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "agregat_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "agregat_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "agregat_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "etat",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "etat"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "charge_utile",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "charge_utile"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "motif",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "synchronisation.reconciliation_orpheline",
+            "name": "motif"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "d58b08eb6d5f31b53a87f5be541cc927722ad731e91ba3a36aade6afc9e95ed5"
+}

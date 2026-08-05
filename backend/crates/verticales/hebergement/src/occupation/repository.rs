@@ -309,3 +309,114 @@ pub async fn plages_en_instants(
 
     Ok(lignes.into_iter().map(|l| (l.debut, l.fin)).collect())
 }
+
+// =================================================================================================
+//  ★ L'état des unités — opération 17, cycle 006
+// =================================================================================================
+
+/// L'état d'une unité, **dérivé** de ses occupations.
+///
+/// ⚠️ **Le statut d'occupation est DÉRIVÉ, jamais posé à la main** (principe IV). Une colonne
+/// `statut` sur `unite` se désynchroniserait à la première libération manquée, et deux personnes
+/// verraient la même chambre libre et occupée. Le seul sous-statut modifiable est le **ménage**,
+/// et il ne l'est pas ici : son écran est HEB-06.
+pub struct EtatUnite {
+    pub unite_id: Uuid,
+    pub code: String,
+    pub categorie_id: Uuid,
+    pub etage: Option<i16>,
+    /// `libre` · `occupee` · `remise_en_etat`.
+    pub etat: String,
+    /// Renseigné quand `etat = "occupee"` — l'heure que Yao redit au client.
+    pub fin_prevue: Option<OffsetDateTime>,
+    /// Renseigné quand `etat = "remise_en_etat"` — le moment où la chambre redevient attribuable.
+    pub disponible_a: Option<OffsetDateTime>,
+    /// **En lecture seule** : `a_nettoyer` · `propre` · `maintenance`. Modifiable par HEB-06.
+    pub statut_menage: String,
+    /// Le séjour qui occupe l'unité, quand il y en a un. `NULL` pour une attribution nue.
+    pub sejour_id: Option<Uuid>,
+}
+
+/// Toutes les unités d'un établissement avec leur **état d'occupation dérivé**.
+///
+/// # Les trois états, et pourquoi la remise en état est distincte de l'occupation
+///
+/// `occupation.periode` couvre l'indisponibilité **remise en état comprise** ; `fin_client` est la
+/// borne commerciale. Entre les deux, la chambre n'est ni occupée par un client ni attribuable :
+/// c'est le ménage. Les confondre ferait dire « occupée » d'une chambre vide — et Yao attendrait
+/// un départ qui a déjà eu lieu.
+///
+/// `DISTINCT ON` retient l'occupation **la plus pertinente** : celle qui couvre l'instant courant,
+/// puis la plus proche. Une unité sans occupation active est libre.
+pub async fn etat_des_unites(
+    tx: &mut sqlx::PgTransaction<'_>,
+    etablissement_id: Uuid,
+) -> Result<Vec<EtatUnite>, ErreurAttribution> {
+    let lignes = sqlx::query!(
+        r#"
+        SELECT DISTINCT ON (u.id)
+               u.id            AS unite_id,
+               u.code,
+               u.categorie_id,
+               u.etage,
+               u.statut_menage,
+               o.fin_client    AS "fin_client?",
+               o.periode       AS "periode?: sqlx::postgres::types::PgRange<time::OffsetDateTime>",
+               o.sejour_id     AS "sejour_id?",
+               now()           AS "maintenant!"
+        FROM hebergement.unite u
+        LEFT JOIN hebergement.occupation o
+               ON o.unite_id = u.id
+              AND o.statut = 'active'
+              AND o.periode @> now()
+        WHERE u.etablissement_id = $1
+        ORDER BY u.id, o.cree_le DESC
+        "#,
+        etablissement_id
+    )
+    .fetch_all(&mut **tx)
+    .await?;
+
+    let mut etats: Vec<EtatUnite> = lignes
+        .into_iter()
+        .map(|l| {
+            let maintenant = l.maintenant;
+            // Trois cas, dans cet ordre — le premier qui s'applique gagne :
+            //   1. aucune occupation couvrant l'instant → libre ;
+            //   2. l'instant est avant `fin_client` → occupée par un client ;
+            //   3. l'instant est après `fin_client` mais dans `periode` → remise en état.
+            let (etat, fin_prevue, disponible_a) = match (l.fin_client, l.periode) {
+                (None, _) | (_, None) => ("libre", None, None),
+                (Some(fin_client), Some(periode)) => {
+                    if maintenant < fin_client {
+                        ("occupee", Some(fin_client), None)
+                    } else {
+                        let borne = match periode.end {
+                            std::ops::Bound::Excluded(t) | std::ops::Bound::Included(t) => Some(t),
+                            std::ops::Bound::Unbounded => None,
+                        };
+                        ("remise_en_etat", None, borne)
+                    }
+                }
+            };
+
+            EtatUnite {
+                unite_id: l.unite_id,
+                code: l.code,
+                categorie_id: l.categorie_id,
+                etage: l.etage,
+                etat: etat.to_owned(),
+                fin_prevue,
+                disponible_a,
+                statut_menage: l.statut_menage,
+                sejour_id: l.sejour_id,
+            }
+        })
+        .collect();
+
+    // `DISTINCT ON` impose son propre `ORDER BY` ; le tri d'affichage se fait donc ici. L'écran
+    // `R4` montre les chambres dans l'ordre où l'exploitant les nomme — `A1`, `A2`, `B3` — et non
+    // dans un ordre d'identifiant qui n'a de sens pour personne.
+    etats.sort_by(|a, b| a.code.cmp(&b.code));
+    Ok(etats)
+}

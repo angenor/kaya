@@ -144,6 +144,7 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 **TRX-06 — Conformité ARTCI (P1)**
 - Export et suppression des données d'une personne (endpoint admin) ; registre des traitements versionné dans le dépôt.
 - Rétention paramétrable par catégorie de données : pièces d'identité 90 jours par défaut, photos 365 jours, documents fiscaux 10 ans.
+- ⚠️ **La rétention du numéro de pièce porte sur DEUX tables, pas une** : `comptes.personne` **et** `hebergement.accompagnant`. Découvert à la conception du cycle SEJ (2026-08-03) : la fiche de police couvre le titulaire **et ses accompagnants** (SEJ-02), et un accompagnant n'a **pas** de fiche client — lui en créer une pour porter sa pièce ferait entrer au fichier des personnes qui n'ont rien demandé. Les deux tables portent donc `numero_piece`, `type_piece` et `piece_capturee_le`, cette dernière **pour que la purge s'applique sans migration**. *Sans cette ligne, la purge de TRX-06 en oublierait une — et l'oubli ne se verrait sur aucun écran.*
 - Consentement recueilli et tracé à l'enregistrement d'un client.
 
 **TRX-07 — Mise à jour et télémétrie du parc (P1)**
@@ -486,7 +487,7 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 
 **FIS-03 — Moteur de taxes Côte d'Ivoire (P0)**
 - TVA 18 % · **taxe communale de nuitée** (sans étoile 500, 1★ 1 000, 2★ 1 500, 3★+ 2 000, résidence meublée district d'Abidjan 1 000) · taxe pour le développement touristique 2,5 %.
-- La taxe de nuitée est **par nuitée et par client** (accompagnants inclus), **ligne distincte obligatoire** sur la facture, séparée du HT et de la TVA.
+- La taxe de nuitée est **par nuitée et par séjour** — **jamais par personne** : le nombre d'accompagnants ne la multiplie pas. **Ligne distincte obligatoire** sur la facture, séparée du HT et de la TVA. ⚠️ *Cette ligne disait « par nuitée et par client (accompagnants inclus) » jusqu'au 2026-08-03 ; l'arbitrage terrain de cette date **clôt la décision B-10** du cadrage. Il ne touche que l'axe des **personnes** — l'axe des **nuits** reste celui de la ligne « règle de conversion » ci-dessous, décision **B-02**, toujours ouverte.*
 - **Montant figé au check-out**, jamais recalculé dynamiquement. Toute modification postérieure passe par un avoir.
 - **Chaque formule porte `assujettie_taxe_nuitee` et une règle de conversion** (`aucune` / `une_nuitee_par_occupation` / `au_prorata` / `seuil_horaire`) — le traitement du passage et de la demi-journée est un **paramètre**, pas une constante (décision B-02).
 - Reprise Deloria : **décomposition de chaque tarif affiché** (12 500, 15 500, 17 500, 20 500, 25 500) en HT + TVA + taxe de nuitée. Tâche de migration explicite.
@@ -514,7 +515,7 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 - Un établissement à court de stickers ne peut plus facturer ; le délai de rechargement publié est de 48 h.
 
 **FIS-08 — État de reversement communal (P0)**
-- Relevé mensuel par commune : nuitées assujetties, nombre de clients, montant dû, **échéance au 15 du mois suivant**.
+- Relevé mensuel par commune : nuitées assujetties, **nombre de séjours assujettis**, montant dû, **échéance au 15 du mois suivant**. Le **nombre de personnes** peut figurer au relevé, mais **à titre indicatif seulement** : la taxe étant due par séjour (FIS-03, décision B-10), c'est le décompte des séjours qui justifie le montant devant le trésorier municipal. ⚠️ *Cette ligne disait « nombre de clients » jusqu'au 2026-08-03 — un relevé assis sur les personnes n'aurait pas reconstitué le montant dû.*
 - Export PDF et tableur. **Aucun concurrent ne le produit** — c'est un argument de vente à part entière.
 
 **FIS-09 — Export comptable (P1)**
@@ -729,7 +730,7 @@ Toute entité déclare sa classe (cadrage §11) et embarque les tests suivants :
 | Taxe communale de nuitée | 500 FCFA (non classé) | FIS-03 |
 | Taxe de nuitée sur passage | **Non assujetti** — tranché au terrain le 2026-08-02 ; le drapeau reste éditable | FIS-03 |
 | Taxe de nuitée sur demi-journée | **Non assujettie** — tranché au terrain le 2026-08-02 ; le drapeau reste éditable | FIS-03 |
-| Règle de conversion, formule nuitée | `une_nuitee_par_occupation` — 500 F pour un séjour de 3 nuits, pratique attestée. **La dimension « par client » n'est PAS tranchée** (B-02) | FIS-03 |
+| Règle de conversion, formule nuitée | `une_nuitee_par_occupation` — 500 F pour un séjour de 3 nuits, pratique attestée. Porte l'axe des **nuits** ; il reste ouvert (**B-02**, fiscaliste). ✅ L'axe des **personnes** est tranché : la taxe est due **par séjour**, jamais par personne (**B-10**, close le 2026-08-03). ⚠️ *La référence portée ici était « (B-02) » et elle était **erronée** — B-02 porte sur les nuits, la dimension par personne était B-10.* | FIS-03 |
 | Taxe dév. touristique | 2,5 % | FIS-03 |
 | Seuil d'alerte stickers FNE | J-7 et J-2 | FIS-07 |
 | Rétention pièces d'identité | 90 jours | TRX-06 |

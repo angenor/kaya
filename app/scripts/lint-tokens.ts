@@ -104,12 +104,31 @@ const MOTIFS: { nom: string, motif: RegExp, explication: string }[] = [
  */
 const EPAISSEURS_ASSUMEES = /\bborder(?:-[trblxyse])?-\[(1\.5px|3px)\]/g
 
-/** Retire les commentaires : un `#rrggbb` cité dans une explication n'est pas un style. */
+/**
+ * Retire les commentaires : un `#rrggbb` cité dans une explication n'est pas un style.
+ *
+ * # ⚠️ LES SAUTS DE LIGNE SONT CONSERVÉS, ET C'EST TOUT LE POINT
+ *
+ * La première version remplaçait chaque commentaire par une chaîne vide. Le numéro de ligne étant
+ * calculé plus bas sur le contenu **ainsi raccourci**, la porte annonçait une ligne qui n'était pas
+ * celle du défaut — d'autant plus fausse que le fichier est bien commenté, ce que ce dépôt exige
+ * partout. Constaté sur `modules/sejours/NoteSejour.vue` : signalé en **89**, réel en **136**,
+ * **47 lignes d'écart** — exactement la hauteur du bloc JSDoc de tête.
+ *
+ * Une porte qui nomme la mauvaise ligne envoie corriger au mauvais endroit. Le défaut est petit et
+ * l'effet ne l'est pas : c'est le genre de faux repère qui fait douter de la porte plutôt que du
+ * code, et une porte dont on doute finit désactivée.
+ *
+ * Chaque commentaire est donc remplacé par **autant de sauts de ligne qu'il en contenait**. Le
+ * contenu analysé garde la même géométrie que le fichier ; seuls les caractères changent.
+ */
 function sansCommentaires(contenu: string): string {
+  const vider = (bloc: string): string => '\n'.repeat((bloc.match(/\n/g) ?? []).length)
+
   return contenu
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, vider)
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
-    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<!--[\s\S]*?-->/g, vider)
 }
 
 /**

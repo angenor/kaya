@@ -28,6 +28,7 @@
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 
 import { contexteAppel, sessionCourante, type ContexteAppel } from '~/core/auth'
+import { peutOuvrirEcran } from '~/core/acces/ecrans'
 import type { Permissions } from '~/core/rbac'
 import type { DonneesEcran } from '~/modules/etablissements/donnees'
 import type { ServiceActif } from '~/modules/etablissements/services-visibles'
@@ -100,11 +101,27 @@ function remplacerServices(services: ServiceActif[]): void {
 // Le module de chargement est importé **dynamiquement lui aussi** : le laisser en import statique
 // le ferait entrer dans le fragment de la route, et le client d'API avec lui — ce qui annulerait
 // le bénéfice du chargement paresseux sur la page la plus légère du produit.
+/**
+ * **Sans la permission, la tuile est absente ET l'accès direct refusé** — FR-026 + FR-029.
+ *
+ * ⚠️ Cet écran n'avait **aucune** garde de lecture. Les huit rôles portent la permission,
+ * donc l'effet était nul aujourd'hui — et c'est précisément ce qui l'a laissé passer : un
+ * défaut sans symptôme n'est pas un défaut absent, c'est un défaut qui attend un rôle de
+ * plus. La question vient de `core/acces/ecrans.ts`, la même table que consulte l'accueil.
+ */
+const peutOuvrir = computed(() => peutOuvrirEcran('/etablissement', permissions.value))
+
 onMounted(async () => {
   // Sans session, il n'y a pas de contexte d'appel : l'écran le dit et renvoie à la connexion,
   // plutôt que de partir en requête pour récolter un `401`.
   if (!contexte.value) {
     erreur.value = t('connexion.requise')
+    return
+  }
+  // AVANT l'appel, jamais après : un refus obtenu au bout de trente secondes d'attente
+  // réseau est un refus que l'utilisateur a déjà cessé de lire.
+  if (!peutOuvrir.value) {
+    erreur.value = t('etablissement.acces_refuse')
     return
   }
 

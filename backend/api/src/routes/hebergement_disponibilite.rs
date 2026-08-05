@@ -287,3 +287,98 @@ pub(crate) fn en_reponse(erreur: ErreurAttribution) -> actix_web::Error {
         autre => interne("disponibilité d'hébergement", autre),
     }
 }
+
+// =================================================================================================
+//  ★ 17 · GET .../hebergement/etat-des-unites — cycle 006
+// =================================================================================================
+
+/// L'état d'une unité, tel que l'écran `R4` l'affiche.
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct EtatUniteVue {
+    pub unite_id: Uuid,
+    /// Ce que l'exploitant nomme — `A1`, `B3`. C'est ce que Yao lit sur la clé.
+    pub code: String,
+    pub categorie_id: Uuid,
+    pub etage: Option<i16>,
+    /// **Dérivé** des occupations, jamais posé à la main (principe IV) :
+    /// `libre` · `occupee` · `remise_en_etat`.
+    pub etat: String,
+    /// Renseigné quand `etat = "occupee"` — l'heure que Yao redit au client.
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub fin_prevue: Option<OffsetDateTime>,
+    /// Renseigné quand `etat = "remise_en_etat"` — le moment où la chambre redevient attribuable.
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub disponible_a: Option<OffsetDateTime>,
+    /// **En lecture seule.** Le sous-statut de ménage se modifie par HEB-06, hors périmètre.
+    pub statut_menage: String,
+    pub sejour_id: Option<Uuid>,
+}
+
+/// La réponse complète — les unités **et** l'instant qui dit quand elle était vraie.
+#[derive(Debug, serde::Serialize, ToSchema)]
+pub struct EtatDesUnites {
+    pub unites: Vec<EtatUniteVue>,
+    /// **Horodatage d'autorité serveur.** Il dit **quand** la réponse était vraie — information
+    /// honnête, plutôt que de laisser croire qu'elle le reste.
+    #[serde(with = "time::serde::rfc3339")]
+    pub instant_autorite: OffsetDateTime,
+}
+
+/// Rend **toutes** les unités de l'établissement avec leur état d'occupation dérivé.
+///
+/// # ⚠️ Ce n'est PAS HEB-06
+///
+/// Le sous-statut de ménage est **en lecture seule** ici, et l'état d'occupation est **dérivé des
+/// occupations**, jamais posé à la main (principe IV). Une colonne `statut` sur `unite` se
+/// désynchroniserait à la première libération manquée, et deux personnes verraient la même chambre
+/// libre et occupée — ce que le cadrage désigne nommément comme la cause des doubles attributions.
+///
+/// # Cet appel se fait au MONTAGE de l'écran `R4`, avant le premier geste
+///
+/// Il **ne compte pas** dans le budget d'un appel bloquant, qui court du premier geste à la
+/// confirmation (FR-031). C'est même l'inverse : le précharger est ce qui permet à l'attribution
+/// de n'être qu'un tap.
+#[utoipa::path(
+    operation_id = "hebergement_etat_des_unites",
+    tag = "hebergement",
+    params(("etablissement_id" = Uuid, Path, description = "Établissement")),
+    responses(
+        (status = 200, description = "Toutes les unités avec leur état DÉRIVÉ, et l'instant d'autorité", body = EtatDesUnites),
+        (status = 401, description = "Non authentifié"),
+        (status = 403, description = "Permission absente", body = CorpsErreur),
+        (status = 404, description = "Établissement inconnu", body = CorpsErreur),
+    ),
+    security(("bearer" = []))
+)]
+#[get("")]
+pub async fn etat_des_unites(
+    etat: web::Data<EtatApplication>,
+    contexte: ContexteAppel,
+    chemin: web::Path<Uuid>,
+) -> Result<HttpResponse, actix_web::Error> {
+    exiger(&contexte, CONSULTER)?;
+
+    let (unites, instant_autorite) = etat
+        .service_occupation(contexte.tenant_id)
+        .etat_des_unites(chemin.into_inner())
+        .await
+        .map_err(en_reponse)?;
+
+    Ok(HttpResponse::Ok().json(EtatDesUnites {
+        unites: unites
+            .into_iter()
+            .map(|u| EtatUniteVue {
+                unite_id: u.unite_id,
+                code: u.code,
+                categorie_id: u.categorie_id,
+                etage: u.etage,
+                etat: u.etat,
+                fin_prevue: u.fin_prevue,
+                disponible_a: u.disponible_a,
+                statut_menage: u.statut_menage,
+                sejour_id: u.sejour_id,
+            })
+            .collect(),
+        instant_autorite,
+    }))
+}

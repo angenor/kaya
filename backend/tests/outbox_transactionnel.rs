@@ -1752,3 +1752,610 @@ async fn p05_heb_une_attribution_refusee_ne_laisse_ni_ligne_ni_evenement() {
             .expect("comptage");
     assert_eq!(total, 1, "le refus a laissé une ligne en base");
 }
+
+// =================================================================================================
+//  ★ Cycle 006 — les événements du séjour
+// =================================================================================================
+
+/// ★ **`heb.sejour.ouvert` porte de quoi reconstituer l'opération SANS consulter aucune table.**
+///
+/// C'est TRX-02 : *« la charge utile financière est dénormalisée »*. Une charge utile qui ne
+/// porterait que des identifiants obligerait la projection à relire `note_sejour`, `ligne_sejour`
+/// et `formule` — trois tables dont le contenu aura changé quand la relecture aura lieu, puisque
+/// le grand livre est **rétroactif** et sa rétention **illimitée**.
+///
+/// # Les trois contrôles, et le troisième est celui qui ne se devine pas
+///
+/// 1. l'événement est **émis** ;
+/// 2. tout montant y est un **entier d'unité mineure** sous le nommage `<nom>_mineur`, avec sa
+///    devise au même niveau (porte **P-10**, jusque dans le JSONB) ;
+/// 3. ★ **aucun numéro de pièce d'identité n'y figure** — le grand livre est immuable et à
+///    rétention illimitée : une donnée sensible qui y entre ne peut **jamais** en sortir, et la
+///    rétention de 90 jours de TRX-06 deviendrait inapplicable sur la copie.
+#[actix_web::test]
+async fn p05_cycle_006_l_ouverture_d_un_sejour_emet_deux_evenements_reconstituables() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 séjour").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Yao",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": sejour_id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "accompagnants": [{
+                "id": Uuid::now_v7(),
+                "nom": "Adjoua",
+                // ⚠️ Une pièce est fournie : c'est ce qui rend le contrôle 3 non trivial.
+                "type_piece": "CNI",
+                "numero_piece": "CI00777888",
+            }],
+        }))
+        .to_request();
+    let reponse = actix_web::test::call_service(&app, requete).await;
+    assert_eq!(reponse.status(), 201, "l'ouverture doit réussir");
+
+    // ── 1 · les DEUX événements sont émis ─────────────────────────────────────────────────────
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    let charges: Vec<(String, serde_json::Value)> = sqlx::query_as(
+        r#"
+        SELECT type_evenement, payload
+        FROM synchronisation.evenement_outbox
+        WHERE tenant_id = $1
+        ORDER BY sequence_etablissement
+        "#,
+    )
+    .bind(decor.jeu.tenant_id)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture du grand livre");
+    tx.rollback().await.expect("rollback");
+
+    for attendu in [
+        "heb.sejour.ouvert",
+        "heb.fiche_police.generee",
+        "sej.accompagnant.ajoute",
+    ] {
+        assert!(
+            charges.iter().any(|(t, _)| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types trouvés : {:?}",
+            charges.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    let ouverture = charges
+        .iter()
+        .find(|(t, _)| t == "heb.sejour.ouvert")
+        .map(|(_, p)| p)
+        .expect("heb.sejour.ouvert");
+
+    // ── 2 · la charge utile RECONSTITUE l'opération ───────────────────────────────────────────
+    //
+    // Sans ces champs, une projection devrait relire trois tables dont le contenu aura changé —
+    // le grand livre est rétroactif, sa rétention illimitée.
+    for cle in ["sejour_id", "unite_id", "formule_id", "total_mineur", "devise", "lignes"] {
+        assert!(
+            !ouverture[cle].is_null(),
+            "la charge utile de `heb.sejour.ouvert` ne porte pas « {cle} » : l'opération ne se \
+             reconstitue pas sans consulter une autre table (TRX-02). Charge : {ouverture}"
+        );
+    }
+
+    assert!(
+        ouverture["total_mineur"].is_i64(),
+        "`total_mineur` doit être un ENTIER d'unité mineure (P-10, jusque dans le JSONB), \
+         jamais un décimal ni une chaîne formatée. Valeur : {}",
+        ouverture["total_mineur"]
+    );
+    let lignes = ouverture["lignes"].as_array().expect("lignes est un tableau");
+    assert!(!lignes.is_empty(), "la note doit porter sa ligne d'hébergement");
+    for ligne in lignes {
+        assert!(
+            ligne["montant_mineur"].is_i64() && ligne["prix_unitaire_mineur"].is_i64(),
+            "tout montant de ligne est un entier d'unité mineure : {ligne}"
+        );
+        assert!(
+            ligne["devise"].is_string(),
+            "la devise voyage AU MÊME NIVEAU que les montants, toujours (principe V) : {ligne}"
+        );
+    }
+
+    // ── 3 · ★ AUCUN numéro de pièce, dans AUCUNE charge utile ─────────────────────────────────
+    for (type_evenement, charge) in &charges {
+        let brut = charge.to_string();
+        assert!(
+            !brut.contains("CI00777888"),
+            "★ un numéro de pièce d'identité est entré dans le grand livre, par « \
+             {type_evenement} ». Le grand livre est IMMUABLE et à rétention ILLIMITÉE : la donnée \
+             ne peut jamais en sortir, et la rétention de 90 jours de TRX-06 devient inapplicable \
+             sur la copie. Charge : {brut}"
+        );
+        for suspect in ["numero_piece", "numeroPiece"] {
+            assert!(
+                !brut.contains(suspect),
+                "la charge utile de « {type_evenement} » porte une clé « {suspect} » : même vide, \
+                 elle invite le prochain cycle à la remplir. Charge : {brut}"
+            );
+        }
+    }
+}
+
+/// **Un refus d'ouverture ne laisse aucun événement.**
+///
+/// La reconstitution compterait un séjour qui n'a jamais eu lieu — et le grand livre étant
+/// permanent, l'erreur ne se corrige pas : elle se compense, ce qui suppose de l'avoir vue.
+#[actix_web::test]
+async fn p05_cycle_006_un_refus_d_ouverture_ne_laisse_aucun_evenement() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 séjour refusé").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Yao",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+    let debut = time::OffsetDateTime::now_utc() + time::Duration::hours(1);
+
+    let corps = |id: Uuid| {
+        serde_json::json!({
+            "id": id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        })
+    };
+    let envoyer = |corps: serde_json::Value| {
+        let app = &app;
+        let bearer = cx.bearer.clone();
+        let etablissement = decor.jeu.etablissement_id;
+        async move {
+            let requete = actix_web::test::TestRequest::post()
+                .uri(&format!("/api/v1/etablissements/{etablissement}/sejours"))
+                .insert_header(("authorization", bearer))
+                .set_json(&corps)
+                .to_request();
+            actix_web::test::call_service(app, requete).await.status().as_u16()
+        }
+    };
+
+    assert_eq!(envoyer(corps(Uuid::now_v7())).await, 201);
+
+    let refuse = Uuid::now_v7();
+    assert_eq!(
+        envoyer(corps(refuse)).await,
+        409,
+        "la seconde ouverture sur la même période doit être refusée"
+    );
+
+    assert!(
+        types_evenements(&pool_owner, decor.jeu.tenant_id, refuse)
+            .await
+            .is_empty(),
+        "un refus a laissé un événement : la reconstitution compterait un séjour qui n'a jamais \
+         eu lieu, et le grand livre étant permanent, l'erreur ne se corrige pas — elle se \
+         compense, ce qui suppose de l'avoir vue"
+    );
+}
+
+/// Décor minimal pour les tests de séjour de ce fichier.
+struct DecorSejour {
+    jeu: commun::JeuTenant,
+    unite_id: Uuid,
+    formule_id: Uuid,
+}
+
+async fn decor_sejour(pool: &sqlx::PgPool, nom: &str) -> DecorSejour {
+    let jeu = commun::creer_tenant(pool, nom).await;
+
+    let mut tx = pool.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("tenant");
+
+    sqlx::query(
+        r#"
+        INSERT INTO etablissements.etablissement_module
+            (id, tenant_id, etablissement_id, module_code, module_implemente)
+        VALUES ($1, $2, $3, 'HEBERGEMENT', true) ON CONFLICT DO NOTHING
+        "#,
+    )
+    .bind(Uuid::now_v7())
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("module");
+
+    let categorie_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.categorie (id, tenant_id, etablissement_id, nom, capacite_accueil)
+        VALUES ($1, $2, $3, 'Standard', 2)
+        "#,
+    )
+    .bind(categorie_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .execute(&mut *tx)
+    .await
+    .expect("catégorie");
+
+    let unite_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.unite (id, tenant_id, etablissement_id, categorie_id, code, etage)
+        VALUES ($1, $2, $3, $4, 'A1', 1)
+        "#,
+    )
+    .bind(unite_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .bind(categorie_id)
+    .execute(&mut *tx)
+    .await
+    .expect("unité");
+
+    let formule_id = Uuid::now_v7();
+    sqlx::query(
+        r#"
+        INSERT INTO hebergement.formule
+            (id, tenant_id, etablissement_id, categorie_id, famille, prix_mineur,
+             assujettie_taxe_nuitee)
+        VALUES ($1, $2, $3, $4, 'NUITEE', 12500, false)
+        "#,
+    )
+    .bind(formule_id)
+    .bind(jeu.tenant_id)
+    .bind(jeu.etablissement_id)
+    .bind(categorie_id)
+    .execute(&mut *tx)
+    .await
+    .expect("formule");
+
+    tx.commit().await.expect("commit");
+
+    DecorSejour {
+        jeu,
+        unite_id,
+        formule_id,
+    }
+}
+
+/// ★ **`heb.sejour.clos` porte le total, TOUTES les lignes, les ajustements ET le constat.**
+///
+/// TRX-02 : *l'opération se reconstitue **sans consulter aucune autre table**.* Le grand livre est
+/// rétroactif et sa rétention illimitée : une projection qui relirait `note_sejour`,
+/// `ligne_sejour` et `taxe_sejour_constat` lirait des tables dont le contenu aura changé — et sur
+/// le constat, elle lirait une valeur que FIS-03 aura entre-temps alimentée.
+#[actix_web::test]
+async fn p05_cycle_006_la_cloture_emet_un_evenement_reconstituable() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 clôture").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Yao",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = time::OffsetDateTime::now_utc() - time::Duration::hours(2);
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": sejour_id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/depart",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charge: serde_json::Value = sqlx::query_scalar(
+        r#"
+        SELECT payload FROM synchronisation.evenement_outbox
+        WHERE tenant_id = $1 AND type_evenement = 'heb.sejour.clos'
+        "#,
+    )
+    .bind(decor.jeu.tenant_id)
+    .fetch_one(&mut *tx)
+    .await
+    .expect("l'événement `heb.sejour.clos` doit être émis");
+    tx.rollback().await.expect("rollback");
+
+    for cle in ["sejour_id", "clos_le", "duree_reelle_minutes", "total_mineur", "devise", "lignes"] {
+        assert!(
+            !charge[cle].is_null(),
+            "la charge utile de `heb.sejour.clos` ne porte pas « {cle} » : l'opération ne se \
+             reconstitue pas sans consulter une autre table (TRX-02). Charge : {charge}"
+        );
+    }
+
+    assert!(
+        charge["total_mineur"].is_i64(),
+        "`total_mineur` doit être un ENTIER d'unité mineure (P-10, jusque dans le JSONB) : {charge}"
+    );
+
+    // ★ **Le constat voyage AVEC l'événement**, et son montant y est `null`.
+    let constat = &charge["constat_taxe"];
+    assert!(
+        !constat.is_null(),
+        "★ le constat de taxe doit voyager avec l'événement de clôture. Sans lui, FIS-03 devrait \
+         relire `taxe_sejour_constat` — dont il aura entre-temps alimenté le montant, ce qui rend \
+         la relecture circulaire. Charge : {charge}"
+    );
+    assert!(
+        constat["nuitees_assujetties"].is_null() && constat["montant_mineur"].is_null(),
+        "★ un montant de taxe est parti dans le grand livre. Décider quelles nuits sont \
+         assujetties est une RÈGLE FISCALE (P-12), et le grand livre est IMMUABLE : une valeur \
+         fausse qui y entre ne peut jamais en sortir. Constat : {constat}"
+    );
+    for cle in ["nuits_constatees", "assujettie_taxe_nuitee", "classement_etablissement", "commune"] {
+        assert!(
+            !constat[cle].is_null(),
+            "le constat doit porter « {cle} » — c'est le paramétrage RECOPIÉ qui rend le figeage \
+             vrai. Constat : {constat}"
+        );
+    }
+}
+
+// =================================================================================================
+//  Cycle 006 — les cinq types que le recollement réclamait nommément
+// =================================================================================================
+
+/// **La fiche client émet `sej.client.cree` puis `sej.client.modifie`, et JAMAIS le numéro.**
+///
+/// ⚠️ **Ces deux charges utiles sont les plus sensibles du produit.** L'outbox est un grand livre
+/// à rétention **illimitée** et **immuable** : un numéro de pièce qui y entre ne peut **jamais**
+/// en sortir, et la rétention de 90 jours de TRX-06 deviendrait inapplicable sur la copie.
+#[actix_web::test]
+async fn p05_cycle_006_la_fiche_client_emet_sans_jamais_le_numero_de_piece() {
+    let pool_owner = commun::pool_owner().await;
+    let jeu = commun::creer_tenant(&pool_owner, "P-05 fiche client").await;
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        jeu,
+        "Yao",
+        &[("receptionniste", Some(jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    const NUMERO: &str = "CI00246813";
+    let client_id = Uuid::now_v7();
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri("/api/v1/clients")
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": client_id,
+            "nom": "Traoré",
+            "type_piece": "CNI",
+            "numero_piece": NUMERO,
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::patch()
+        .uri(&format!("/api/v1/clients/{client_id}"))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "nom": "Traoré Konan", "numero_piece": NUMERO }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    // Une préférence — classe A, append-only.
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!("/api/v1/clients/{client_id}/preferences"))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "id": Uuid::now_v7(), "texte": "Chambre calme" }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charges: Vec<(String, serde_json::Value)> = sqlx::query_as(
+        r#"
+        SELECT type_evenement, payload FROM synchronisation.evenement_outbox
+        WHERE tenant_id = $1 ORDER BY sequence_etablissement
+        "#,
+    )
+    .bind(jeu.tenant_id)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture du grand livre");
+    tx.rollback().await.expect("rollback");
+
+    for attendu in ["sej.client.cree", "sej.client.modifie", "sej.preference.enregistree"] {
+        assert!(
+            charges.iter().any(|(t, _)| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types : {:?}",
+            charges.iter().map(|(t, _)| t.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    for (type_evenement, charge) in &charges {
+        let brut = charge.to_string();
+        assert!(
+            !brut.contains(NUMERO),
+            "★ un numéro de pièce d'identité est entré dans le grand livre par « \
+             {type_evenement} ». Le grand livre est IMMUABLE et à rétention ILLIMITÉE : la donnée \
+             ne peut jamais en sortir, et la rétention de 90 jours de TRX-06 devient inapplicable \
+             sur la copie. Charge : {brut}"
+        );
+    }
+}
+
+/// **La prolongation et le changement d'unité émettent leur événement, montants en ENTIERS.**
+#[actix_web::test]
+async fn p05_cycle_006_la_prolongation_et_le_changement_d_unite_emettent() {
+    let pool_owner = commun::pool_owner().await;
+    let decor = decor_sejour(&pool_owner, "P-05 prolongation").await;
+
+    // Une seconde chambre, pour le changement d'unité.
+    let unite_bis = Uuid::now_v7();
+    {
+        let mut tx = pool_owner.begin().await.expect("transaction");
+        kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+            .await
+            .expect("tenant");
+        let categorie: Uuid = sqlx::query_scalar(
+            "SELECT categorie_id FROM hebergement.unite WHERE id = $1",
+        )
+        .bind(decor.unite_id)
+        .fetch_one(&mut *tx)
+        .await
+        .expect("catégorie");
+        sqlx::query(
+            r#"
+            INSERT INTO hebergement.unite
+                (id, tenant_id, etablissement_id, categorie_id, code, etage)
+            VALUES ($1, $2, $3, $4, 'A2', 1)
+            "#,
+        )
+        .bind(unite_bis)
+        .bind(decor.jeu.tenant_id)
+        .bind(decor.jeu.etablissement_id)
+        .bind(categorie)
+        .execute(&mut *tx)
+        .await
+        .expect("seconde unité");
+        tx.commit().await.expect("commit");
+    }
+
+    let cx = commun::compte_connecte(
+        &pool_owner,
+        decor.jeu,
+        "Adjoua",
+        &[("receptionniste", Some(decor.jeu.etablissement_id))],
+    )
+    .await;
+    let app = monter_application!(commun::pool_app().await);
+
+    let sejour_id = Uuid::now_v7();
+    let debut = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": sejour_id,
+            "unite_id": decor.unite_id,
+            "formule_id": decor.formule_id,
+            "debut_client": debut.format(&time::format_description::well_known::Rfc3339).unwrap(),
+            "fin_client": (debut + time::Duration::hours(24))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 201);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/prolongation",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({
+            "id": Uuid::now_v7(),
+            "nouvelle_fin_client": (debut + time::Duration::hours(48))
+                .format(&time::format_description::well_known::Rfc3339).unwrap(),
+        }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let requete = actix_web::test::TestRequest::post()
+        .uri(&format!(
+            "/api/v1/etablissements/{}/sejours/{sejour_id}/changement-unite",
+            decor.jeu.etablissement_id
+        ))
+        .insert_header(("authorization", cx.bearer.clone()))
+        .set_json(serde_json::json!({ "id": Uuid::now_v7(), "unite_cible_id": unite_bis }))
+        .to_request();
+    assert_eq!(actix_web::test::call_service(&app, requete).await.status(), 200);
+
+    let types = types_evenements(&pool_owner, decor.jeu.tenant_id, sejour_id).await;
+    for attendu in ["heb.sejour.prolonge", "heb.sejour.unite_changee"] {
+        assert!(
+            types.iter().any(|t| t == attendu),
+            "l'événement « {attendu} » n'a pas été émis. Types : {types:?}"
+        );
+    }
+
+    // Les montants sont des **entiers d'unité mineure**, jusque dans le JSONB (P-10).
+    let mut tx = pool_owner.begin().await.expect("transaction");
+    kaya_etablissements::tenant_context::poser_tenant(&mut tx, decor.jeu.tenant_id)
+        .await
+        .expect("tenant");
+    let charges: Vec<(serde_json::Value,)> = sqlx::query_as(
+        r#"
+        SELECT payload FROM synchronisation.evenement_outbox
+        WHERE agregat_id = $1
+          AND type_evenement IN ('heb.sejour.prolonge', 'heb.sejour.unite_changee')
+        "#,
+    )
+    .bind(sejour_id)
+    .fetch_all(&mut *tx)
+    .await
+    .expect("lecture");
+    tx.rollback().await.expect("rollback");
+
+    for (charge,) in &charges {
+        assert!(
+            charge["total_mineur"].is_i64() && charge["montant_ajoute_mineur"].is_i64(),
+            "tout montant est un ENTIER d'unité mineure, jusque dans le JSONB (P-10) : {charge}"
+        );
+        assert!(
+            charge["devise"].is_string(),
+            "la devise voyage AU MÊME NIVEAU que les montants, toujours : {charge}"
+        );
+    }
+}

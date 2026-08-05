@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT numero FROM hebergement.fiche_police\n           WHERE sejour_id = ANY($1) ORDER BY numero",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "numero",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "hebergement.fiche_police",
+            "name": "numero"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "24cc2b45b2e32bc32a079f814e8d2a870fa1edebafd5a66a692e86da89fb73f9"
+}

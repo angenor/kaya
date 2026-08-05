@@ -4,10 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## État du dépôt — lire en premier
 
-**Le socle, les établissements, les comptes, l'hébergement et la synchronisation sont en place** —
-cycles 001 (TRX), 002 (ETB), 003 (CPT), 004 (HEB) et 005 (SYN) livrés : 18 crates Rust,
-28 migrations, 362 tests backend, 522 tests front, 12 portes scriptées, huit écrans, et une image
-de production construite et exercée.
+**La tranche T1 est COMPLÈTE** — cycles 001 (TRX), 002 (ETB), 003 (CPT), 004 (HEB), 005 (SYN) et
+006 (SEJ) livrés. Le socle, les établissements, les comptes, l'hébergement, la synchronisation, et
+désormais **les clients et les séjours** : arrivée, passage, note, départ, fiche client.
+
+Les décomptes de tests et de tâches **ne sont pas tenus ici** — ils changent à chaque commit, et un
+nombre recopié dans ce fichier est faux avant d'être lu. `git log` et les revues de fin de cycle
+(`specs/*/revue-dod.md`) font foi.
 
 **Ce que le cycle 005 change, et qu'il faut savoir avant de coder :**
 
@@ -124,7 +127,53 @@ de comptoir, l'appareil ne bouge pas, c'est la personne qui change. À ne pas co
 « Déconnecter cet appareil », qui coupe un autre appareil à distance. Les deux entrées sont au
 lexique — **tout terme visible passe par lui avant d'être codé**.
 
-État par tranche : **T1 en cours** (TRX, ETB, CPT, HEB et SYN livrés ; reste SEJ-1).
+État par tranche : **T1 LIVRÉE**. Suivante : **T2** — services et note (restauration, bar,
+pressing, salle de réunion), §0.5 de `docs/user-stories-v1.md`.
+
+**Ce que le cycle 006 a trouvé, et qui vaut plus que ses quatre écrans.** Six défauts, tous par des
+portes, **aucun par relecture**. Le détail est dans
+`specs/006-clients-sejours-enregistrement/revue-dod.md`. Trois à connaître avant de coder :
+
+- **UN DOUBLE DE TEST PEUT RENDRE VRAI CE QUE LE CODE REND FAUX.** `/passage` — l'écran dont le
+  cadrage fait une condition d'existence du produit — **ne se montait pas en navigateur** : il
+  importait `useEtatReseau` d'un baril qui ne l'exporte pas. Les tests unitaires ne pouvaient pas
+  le voir, car ils **doublaient ce baril en fournissant l'export manquant**. Le mock réparait le
+  défaut qu'il était censé attraper. Corollaire général : **un test qui double un module de
+  frontière ne prouve rien sur ce module** — seule une porte qui charge le vrai le prouve. C'est
+  P-22 qui l'a trouvé, et un contrôle dédié rend désormais ce verdict en millisecondes.
+- **Une grille de sélection peut proposer ce que le serveur refusera.** La grille du passage offrait
+  des chambres d'autres catégories : refus **subi après le geste, devant le client**. Invisible en
+  test unitaire, qui ne fournit qu'une catégorie. Toute liste de choix se teste avec **au moins
+  deux** valeurs de la dimension qui filtre.
+- **Le modèle de privilèges a enseigné une règle métier.** La base a refusé une remise à neuf des
+  seeds — `permission denied for table ligne_sejour` — et elle avait raison :
+  **une correction sur une note est une ligne d'ajustement, jamais une suppression.** Quand un
+  `GRANT` manquant bloque, la première hypothèse est que le privilège a raison.
+
+Deux défauts étaient dans l'outillage même, ce qui est le pire endroit : les seeds n'appliquaient
+pas le mot de passe qu'ils déclaraient, et **un test était vert de 10 h à minuit, rouge de minuit à
+10 h** — dépendance à l'horloge locale dans un test, le cycle même qui suit l'adoption de P-23.
+
+**Le correctif de l'accueil a trouvé deux choses qui valent pour tout le dépôt.** L'accueil ne
+menait qu'à deux des treize écrans livrés — six routes n'étaient dans aucun catalogue, et deux
+tuiles légitimes étaient masquées :
+
+- **UN COMMENTAIRE QUI JUSTIFIE UNE VALEUR EN DUR EMPÊCHE DE LA RELIRE.** `app/pages/index.vue`
+  portait `const modulesActifs = computed(() => [])` suivi de « vide à ce cycle, et c'est exact ».
+  C'était exact quand ce fut écrit. Le cycle 004 a ensuite donné `moduleRequis: 'HEBERGEMENT'` à
+  deux tuiles, et le filtre par module n'a plus **jamais** rien laissé passer depuis qu'il servait à
+  quelque chose. Le commentaire **rassurait la relecture au lieu de l'alerter** : un `TODO` aurait
+  été vu, une justification ne l'est pas. Deloria a cinq services actifs, pas zéro.
+- **P-21b avait un versant manquant : elle vérifie que le DÉCLARÉ est embarqué, jamais que le RENDU
+  est déclaré.** `ph-list-magnifying-glass` manquait du `woff2` depuis le cycle 003 — la tuile du
+  registre des actions s'affichait **sans icône** chez le propriétaire. Le générateur ne relevait
+  que les attributs `class=` littéraux, et le catalogue de tuiles nomme ses glyphes **en donnée** ;
+  trois des cinq étaient embarqués par coïncidence. C'est l'exigence 4 de la constitution — *toute
+  interdiction a un versant positif* — appliquée à une porte qui n'avait que le sien.
+
+Et un rappel de la même famille : `ecran-r1.spec.ts` décrivait un produit disparu — Yao y « ne
+voyait que l'établissement » avec cinq permissions, il en a seize. **Un test qui décrit un état
+ancien ne se contente pas d'être inutile : il rassure.**
 
 **Ce que le cycle 005 a trouvé, et qui vaut plus que ce qu'il a construit.** Six défauts, dont
 quatre qu'aucune relecture n'aurait vus — le détail est dans
@@ -283,6 +332,35 @@ Ceux-ci coûtent une migration ou une refonte s'ils sont manqués. Ils ne se dev
 - **Épinglage exact** — jamais `^`, `~` ou un intervalle. Lockfiles commités, `Cargo.lock`
   inclus même pour un binaire.
 
+**AJOUTER UNE DÉPENDANCE EST LIBRE. IL N'Y A PAS DE PERMISSION À DEMANDER.** Depuis le gel 1.0.14,
+un cycle qui a besoin d'une bibliothèque absente l'ajoute, **en cours de cycle**, et l'inscrit au
+§3.1 ou §3.2 **dans le même changement** — jamais reportée à une revue. Trois obligations, aucune
+n'étant une autorisation :
+
+1. **épinglage exact et lockfile commité** — la règle ne connaît aucune exception ;
+2. **un commentaire au-dessus de la ligne du manifeste** : le rôle, l'URL du registre interrogé, la
+   date. Les cycles le font déjà spontanément et bien ;
+3. **dire pourquoi ce qui est déjà là ne suffit pas.** Pas pour obtenir un accord — pour que la
+   question soit posée. L'arbitrage `aes-gcm` du cycle 006, qui a examiné et écarté `ring` pourtant
+   déjà présent transitivement, est le modèle.
+
+**Ce qui n'est PAS libre**, et la distinction est nette :
+
+- **monter une version déjà gelée** — groupé, mensuel, hors incrément (principe XI) ;
+- **toucher aux dix briques du §2** (Rust, Actix, sqlx, utoipa, Nuxt, Tailwind, Tauri, PostgreSQL,
+  Redis, Garage) — y compris en mineur : monter `sqlx` réécrit les macros de chaque requête ;
+- **introduire un second membre d'une famille déjà pourvue** — `chrono` quand `time` est là,
+  `anyhow` dans un crate de bibliothèque quand `thiserror` est là. Le tableau est au **§3.4**, et
+  une famille qui n'y figure pas est une famille **non encore rencontrée** : le cycle qui l'ouvre
+  tranche pour tout le dépôt et inscrit sa ligne.
+
+**Pourquoi ce changement.** L'ancienne règle — *« la revue est mensuelle et groupée, jamais au fil
+de l'eau »* — était plus stricte que le principe XI, qui ne parle que de **montées**. Elle a produit
+deux dégâts : sept crates épinglées dans les manifestes et absentes du gel pendant six semaines
+(gel 1.0.13), et une contrainte de gouvernance entrée dans un raisonnement de **conception** —
+`client/repli.rs` cite en premier argument le fait qu'`unicode-normalization` « n'est pas au gel ».
+Une règle qui produit la dette qu'elle prétend organiser se change ; elle ne se respecte pas mieux.
+
 Deux points à connaître pour ne pas perdre une journée :
 
 - **sqlx 0.9.0** impose `AssertSqlSafe` sur toute requête non littérale et modifie la sortie des
@@ -427,8 +505,9 @@ actif — il n'existe pas sur macOS.
 
 ## Décisions ouvertes qui bloqueraient si elles étaient ignorées
 
-- **O-01** — `client` / `personne` sont en classe C, ce qui rend le check-in d'un **client
-  inconnu** impossible hors ligne, même en mode nœud de site. À trancher **avant SEJ-02**.
+- ~~**O-01**~~ — **TRANCHÉE le 2026-08-03, option (a)** : `client` reste en **classe C**, le réseau
+  est exigé pour créer une fiche nouvelle. La friction résiduelle est **écrite** au §12 du registre
+  plutôt que tue — l'arrivée d'un client inconnu hors ligne reste impossible, et c'est assumé.
 - **O-02** — classe de `mouvement_stock` (A ou B), décision B-05 du cadrage, à trancher avec le
   pilote.
 - **O-03** — crate d'accueil de la surface QR, transverse à `restauration` et `bar`, absente des

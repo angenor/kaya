@@ -15,6 +15,7 @@
 
 pub mod audit;
 pub mod authentification;
+pub mod client;
 pub mod compte;
 pub mod personne;
 pub mod roles;
@@ -23,5 +24,6 @@ pub mod traits;
 pub mod preuve_cryptographique;
 
 pub use traits::{
-    AccessController, AnnuaireComptes, CompteResume, ControleAccesPostgres, ErreurAcces,
+    AccessController, AnnuaireClients, AnnuaireComptes, CompteResume, ControleAccesPostgres,
+    ErreurAcces, ErreurAnnuaireClients, PgAnnuaireClients,
 };
